@@ -1,109 +1,119 @@
+"use client"
+
+import Link from "next/link"
+
+import type { Contact } from "@/types/contact"
+
+import { getProperties } from "@/lib/repositories/property-repository"
+import { getPropertyMatches } from "@/lib/services/property-matching"
+
 import {
-  ArrowRight,
-  Calendar,
-  CheckCircle2,
-  Clock3,
-  XCircle,
+  ArrowUpRight,
+  Sparkles,
 } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
-  DashboardCard,
-  DashboardCardContent,
-  DashboardCardHeader,
-  DashboardCardTitle,
-} from "@/components/ui/dashboard-card"
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 
-type PropertyJourney = {
-  id: number
-  property: string
-  status: "Shortlisted" | "Viewed" | "Rejected" | "Site Visit"
-  note: string
+type RelationshipPropertiesProps = {
+  contact: Contact
 }
 
-const properties: PropertyJourney[] = [
-  {
-    id: 1,
-    property: "Casa Ekam",
-    status: "Shortlisted",
-    note: "Loved the layout. Awaiting revised pricing.",
-  },
-  {
-    id: 2,
-    property: "108 Horizon",
-    status: "Rejected",
-    note: "Prefers a villa over an apartment.",
-  },
-  {
-    id: 3,
-    property: "Alma & Forma",
-    status: "Viewed",
-    note: "Pool felt too compact.",
-  },
-  {
-    id: 4,
-    property: "Villa Aurelia",
-    status: "Site Visit",
-    note: "Visit scheduled for tomorrow.",
-  },
-]
+export function RelationshipProperties({
+  contact,
+}: RelationshipPropertiesProps) {
+  const properties = getProperties()
 
-function StatusIcon({
-  status,
-}: {
-  status: PropertyJourney["status"]
-}) {
-  switch (status) {
-    case "Shortlisted":
-      return <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+  const matches = getPropertyMatches(
+    contact,
+    properties
+  )
 
-    case "Rejected":
-      return <XCircle className="h-5 w-5 text-red-500" />
-
-    case "Site Visit":
-      return <Calendar className="h-5 w-5 text-blue-600" />
-
-    default:
-      return <Clock3 className="h-5 w-5 text-amber-500" />
-  }
-}
-
-export function RelationshipProperties() {
   return (
-    <DashboardCard>
-      <DashboardCardHeader>
-        <DashboardCardTitle>
-          Property Journey
-        </DashboardCardTitle>
-      </DashboardCardHeader>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Recommended Properties
+          </CardTitle>
 
-      <DashboardCardContent className="space-y-5">
-        {properties.map((property) => (
-          <div
-            key={property.id}
-            className="flex items-start gap-4 rounded-2xl border p-5 transition-colors hover:bg-muted/30"
-          >
-            <StatusIcon status={property.status} />
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ranked based on buyer preferences.
+          </p>
+        </div>
 
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h4 className="font-semibold">
-                  {property.property}
-                </h4>
+        <Link href="/properties">
+  <Button
+    variant="ghost"
+    size="sm"
+  >
+    View All
+  </Button>
+</Link>
+      </CardHeader>
 
-                <ArrowRight className="h-3 w-3 text-muted-foreground" />
+      <CardContent className="space-y-4">
+        {matches.length === 0 ? (
+          <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+            No recommendations available.
+          </div>
+        ) : (
+          matches.slice(0, 5).map((match) => (
+            <div
+              key={match.property.id}
+              className="rounded-xl border p-5"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="font-semibold">
+                    {match.property.name}
+                  </h3>
 
-                <span className="text-sm text-muted-foreground">
-                  {property.status}
-                </span>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {match.property.locality},{" "}
+                    {match.property.location}
+                  </p>
+                </div>
+
+                <Badge>
+                  {match.score}%
+                </Badge>
               </div>
 
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {property.note}
-              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {match.reasons.map((reason) => (
+                  <Badge
+                    key={reason}
+                    variant="secondary"
+                  >
+                    {reason}
+                  </Badge>
+                ))}
+              </div>
+
+              <div className="mt-5 flex justify-end">
+               <Link
+  href={`/properties/${match.property.slug}`}
+>
+  <Button
+    variant="ghost"
+    size="icon"
+  >
+    <ArrowUpRight className="h-4 w-4" />
+  </Button>
+</Link>
+              </div>
             </div>
-          </div>
-        ))}
-      </DashboardCardContent>
-    </DashboardCard>
+          ))
+        )}
+      </CardContent>
+    </Card>
   )
 }

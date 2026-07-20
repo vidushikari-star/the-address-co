@@ -1,11 +1,18 @@
 export type ActivityType =
+  | "contact_created"
   | "call"
   | "meeting"
   | "site_visit"
-  | "note"
   | "email"
   | "whatsapp"
+  | "note"
+  | "task_created"
+  | "task_completed"
   | "property_shared"
+  | "property_viewed"
+  | "offer_made"
+  | "deal_stage_changed"
+  | "deal_closed"
 
 export interface Activity {
   id: string
@@ -14,17 +21,21 @@ export interface Activity {
 
   title: string
 
-  // Used throughout the CRM timeline
-  summary?: string
-
-  // Temporary compatibility with existing mock data
   description?: string
+
+  body?: string
+
+  date?: string
 
   createdAt: Date
 
-  createdBy: string
+  createdBy?: string
+
+  userId?: string
 
   contactId?: string
 
   propertyId?: string
+
+  dealId?: string
 }

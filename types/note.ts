@@ -1,6 +1,7 @@
 export interface Note {
   id: string
-  body: string
-  createdAt: Date
-  createdBy: string
+
+  content: string
+
+  createdAt: string | Date
 }

@@ -3,7 +3,7 @@ import { Plus } from "lucide-react"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
 
-export function ContactsHeader() {
+export function ContactHeader() {
   return (
     <PageHeader
       eyebrow="Contacts"

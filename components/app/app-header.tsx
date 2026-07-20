@@ -1,10 +1,26 @@
 "use client"
 
-import { Bell, Plus, Search } from "lucide-react"
+import { useEffect, useState } from "react"
+import {
+  Bell,
+  Plus,
+  Search,
+  UserPlus,
+  Building2,
+  Handshake,
+} from "lucide-react"
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useDrawer } from "@/components/providers/drawer-provider"
 
 function getGreeting() {
   const hour = new Date().getHours()
@@ -16,22 +32,32 @@ function getGreeting() {
 }
 
 export function AppHeader() {
-  const today = new Intl.DateTimeFormat("en-IN", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  }).format(new Date())
+  const { openDrawer } = useDrawer()
+
+  const [greeting, setGreeting] = useState("")
+  const [today, setToday] = useState("")
+
+  useEffect(() => {
+    setGreeting(getGreeting())
+
+    setToday(
+      new Intl.DateTimeFormat("en-IN", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      }).format(new Date())
+    )
+  }, [])
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur-xl">
-      <div className="flex h-20 items-center justify-between px-6 lg:px-8">
-        {/* Left */}
+      <div className="flex h-20 items-center justify-between gap-6 px-6 lg:px-8">
         <div className="flex items-center gap-4">
           <SidebarTrigger />
 
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">
-              {getGreeting()}, Vidushi
+              {greeting}, Vidushi
             </h2>
 
             <p className="mt-1 text-sm text-muted-foreground">
@@ -40,27 +66,57 @@ export function AppHeader() {
           </div>
         </div>
 
-        {/* Right */}
-        <div className="flex items-center gap-3">
-          <div className="relative hidden lg:block">
+        <div className="hidden flex-1 justify-center lg:flex">
+          <div className="relative w-full max-w-xl">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
             <Input
-              placeholder="Search people, properties, deals..."
-              className="h-11 w-96 rounded-full border-border/60 bg-background pl-11 shadow-none"
+              placeholder="Search (coming soon)..."
+              className="h-11 rounded-full pl-11"
             />
           </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" />
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent
+              align="end"
+              className="w-56"
+            >
+              <DropdownMenuItem
+  onClick={() => {
+    console.log("Buyer clicked")
+    openDrawer("buyer")
+  }}
+>
+  <UserPlus className="mr-2 h-4 w-4" />
+  New Buyer
+</DropdownMenuItem>
+
+              <DropdownMenuItem
+                onSelect={() => openDrawer("property")}
+              >
+                <Building2 className="mr-2 h-4 w-4" />
+                New Property
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onSelect={() => openDrawer("deal")}
+              >
+                <Handshake className="mr-2 h-4 w-4" />
+                New Deal
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Button
             variant="outline"
-            size="icon"
-            className="h-11 w-11 rounded-full"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-
-          <Button
-            variant="ghost"
             size="icon"
             className="h-11 w-11 rounded-full"
           >

@@ -3,31 +3,23 @@ import * as React from "react"
 const MOBILE_BREAKPOINT = 768
 
 export function useIsMobile() {
-  const getIsMobile = React.useCallback(() => {
-    if (typeof window === "undefined") {
-      return false
-    }
-
-    return window.innerWidth < MOBILE_BREAKPOINT
-  }, [])
-
-  const [isMobile, setIsMobile] = React.useState(getIsMobile)
+  const [isMobile, setIsMobile] = React.useState(false)
 
   React.useEffect(() => {
     const mediaQuery = window.matchMedia(
       `(max-width: ${MOBILE_BREAKPOINT - 1}px)`
     )
 
-    const handleChange = () => {
-      setIsMobile(getIsMobile())
-    }
+    const update = () => setIsMobile(mediaQuery.matches)
 
-    mediaQuery.addEventListener("change", handleChange)
+    update()
+
+    mediaQuery.addEventListener("change", update)
 
     return () => {
-      mediaQuery.removeEventListener("change", handleChange)
+      mediaQuery.removeEventListener("change", update)
     }
-  }, [getIsMobile])
+  }, [])
 
   return isMobile
 }

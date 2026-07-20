@@ -1,15 +1,6 @@
-import type { Activity } from "./activity"
-import type { Deal } from "./deal"
-import type { Note } from "./note"
-import type { Property } from "./property"
-import type { Task } from "./task"
-
-export type ContactType =
-  | "buyer"
-  | "seller"
-  | "investor"
-  | "developer"
-  | "partner"
+import type { Activity } from "@/types/activity"
+import type { Note } from "@/types/note"
+import type { Task } from "@/types/task"
 
 export type ContactStage =
   | "new"
@@ -20,71 +11,226 @@ export type ContactStage =
   | "closed"
   | "lost"
 
-export type ContactPriority =
-  | "High"
-  | "Medium"
-  | "Low"
+export type PreferredCommunication =
+  | "call"
+  | "whatsapp"
+  | "email"
 
-export type PreferredPropertyType =
-  | "Apartment"
-  | "Villa"
-  | "Plot"
-  | "Penthouse"
-  | "Commercial"
+export type PropertyTypePreference =
+  | "apartment"
+  | "villa"
+  | "plot"
+  | "commercial"
 
-export interface ContactBudget {
-  min: number
-  max: number
+export type PurchasePurpose =
+  | "self_use"
+  | "holiday_home"
+  | "investment"
+
+export type FinancingPreference =
+  | "cash"
+  | "loan"
+  | "both"
+
+export type LeadSource =
+  | "instagram"
+  | "housing"
+  | "magicbricks"
+  | "99acres"
+  | "website"
+  | "whatsapp"
+  | "referral"
+  | "walk_in"
+  | "existing_client"
+  | "broker"
+  | "other"
+
+
+export interface BuyerProfile {
+  nationality?: string
+
+  city?: string
+
+  countryOfResidence?: string
+
+  occupation?: string
+
+  company?: string
+
+  preferredCommunication?: PreferredCommunication
+
+  requirements?: BuyerRequirements
 }
+
+
+export type MoveInPreference =
+  | "ready"
+  | "under_construction"
+  | "both"
+
+export type FurnishingPreference =
+  | "furnished"
+  | "semi_furnished"
+  | "unfurnished"
+  | "doesnt_matter"
+export interface BuyerRequirements {
+  budget: {
+    min?: number
+    max?: number
+  }
+
+  preferredLocations: string[]
+
+  propertyTypes: PropertyTypePreference[]
+
+  bedrooms?: number
+
+  lookingFor?: MoveInPreference
+
+  purpose?: PurchasePurpose
+
+  developerPreference?: string
+
+    furnishing?: FurnishingPreference
+
+  financing?: FinancingPreference
+
+  timeline?: string
+
+  minimumCarpetArea?: number
+
+  privatePool?: boolean
+
+  gatedCommunity?: boolean
+
+  seaView?: boolean
+
+  riverView?: boolean
+
+  petFriendly?: boolean
+
+  staffQuarters?: boolean
+}
+
+
+export interface LeadInformation {
+  source?: LeadSource
+
+  referredBy?: string
+
+  assignedAdvisor?: string
+
+  status?: string
+}
+
+
 
 export interface Contact {
   id: string
 
-  // Core
-  firstName?: string
-  lastName?: string
   name: string
 
+  firstName?: string
+
+  lastName?: string
+
+  phone: string
+
+  whatsapp?: string
+
   email?: string
-  phone?: string
-  company?: string
 
-  type: ContactType
+  city?: string
+
+  country?: string
+
+  preferredLanguage?: string
+
   stage: ContactStage
-  priority?: ContactPriority
 
-  // Budget
-  budget: ContactBudget
+  assignedAdvisor?: string
+
+  buyerProfile?: BuyerProfile
+
+  buyerRequirements?: BuyerRequirements
+
+  leadInformation?: LeadInformation
+
+  propertyIds: string[]
+
+  activities: Activity[]
+
+  tasks: Task[]
+
+  notes: Note[]
+
+  deals: string[]
+
+  // CRM fields
+
   budgetMin?: number
+
   budgetMax?: number
 
-  // Preferences
-  preferredAreas?: string[]
-  preferredLocations: string[]
+  currency?: string
 
-  propertyTypes: PreferredPropertyType[]
+  purpose?: PurchasePurpose
 
-  bedrooms: number[]
-  bathrooms?: number[]
+  financing?: FinancingPreference
+
+  resident?: string
+
+  propertyType?: string
+
+  propertyTypes?: PropertyTypePreference[]
+
+  locations?: string[]
 
   minArea?: number
+
   maxArea?: number
+
+  plotSize?: number
+
+  bathrooms?: number
+
+  mustHave?: string[]
+
+  niceToHave?: string[]
+
+  spouseName?: string
+
+  coBuyer?: string
+
+  referralSource?: string
+
+  notesText?: string
+
+  privateNotes?: string
 
   timeline?: string
 
-  // CRM
+  leadSource?: LeadSource
+
+
+  // legacy/mock compatibility
+
+  avatar?: string
+
+  type?: string
+
+  budget?: {
+    min?: number
+    max?: number
+  }
+
+  preferredLocations?: string[]
+
+  bedrooms?: number
+
   advisor?: string
-  assignedTo?: string
+
   source?: string
 
-  nextMeeting?: string
-
-  createdAt?: Date
-  updatedAt?: Date
-
-  activities?: Activity[]
-  notes?: Note[]
-  tasks?: Task[]
-  deals?: Deal[]
-  properties?: Property[]
+  preferredAreas?: string[]
 }

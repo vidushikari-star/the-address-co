@@ -16,6 +16,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -54,7 +55,10 @@ export function UserNav({
       <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-3 py-2 text-left transition-colors hover:bg-muted">
         <Avatar>
           {image ? (
-            <AvatarImage src={image} alt={name} />
+            <AvatarImage
+              src={image}
+              alt={name}
+            />
           ) : null}
 
           <AvatarFallback>{initials}</AvatarFallback>
@@ -77,15 +81,19 @@ export function UserNav({
         align="end"
         className="w-64"
       >
-        <DropdownMenuLabel>
-          <div className="flex flex-col">
-            <span className="font-medium">{name}</span>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>
+            <div className="flex flex-col">
+              <span className="font-medium">
+                {name}
+              </span>
 
-            <span className="text-xs text-muted-foreground">
-              {email}
-            </span>
-          </div>
-        </DropdownMenuLabel>
+              <span className="text-xs text-muted-foreground">
+                {email}
+              </span>
+            </div>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
 
         <DropdownMenuSeparator />
 

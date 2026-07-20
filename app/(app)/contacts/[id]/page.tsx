@@ -1,10 +1,36 @@
-import { PageContainer } from "@/components/layout/page-container"
-import { RelationshipWorkspace } from "@/components/contacts/detail/relationship-workspace"
+import { notFound } from "next/navigation"
 
-export default function ContactDetailPage() {
+import { RelationshipDetail } from "@/components/contacts/detail/relationship-detail"
+import { PageContainer } from "@/components/layout/page-container"
+
+import { ContactsRepository } from "@/lib/supabase/repositories/contacts.repository"
+
+type ContactDetailPageProps = {
+  params: Promise<{
+    id: string
+  }>
+}
+
+export default async function ContactDetailPage({
+  params,
+}: ContactDetailPageProps) {
+  const { id } = await params
+
+  let contact
+
+  try {
+    contact = await ContactsRepository.getById(id)
+  } catch {
+    notFound()
+  }
+
+  if (!contact) {
+    notFound()
+  }
+
   return (
     <PageContainer>
-      <RelationshipWorkspace />
+      <RelationshipDetail contact={contact} />
     </PageContainer>
   )
 }
