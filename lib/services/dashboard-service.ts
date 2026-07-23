@@ -1,0 +1,701 @@
+import { ContactsRepository } from "@/lib/supabase/repositories/contacts.repository"
+
+import { getDeals } from "@/lib/repositories/deal-repository"
+
+import { getProperties } from "@/lib/repositories/property-repository"
+
+import { createServerSupabaseClient } from "@/lib/supabase/server"
+
+import { getPropertyMatches } from "@/lib/services/property-matching"
+
+
+
+
+
+export async function getDashboardStats() {
+
+  const [
+    contacts,
+    deals,
+    properties,
+  ] = await Promise.all([
+
+    ContactsRepository.getAll(),
+
+    getDeals(),
+
+    getProperties(),
+
+  ])
+
+
+
+
+
+  const openDeals =
+    deals.filter(
+      (deal) =>
+        ![
+          "closed_won",
+          "closed_lost",
+        ].includes(
+          deal.stage
+        )
+    )
+
+
+
+
+
+  const pipelineValue =
+    openDeals.reduce(
+      (sum, deal) =>
+        sum +
+        deal.value.propertyPrice,
+      0
+    )
+
+
+
+
+
+  const commissionPipeline =
+    openDeals.reduce(
+      (sum, deal) =>
+        sum +
+        deal.value.commissionAmount,
+      0
+    )
+
+
+
+
+
+  return {
+
+    contactsCount:
+      contacts.length,
+
+    openDealsCount:
+      openDeals.length,
+
+    propertiesCount:
+      properties.length,
+
+    portfolioValue:
+      properties.reduce(
+        (sum, property) =>
+          sum +
+          property.price.asking,
+        0
+      ),
+
+    pipelineValue,
+
+    commissionPipeline,
+
+    deals,
+
+    properties,
+
+    contacts,
+
+  }
+
+}
+
+
+
+
+
+
+
+
+
+export async function getRecentActivities() {
+
+  const supabase =
+    await createServerSupabaseClient()
+
+
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("activities")
+      .select("*")
+      .order(
+        "created_at",
+        {
+          ascending:false,
+        }
+      )
+      .limit(5)
+
+
+
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+
+
+
+  return (
+
+    data ?? []
+
+  ).map(
+
+    activity => {
+
+
+      let type:
+        | "client"
+        | "property"
+        | "document"
+        | "commission"
+
+
+
+
+
+      switch(activity.type){
+
+
+        case "deal_closed":
+
+          type =
+            "commission"
+
+          break
+
+
+
+        case "property_shared":
+
+        case "property_viewed":
+
+          type =
+            "property"
+
+          break
+
+
+
+        case "contact_created":
+
+          type =
+            "client"
+
+          break
+
+
+
+        default:
+
+          type =
+            "document"
+
+      }
+
+
+
+
+
+      return {
+
+        time:
+
+          new Date(
+            activity.created_at
+          ).toLocaleTimeString(
+            [],
+            {
+              hour:"2-digit",
+              minute:"2-digit",
+            }
+          ),
+
+
+        title:
+          activity.title ?? "",
+
+
+        description:
+          activity.description ??
+          activity.body ??
+          "",
+
+
+        type,
+
+      }
+
+
+    }
+
+  )
+
+
+}
+
+
+
+
+
+
+
+
+
+export async function getUpcomingTasks(){
+
+  const supabase =
+  await createServerSupabaseClient()
+
+
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("tasks")
+      .select("*")
+      .eq(
+        "status",
+        "pending"
+      )
+      .order(
+        "due_date",
+        {
+          ascending:true,
+        }
+      )
+      .limit(5)
+
+
+
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+
+
+
+  return (
+
+    data ?? []
+
+  ).map(
+
+    task => {
+
+
+      const title =
+        task.title ?? ""
+
+
+
+      let type:
+        | "meeting"
+        | "call"
+        | "visit" =
+        "meeting"
+
+
+
+
+      const lowerTitle =
+        title.toLowerCase()
+
+
+
+
+
+      if(
+        lowerTitle.includes("call")
+        ||
+        lowerTitle.includes("phone")
+      ){
+
+        type =
+          "call"
+
+
+      }
+
+      else if(
+        lowerTitle.includes("visit")
+        ||
+        lowerTitle.includes("site")
+      ){
+
+        type =
+          "visit"
+
+      }
+
+
+
+
+
+      return {
+
+  time:
+
+    task.due_date
+      ? new Date(
+          task.due_date
+        ).toLocaleTimeString(
+          [],
+          {
+            hour:"2-digit",
+            minute:"2-digit",
+          }
+        )
+      : "—",
+
+  title,
+
+  description:
+    task.description ??
+    task.assigned_to ??
+    "",
+
+  type,
+
+  contactId:
+    task.contact_id,
+
+}
+
+    }
+
+  )
+
+
+}
+
+
+
+
+
+
+
+
+
+export async function getHotLeads(){
+
+
+  const [
+    contacts,
+    properties,
+  ] = await Promise.all([
+
+    ContactsRepository.getAll(),
+
+    getProperties(),
+
+  ])
+
+
+
+
+
+  return (
+
+    contacts
+      .map(
+
+        contact => {
+
+
+          const matches =
+            getPropertyMatches(
+              contact,
+              properties
+            )
+
+
+
+          if(matches.length === 0){
+
+            return null
+
+          }
+
+
+
+
+
+          const bestMatch =
+            matches[0]
+
+
+
+
+
+          return {
+
+            name:
+              contact.name,
+
+
+            budget:
+              contact.budgetMax
+                ? `₹${(
+                    contact.budgetMax /
+                    10000000
+                  ).toFixed(1)} Cr`
+                : "Budget not set",
+
+
+            location:
+              bestMatch.property.locality ??
+              bestMatch.property.location,
+
+
+            stage:
+              `${bestMatch.score}% Match`,
+
+          }
+
+
+        }
+
+      )
+
+      .filter(
+        (
+          lead
+        ): lead is NonNullable<typeof lead> =>
+          lead !== null
+      )
+
+      .slice(
+        0,
+        5
+      )
+
+  )
+
+
+}
+
+
+
+
+
+
+
+
+
+export async function getNewLeads(){
+
+
+  const supabase =
+  await createServerSupabaseClient()
+
+
+
+
+  const {
+    data: activities,
+    error,
+  } =
+    await supabase
+      .from("activities")
+      .select(
+        `
+        id,
+        title,
+        description,
+        created_at,
+        contact_id,
+        property_id
+        `
+      )
+      .eq(
+        "type",
+        "site_visit"
+      )
+      .order(
+        "created_at",
+        {
+          ascending:false,
+        }
+      )
+      .limit(5)
+
+
+
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+
+
+
+  const contactIds =
+    activities
+      ?.map(
+        item => item.contact_id
+      )
+      .filter(Boolean) ?? []
+
+
+
+
+
+  const propertyIds =
+    activities
+      ?.map(
+        item => item.property_id
+      )
+      .filter(Boolean) ?? []
+
+
+
+
+
+
+
+  const [
+    contactsResult,
+    propertiesResult,
+  ] =
+  await Promise.all([
+
+
+    supabase
+      .from("contacts")
+      .select(
+        "id, full_name, phone, whatsapp"
+      )
+      .in(
+        "id",
+        contactIds
+      ),
+
+
+
+    supabase
+      .from("properties")
+      .select(
+        "id, name"
+      )
+      .in(
+        "id",
+        propertyIds
+      ),
+
+
+  ])
+
+
+
+
+
+
+  const contacts =
+    contactsResult.data ?? []
+
+
+
+  const properties =
+    propertiesResult.data ?? []
+
+
+
+
+
+
+
+  return (
+
+    activities ?? []
+
+  ).map(
+
+    activity => {
+
+
+      const contact =
+        contacts.find(
+          item =>
+            item.id === activity.contact_id
+        )
+
+
+
+      const property =
+        properties.find(
+          item =>
+            item.id === activity.property_id
+        )
+
+
+
+
+      return {
+
+        id:
+          activity.id,
+
+
+        name:
+          contact?.full_name ??
+          "Unknown",
+
+
+        phone:
+          contact?.whatsapp ??
+          contact?.phone ??
+          "",
+
+
+        property:
+          property?.name ??
+          "-",
+
+
+        description:
+          activity.description ??
+          "",
+
+
+        createdAt:
+          activity.created_at,
+
+
+        contactId:
+          activity.contact_id,
+
+
+      }
+
+
+    }
+
+  )
+
+
+}

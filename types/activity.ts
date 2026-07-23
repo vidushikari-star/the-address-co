@@ -8,13 +8,17 @@ export type ActivityType =
   | "note"
   | "task_created"
   | "task_completed"
+  | "task_removed"
   | "property_shared"
   | "property_viewed"
   | "offer_made"
   | "deal_stage_changed"
   | "deal_closed"
+  | "commission_received"
+
 
 export interface Activity {
+
   id: string
 
   type: ActivityType
@@ -38,4 +42,5 @@ export interface Activity {
   propertyId?: string
 
   dealId?: string
+
 }

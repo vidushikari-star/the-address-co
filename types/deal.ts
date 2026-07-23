@@ -1,6 +1,8 @@
 import type { Contact } from "./contact"
 import type { Property } from "./property"
 
+
+
 export type DealStage =
   | "lead"
   | "qualification"
@@ -11,13 +13,22 @@ export type DealStage =
   | "closed_won"
   | "closed_lost"
 
+
+
 export interface DealValue {
+
   propertyPrice: number
+
   commissionPercentage: number
+
   commissionAmount: number
+
 }
 
+
+
 export interface Deal {
+
   id: string
 
   name: string
@@ -28,23 +39,38 @@ export interface Deal {
 
   propertyId: string
 
+
   advisor: string
+
+  advisorId?: string
+
 
   value: DealValue
 
+
   expectedCloseDate?: string
+
 
   probability: number
 
+
   notes?: string[]
+
 
   createdAt: string
 
   updatedAt: string
 
-  priority: "low" | "medium" | "high"
 
-tasks: string[]
+  priority:
+    | "low"
+    | "medium"
+    | "high"
 
-lastActivity: string
+
+  tasks: string[]
+
+
+  lastActivity: string
+
 }

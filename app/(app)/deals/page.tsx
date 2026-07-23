@@ -1,25 +1,76 @@
-import { getDeals } from "@/lib/repositories/deal-repository"
+import {
+  getDeals,
+} from "@/lib/repositories/deal-repository"
 
-import { DealPipeline } from "@/components/deals/deal-pipeline"
+import {
+  DealFilters,
+} from "@/components/deals/deal-filters"
 
-export default function DealsPage() {
-  const deals = getDeals()
+
+
+export default async function DealsPage() {
+
+
+  const deals =
+    await getDeals()
+
+
 
   return (
-    <div className="space-y-8">
+
+    <div className="space-y-6 p-8">
+
+
       <div className="flex items-center justify-between">
+
+
         <div>
-          <h1 className="text-3xl font-bold">
+
+          <h1 className="text-3xl font-semibold">
             Deals
           </h1>
 
+
           <p className="text-muted-foreground">
-            Manage your sales pipeline.
+            Manage your active opportunities.
           </p>
+
+
         </div>
+
+
+
+
+        <a
+
+          href="/deals/new"
+
+          className="rounded-lg bg-primary px-4 py-2 text-primary-foreground"
+
+        >
+
+          New Deal
+
+        </a>
+
+
       </div>
 
-      <DealPipeline deals={deals} />
+
+
+
+
+      <DealFilters
+
+        deals={
+          deals
+        }
+
+      />
+
+
     </div>
+
   )
+
 }

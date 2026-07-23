@@ -1,129 +1,141 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
-import { Search } from "lucide-react"
+import { useEffect, useState } from "react"
 
-import { Input } from "@/components/ui/input"
+import {
+  getProperties,
+} from "@/lib/repositories/property-repository"
 
-import { ContactsRepository } from "@/lib/supabase/repositories/contacts.repository"
-import { getProperties } from "@/lib/repositories/property-repository"
-import { getDeals } from "@/lib/repositories/deal-repository"
+import {
+  ContactsRepository,
+} from "@/lib/supabase/repositories/contacts.repository"
 
+import type { Property } from "@/types/property"
 import type { Contact } from "@/types/contact"
 
-export function GlobalSearch() {
-  const [query, setQuery] = useState("")
-  const [contacts, setContacts] = useState<Contact[]>([])
 
-  const properties = getProperties()
-  const deals = getDeals()
+export function GlobalSearch() {
+
+  const [
+    properties,
+    setProperties,
+  ] = useState<Property[]>([])
+
+
+  const [
+    contacts,
+    setContacts,
+  ] = useState<Contact[]>([])
+
+
+  const [
+    query,
+    setQuery,
+  ] = useState("")
+
 
   useEffect(() => {
-    async function loadContacts() {
-      try {
-        const data =
-          await ContactsRepository.getAll()
 
-        setContacts(data)
+    async function loadData() {
+
+      try {
+
+        const [
+          propertyData,
+          contactData,
+        ] = await Promise.all([
+          getProperties(),
+          ContactsRepository.getAll(),
+        ])
+
+
+        setProperties(
+          propertyData
+        )
+
+        setContacts(
+          contactData
+        )
+
       } catch (error) {
+
         console.error(
-          "Failed loading contacts",
+          "Search loading failed",
           error
         )
+
       }
+
     }
 
-    loadContacts()
+
+    loadData()
+
   }, [])
 
-  const results = useMemo(() => {
-    if (!query.trim()) return []
 
-    const q = query.toLowerCase()
 
-    return [
-      ...contacts
-        .filter((c) =>
-          c.name
-            .toLowerCase()
-            .includes(q)
+  const q =
+    query.toLowerCase()
+
+
+
+  const filteredProperties =
+    q
+      ? properties.filter(
+          (p) =>
+            p.name
+              .toLowerCase()
+              .includes(q)
         )
-        .map((c) => ({
-          id: `contact-${c.id}`,
-          label: c.name,
-          type: "Buyer",
-          href: `/contacts/${c.id}`,
-        })),
+      : []
 
-      ...properties
-        .filter((p) =>
-          p.name
-            .toLowerCase()
-            .includes(q)
-        )
-        .map((p) => ({
-          id: `property-${p.id}`,
-          label: p.name,
-          type: "Property",
-          href: `/properties/${p.slug}`,
-        })),
 
-      ...deals
-        .filter((d) =>
-          d.name
-            .toLowerCase()
-            .includes(q)
+  const filteredContacts =
+    q
+      ? contacts.filter(
+          (c) =>
+            c.name
+              .toLowerCase()
+              .includes(q) ||
+            (c.email ?? "")
+              .toLowerCase()
+              .includes(q)
         )
-        .map((d) => ({
-          id: `deal-${d.id}`,
-          label: d.name,
-          type: "Deal",
-          href: `/deals/${d.id}`,
-        })),
-    ].slice(0, 8)
-  }, [
-    query,
-    contacts,
-    properties,
-    deals,
-  ])
+      : []
+
+
 
   return (
-    <div className="relative w-full max-w-md">
-      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+    <div className="space-y-3">
 
-      <Input
+      <input
         value={query}
         onChange={(e) =>
           setQuery(e.target.value)
         }
-        placeholder="Search buyers, properties, deals..."
-        className="pl-10"
+        placeholder="Search..."
+        className="w-full rounded-lg border px-3 py-2"
       />
 
-      {results.length > 0 && (
-        <div className="absolute z-50 mt-2 w-full rounded-xl border bg-popover shadow-lg">
-          {results.map((result) => (
-            <Link
-              key={result.id}
-              href={result.href}
-              onClick={() =>
-                setQuery("")
-              }
-              className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-muted"
-            >
-              <span>
-                {result.label}
-              </span>
 
-              <span className="text-xs text-muted-foreground">
-                {result.type}
-              </span>
-            </Link>
-          ))}
-        </div>
+      {filteredContacts.map(
+        (contact) => (
+          <div key={contact.id}>
+            {contact.name}
+          </div>
+        )
       )}
+
+
+      {filteredProperties.map(
+        (property) => (
+          <div key={property.id}>
+            {property.name}
+          </div>
+        )
+      )}
+
     </div>
   )
 }

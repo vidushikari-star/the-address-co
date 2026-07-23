@@ -58,4 +58,6 @@ export interface ContactRow {
 
   notes: string | null
   private_notes: string | null
+
+  assigned_advisor?: string | null
 }

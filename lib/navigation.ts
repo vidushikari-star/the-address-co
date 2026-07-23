@@ -11,88 +11,176 @@ import {
   TrendingUp,
 } from "lucide-react"
 
-export type UserRole = "admin" | "sales"
+
+
+export type UserRole =
+  | "admin"
+  | "sales"
+
+
 
 export interface NavigationItem {
+
   title: string
+
   href: string
+
   icon: LucideIcon
+
   roles: readonly UserRole[]
+
 }
+
+
 
 export interface NavigationGroup {
+
   title: string
+
   items: readonly NavigationItem[]
+
 }
 
+
+
 export const navigation: readonly NavigationGroup[] = [
+
+
   {
     title: "CRM",
+
     items: [
+
       {
         title: "Dashboard",
         href: "/dashboard",
         icon: LayoutDashboard,
-        roles: ["admin", "sales"],
+        roles: [
+          "admin",
+          "sales",
+        ],
       },
+
+
       {
         title: "Contacts",
         href: "/contacts",
         icon: ContactRound,
-        roles: ["admin", "sales"],
+        roles: [
+          "admin",
+          "sales",
+        ],
       },
+
+
       {
         title: "Portfolio",
-        href: "/portfolio",
+        href: "/properties",
         icon: FolderKanban,
-        roles: ["admin", "sales"],
+        roles: [
+          "admin",
+          "sales",
+        ],
       },
+
+
       {
         title: "Deals",
         href: "/deals",
         icon: CircleDollarSign,
-        roles: ["admin", "sales"],
+        roles: [
+          "admin",
+          "sales",
+        ],
       },
+
+
+      {
+        title: "My Commissions",
+        href: "/commissions",
+        icon: CircleDollarSign,
+        roles: [
+          "admin",
+          "sales",
+        ],
+      },
+
+
     ],
+
   },
+
+
+
   {
     title: "Operations",
+
     items: [
+
       {
         title: "Calendar",
         href: "/calendar",
         icon: CalendarDays,
-        roles: ["admin", "sales"],
+        roles: [
+          "admin",
+          "sales",
+        ],
       },
+
+
       {
         title: "Tasks",
         href: "/tasks",
         icon: ClipboardCheck,
-        roles: ["admin", "sales"],
+        roles: [
+          "admin",
+          "sales",
+        ],
       },
+
     ],
+
   },
+
+
+
   {
     title: "Administration",
+
     items: [
+
       {
         title: "Finance",
         href: "/finance",
         icon: CircleDollarSign,
-        roles: ["admin"],
+        roles: [
+          "admin",
+        ],
       },
+
+
       {
         title: "Reports",
         href: "/reports",
         icon: TrendingUp,
-        roles: ["admin"],
+        roles: [
+          "admin",
+        ],
       },
+
+
       {
         title: "Settings",
         href: "/settings",
         icon: Settings,
-        roles: ["admin", "sales"],
+        roles: [
+          "admin",
+        ],
       },
+
     ],
+
   },
+
+
 ]

@@ -1,101 +1,173 @@
 import type { Contact } from "@/types/contact"
 import type { ContactRow } from "@/types/contact-row"
 
+
 export function mapContactRow(
   row: ContactRow
 ): Contact {
+
   return {
+
     id: row.id,
 
-    name: row.full_name,
 
-    firstName: row.first_name,
+    name:
+      row.full_name,
 
-    lastName: row.last_name ?? undefined,
 
-    phone: row.phone,
+    firstName:
+      row.first_name,
 
-    email: row.email ?? undefined,
 
-    whatsapp: row.whatsapp ?? undefined,
+    lastName:
+      row.last_name ?? undefined,
 
-    city: row.city ?? undefined,
 
-    country: row.country ?? undefined,
+    phone:
+      row.phone,
+
+
+    email:
+      row.email ?? undefined,
+
+
+    whatsapp:
+      row.whatsapp ?? undefined,
+
+
+    city:
+      row.city ?? undefined,
+
+
+    country:
+      row.country ?? undefined,
+
 
     preferredLanguage:
       row.preferred_language ?? undefined,
 
-    stage: row.lead_stage as Contact["stage"],
+
+    stage:
+      row.lead_stage as Contact["stage"],
+
 
     leadSource:
       row.lead_source as Contact["leadSource"],
 
-    budgetMin: row.budget_min ?? undefined,
 
-    budgetMax: row.budget_max ?? undefined,
+    assignedAdvisor:
+      row.assigned_advisor ?? undefined,
 
-    currency: row.currency ?? undefined,
 
-    purpose: row.purpose as Contact["purpose"],
+    budgetMin:
+      row.budget_min ?? undefined,
 
-    timeline: row.timeline ?? undefined,
 
-financing: row.financing as Contact["financing"],
+    budgetMax:
+      row.budget_max ?? undefined,
 
-    resident: row.resident ?? undefined,
+
+    currency:
+      row.currency ?? undefined,
+
+
+    purpose:
+      row.purpose as Contact["purpose"],
+
+
+    timeline:
+      row.timeline ?? undefined,
+
+
+    financing:
+      row.financing as Contact["financing"],
+
+
+    resident:
+      row.resident ?? undefined,
+
 
     propertyType:
       row.property_type ?? undefined,
+
 
     bedrooms:
       row.bedrooms != null
         ? Number(row.bedrooms)
         : undefined,
 
-    bathrooms: row.bathrooms ?? undefined,
 
-    locations: row.locations ?? [],
+    bathrooms:
+      row.bathrooms ?? undefined,
 
-    minArea: row.min_area ?? undefined,
 
-    maxArea: row.max_area ?? undefined,
+    locations:
+      row.locations ?? [],
 
-    plotSize: row.plot_size ?? undefined,
 
-    mustHave: row.must_have ?? [],
+    minArea:
+      row.min_area ?? undefined,
 
-    niceToHave: row.nice_to_have ?? [],
+
+    maxArea:
+      row.max_area ?? undefined,
+
+
+    plotSize:
+      row.plot_size ?? undefined,
+
+
+    mustHave:
+      row.must_have ?? [],
+
+
+    niceToHave:
+      row.nice_to_have ?? [],
+
 
     spouseName:
       row.spouse_name ?? undefined,
 
-    coBuyer: row.co_buyer ?? undefined,
+
+    coBuyer:
+      row.co_buyer ?? undefined,
+
 
     referralSource:
       row.referral_source ?? undefined,
 
-    notes: row.notes
-      ? [
-          {
-            id: `${row.id}-note`,
-            content: row.notes,
-            createdAt: row.created_at,
-          },
-        ]
-      : [],
+
+    notes:
+      row.notes
+        ? [
+            {
+              id: `${row.id}-note`,
+              content: row.notes,
+              createdAt: row.created_at,
+            },
+          ]
+        : [],
+
 
     privateNotes:
       row.private_notes ?? undefined,
 
-    assignedAdvisor: undefined,
 
-    propertyIds: [],
+    propertyIds:
+      [],
 
-    activities: [],
 
-    tasks: [],
+    activities:
+      [],
 
-    deals: [],
+
+    tasks:
+      [],
+
+
+    deals:
+      [],
+
   }
+
 }

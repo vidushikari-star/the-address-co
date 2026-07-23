@@ -15,6 +15,8 @@ export interface CreateContactDto {
 
   leadSource?: string
 
+  assignedAdvisor?: string
+
   budgetMin?: number
 
   budgetMax?: number
@@ -56,6 +58,8 @@ export interface CreateContactDto {
   notes?: string
 
   privateNotes?: string
+
+  
 }
 
 export type UpdateContactDto = Partial<CreateContactDto>

@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { Search } from "lucide-react"
 
 export function PortfolioToolbar() {
@@ -12,9 +13,12 @@ export function PortfolioToolbar() {
         />
       </div>
 
-      <button className="rounded-2xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90">
+      <Link
+        href="/properties/new"
+        className="rounded-2xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90"
+      >
         New Property
-      </button>
+      </Link>
     </div>
   )
 }

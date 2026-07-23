@@ -16,13 +16,8 @@ export default async function ContactDetailPage({
 }: ContactDetailPageProps) {
   const { id } = await params
 
-  let contact
-
-  try {
-    contact = await ContactsRepository.getById(id)
-  } catch {
-    notFound()
-  }
+  const contact =
+    await ContactsRepository.getById(id)
 
   if (!contact) {
     notFound()

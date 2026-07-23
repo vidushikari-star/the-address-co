@@ -6,9 +6,9 @@ export type ContactStage =
   | "new"
   | "contacted"
   | "qualified"
-  | "site_visit"
-  | "negotiation"
-  | "closed"
+  | "viewing"
+  | "negotiating"
+  | "won"
   | "lost"
 
 export type PreferredCommunication =

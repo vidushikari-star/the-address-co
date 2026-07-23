@@ -1,19 +1,20 @@
 "use client"
 
-import Link from "next/link"
+import { useEffect, useState } from "react"
 
 import type { Contact } from "@/types/contact"
-
-import { getProperties } from "@/lib/repositories/property-repository"
-import { getPropertyMatches } from "@/lib/services/property-matching"
+import type { Property } from "@/types/property"
 
 import {
-  ArrowUpRight,
-  Sparkles,
-} from "lucide-react"
+  getProperties,
+} from "@/lib/repositories/property-repository"
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import {
+  getPropertyMatches,
+} from "@/lib/services/property-matching"
+
+import { PropertyCard } from "@/components/properties/property-card"
+
 import {
   Card,
   CardContent,
@@ -21,99 +22,85 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-type RelationshipPropertiesProps = {
+
+type Props = {
   contact: Contact
 }
 
+
 export function RelationshipProperties({
   contact,
-}: RelationshipPropertiesProps) {
-  const properties = getProperties()
+}: Props) {
 
-  const matches = getPropertyMatches(
-    contact,
-    properties
-  )
+  const [
+    matches,
+    setMatches,
+  ] = useState<Property[]>([])
+
+
+  useEffect(() => {
+
+    async function loadMatches() {
+
+      const properties =
+        await getProperties()
+
+
+      const matched =
+        getPropertyMatches(
+          contact,
+          properties
+        )
+
+
+      setMatches(
+        matched.map(
+          (item) => item.property
+        )
+      )
+    }
+
+
+    loadMatches()
+
+  }, [contact])
+
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            Recommended Properties
-          </CardTitle>
 
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ranked based on buyer preferences.
-          </p>
-        </div>
-
-        <Link href="/properties">
-  <Button
-    variant="ghost"
-    size="sm"
-  >
-    View All
-  </Button>
-</Link>
+      <CardHeader>
+        <CardTitle>
+          Recommended Properties
+        </CardTitle>
       </CardHeader>
 
+
       <CardContent className="space-y-4">
+
         {matches.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-            No recommendations available.
-          </div>
+
+          <p className="text-sm text-muted-foreground">
+            No matching properties.
+          </p>
+
         ) : (
-          matches.slice(0, 5).map((match) => (
-            <div
-              key={match.property.id}
-              className="rounded-xl border p-5"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-semibold">
-                    {match.property.name}
-                  </h3>
 
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {match.property.locality},{" "}
-                    {match.property.location}
-                  </p>
-                </div>
+          matches.map(
+            (property) => (
 
-                <Badge>
-                  {match.score}%
-                </Badge>
-              </div>
+              <PropertyCard
+                key={property.id}
+                property={property}
+              />
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                {match.reasons.map((reason) => (
-                  <Badge
-                    key={reason}
-                    variant="secondary"
-                  >
-                    {reason}
-                  </Badge>
-                ))}
-              </div>
+            )
+          )
 
-              <div className="mt-5 flex justify-end">
-               <Link
-  href={`/properties/${match.property.slug}`}
->
-  <Button
-    variant="ghost"
-    size="icon"
-  >
-    <ArrowUpRight className="h-4 w-4" />
-  </Button>
-</Link>
-              </div>
-            </div>
-          ))
         )}
+
       </CardContent>
+
     </Card>
   )
 }

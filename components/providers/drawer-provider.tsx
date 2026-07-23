@@ -9,6 +9,8 @@ import {
 } from "react"
 
 import { BuyerDrawer } from "@/components/forms/buyer-drawer"
+import { PropertyDrawer } from "@/components/forms/property-drawer"
+import { DealDrawer } from "@/components/forms/deal-drawer"
 
 type DrawerType = "buyer" | "property" | "deal" | null
 
@@ -42,14 +44,32 @@ export function DrawerProvider({
     <DrawerContext.Provider value={value}>
       {children}
 
-      <BuyerDrawer
-        open={drawer === "buyer"}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDrawer(null)
-          }
-        }}
-      />
+     <BuyerDrawer
+  open={drawer === "buyer"}
+  onOpenChange={(open) => {
+    if (!open) {
+      setDrawer(null)
+    }
+  }}
+/>
+
+<PropertyDrawer
+  open={drawer === "property"}
+  onOpenChange={(open) => {
+    if (!open) {
+      setDrawer(null)
+    }
+  }}
+/>
+
+<DealDrawer
+  open={drawer === "deal"}
+  onOpenChange={(open) => {
+    if (!open) {
+      setDrawer(null)
+    }
+  }}
+/>
 
       {/* PropertyDrawer coming soon */}
 

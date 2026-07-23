@@ -1,21 +1,36 @@
-import { deals } from "@/lib/mock-data/deals/deals"
+import {
+  getDeals as getSupabaseDeals,
+  getDealById as getSupabaseDealById,
+  getDealsByContactId as getSupabaseDealsByContactId,
+  getDealsByPropertyId as getSupabaseDealsByPropertyId,
+} from "@/lib/repositories/deal-repository"
 
-export function getDeals() {
-  return deals
+
+export async function getDeals() {
+  return getSupabaseDeals()
 }
 
-export function getDealById(id: string) {
-  return deals.find((deal) => deal.id === id)
+
+export async function getDealById(
+  id: string
+) {
+  return getSupabaseDealById(id)
 }
 
-export function getDealsByContactId(contactId: string) {
-  return deals.filter(
-    (deal) => deal.contactId === contactId
+
+export async function getDealsByContactId(
+  contactId: string
+) {
+  return getSupabaseDealsByContactId(
+    contactId
   )
 }
 
-export function getDealsByPropertyId(propertyId: string) {
-  return deals.filter(
-    (deal) => deal.propertyId === propertyId
+
+export async function getDealsByPropertyId(
+  propertyId: string
+) {
+  return getSupabaseDealsByPropertyId(
+    propertyId
   )
 }
