@@ -13,10 +13,7 @@ export async function createServerSupabaseClient(){
     await cookies()
 
 
-  console.log(
-    "SERVER COOKIES:",
-    cookieStore.getAll()
-  )
+  
 
 
   return createServerClient(

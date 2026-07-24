@@ -6,7 +6,7 @@ import {
 
 import type {
   SiteVisit,
-} from "@/lib/repositories/site-visit-repository"
+} from "@/types/site-visit"
 
 import type {
   Property,

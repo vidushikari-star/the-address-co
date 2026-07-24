@@ -171,7 +171,7 @@ async function attachAdvisorNames(
 
       (advisors ?? [])
         .map(
-          advisor => [
+          (advisor:any) => [
             advisor.id,
             advisor.name,
           ]

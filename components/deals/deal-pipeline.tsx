@@ -262,10 +262,7 @@ export function DealPipeline({
 
 
         title:
-          `Deal moved to ${newStage.replace(
-            /_/g,
-            " "
-          )}`,
+          "Deal Stage Changed",
 
 
 
@@ -275,15 +272,17 @@ export function DealPipeline({
 
 
         body:
-          `Stage changed from ${currentDeal.stage.replace(
-            /_/g,
-            " "
-          )}
-
-to ${newStage.replace(
-  /_/g,
-  " "
-)}`,
+          `Stage changed from ${
+            currentDeal.stage.replace(
+              /_/g,
+              " "
+            )
+          } to ${
+            newStage.replace(
+              /_/g,
+              " "
+            )
+          }`,
 
 
 

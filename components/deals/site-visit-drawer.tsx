@@ -25,9 +25,25 @@ import {
   createActivity,
 } from "@/lib/repositories/activity-repository"
 
+import {
+  supabase,
+} from "@/lib/supabase/client"
+
 import type {
   Property,
 } from "@/types/property"
+
+
+
+type Advisor = {
+
+  id:string
+
+  name:string
+
+}
+
+
 
 
 
@@ -36,6 +52,8 @@ type Props = {
   open:boolean
 
   onOpenChange:(open:boolean)=>void
+
+  onCreated?:()=>void
 
   dealId:string
 
@@ -53,6 +71,8 @@ export function SiteVisitDrawer({
 
   onOpenChange,
 
+  onCreated,
+
   dealId,
 
   contactId,
@@ -64,6 +84,13 @@ export function SiteVisitDrawer({
     properties,
     setProperties,
   ] = useState<Property[]>([])
+
+
+
+  const [
+    advisors,
+    setAdvisors,
+  ] = useState<Advisor[]>([])
 
 
 
@@ -91,6 +118,13 @@ export function SiteVisitDrawer({
 
 
 
+  const [
+    advisorId,
+    setAdvisorId,
+  ] = useState("")
+
+
+
 
 
   useEffect(()=>{
@@ -98,14 +132,43 @@ export function SiteVisitDrawer({
 
     async function load(){
 
-      const data =
+
+      const propertiesData =
         await getProperties()
 
+
       setProperties(
-        data
+        propertiesData
       )
 
+
+
+      const {
+        data:advisorData,
+        error,
+      } =
+        await supabase
+          .from("user_profiles")
+          .select(
+            "id,name"
+          )
+          .order(
+            "name"
+          )
+
+
+
+      if(!error){
+
+        setAdvisors(
+          advisorData ?? []
+        )
+
+      }
+
+
     }
+
 
 
     if(open){
@@ -116,6 +179,8 @@ export function SiteVisitDrawer({
 
 
   },[open])
+
+
 
 
 
@@ -143,7 +208,10 @@ export function SiteVisitDrawer({
 
 
 
+
+
   async function submit(){
+
 
     if(
       !form.propertyId ||
@@ -163,29 +231,32 @@ export function SiteVisitDrawer({
     try{
 
 
-      const visit =
-        await createSiteVisit({
+      await createSiteVisit({
 
-          dealId,
+        dealId,
 
-          contactId,
+        contactId,
 
-          propertyId:
-            form.propertyId,
-
-
-          scheduledDate:
-            form.date,
+        propertyId:
+          form.propertyId,
 
 
-          scheduledTime:
-            form.time,
+        scheduledDate:
+          form.date,
 
 
-          notes:
-            form.notes,
+        scheduledTime:
+          form.time,
 
-        })
+
+        notes:
+          form.notes,
+
+
+        advisorId:
+          advisorId || undefined,
+
+      })
 
 
 
@@ -253,8 +324,15 @@ ${form.notes || "No notes added"}`,
       })
 
 
+      setAdvisorId("")
+
+
 
       onOpenChange(false)
+
+
+
+      onCreated?.()
 
 
 
@@ -279,6 +357,8 @@ ${form.notes || "No notes added"}`,
     }
 
   }
+
+
 
 
 
@@ -394,12 +474,65 @@ ${form.notes || "No notes added"}`,
           onChange={
             e =>
               update(
-                "time",
+                "date",
                 e.target.value
               )
           }
 
         />
+
+
+
+
+
+        <select
+
+          className="w-full rounded-md border p-2"
+
+          value={
+            advisorId
+          }
+
+          onChange={
+            e =>
+              setAdvisorId(
+                e.target.value
+              )
+          }
+
+        >
+
+          <option value="">
+            Assign Advisor
+          </option>
+
+
+          {
+            advisors.map(
+              advisor => (
+
+                <option
+
+                  key={
+                    advisor.id
+                  }
+
+                  value={
+                    advisor.id
+                  }
+
+                >
+
+                  {advisor.name}
+
+                </option>
+
+              )
+            )
+          }
+
+
+        </select>
 
 
 

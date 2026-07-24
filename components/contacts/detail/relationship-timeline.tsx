@@ -25,6 +25,7 @@ import {
   HandCoins,
   UserPlus,
   CircleDollarSign,
+  GitBranch,
   XCircle,
 } from "lucide-react"
 
@@ -68,9 +69,13 @@ const activityIcons = {
 
   deal_stage_changed: HandCoins,
 
+  lead_stage_changed: GitBranch,
+
   deal_closed: CheckCircle2,
 
   commission_received: CircleDollarSign,
+
+  commission: CircleDollarSign,
 
 } satisfies Record<
   Activity["type"],

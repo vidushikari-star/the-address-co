@@ -7,7 +7,7 @@ export const contacts: Contact[] = [
     phone: "+91 98765 43210",
     email: "rajiv@example.com",
 
-    stage: "negotiation",
+    stage: "negotiating",
 
     assignedAdvisor: "Vidushi Kari",
 
@@ -144,7 +144,7 @@ export const contacts: Contact[] = [
     phone: "+91 98222 33445",
     email: "karan@example.com",
 
-    stage: "site_visit",
+    stage: "viewing",
 
     assignedAdvisor: "Vidushi Kari",
 

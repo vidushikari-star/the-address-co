@@ -1,14 +1,10 @@
 import {
-  LoginForm,
-} from "@/components/auth/login-form"
+  ResetPasswordForm,
+} from "@/components/auth/reset-password-form"
 
 
 
-export const dynamic = "force-dynamic"
-
-
-
-export default function LoginPage(){
+export default function ResetPasswordPage(){
 
 
   return (
@@ -23,12 +19,12 @@ export default function LoginPage(){
 
 
           <h1 className="text-3xl font-semibold">
-            The Address Co.
+            Set New Password
           </h1>
 
 
           <p className="mt-2 text-sm text-muted-foreground">
-            Luxury Real Estate Operating System
+            Create a new password for your account.
           </p>
 
 
@@ -38,7 +34,7 @@ export default function LoginPage(){
 
 
 
-        <LoginForm />
+        <ResetPasswordForm />
 
 
 

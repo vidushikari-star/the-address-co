@@ -65,10 +65,10 @@ export async function getServerUserProfile()
     !userData.user
   ){
 
-    console.log(
-      "SERVER USER ERROR",
-      userError
-    )
+    console.error(
+  "SERVER USER ERROR",
+  userError
+)
 
     return null
 

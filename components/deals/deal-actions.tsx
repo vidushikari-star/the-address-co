@@ -8,6 +8,7 @@ import {
   Plus,
   CalendarPlus,
   CheckCircle,
+  MessageCircle,
 } from "lucide-react"
 
 import {
@@ -26,11 +27,19 @@ import {
   CloseDealDrawer,
 } from "@/components/deals/close-deal-drawer"
 
+import {
+  createActivity,
+} from "@/lib/repositories/activity-repository"
+
+
+
 
 
 type Props = {
 
   deal:any
+
+  contact:any
 
 }
 
@@ -40,6 +49,7 @@ type Props = {
 
 export function DealActions({
   deal,
+  contact,
 }:Props) {
 
 
@@ -66,9 +76,147 @@ export function DealActions({
 
 
 
+
+  const rawPhone =
+  (
+    contact?.whatsapp ??
+    contact?.phone ??
+    ""
+  )
+  .replace(
+    /\D/g,
+    ""
+  )
+
+
+const phone =
+  rawPhone.startsWith("91")
+    ? rawPhone
+    : `91${rawPhone}`
+
+
+
+
+
+  const whatsappMessage =
+
+`Hi ${contact?.name ?? ""},
+
+Following up regarding your property requirement.
+
+Please let me know if you would like to discuss the next steps.`
+
+
+
+
+
+  async function openWhatsApp(){
+
+    if(!phone){
+
+      alert(
+        "No WhatsApp number available"
+      )
+
+      return
+
+    }
+
+
+    try{
+
+
+      await createActivity({
+
+        type:
+          "whatsapp",
+
+
+        title:
+          "WhatsApp opened",
+
+
+        body:
+          whatsappMessage,
+
+
+        contactId:
+          contact.id,
+
+
+        dealId:
+          deal.id,
+
+
+        propertyId:
+          deal.propertyId,
+
+
+        date:
+          new Date().toISOString(),
+
+      })
+
+
+
+    }catch(error){
+
+      console.error(
+        "Failed logging WhatsApp",
+        error
+      )
+
+    }
+
+
+
+
+
+    window.open(
+
+      `https://wa.me/${phone}?text=${encodeURIComponent(
+        whatsappMessage
+      )}`,
+
+      "_blank"
+
+    )
+
+
+  }
+
+
+
+
+
+
   return (
 
     <>
+
+
+      {
+        phone && (
+
+          <Button
+
+            variant="outline"
+
+            onClick={openWhatsApp}
+
+          >
+
+            <MessageCircle className="mr-2 h-4 w-4" />
+
+            WhatsApp Buyer
+
+          </Button>
+
+        )
+      }
+
+
+
 
 
       <Button

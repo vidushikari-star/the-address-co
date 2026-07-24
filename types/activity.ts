@@ -13,8 +13,11 @@ export type ActivityType =
   | "property_viewed"
   | "offer_made"
   | "deal_stage_changed"
+  | "lead_stage_changed"
   | "deal_closed"
-  | "commission_received"
+    | "commission"
+    | "commission_received"
+  
 
 
 export interface Activity {

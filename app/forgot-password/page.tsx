@@ -1,14 +1,10 @@
 import {
-  LoginForm,
-} from "@/components/auth/login-form"
+  ForgotPasswordForm,
+} from "@/components/auth/forgot-password-form"
 
 
 
-export const dynamic = "force-dynamic"
-
-
-
-export default function LoginPage(){
+export default function ForgotPasswordPage(){
 
 
   return (
@@ -23,12 +19,12 @@ export default function LoginPage(){
 
 
           <h1 className="text-3xl font-semibold">
-            The Address Co.
+            Forgot Password?
           </h1>
 
 
           <p className="mt-2 text-sm text-muted-foreground">
-            Luxury Real Estate Operating System
+            Enter your email and we will send you a link to reset your password.
           </p>
 
 
@@ -38,7 +34,7 @@ export default function LoginPage(){
 
 
 
-        <LoginForm />
+        <ForgotPasswordForm />
 
 
 

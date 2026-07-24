@@ -2,7 +2,9 @@
 
 import Link from "next/link"
 
-import type { Contact } from "@/types"
+import type {
+  Contact,
+} from "@/types"
 
 import {
   Building2,
@@ -18,13 +20,25 @@ import {
   AvatarFallback,
 } from "@/components/ui/avatar"
 
-import { Badge } from "@/components/ui/badge"
+import {
+  Badge,
+} from "@/components/ui/badge"
 
-import { Button } from "@/components/ui/button"
+import {
+  Button,
+} from "@/components/ui/button"
 
 import {
   StageSelector,
 } from "@/components/contacts/detail/stage-selector"
+
+import {
+  createActivity,
+} from "@/lib/repositories/activity-repository"
+
+
+
+
 
 type RelationshipHeaderProps = {
   contact: Contact
@@ -52,6 +66,8 @@ export function RelationshipHeader({
 
 
 
+
+
   const whatsappMessage =
 
 `Hi ${contact.name},
@@ -59,6 +75,107 @@ export function RelationshipHeader({
 Following up regarding your property requirement.
 
 Please let me know how I can assist you.`
+
+
+
+
+
+
+  async function logActivity(
+    type:
+      | "whatsapp"
+      | "call",
+    title:string,
+    body:string
+  ){
+
+    try{
+
+      await createActivity({
+
+        type,
+
+        title,
+
+        body,
+
+        contactId:
+          contact.id,
+
+        date:
+          new Date().toISOString(),
+
+      })
+
+
+    }catch(error){
+
+      console.error(
+        "Failed creating activity",
+        error
+      )
+
+    }
+
+  }
+
+
+
+
+
+
+
+  async function handleWhatsApp(){
+
+    await logActivity(
+
+      "whatsapp",
+
+      "WhatsApp opened",
+
+      whatsappMessage
+
+    )
+
+
+
+    window.open(
+
+      `https://wa.me/${phone}?text=${encodeURIComponent(
+        whatsappMessage
+      )}`,
+
+      "_blank"
+
+    )
+
+  }
+
+
+
+
+
+
+
+  async function handleCall(){
+
+    await logActivity(
+
+      "call",
+
+      "Call initiated",
+
+      `Outgoing call to ${contact.name}`
+
+    )
+
+
+    window.location.href =
+      `tel:${phone}`
+
+  }
+
+
 
 
 
@@ -120,8 +237,8 @@ Please let me know how I can assist you.`
 
 
               <StageSelector
-  contact={contact}
-/>
+                contact={contact}
+              />
 
 
             </div>
@@ -131,7 +248,6 @@ Please let me know how I can assist you.`
 
 
             <div className="flex flex-wrap items-center gap-5 text-sm text-muted-foreground">
-
 
 
               {
@@ -168,9 +284,7 @@ Please let me know how I can assist you.`
 
                     <Building2 className="h-4 w-4" />
 
-                    {
-                      contact.propertyType
-                    }
+                    {contact.propertyType}
 
                   </div>
 
@@ -188,9 +302,7 @@ Please let me know how I can assist you.`
 
                     <MapPin className="h-4 w-4" />
 
-                    {
-                      contact.city
-                    }
+                    {contact.city}
 
                     {
                       contact.country
@@ -236,31 +348,24 @@ Please let me know how I can assist you.`
         <div className="flex flex-wrap items-center gap-2">
 
 
-
-
-
           {
             phone && (
 
-              <a
+              <Button
 
-                href={`tel:${phone}`}
+                variant="outline"
+
+                size="sm"
+
+                onClick={handleCall}
 
               >
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                >
+                <Phone className="mr-2 h-4 w-4" />
 
-                  <Phone className="mr-2 h-4 w-4" />
+                Call
 
-                  Call
-
-                </Button>
-
-
-              </a>
+              </Button>
 
             )
           }
@@ -275,33 +380,21 @@ Please let me know how I can assist you.`
           {
             phone && (
 
-              <a
+              <Button
 
-                href={
-                  `https://wa.me/${phone}?text=${encodeURIComponent(
-                    whatsappMessage
-                  )}`
-                }
+                variant="outline"
 
-                target="_blank"
+                size="sm"
 
-                rel="noopener noreferrer"
+                onClick={handleWhatsApp}
 
               >
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                >
+                <MessageCircle className="mr-2 h-4 w-4" />
 
-                  <MessageCircle className="mr-2 h-4 w-4" />
+                WhatsApp
 
-                  WhatsApp
-
-                </Button>
-
-
-              </a>
+              </Button>
 
             )
           }
@@ -318,9 +411,7 @@ Please let me know how I can assist you.`
 
               <a
 
-                href={
-                  `mailto:${contact.email}`
-                }
+                href={`mailto:${contact.email}`}
 
               >
 

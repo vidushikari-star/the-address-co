@@ -238,9 +238,7 @@ export function SharePropertyDrawer({
 
 
 
-console.log(
-  "MESSAGE TEMPLATE VERSION 2"
-)
+
 
       const message =
 
@@ -329,7 +327,7 @@ Regards,
 ${currentUser?.name || "The Address Co."}
 `
 
-console.log("FINAL WHATSAPP MESSAGE:", message)
+
 
 
 

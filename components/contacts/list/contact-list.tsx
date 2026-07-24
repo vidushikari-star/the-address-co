@@ -11,7 +11,14 @@ import { ContactsRepository } from "@/lib/supabase/repositories/contacts.reposit
 import type { Contact } from "@/types/contact"
 
 
-export function ContactList() {
+type Props = {
+  stageFilter?: string
+}
+
+
+export function ContactList({
+  stageFilter,
+}: Props) {
 
   const [
     contacts,
@@ -94,19 +101,25 @@ export function ContactList() {
             typeFilter === "all" ||
             contact.type === typeFilter
 
+            const matchesStage =
+  !stageFilter ||
+  contact.stage === stageFilter
+
 
           return (
-            matchesSearch &&
-            matchesType
-          )
+  matchesSearch &&
+  matchesType &&
+  matchesStage
+)
         }
       )
 
     }, [
-      contacts,
-      query,
-      typeFilter,
-    ])
+  contacts,
+  query,
+  typeFilter,
+  stageFilter,
+])
 
 
 

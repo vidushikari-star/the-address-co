@@ -168,16 +168,17 @@ export function DealDrawer({
 
 
 
-        console.log(
-          "USER PROFILE DATA:",
-          salesUsers
-        )
+        
 
 
-        console.log(
-          "USER PROFILE ERROR:",
-          error
-        )
+        if(error){
+
+  console.error(
+    "Failed loading sales users:",
+    error
+  )
+
+}
 
 
 

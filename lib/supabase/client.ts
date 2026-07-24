@@ -29,16 +29,7 @@ if (
       }) => {
 
 
-        console.log(
-          "CURRENT AUTH USER:",
-          data.user
-        )
-
-
-        console.log(
-          "AUTH ERROR:",
-          error
-        )
+    
 
 
       }

@@ -6,10 +6,12 @@ export type ContactStage =
   | "new"
   | "contacted"
   | "qualified"
+  | "active"
   | "viewing"
   | "negotiating"
   | "won"
   | "lost"
+  | "inactive"
 
 export type PreferredCommunication =
   | "call"

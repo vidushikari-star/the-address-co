@@ -33,7 +33,7 @@ const stages: {
 
   {
     value: "new",
-    label: "New",
+    label: "New Lead",
   },
 
   {
@@ -47,23 +47,13 @@ const stages: {
   },
 
   {
-    value: "viewing",
-    label: "Site Visit",
+    value: "active",
+    label: "Active Buyer",
   },
 
   {
-    value: "negotiating",
-    label: "Negotiation",
-  },
-
-  {
-    value: "won",
-    label: "Closed Won",
-  },
-
-  {
-    value: "lost",
-    label: "Lost",
+    value: "inactive",
+    label: "Inactive",
   },
 
 ]
@@ -115,11 +105,11 @@ export function StageSelector({
       await createActivity({
 
         type:
-          "deal_stage_changed",
+  "lead_stage_changed",
 
 
         title:
-          "Lead Stage Changed",
+  "Lead Stage Changed",
 
 
         description:
@@ -160,9 +150,24 @@ export function StageSelector({
 
       value={stage}
 
-      onValueChange={
-        changeStage
-      }
+      onValueChange={(
+  value
+) => {
+
+  if(
+    !value
+  ){
+
+    return
+
+  }
+
+
+  changeStage(
+    value as ContactStage
+  )
+
+}}
 
     >
 

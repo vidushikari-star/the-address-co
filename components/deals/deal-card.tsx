@@ -157,9 +157,11 @@ export function DealCard({
 
               <p className="text-xs text-muted-foreground">
 
-                {
-                  deal.advisor
-                }
+                Advisor:
+{" "}
+{
+  deal.advisor ?? "Unassigned"
+}
 
               </p>
 
@@ -286,8 +288,12 @@ export function DealCard({
 
 
             {
-              deal.expectedCloseDate
-            }
+  deal.expectedCloseDate
+    ? new Date(
+        deal.expectedCloseDate
+      ).toLocaleDateString()
+    : "No date"
+}
 
 
           </div>

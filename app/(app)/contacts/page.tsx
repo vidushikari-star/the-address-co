@@ -1,5 +1,30 @@
 import { ContactList } from "@/components/contacts/list/contact-list"
 
-export default function ContactsPage() {
-  return <ContactList />
+
+type Props = {
+  searchParams: Promise<{
+    stage?: string
+  }>
+}
+
+
+export default async function ContactsPage({
+  searchParams,
+}: Props) {
+
+
+  const params =
+    await searchParams
+
+
+  return (
+
+    <ContactList
+      stageFilter={
+        params.stage
+      }
+    />
+
+  )
+
 }

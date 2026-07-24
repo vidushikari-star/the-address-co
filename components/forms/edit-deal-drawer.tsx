@@ -129,13 +129,7 @@ export function EditDealDrawer({
     try {
 
 
-      console.log(
-        "UPDATING DEAL:",
-        {
-          id:deal.id,
-          form,
-        }
-      )
+      
 
 
 
@@ -204,9 +198,7 @@ export function EditDealDrawer({
 
 
 
-      console.log(
-        "DEAL UPDATED SUCCESSFULLY"
-      )
+      
 
 
 

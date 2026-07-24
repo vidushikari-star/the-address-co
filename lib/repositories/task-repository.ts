@@ -32,11 +32,49 @@ export async function getTasksByContactId(
   )
 }
 
+export async function getTasksByDealId(
+  dealId:string
+):Promise<Task[]> {
 
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("tasks")
+      .select("*")
+      .eq(
+        "deal_id",
+        dealId
+      )
+      .order(
+        "created_at",
+        {
+          ascending:false,
+        }
+      )
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+  return (
+    data ?? []
+  ).map(
+    mapTaskRow
+  )
+
+}
 
 export async function createTask(
   task: Partial<Task> & {
     contactId?: string
+    dealId?: string
   }
 ): Promise<Task> {
 
@@ -50,6 +88,9 @@ export async function createTask(
 
         contact_id:
           task.contactId,
+
+        deal_id:
+          task.dealId,
 
         title:
           task.title,
@@ -126,4 +167,37 @@ export async function updateTask(
 
 
   return mapTaskRow(data)
+}
+export async function getAllTasks(): Promise<Task[]> {
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("tasks")
+      .select("*")
+      .order(
+        "due_date",
+        {
+          ascending:true,
+        }
+      )
+
+      
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+  return (
+    data ?? []
+  ).map(
+    mapTaskRow
+  )
+
 }

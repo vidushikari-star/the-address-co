@@ -184,3 +184,37 @@ export async function createActivity(
   return mapActivityRow(data)
 
 }
+
+export async function getAllActivities():Promise<Activity[]> {
+
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("activities")
+      .select("*")
+      .order(
+        "created_at",
+        {
+          ascending:false,
+        }
+      )
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+
+  return (
+    data ?? []
+  ).map(
+    mapActivityRow
+  )
+
+}

@@ -190,29 +190,31 @@ export default async function EditCommissionPage(
               {
 
                 amount:
-  Number(
-    formData.get("amount")
-  ),
+                  Number(
+                    formData.get("amount")
+                  ),
 
 
-type:
-  String(
-    formData.get("type")
-  ),
+
+                type:
+                  formData.get("type") as
+                  "sale" | "rental",
 
 
-commissionBasis:
-  String(
-    formData.get("commissionBasis") || ""
-  ),
+
+                commissionBasis:
+                  formData.get("commissionBasis") as
+                  "fixed" | "percentage",
 
 
-commissionPercentage:
-  formData.get("commissionPercentage")
-    ? Number(
-        formData.get("commissionPercentage")
-      )
-    : undefined,
+
+                commissionPercentage:
+                  formData.get("commissionPercentage")
+                    ? Number(
+                        formData.get("commissionPercentage")
+                      )
+                    : undefined,
+
 
 
                 advisorId:
@@ -221,10 +223,14 @@ commissionPercentage:
                   ),
 
 
+
                 status:
-                  String(
-                    formData.get("status")
-                  ),
+                  formData.get("status") as
+                  "pending"
+                  | "invoiced"
+                  | "received"
+                  | "cancelled",
+
 
 
                 dueDate:
@@ -233,10 +239,12 @@ commissionPercentage:
                   ),
 
 
+
                 notes:
                   String(
                     formData.get("notes") || ""
                   ),
+
 
 
                 invoiceNumber:
@@ -245,10 +253,12 @@ commissionPercentage:
                   ),
 
 
+
                 invoiceDate:
                   String(
                     formData.get("invoiceDate") || ""
                   ),
+
 
 
                 paymentMode:
@@ -257,10 +267,12 @@ commissionPercentage:
                   ),
 
 
+
                 paymentReference:
                   String(
                     formData.get("paymentReference") || ""
                   ),
+
 
 
                 paymentDate:
@@ -282,6 +294,34 @@ commissionPercentage:
       >
 
 
+        <div>
+
+          <label className="text-sm">
+            Commission Type
+          </label>
+
+
+          <select
+            name="type"
+            defaultValue={
+              commission.commission_type ?? "sale"
+            }
+            className="mt-2 w-full rounded-md border px-3 py-2"
+          >
+
+            <option value="sale">
+              Sale
+            </option>
+
+
+            <option value="rental">
+              Rental
+            </option>
+
+
+          </select>
+
+        </div>
 
 
 
@@ -289,154 +329,78 @@ commissionPercentage:
 
         <div>
 
-  <label className="text-sm">
-    Commission Type
-  </label>
+          <label className="text-sm">
+            Commission Basis
+          </label>
 
 
-  <select
+          <select
+            name="commissionBasis"
+            defaultValue={
+              commission.commission_basis ?? "fixed"
+            }
+            className="mt-2 w-full rounded-md border px-3 py-2"
+          >
 
-    name="type"
+            <option value="fixed">
+              Fixed Amount
+            </option>
 
-    defaultValue={
-      commission.commission_type ??
-      "sale"
-    }
 
-    className="mt-2 w-full rounded-md border px-3 py-2"
+            <option value="percentage">
+              Percentage
+            </option>
 
-  >
 
-    <option value="sale">
-      Sale
-    </option>
+          </select>
 
+        </div>
 
-    <option value="rental">
-      Rental
-    </option>
 
 
-  </select>
 
 
-</div>
+        <div>
 
+          <label className="text-sm">
+            Commission Percentage
+          </label>
 
 
+          <input
+            name="commissionPercentage"
+            type="number"
+            step="0.01"
+            defaultValue={
+              commission.commission_percentage ?? ""
+            }
+            placeholder="Example: 2.5"
+            className="mt-2 w-full rounded-md border px-3 py-2"
+          />
 
+        </div>
 
 
 
 
 
-<div>
+        <div>
 
-  <label className="text-sm">
-    Commission Basis
-  </label>
+          <label className="text-sm">
+            Commission Amount
+          </label>
 
 
-  <select
+          <input
+            name="amount"
+            type="number"
+            defaultValue={
+              commission.amount
+            }
+            className="mt-2 w-full rounded-md border px-3 py-2"
+          />
 
-    name="commissionBasis"
-
-    defaultValue={
-      commission.commission_basis ??
-      "fixed"
-    }
-
-    className="mt-2 w-full rounded-md border px-3 py-2"
-
-  >
-
-    <option value="fixed">
-      Fixed Amount
-    </option>
-
-
-    <option value="percentage">
-      Percentage
-    </option>
-
-
-  </select>
-
-
-</div>
-
-
-
-
-
-
-
-
-
-<div>
-
-  <label className="text-sm">
-    Commission Percentage
-  </label>
-
-
-  <input
-
-    name="commissionPercentage"
-
-    type="number"
-
-    step="0.01"
-
-    defaultValue={
-      commission.commission_percentage ??
-      ""
-    }
-
-    placeholder="Example: 2.5"
-
-    className="mt-2 w-full rounded-md border px-3 py-2"
-
-  />
-
-
-</div>
-
-
-
-
-
-
-
-
-
-<div>
-
-  <label className="text-sm">
-    Commission Amount
-  </label>
-
-
-  <input
-
-    name="amount"
-
-    type="number"
-
-    defaultValue={
-      commission.amount
-    }
-
-    className="mt-2 w-full rounded-md border px-3 py-2"
-
-  />
-
-
-</div>
-
-
-
-
+        </div>
 
 
 
@@ -450,18 +414,12 @@ commissionPercentage:
 
 
           <select
-
             name="advisorId"
-
             defaultValue={
-              commission.advisor_id ??
-              ""
+              commission.advisor_id ?? ""
             }
-
             className="mt-2 w-full rounded-md border px-3 py-2"
-
           >
-
 
             <option value="">
               Select Advisor
@@ -469,25 +427,15 @@ commissionPercentage:
 
 
             {
-              (advisors ?? [])
-              .map(
+              (advisors ?? []).map(
                 advisor => (
 
                   <option
-
-                    key={
-                      advisor.id
-                    }
-
-                    value={
-                      advisor.id
-                    }
-
+                    key={advisor.id}
+                    value={advisor.id}
                   >
 
-                    {
-                      advisor.name
-                    }
+                    {advisor.name}
 
                   </option>
 
@@ -504,10 +452,6 @@ commissionPercentage:
 
 
 
-
-
-
-
         <div>
 
           <label className="text-sm">
@@ -516,15 +460,11 @@ commissionPercentage:
 
 
           <select
-
             name="status"
-
             defaultValue={
               commission.status
             }
-
             className="mt-2 w-full rounded-md border px-3 py-2"
-
           >
 
             <option value="pending">
@@ -552,10 +492,6 @@ commissionPercentage:
 
 
 
-
-
-
-
         <div>
 
           <label className="text-sm">
@@ -564,24 +500,15 @@ commissionPercentage:
 
 
           <input
-
             name="dueDate"
-
             type="date"
-
             defaultValue={
               commission.due_date ?? ""
             }
-
             className="mt-2 w-full rounded-md border px-3 py-2"
-
           />
 
         </div>
-
-
-
-
 
 
 
@@ -595,22 +522,14 @@ commissionPercentage:
 
 
           <input
-
             name="invoiceNumber"
-
             defaultValue={
               commission.invoice_number ?? ""
             }
-
             className="mt-2 w-full rounded-md border px-3 py-2"
-
           />
 
         </div>
-
-
-
-
 
 
 
@@ -624,24 +543,15 @@ commissionPercentage:
 
 
           <input
-
             name="invoiceDate"
-
             type="date"
-
             defaultValue={
               commission.invoice_date ?? ""
             }
-
             className="mt-2 w-full rounded-md border px-3 py-2"
-
           />
 
         </div>
-
-
-
-
 
 
 
@@ -655,24 +565,14 @@ commissionPercentage:
 
 
           <input
-
             name="paymentMode"
-
             defaultValue={
               commission.payment_mode ?? ""
             }
-
-            placeholder="Bank Transfer / Cheque / Cash"
-
             className="mt-2 w-full rounded-md border px-3 py-2"
-
           />
 
         </div>
-
-
-
-
 
 
 
@@ -686,22 +586,14 @@ commissionPercentage:
 
 
           <input
-
             name="paymentReference"
-
             defaultValue={
               commission.payment_reference ?? ""
             }
-
             className="mt-2 w-full rounded-md border px-3 py-2"
-
           />
 
         </div>
-
-
-
-
 
 
 
@@ -715,24 +607,15 @@ commissionPercentage:
 
 
           <input
-
             name="paymentDate"
-
             type="date"
-
             defaultValue={
               commission.payment_date ?? ""
             }
-
             className="mt-2 w-full rounded-md border px-3 py-2"
-
           />
 
         </div>
-
-
-
-
 
 
 
@@ -746,24 +629,16 @@ commissionPercentage:
 
 
           <textarea
-
             name="notes"
-
             defaultValue={
               commission.notes ?? ""
             }
-
             className="mt-2 w-full rounded-md border px-3 py-2"
-
             rows={4}
-
           />
 
 
         </div>
-
-
-
 
 
 

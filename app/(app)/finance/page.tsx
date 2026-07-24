@@ -94,6 +94,41 @@ export default async function FinancePage() {
 
 
 
+  const now =
+    new Date()
+
+
+
+  const receivedThisMonth =
+    commissions
+      .filter(
+        commission =>
+          commission.status === "received" &&
+          commission.receivedDate &&
+          new Date(
+            commission.receivedDate
+          ).getMonth()
+          ===
+          now.getMonth()
+          &&
+          new Date(
+            commission.receivedDate
+          ).getFullYear()
+          ===
+          now.getFullYear()
+      )
+      .reduce(
+        (sum, commission) =>
+          sum + commission.amount,
+        0
+      )
+
+
+
+
+
+
+
   return (
 
     <div className="space-y-8 p-8">
@@ -129,6 +164,10 @@ export default async function FinancePage() {
 
         received={
           received
+        }
+
+        receivedThisMonth={
+          receivedThisMonth
         }
 
       />

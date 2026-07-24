@@ -59,6 +59,8 @@ export interface CreateContactDto {
 
   privateNotes?: string
 
+  advisorId?: string
+
   
 }
 

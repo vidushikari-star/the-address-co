@@ -1,20 +1,38 @@
 "use client"
 
 import {
+  useEffect,
   useState,
 } from "react"
 
+import type {
+  Deal,
+} from "@/types/deal"
+
+import type {
+  Task,
+} from "@/types/task"
+
 import {
-  updateDeal,
-} from "@/lib/repositories/deal-repository"
+  getTasksByDealId,
+  createTask,
+  updateTask,
+} from "@/lib/repositories/task-repository"
 
 import {
   createActivity,
 } from "@/lib/repositories/activity-repository"
 
-import type {
-  Deal,
-} from "@/types/deal"
+import {
+  ADVISORS,
+} from "@/lib/config/advisors"
+
+import {
+  CalendarClock,
+  CheckCircle2,
+  Plus,
+  X,
+} from "lucide-react"
 
 import {
   Button,
@@ -23,6 +41,12 @@ import {
 import {
   Input,
 } from "@/components/ui/input"
+
+import {
+  Checkbox,
+} from "@/components/ui/checkbox"
+
+
 
 
 
@@ -42,25 +66,110 @@ export function DealTasks({
   const [
     tasks,
     setTasks,
-  ] = useState<string[]>(
-
-    deal.tasks ?? []
-
-  )
+  ] =
+  useState<Task[]>([])
 
 
 
   const [
-    task,
-    setTask,
-  ] = useState("")
+    showForm,
+    setShowForm,
+  ] =
+  useState(false)
 
 
 
   const [
-    saving,
-    setSaving,
-  ] = useState(false)
+    title,
+    setTitle,
+  ] =
+  useState("")
+
+
+
+  const [
+    dueDate,
+    setDueDate,
+  ] =
+  useState("")
+
+
+
+  const [
+    assignedTo,
+    setAssignedTo,
+  ] =
+  useState("Vidushi Kari")
+
+
+
+
+
+  async function loadTasks(){
+
+    const data =
+      await getTasksByDealId(
+        deal.id
+      )
+
+    setTasks(data)
+
+  }
+
+
+
+
+
+  useEffect(()=>{
+
+    loadTasks()
+
+  },[deal.id])
+
+
+
+
+
+
+
+  async function toggleTask(
+    task: Task
+  ){
+
+
+    const updated =
+      await updateTask(
+
+        task.id,
+
+        {
+          completed:
+            !task.completed,
+        }
+
+      )
+
+
+
+    setTasks(
+
+      current =>
+
+        current.map(
+
+          item =>
+
+            item.id === task.id
+              ? updated
+              : item
+
+        )
+
+    )
+
+  }
+
+
 
 
 
@@ -69,7 +178,7 @@ export function DealTasks({
   async function addTask(){
 
 
-    if(!task.trim()){
+    if(!title.trim()){
 
       return
 
@@ -77,60 +186,8 @@ export function DealTasks({
 
 
 
-    const updatedTasks = [
-
-      ...tasks,
-
-      task.trim(),
-
-    ]
-
-
-
-    setSaving(true)
-
-
-
-    try {
-
-
-      await updateDeal(
-
-        deal.id,
-
-        {
-
-          tasks:
-            updatedTasks,
-
-
-          lastActivity:
-            new Date().toISOString(),
-
-        }
-
-      )
-
-
-
-      await createActivity({
-
-        type:
-          "task_created",
-
-
-        title:
-          "Task Added",
-
-
-        description:
-          task.trim(),
-
-
-        body:
-          `New task created:
-${task.trim()}`,
-
+    const task =
+      await createTask({
 
         dealId:
           deal.id,
@@ -140,147 +197,103 @@ ${task.trim()}`,
           deal.contactId,
 
 
-        propertyId:
-          deal.propertyId,
+        title,
 
 
-        date:
-          new Date().toISOString(),
+        dueDate:
+          dueDate
+            ? new Date(dueDate)
+            : undefined,
+
+
+        assignedTo,
+
 
       })
 
 
 
-      setTasks(
-        updatedTasks
-      )
 
 
-      setTask("")
+    await createActivity({
+
+      type:
+        "task_created",
 
 
-
-    } catch(error){
-
-
-      console.error(
-        "Failed adding task",
-        error
-      )
+      title:
+        "Follow-up Created",
 
 
-      alert(
-        "Failed adding task"
-      )
+      description:
+        `${title} created for deal ${deal.name}`,
 
 
-    } finally {
-
-
-      setSaving(false)
-
-    }
-
-  }
-
-
-
-
-
-
-  async function removeTask(
-    index:number
-  ){
-
-
-    const removedTask =
-      tasks[index]
-
-
-    const updatedTasks =
-      tasks.filter(
-        (_,i)=>i!==index
-      )
-
-
-
-    try {
-
-
-      await updateDeal(
-
+      dealId:
         deal.id,
 
-        {
 
-          tasks:
-            updatedTasks,
-
-
-          lastActivity:
-            new Date().toISOString(),
-
-        }
-
-      )
+      contactId:
+        deal.contactId,
 
 
-
-      await createActivity({
-
-        type:
-          "task_removed",
+      propertyId:
+        deal.propertyId,
 
 
-        title:
-          "Task Removed",
+      date:
+        new Date().toISOString(),
 
-
-        description:
-          removedTask,
-
-
-        body:
-          `Task removed:
-${removedTask}`,
-
-
-        dealId:
-          deal.id,
-
-
-        contactId:
-          deal.contactId,
-
-
-        propertyId:
-          deal.propertyId,
-
-
-        date:
-          new Date().toISOString(),
-
-      })
+    })
 
 
 
-      setTasks(
-        updatedTasks
-      )
+
+
+    setTasks(
+
+      current => [
+
+        task,
+
+        ...current,
+
+      ]
+
+    )
 
 
 
-    } catch(error){
+    setTitle("")
 
+    setDueDate("")
 
-      console.error(
-        "Failed removing task",
-        error
-      )
+    setShowForm(false)
 
-    }
 
   }
+
+
+
+
+
+
+
+  const pending =
+    tasks.filter(
+      task =>
+        !task.completed
+    )
+
+
+
+  const completed =
+    tasks.filter(
+      task =>
+        task.completed
+    )
+
+
 
 
 
@@ -291,124 +304,341 @@ ${removedTask}`,
     <div className="rounded-2xl border p-6 space-y-5">
 
 
-      <h2 className="font-semibold">
-        Tasks
-      </h2>
+      <div className="flex items-center justify-between">
 
 
-
-
-
-      <div className="space-y-3">
-
-
-        {
-          tasks.length === 0 ? (
-
-            <p className="text-sm text-muted-foreground">
-              No tasks yet.
-            </p>
-
-          ) : (
-
-            tasks.map(
-
-              (item,index)=>(
-
-                <div
-
-                  key={index}
-
-                  className="flex items-center justify-between rounded-lg bg-muted p-3 text-sm"
-
-                >
-
-                  <span>
-                    {item}
-                  </span>
-
-
-                  <button
-
-                    onClick={() =>
-                      removeTask(index)
-                    }
-
-                    className="text-xs text-muted-foreground hover:text-destructive"
-
-                  >
-
-                    Remove
-
-                  </button>
-
-
-                </div>
-
-              )
-
-            )
-
-          )
-
-        }
-
-
-      </div>
-
-
-
-
-
-      <div className="flex gap-3">
-
-
-        <Input
-
-          placeholder="Add task..."
-
-          value={task}
-
-          onChange={(e)=>
-            setTask(
-              e.target.value
-            )
-          }
-
-          onKeyDown={(e)=>{
-
-            if(
-              e.key === "Enter"
-            ){
-
-              addTask()
-
-            }
-
-          }}
-
-        />
+        <h2 className="font-semibold">
+          Tasks
+        </h2>
 
 
 
         <Button
 
-          onClick={addTask}
+          size="sm"
 
-          disabled={saving}
+          variant={
+            showForm
+              ? "outline"
+              : "default"
+          }
+
+          onClick={() =>
+            setShowForm(
+              !showForm
+            )
+          }
 
         >
 
           {
-            saving
-              ? "Saving..."
-              : "Add"
+            showForm
+              ?
+              (
+                <>
+                  <X className="mr-2 h-4 w-4"/>
+                  Cancel
+                </>
+              )
+              :
+              (
+                <>
+                  <Plus className="mr-2 h-4 w-4"/>
+                  Add
+                </>
+              )
           }
 
         </Button>
 
 
       </div>
+
+
+
+
+
+
+      {
+        showForm && (
+
+          <div className="space-y-3 rounded-xl border p-4">
+
+
+            <Input
+
+              placeholder="Task title"
+
+              value={
+                title
+              }
+
+              onChange={
+                e =>
+                  setTitle(
+                    e.target.value
+                  )
+              }
+
+            />
+
+
+
+            <Input
+
+              type="date"
+
+              value={
+                dueDate
+              }
+
+              onChange={
+                e =>
+                  setDueDate(
+                    e.target.value
+                  )
+              }
+
+            />
+
+
+
+            <select
+
+              className="w-full rounded-md border p-2 text-sm"
+
+              value={
+                assignedTo
+              }
+
+              onChange={
+                e =>
+                  setAssignedTo(
+                    e.target.value
+                  )
+              }
+
+            >
+
+              {
+                Object.values(
+                  ADVISORS
+                ).map(
+
+                  advisor => (
+
+                    <option
+
+                      key={
+                        advisor.name
+                      }
+
+                      value={
+                        advisor.name
+                      }
+
+                    >
+
+                      {
+                        advisor.name
+                      }
+
+                    </option>
+
+                  )
+
+                )
+              }
+
+            </select>
+
+
+
+
+            <Button
+
+              className="w-full"
+
+              onClick={
+                addTask
+              }
+
+            >
+
+              Create Follow-up
+
+            </Button>
+
+
+          </div>
+
+        )
+
+      }
+
+
+
+
+
+
+
+      {
+        pending.length === 0 ? (
+
+          <p className="text-sm text-muted-foreground">
+            No pending tasks.
+          </p>
+
+        ) : (
+
+          <div className="space-y-3">
+
+
+            {
+              pending.map(
+
+                task => (
+
+                  <div
+
+                    key={
+                      task.id
+                    }
+
+                    className="rounded-lg border p-3"
+
+                  >
+
+                    <div className="flex items-start gap-3">
+
+
+                      <Checkbox
+
+                        checked={
+                          task.completed
+                        }
+
+                        onCheckedChange={() =>
+                          toggleTask(
+                            task
+                          )
+                        }
+
+                      />
+
+
+
+                      <div>
+
+
+                        <p className="text-sm font-medium">
+                          {task.title}
+                        </p>
+
+
+
+                        {
+                          task.dueDate && (
+
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+
+                              <CalendarClock className="h-3.5 w-3.5"/>
+
+                              {
+                                task.dueDate.toLocaleDateString(
+                                  "en-IN",
+                                  {
+                                    day:"2-digit",
+                                    month:"short",
+                                    year:"numeric",
+                                  }
+                                )
+                              }
+
+                            </div>
+
+                          )
+                        }
+
+
+                      </div>
+
+
+                    </div>
+
+
+                  </div>
+
+                )
+
+              )
+
+            }
+
+
+          </div>
+
+        )
+
+      }
+
+
+
+
+
+
+
+      {
+        completed.length > 0 && (
+
+          <div className="space-y-3">
+
+
+            <p className="text-xs font-semibold uppercase text-muted-foreground">
+              Completed
+            </p>
+
+
+
+            {
+              completed.map(
+
+                task => (
+
+                  <div
+
+                    key={
+                      task.id
+                    }
+
+                    className="rounded-lg border bg-muted/30 p-3 flex items-center gap-3"
+
+                  >
+
+                    <CheckCircle2 className="h-4 w-4"/>
+
+
+                    <p className="text-sm line-through text-muted-foreground">
+
+                      {task.title}
+
+                    </p>
+
+
+                  </div>
+
+                )
+
+              )
+
+            }
+
+
+          </div>
+
+        )
+
+      }
 
 
     </div>

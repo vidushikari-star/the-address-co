@@ -12,6 +12,7 @@ import {
   getUpcomingTasks,
   getHotLeads,
   getNewLeads,
+  getMyWork,
 } from "@/lib/services/dashboard-service"
 
 
@@ -38,6 +39,9 @@ import {
 } from "@/components/dashboard/needs-attention"
 
 
+import {
+  MyWork,
+} from "@/components/dashboard/my-work"
 
 export const dynamic = "force-dynamic"
 
@@ -51,6 +55,8 @@ export default async function DashboardPage() {
     hotLeads,
     newLeads,
     commissionStats,
+    myWork,
+
   ] =
     await Promise.all([
 
@@ -71,6 +77,8 @@ export default async function DashboardPage() {
 
 
       getCommissionStats(),
+
+      getMyWork(),
 
 
     ])
@@ -179,7 +187,15 @@ export default async function DashboardPage() {
 
 
 
+<section className="grid gap-6 xl:grid-cols-3">
 
+  <div className="xl:col-span-2">
+    <MyWork
+      data={myWork}
+    />
+  </div>
+
+</section>
 
 
 

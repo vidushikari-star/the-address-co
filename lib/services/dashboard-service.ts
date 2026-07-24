@@ -8,7 +8,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 
 import { getPropertyMatches } from "@/lib/services/property-matching"
 
-
+import { supabase } from "@/lib/supabase/client"
 
 
 
@@ -697,5 +697,88 @@ export async function getNewLeads(){
 
   )
 
+
+}
+export async function getMyWork(){
+
+  const [
+    newLeadsResult,
+    followUpsResult,
+    activeDealsResult,
+  ] =
+  await Promise.all([
+
+
+    supabase
+      .from("contacts")
+      .select(
+        "id",
+        {
+          count:"exact",
+          head:true,
+        }
+      )
+      .eq(
+        "lead_stage",
+        "new"
+      ),
+
+
+
+    supabase
+      .from("contacts")
+      .select(
+        "id",
+        {
+          count:"exact",
+          head:true,
+        }
+      )
+      .not(
+        "next_follow_up_at",
+        "is",
+        null
+      ),
+
+
+
+    supabase
+      .from("deals")
+      .select(
+        "id",
+        {
+          count:"exact",
+          head:true,
+        }
+      )
+      .not(
+        "stage",
+        "in",
+        "(closed_won,closed_lost)"
+      ),
+
+  ])
+
+
+
+
+  return {
+
+    newLeads:
+      newLeadsResult.count ?? 0,
+
+
+    followUps:
+      followUpsResult.count ?? 0,
+
+
+    activeDeals:
+      activeDealsResult.count ?? 0,
+
+
+    upcomingVisits:
+      0,
+
+  }
 
 }

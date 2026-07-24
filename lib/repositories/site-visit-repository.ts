@@ -3,42 +3,12 @@ import {
 } from "@/lib/supabase/client"
 
 
-
-export type SiteVisitStatus =
-  | "scheduled"
-  | "completed"
-  | "cancelled"
-  | "rescheduled"
+import type {
+  SiteVisit,
+  SiteVisitStatus,
+} from "@/types/site-visit"
 
 
-
-export interface SiteVisit {
-
-  id:string
-
-  dealId:string
-
-  contactId:string
-
-  propertyId:string
-
-  scheduledDate:string
-
-  scheduledTime:string
-
-  status:SiteVisitStatus
-
-  notes?:string
-
-  buyerFeedback?:string
-
-  advisorId?:string
-
-  createdAt:string
-
-  updatedAt:string
-
-}
 
 
 
@@ -67,6 +37,23 @@ function mapSiteVisitRow(
       row.property_id,
 
 
+    contactName:
+      row.contact?.full_name ?? "",
+
+
+    propertyName:
+      row.property?.name ?? "",
+
+
+    advisorId:
+      row.advisor_id ?? undefined,
+
+
+    advisorName:
+      row.advisor?.name ?? "",
+
+
+
     scheduledDate:
       row.scheduled_date,
 
@@ -87,9 +74,6 @@ function mapSiteVisitRow(
       row.buyer_feedback ?? undefined,
 
 
-    advisorId:
-      row.advisor_id ?? undefined,
-
 
     createdAt:
       row.created_at,
@@ -101,6 +85,8 @@ function mapSiteVisitRow(
   }
 
 }
+
+
 
 
 
@@ -176,6 +162,9 @@ export async function createSiteVisit(
 
 
 
+
+
+
 export async function getSiteVisitsByDealId(
   dealId:string
 ):Promise<SiteVisit[]> {
@@ -187,7 +176,15 @@ export async function getSiteVisitsByDealId(
   } =
     await supabase
       .from("site_visits")
-      .select("*")
+      .select(`
+        *,
+        contact:contacts(
+          full_name
+        ),
+        property:properties(
+          name
+        )
+      `)
       .eq(
         "deal_id",
         dealId
@@ -209,13 +206,68 @@ export async function getSiteVisitsByDealId(
 
 
 
+  const advisorIds =
+    (data ?? [])
+      .map(
+        item => item.advisor_id
+      )
+      .filter(Boolean)
+
+
+
+  let advisors:any[] = []
+
+
+
+  if(advisorIds.length){
+
+    const {
+      data:advisorData,
+    } =
+      await supabase
+        .from("user_profiles")
+        .select(
+          "id,name"
+        )
+        .in(
+          "id",
+          advisorIds
+        )
+
+
+    advisors =
+      advisorData ?? []
+
+  }
+
+
+
+
+
   return (
+
     data ?? []
+
   ).map(
-    mapSiteVisitRow
+
+    row => ({
+
+      ...mapSiteVisitRow(row),
+
+      advisorName:
+        advisors.find(
+          advisor =>
+            advisor.id === row.advisor_id
+        )?.name ?? "",
+
+    })
+
   )
 
 }
+
+
+
 
 
 
@@ -265,5 +317,107 @@ export async function updateSiteVisitStatus(
 
 
   return mapSiteVisitRow(data)
+
+}
+
+
+
+
+
+
+
+
+export async function getAllSiteVisits():Promise<SiteVisit[]> {
+
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("site_visits")
+      .select(`
+        *,
+        contact:contacts(
+          full_name
+        ),
+        property:properties(
+          name
+        )
+      `)
+      .order(
+        "scheduled_date",
+        {
+          ascending:true,
+        }
+      )
+
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+
+  const advisorIds =
+    (data ?? [])
+      .map(
+        item => item.advisor_id
+      )
+      .filter(Boolean)
+
+
+
+  let advisors:any[] = []
+
+
+
+  if(advisorIds.length){
+
+    const {
+      data:advisorData,
+    } =
+      await supabase
+        .from("user_profiles")
+        .select(
+          "id,name"
+        )
+        .in(
+          "id",
+          advisorIds
+        )
+
+
+    advisors =
+      advisorData ?? []
+
+  }
+
+
+
+
+
+  return (
+
+    data ?? []
+
+  ).map(
+
+    row => ({
+
+      ...mapSiteVisitRow(row),
+
+      advisorName:
+        advisors.find(
+          advisor =>
+            advisor.id === row.advisor_id
+        )?.name ?? "",
+
+    })
+
+  )
 
 }

@@ -58,8 +58,12 @@ import {
 } from "@/components/deals/shared-properties"
 
 import {
-  SiteVisits,
-} from "@/components/deals/site-visits"
+  SiteVisitsSection,
+} from "@/components/deals/site-visits-section"
+
+import {
+  SiteVisitDrawer,
+} from "@/components/deals/site-visit-drawer"
 
 import {
   DealCommission,
@@ -236,8 +240,12 @@ export default async function DealPage({
 
 
           <DealActions
-            deal={deal}
-          />
+
+  deal={deal}
+
+  contact={contact}
+
+/>
 
 
         </div>
@@ -419,32 +427,33 @@ export default async function DealPage({
 
 
 
-      <section className="rounded-2xl border p-6 space-y-4">
+      <SiteVisitsSection
+
+  visits={
+    siteVisits
+  }
 
 
-        <h2 className="text-xl font-semibold">
-
-          Site Visits
-
-        </h2>
+  properties={
+    siteVisitProperties
+  }
 
 
-
-        <SiteVisits
-
-          visits={
-            siteVisits
-          }
+  dealId={
+    deal.id
+  }
 
 
-          properties={
-            siteVisitProperties
-          }
-
-        />
+  contactId={
+    deal.contactId
+  }
 
 
-      </section>
+  dealStage={
+    deal.stage
+  }
+
+/>
 
 
 

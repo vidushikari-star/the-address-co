@@ -12,6 +12,8 @@ import {
   UserPlus,
   Building2,
   Handshake,
+  LogOut,
+  UserCircle,
 } from "lucide-react"
 
 import {
@@ -40,6 +42,14 @@ import {
 import {
   getCurrentUserProfile,
 } from "@/lib/auth/user-profile"
+
+import {
+  supabase,
+} from "@/lib/supabase/client"
+
+import {
+  useRouter,
+} from "next/navigation"
 
 
 
@@ -78,6 +88,11 @@ export function AppHeader() {
 
 
 
+  const router =
+    useRouter()
+
+
+
 
 
   const [
@@ -101,6 +116,22 @@ export function AppHeader() {
     setUserName,
   ] =
   useState("User")
+
+
+
+
+
+
+
+  async function logout(){
+
+    await supabase.auth.signOut()
+
+    router.push("/login")
+
+    router.refresh()
+
+  }
 
 
 
@@ -184,7 +215,6 @@ export function AppHeader() {
 
 
           <div>
-
 
             <h2 className="text-2xl font-semibold tracking-tight">
 
@@ -272,16 +302,9 @@ export function AppHeader() {
             >
 
 
-
               <DropdownMenuItem
 
-                onClick={() => {
-
-                  console.log("Buyer clicked")
-
-                  openDrawer("buyer")
-
-                }}
+                onClick={() => openDrawer("buyer")}
 
               >
 
@@ -295,16 +318,9 @@ export function AppHeader() {
 
 
 
-
               <DropdownMenuItem
 
-                onClick={() => {
-
-                  console.log("Property clicked")
-
-                  openDrawer("property")
-
-                }}
+                onClick={() => openDrawer("property")}
 
               >
 
@@ -318,16 +334,9 @@ export function AppHeader() {
 
 
 
-
               <DropdownMenuItem
 
-                onClick={() => {
-
-                  console.log("Deal clicked")
-
-                  openDrawer("deal")
-
-                }}
+                onClick={() => openDrawer("deal")}
 
               >
 
@@ -338,12 +347,11 @@ export function AppHeader() {
               </DropdownMenuItem>
 
 
-
-
             </DropdownMenuContent>
 
 
           </DropdownMenu>
+
 
 
 
@@ -363,6 +371,59 @@ export function AppHeader() {
             <Bell className="h-5 w-5" />
 
           </Button>
+
+
+
+
+
+
+
+          <DropdownMenu>
+
+
+            <DropdownMenuTrigger
+
+              className="flex h-11 items-center gap-2 rounded-full border px-4 text-sm"
+
+            >
+
+              <UserCircle className="h-5 w-5" />
+
+              {userName}
+
+
+            </DropdownMenuTrigger>
+
+
+
+
+            <DropdownMenuContent
+
+              align="end"
+
+              className="w-40"
+
+            >
+
+
+              <DropdownMenuItem
+
+                onClick={logout}
+
+              >
+
+                <LogOut className="mr-2 h-4 w-4" />
+
+                Logout
+
+
+              </DropdownMenuItem>
+
+
+            </DropdownMenuContent>
+
+
+          </DropdownMenu>
 
 
 

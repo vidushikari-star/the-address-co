@@ -157,7 +157,7 @@ export function CloseDealDrawer({
     try{
 
 
-      if(type === "won"){
+            if(type === "won"){
 
 
         await updateDeal(
@@ -174,8 +174,17 @@ export function CloseDealDrawer({
 
               propertyPrice:
                 Number(
-                  form.closingPrice
+                  form.closingPrice || 0
                 ),
+
+
+              commissionPercentage:
+                form.commissionPercentage
+                  ? Number(
+                      form.commissionPercentage
+                    )
+                  : 0,
+
 
               commissionAmount:
                 Number(
