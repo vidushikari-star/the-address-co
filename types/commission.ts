@@ -1,10 +1,13 @@
+import type {
+  CommissionDistribution,
+} from "./commission-distribution"
+
+
 export type CommissionStatus =
   | "pending"
   | "invoiced"
   | "received"
   | "cancelled"
-
-
 
 
 
@@ -14,15 +17,9 @@ export type CommissionType =
 
 
 
-
-
 export type CommissionBasis =
   | "percentage"
   | "fixed"
-
-
-
-
 
 
 
@@ -119,5 +116,10 @@ export interface Commission {
 
 
   updatedAt: string
+
+
+
+  distributions?: CommissionDistribution[]
+
 
 }

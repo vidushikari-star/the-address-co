@@ -30,6 +30,10 @@ import {
 } from "@/lib/repositories/commission-server-repository"
 
 import {
+  getPaidDistributionAmount,
+} from "@/lib/repositories/commission-distribution-repository"
+
+import {
   getServerUserProfile,
 } from "@/lib/auth/server-user-profile"
 
@@ -62,10 +66,6 @@ import {
 } from "@/components/deals/site-visits-section"
 
 import {
-  SiteVisitDrawer,
-} from "@/components/deals/site-visit-drawer"
-
-import {
   DealCommission,
 } from "@/components/deals/deal-commission"
 
@@ -77,27 +77,40 @@ import {
   Badge,
 } from "@/components/ui/badge"
 
+
 export const dynamic = "force-dynamic"
 
 
 
+
+
 type Props = {
+
   params: Promise<{
     id:string
   }>
+
 }
 
 
 
+
+
+
+
 export default async function DealPage({
+
   params,
+
 }:Props){
 
 
   const {
     id,
   } =
-    await params
+  await params
+
+
 
 
 
@@ -106,8 +119,14 @@ export default async function DealPage({
 
 
 
+
+
   const deal =
-    await getDealById(id)
+    await getDealById(
+      id
+    )
+
+
 
 
 
@@ -121,14 +140,24 @@ export default async function DealPage({
 
 
 
+
+
   const [
+
     contact,
+
     property,
+
     activities,
+
     sharedProperties,
+
     siteVisits,
+
     commissions,
+
   ] =
+
   await Promise.all([
 
 
@@ -161,35 +190,74 @@ export default async function DealPage({
       deal.id
     ),
 
+
   ])
 
 
 
 
 
-  const sharedPropertyDetails =
-    await getPropertiesByIds(
 
-      sharedProperties.map(
-        item =>
-          item.propertyId
+
+
+  const paidDistributionAmount =
+
+    await getPaidDistributionAmount(
+
+      commissions.map(
+
+        commission =>
+          commission.id
+
       )
 
     )
+
+
+
+
+
+
+
+
+
+  const sharedPropertyDetails =
+
+    await getPropertiesByIds(
+
+      sharedProperties.map(
+
+        item =>
+          item.propertyId
+
+      )
+
+    )
+
+
+
+
 
 
 
 
 
   const siteVisitProperties =
+
     await getPropertiesByIds(
 
       siteVisits.map(
+
         item =>
           item.propertyId
+
       )
 
     )
+
+
+
+
 
 
 
@@ -198,6 +266,9 @@ export default async function DealPage({
   return (
 
     <div className="space-y-8 p-8">
+
+
+
 
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -241,11 +312,15 @@ export default async function DealPage({
 
           <DealActions
 
-  deal={deal}
+            deal={
+              deal
+            }
 
-  contact={contact}
+            contact={
+              contact
+            }
 
-/>
+          />
 
 
         </div>
@@ -257,7 +332,12 @@ export default async function DealPage({
 
 
 
+
+
+
+
       <div className="grid gap-6 md:grid-cols-4">
+
 
 
         <div className="rounded-2xl border p-6">
@@ -266,13 +346,11 @@ export default async function DealPage({
             Buyer
           </h2>
 
-
           <p className="mt-3">
 
             {contact?.name ?? "Not assigned"}
 
           </p>
-
 
         </div>
 
@@ -286,7 +364,6 @@ export default async function DealPage({
             Property
           </h2>
 
-
           <p className="mt-3">
 
             {property?.name ?? "Not assigned"}
@@ -299,7 +376,6 @@ export default async function DealPage({
             {property?.locality ?? ""}
 
           </p>
-
 
         </div>
 
@@ -319,7 +395,6 @@ export default async function DealPage({
             {deal.advisor ?? "Not assigned"}
 
           </p>
-
 
         </div>
 
@@ -346,11 +421,14 @@ export default async function DealPage({
 
           </p>
 
-
         </div>
 
 
       </div>
+
+
+
+
 
 
 
@@ -369,28 +447,48 @@ export default async function DealPage({
             user?.role
           }
 
+          paidDistributionAmount={
+            paidDistributionAmount
+          }
+
         />
 
 
 
         <DealHealth
-          deal={deal}
+
+          deal={
+            deal
+          }
+
         />
 
 
 
         <DealNotes
-          deal={deal}
+
+          deal={
+            deal
+          }
+
         />
 
 
 
         <DealTasks
-          deal={deal}
+
+          deal={
+            deal
+          }
+
         />
 
 
       </div>
+
+
+
+
 
 
 
@@ -427,33 +525,41 @@ export default async function DealPage({
 
 
 
+
+
+
+
       <SiteVisitsSection
 
-  visits={
-    siteVisits
-  }
+        visits={
+          siteVisits
+        }
 
 
-  properties={
-    siteVisitProperties
-  }
+        properties={
+          siteVisitProperties
+        }
 
 
-  dealId={
-    deal.id
-  }
+        dealId={
+          deal.id
+        }
 
 
-  contactId={
-    deal.contactId
-  }
+        contactId={
+          deal.contactId
+        }
 
 
-  dealStage={
-    deal.stage
-  }
+        dealStage={
+          deal.stage
+        }
 
-/>
+      />
+
+
+
+
 
 
 

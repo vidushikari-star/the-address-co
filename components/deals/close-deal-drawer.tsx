@@ -201,10 +201,10 @@ export function CloseDealDrawer({
 
 
 
-        await createCommission({
+        const commission = await createCommission({
 
-          dealId:
-            deal.id,
+  dealId:
+    deal.id,
 
 
           contactId:
@@ -268,19 +268,16 @@ export function CloseDealDrawer({
 
 
 
-        await createActivity({
+              await createActivity({
 
           type:
             "deal_closed",
 
-
           title:
             "Deal Closed Won",
 
-
           description:
             deal.name,
-
 
           body:
             `Final Value:
@@ -293,24 +290,28 @@ Commission:
   form.commissionAmount || 0
 ).toLocaleString("en-IN")}`,
 
-
-
           dealId:
             deal.id,
-
 
           contactId:
             deal.contactId,
 
-
           propertyId:
             deal.propertyId,
-
 
           date:
             new Date().toISOString(),
 
         })
+
+
+        onOpenChange(false)
+
+        router.push(
+          `/commissions/${commission.id}`
+        )
+
+        router.refresh()
 
 
       } else {
@@ -380,7 +381,7 @@ ${form.notes || "No notes"}`,
 
 
 
-      onOpenChange(false)
+            onOpenChange(false)
 
       router.refresh()
 

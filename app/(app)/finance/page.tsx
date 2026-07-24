@@ -18,6 +18,20 @@ import {
   CommissionTable,
 } from "@/components/finance/commission-table"
 
+import {
+  getExpenses,
+} from "@/lib/repositories/expense-repository"
+
+import {
+  ExpenseTable,
+} from "@/components/finance/expense-table"
+
+import {
+  FinanceSummary,
+} from "@/components/finance/finance-summary"
+
+
+
 
 
 export default async function FinancePage() {
@@ -43,8 +57,19 @@ export default async function FinancePage() {
 
 
 
+
+
   const commissions =
     await getCommissions()
+
+
+
+  const expenses =
+    await getExpenses()
+
+
+
+
 
 
 
@@ -94,8 +119,33 @@ export default async function FinancePage() {
 
 
 
+
+
+  const totalExpenses =
+    expenses.reduce(
+      (sum, expense) =>
+        sum + expense.amount,
+      0
+    )
+
+
+
+
+
+  const netCash =
+    received -
+    totalExpenses
+
+
+
+
+
+
+
   const now =
     new Date()
+
+
 
 
 
@@ -129,9 +179,14 @@ export default async function FinancePage() {
 
 
 
+
+
   return (
 
     <div className="space-y-8 p-8">
+
+
+
 
 
       <div>
@@ -142,11 +197,46 @@ export default async function FinancePage() {
 
 
         <p className="text-muted-foreground">
-          Track commissions and collections.
+          Track commissions, collections and expenses.
         </p>
 
-
       </div>
+
+
+
+
+
+
+
+
+
+      <FinanceSummary
+
+        totalCommission={
+          total
+        }
+
+        receivedCommission={
+          received
+        }
+
+        pendingCommission={
+          pending
+        }
+
+        totalExpenses={
+          totalExpenses
+        }
+
+        netCash={
+          netCash
+        }
+
+      />
+
+
+
+
 
 
 
@@ -176,6 +266,10 @@ export default async function FinancePage() {
 
 
 
+
+
+
+
       <div>
 
 
@@ -194,6 +288,36 @@ export default async function FinancePage() {
 
 
       </div>
+
+
+
+
+
+
+
+
+
+      <div>
+
+
+        <h2 className="mb-4 text-xl font-semibold">
+          Expense Ledger
+        </h2>
+
+
+        <ExpenseTable
+
+          expenses={
+            expenses
+          }
+
+        />
+
+
+      </div>
+
+
+
 
 
     </div>

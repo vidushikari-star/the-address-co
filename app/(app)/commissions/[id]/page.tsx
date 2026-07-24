@@ -9,6 +9,10 @@ import {
 
 import Link from "next/link"
 
+import {
+  CommissionDistributionCard,
+} from "@/components/finance/commission-distribution-card"
+
 
 
 
@@ -135,6 +139,12 @@ export default async function CommissionDetailPage(
       *,
       deals(
         name
+      ),
+      commission_distributions(
+        *,
+        user:user_profiles(
+          name
+        )
       )
     `)
     .eq(
@@ -199,6 +209,60 @@ export default async function CommissionDetailPage(
       "Unassigned"
 
   }
+
+
+
+
+
+
+
+  const distributions =
+
+    (
+      commission.commission_distributions ?? []
+    )
+    .map(
+      (item:any) => ({
+
+        id:
+          item.id,
+
+        commissionId:
+          item.commission_id,
+
+        userId:
+          item.user_id,
+
+        userName:
+          item.user?.name,
+
+        role:
+          item.role,
+
+        percentage:
+          item.percentage
+            ? Number(item.percentage)
+            : undefined,
+
+        amount:
+          Number(
+            item.amount
+          ),
+
+        status:
+          item.status,
+
+        paidDate:
+          item.paid_date,
+
+        notes:
+          item.notes,
+
+        createdAt:
+          item.created_at,
+
+      })
+    )
 
 
 
@@ -322,70 +386,69 @@ export default async function CommissionDetailPage(
 
           <DetailRow
 
-  label="Commission Type"
+            label="Commission Type"
 
-  value={
-    commission.commission_type
-  }
+            value={
+              commission.commission_type
+            }
 
-/>
-
-
-
-
-
-<DetailRow
-
-  label="Commission Basis"
-
-  value={
-    commission.commission_basis === "percentage"
-      ? "Percentage"
-      : "Fixed Amount"
-  }
-
-/>
+          />
 
 
 
 
 
-{
-  commission.commission_basis === "percentage" && (
+          <DetailRow
 
-    <DetailRow
+            label="Commission Basis"
 
-      label="Commission Percentage"
+            value={
+              commission.commission_basis === "percentage"
+                ? "Percentage"
+                : "Fixed Amount"
+            }
 
-      value={
-        commission.commission_percentage
-          ? `${commission.commission_percentage}%`
-          : "-"
-      }
-
-    />
-
-  )
-}
+          />
 
 
 
 
 
+          {
+            commission.commission_basis === "percentage" && (
 
-<DetailRow
+              <DetailRow
 
-  label="Amount"
+                label="Commission Percentage"
 
-  value={
-    formatCurrency(
-      Number(
-        commission.amount
-      )
-    )
-  }
+                value={
+                  commission.commission_percentage
+                    ? `${commission.commission_percentage}%`
+                    : "-"
+                }
 
-/>
+              />
+
+            )
+          }
+
+
+
+
+
+          <DetailRow
+
+            label="Amount"
+
+            value={
+              formatCurrency(
+                Number(
+                  commission.amount
+                )
+              )
+            }
+
+          />
 
 
 
@@ -508,6 +571,68 @@ export default async function CommissionDetailPage(
 
 
       </div>
+
+
+
+
+
+
+
+
+
+      <CommissionDistributionCard
+
+  commissionId={
+    commission.id
+  }
+
+  distributions={
+    (commission.commission_distributions ?? [])
+    .map(
+      (item:any) => ({
+
+        id:
+          item.id,
+
+        commissionId:
+          item.commission_id,
+
+        userId:
+          item.user_id,
+
+        userName:
+          item.user?.name,
+
+        role:
+          item.role,
+
+        percentage:
+          item.percentage
+            ? Number(item.percentage)
+            : undefined,
+
+        amount:
+          Number(
+            item.amount
+          ),
+
+        status:
+          item.status,
+
+        paidDate:
+          item.paid_date,
+
+        notes:
+          item.notes,
+
+        createdAt:
+          item.created_at,
+
+      })
+    )
+  }
+
+/>
 
 
 

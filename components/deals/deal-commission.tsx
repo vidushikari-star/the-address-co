@@ -22,11 +22,15 @@ import {
 
 
 
+
+
 type Props = {
 
   commissions: Commission[]
 
   role?: "admin" | "sales"
+
+  paidDistributionAmount?: number
 
 }
 
@@ -82,6 +86,10 @@ export function DealCommission({
   ] = useState<string | null>(
     null
   )
+
+
+
+ 
 
 
 
@@ -357,7 +365,7 @@ export function DealCommission({
 
 
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-wrap gap-3 pt-2">
 
 
 
@@ -381,6 +389,14 @@ export function DealCommission({
                   </Button>
 
                 </Link>
+
+
+
+
+
+
+
+                
 
 
 
@@ -422,6 +438,14 @@ export function DealCommission({
 
 
               </div>
+
+
+
+
+
+
+
+              
 
 
 
