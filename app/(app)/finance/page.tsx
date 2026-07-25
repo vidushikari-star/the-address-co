@@ -49,7 +49,10 @@ export default async function FinancePage() {
   const user =
   await getServerUserProfile()
 
-
+console.log(
+  "FINANCE SERVER USER",
+  user
+)
 
 
   if(
