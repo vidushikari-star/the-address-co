@@ -1,6 +1,4 @@
-import {
-  createServerSupabaseClient,
-} from "@/lib/supabase/server"
+import { supabase } from "@/lib/supabase/client"
 
 import { mapDealRow } from "@/lib/mappers/deal.mapper"
 
@@ -13,12 +11,6 @@ import type {
 
 
 export async function getDeals(): Promise<Deal[]> {
-
-
-  const supabase =
-    await createServerSupabaseClient()
-
-
 
   const {
     data,
@@ -62,11 +54,6 @@ export async function getDeals(): Promise<Deal[]> {
 export async function getDealById(
   id:string
 ):Promise<Deal | undefined>{
-
-
-  const supabase =
-    await createServerSupabaseClient()
-
 
 
   const {
@@ -118,11 +105,6 @@ export async function getDealsByContactId(
 ):Promise<Deal[]>{
 
 
-  const supabase =
-    await createServerSupabaseClient()
-
-
-
   const {
     data,
     error,
@@ -167,11 +149,6 @@ export async function getDealsByPropertyId(
 ):Promise<Deal[]>{
 
 
-  const supabase =
-    await createServerSupabaseClient()
-
-
-
   const {
     data,
     error,
@@ -214,11 +191,6 @@ export async function getDealsByPropertyId(
 export async function createDeal(
   deal:Partial<Deal>
 ):Promise<Deal>{
-
-
-  const supabase =
-    await createServerSupabaseClient()
-
 
 
   const {
@@ -317,11 +289,6 @@ export async function updateDeal(
   id:string,
   updates:Partial<Deal>
 ):Promise<Deal>{
-
-
-  const supabase =
-    await createServerSupabaseClient()
-
 
 
   const payload:Record<string,unknown> = {}

@@ -1,6 +1,6 @@
 import {
-  createServerSupabaseClient,
-} from "@/lib/supabase/server"
+  supabase,
+} from "@/lib/supabase/client"
 
 import type {
   Commission,
@@ -84,11 +84,6 @@ function mapCommissionRow(
 async function attachAdvisorNames(
   rows:any[]
 ){
-
-  const supabase =
-    await createServerSupabaseClient()
-
-
 
   const advisorIds =
     [
@@ -187,11 +182,6 @@ export async function getCommissions()
 :Promise<Commission[]> {
 
 
-  const supabase =
-    await createServerSupabaseClient()
-
-
-
   const {
     data,
     error,
@@ -254,11 +244,6 @@ export async function getCommissionsByDealId(
 :Promise<Commission[]> {
 
 
-  const supabase =
-    await createServerSupabaseClient()
-
-
-
   const {
     data,
     error,
@@ -317,11 +302,6 @@ export async function createCommission(
   commission:Partial<Commission>
 )
 :Promise<Commission>{
-
-
-  const supabase =
-    await createServerSupabaseClient()
-
 
 
   const payload = {
@@ -408,11 +388,6 @@ export async function updateCommission(
   updates:Partial<Commission>
 )
 :Promise<Commission>{
-
-
-  const supabase =
-    await createServerSupabaseClient()
-
 
 
   const {

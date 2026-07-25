@@ -1,6 +1,4 @@
-import {
-  createServerSupabaseClient,
-} from "@/lib/supabase/server"
+import { supabase } from "@/lib/supabase/client"
 
 import { mapPropertyRow } from "@/lib/mappers/property.mapper"
 
@@ -35,7 +33,11 @@ export interface CreatePropertyDto {
   locality?:string
 
 
+
+
   price:number
+
+
 
 
   bedrooms:number
@@ -49,23 +51,35 @@ export interface CreatePropertyDto {
   builtUpArea?:number
 
 
+
+
+
   description?:string
+
 
   amenities?:string[]
 
+
   furnishing?:string
+
 
   googleMapLink?:string
 
 
+
+
+
   tags?:string[]
+
 
   coverImage?:string
 
 
   advisor:string
 
+
   note?:string
+
 
 }
 
@@ -78,10 +92,6 @@ export interface CreatePropertyDto {
 
 
 export async function getProperties():Promise<Property[]> {
-
-
-  const supabase =
-    await createServerSupabaseClient()
 
 
   const {
@@ -99,11 +109,13 @@ export async function getProperties():Promise<Property[]> {
       )
 
 
+
   if(error){
 
     throw error
 
   }
+
 
 
   return (
@@ -127,10 +139,6 @@ export async function getPropertyById(
 ):Promise<Property | undefined>{
 
 
-  const supabase =
-    await createServerSupabaseClient()
-
-
   const {
     data,
     error,
@@ -148,9 +156,7 @@ export async function getPropertyById(
 
   if(error){
 
-    if(
-      error.code==="PGRST116"
-    ){
+    if(error.code==="PGRST116"){
 
       return undefined
 
@@ -180,10 +186,6 @@ export async function getPropertyBySlug(
 ):Promise<Property | undefined>{
 
 
-  const supabase =
-    await createServerSupabaseClient()
-
-
   const {
     data,
     error,
@@ -201,9 +203,7 @@ export async function getPropertyBySlug(
 
   if(error){
 
-    if(
-      error.code==="PGRST116"
-    ){
+    if(error.code==="PGRST116"){
 
       return undefined
 
@@ -238,10 +238,6 @@ export async function getPropertiesByIds(
     return []
 
   }
-
-
-  const supabase =
-    await createServerSupabaseClient()
 
 
 
@@ -288,11 +284,6 @@ export async function createProperty(
 ):Promise<Property>{
 
 
-  const supabase =
-    await createServerSupabaseClient()
-
-
-
   const payload = {
 
 
@@ -308,28 +299,36 @@ export async function createProperty(
       property.developer,
 
 
+
     listing_type:
       property.listingType,
+
 
 
     development_stage:
       property.developmentStage,
 
 
+
     property_type:
       property.propertyType,
+
 
 
     status:
       property.status,
 
 
+
     location:
       property.location,
 
 
+
     locality:
       property.locality ?? null,
+
+
 
 
 
@@ -339,6 +338,8 @@ export async function createProperty(
         property.price,
 
     },
+
+
 
 
 
@@ -369,32 +370,46 @@ export async function createProperty(
 
 
 
+
+
     description:
       property.description ?? null,
+
 
 
     amenities:
       property.amenities ?? [],
 
 
+
     furnishing:
       property.furnishing ?? null,
+
 
 
     google_map_link:
       property.googleMapLink ?? null,
 
 
+
+
+
     tags:
       property.tags ?? [],
+
+
 
 
     cover_image:
       property.coverImage ?? null,
 
 
+
+
     advisor:
       property.advisor,
+
+
 
 
     note:
@@ -445,79 +460,82 @@ export async function updateProperty(
 ):Promise<Property>{
 
 
-  const supabase =
-    await createServerSupabaseClient()
-
-
 
   const payload:Record<string,unknown> = {}
 
 
 
-  if(property.name !== undefined)
 
+
+  if(property.name !== undefined)
     payload.name =
       property.name
 
 
 
-  if(property.developer !== undefined)
 
+  if(property.developer !== undefined)
     payload.developer =
       property.developer
 
 
 
-  if(property.location !== undefined)
 
+  if(property.location !== undefined)
     payload.location =
       property.location
 
 
 
-  if(property.locality !== undefined)
 
+  if(property.locality !== undefined)
     payload.locality =
       property.locality
 
 
 
-  if(property.googleMapLink !== undefined)
 
+  if(property.googleMapLink !== undefined)
     payload.google_map_link =
       property.googleMapLink
 
 
 
-  if(property.description !== undefined)
 
+  if(property.description !== undefined)
     payload.description =
       property.description
 
 
 
-  if(property.amenities !== undefined)
 
+  if(property.amenities !== undefined)
     payload.amenities =
       property.amenities
 
 
 
-  if(property.furnishing !== undefined)
 
+  if(property.furnishing !== undefined)
     payload.furnishing =
       property.furnishing
 
 
 
-  if(property.price !== undefined)
 
+
+
+  if(property.price !== undefined)
     payload.price = {
 
       asking:
         property.price,
 
     }
+
+
+
+
 
 
 
@@ -530,6 +548,7 @@ export async function updateProperty(
   ){
 
     payload.specifications = {
+
 
       bedrooms:
         property.bedrooms ?? 0,
@@ -550,30 +569,35 @@ export async function updateProperty(
       builtUpArea:
         property.builtUpArea ?? 0,
 
+
     }
 
   }
 
 
 
-  if(property.status !== undefined)
 
+
+  if(property.status !== undefined)
     payload.status =
       property.status
 
 
 
-  if(property.advisor !== undefined)
 
+
+  if(property.advisor !== undefined)
     payload.advisor =
       property.advisor
 
 
 
-  if(property.note !== undefined)
 
+
+  if(property.note !== undefined)
     payload.note =
       property.note
+
 
 
 
@@ -618,11 +642,6 @@ export async function updateProperty(
 export async function deleteProperty(
   id:string
 ){
-
-
-  const supabase =
-    await createServerSupabaseClient()
-
 
 
   const {

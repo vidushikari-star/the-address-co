@@ -1,6 +1,6 @@
 import {
-  createServerSupabaseClient,
-} from "@/lib/supabase/server"
+  supabase,
+} from "@/lib/supabase/client"
 
 
 
@@ -8,11 +8,6 @@ import {
 
 export async function getCompanySettings()
 :Promise<Record<string,string>>{
-
-
-  const supabase =
-    await createServerSupabaseClient()
-
 
 
   const {
@@ -69,11 +64,6 @@ export async function updateCompanySetting(
 ){
 
 
-  const supabase =
-    await createServerSupabaseClient()
-
-
-
   const {
     error,
   } =
@@ -83,24 +73,24 @@ export async function updateCompanySetting(
     )
     .upsert(
 
-      {
+  {
 
-        key,
+    key,
 
-        value,
+    value,
 
-        updated_at:
-          new Date()
-          .toISOString(),
+    updated_at:
+      new Date()
+      .toISOString(),
 
-      },
+  },
 
-      {
-        onConflict:
-          "key",
-      }
+  {
+    onConflict:
+      "key",
+  }
 
-    )
+)
 
 
 

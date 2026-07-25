@@ -1,6 +1,6 @@
 import {
-  createServerSupabaseClient,
-} from "@/lib/supabase/server"
+  supabase,
+} from "@/lib/supabase/client"
 
 
 import type {
@@ -56,11 +56,6 @@ function mapUser(
 
 export async function getAllUserProfiles()
 :Promise<UserProfile[]> {
-
-
-  const supabase =
-    await createServerSupabaseClient()
-
 
 
   const {
