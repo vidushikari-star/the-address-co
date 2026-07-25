@@ -3,8 +3,8 @@ import {
 } from "next/navigation"
 
 import {
-  getCurrentUser,
-} from "@/lib/auth/current-user"
+  getServerUserProfile,
+} from "@/lib/auth/server-user-profile"
 
 import {
   getCommissions,
@@ -23,12 +23,21 @@ import {
 } from "@/lib/repositories/expense-repository"
 
 import {
-  ExpenseTable,
-} from "@/components/finance/expense-table"
+  ExpenseSection,
+} from "@/components/finance/expense-section"
 
 import {
   FinanceSummary,
 } from "@/components/finance/finance-summary"
+
+import {
+  getAllCommissionDistributions,
+} from "@/lib/repositories/commission-distribution-repository"
+
+
+import {
+  CommissionDistributionLedger,
+} from "@/components/finance/commission-distribution-ledger"
 
 
 
@@ -38,7 +47,7 @@ export default async function FinancePage() {
 
 
   const user =
-    await getCurrentUser()
+  await getServerUserProfile()
 
 
 
@@ -66,6 +75,9 @@ export default async function FinancePage() {
 
   const expenses =
     await getExpenses()
+
+    const distributions =
+  await getAllCommissionDistributions()
 
 
 
@@ -297,26 +309,34 @@ export default async function FinancePage() {
 
 
 
-      <div>
+      <ExpenseSection
+
+ expenses={
+  expenses
+ }
+
+/>
+
+<div>
+
+  <h2 className="mb-4 text-xl font-semibold">
+    Commission Distribution Ledger
+  </h2>
 
 
-        <h2 className="mb-4 text-xl font-semibold">
-          Expense Ledger
-        </h2>
+  <CommissionDistributionLedger
 
+  distributions={
+    distributions
+  }
 
-        <ExpenseTable
+  commissions={
+    commissions
+  }
 
-          expenses={
-            expenses
-          }
+/>
 
-        />
-
-
-      </div>
-
-
+</div>
 
 
 
@@ -325,3 +345,5 @@ export default async function FinancePage() {
   )
 
 }
+
+

@@ -3,8 +3,8 @@ import {
 } from "next/navigation"
 
 import {
-  getCurrentUser,
-} from "@/lib/auth/current-user"
+  getServerUserProfile,
+} from "@/lib/auth/server-user-profile"
 
 
 
@@ -12,7 +12,7 @@ export default async function Page() {
 
 
   const user =
-    await getCurrentUser()
+  await getServerUserProfile()
 
 
 

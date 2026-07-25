@@ -9,107 +9,131 @@ import type {
 
 
 
+
+
 function mapRow(
- row:any
+  row:any
 ):CommissionDistribution {
 
 
- return {
+  return {
 
-  id:
-    row.id,
-
-
-  commissionId:
-    row.commission_id,
+    id:
+      row.id,
 
 
-  userId:
-    row.user_id,
+    commissionId:
+      row.commission_id,
 
 
-  userName:
-    row.user?.name,
+    userId:
+      row.user_id,
 
 
-  role:
-    row.role,
+    userName:
+      row.user?.name,
 
 
-  percentage:
-    row.percentage
-      ? Number(row.percentage)
-      : undefined,
+    role:
+      row.role,
 
 
-  amount:
-    Number(
-      row.amount ?? 0
-    ),
+    percentage:
+      row.percentage
+        ? Number(row.percentage)
+        : undefined,
 
 
-  status:
-    row.status,
+    amount:
+      Number(
+        row.amount ?? 0
+      ),
 
 
-  paidDate:
-    row.paid_date
-      ?? undefined,
+    status:
+      row.status,
 
 
-  notes:
-    row.notes
-      ?? undefined,
+    paidDate:
+      row.paid_date
+        ?? undefined,
 
 
-  createdAt:
-    row.created_at,
+    notes:
+      row.notes
+        ?? undefined,
 
- }
+
+    createdAt:
+      row.created_at,
+
+
+    dealName:
+      row.commissions?.deals?.name
+        ?? undefined,
+
+
+    commissionAmount:
+      Number(
+        row.commissions?.amount ?? 0
+      ),
+
+  }
 
 }
+
+
+
+
+
 
 
 
 
 export async function getCommissionDistributions(
- commissionId:string
+  commissionId:string
 )
 :Promise<CommissionDistribution[]> {
 
 
- const {
-  data,
-  error
- } =
- await supabase
- .from(
-   "commission_distributions"
- )
- .select(`
-   *,
-   user:user_profiles(
-     name
-   )
- `)
- .eq(
-   "commission_id",
-   commissionId
- )
+  const {
+    data,
+    error,
+  } =
+  await supabase
+    .from(
+      "commission_distributions"
+    )
+    .select(`
+      *,
+      user:user_profiles(
+        name
+      )
+    `)
+    .eq(
+      "commission_id",
+      commissionId
+    )
 
 
- if(error)
-  throw error
+  if(error){
+
+    throw error
+
+  }
 
 
- return (
-   data ?? []
- )
- .map(
-   mapRow
- )
+  return (
+    data ?? []
+  )
+  .map(
+    mapRow
+  )
 
 }
+
+
+
 
 
 
@@ -117,68 +141,82 @@ export async function getCommissionDistributions(
 
 
 export async function createCommissionDistribution(
- distribution:Partial<CommissionDistribution>
+  distribution:Partial<CommissionDistribution>
 ){
 
- const {
-  data,
-  error
- }
- =
- await supabase
- .from(
-  "commission_distributions"
- )
- .insert({
 
-  commission_id:
-    distribution.commissionId,
+  const {
+    data,
+    error,
+  }
+  =
+  await supabase
+    .from(
+      "commission_distributions"
+    )
+    .insert({
 
-
-  user_id:
-    distribution.userId,
+      commission_id:
+        distribution.commissionId,
 
 
-  role:
-    distribution.role,
+      user_id:
+        distribution.userId,
 
 
-  percentage:
-    distribution.percentage
-      ?? null,
+      role:
+        distribution.role,
 
 
-  amount:
-    distribution.amount
-      ?? 0,
+      percentage:
+        distribution.percentage
+          ?? null,
 
 
-  status:
-    distribution.status
-      ?? "pending",
+      amount:
+        distribution.amount
+          ?? 0,
 
 
-  notes:
-    distribution.notes
-      ?? null,
-
- })
- .select()
- .single()
+      status:
+        distribution.status
+          ?? "pending",
 
 
- if(error)
-  throw error
+      notes:
+        distribution.notes
+          ?? null,
+
+    })
+    .select()
+    .single()
 
 
- return mapRow(data)
+
+  if(error){
+
+    throw error
+
+  }
+
+
+  return mapRow(data)
 
 }
+
+
+
+
+
+
+
+
 
 export async function updateCommissionDistributionStatus(
   id:string,
   status:"pending" | "paid"
 ){
+
 
   const {
     data,
@@ -191,6 +229,7 @@ export async function updateCommissionDistributionStatus(
     .update({
 
       status,
+
 
       paid_date:
         status === "paid"
@@ -218,9 +257,18 @@ export async function updateCommissionDistributionStatus(
 
 }
 
+
+
+
+
+
+
+
+
 export async function getPaidDistributionAmount(
   commissionIds:string[]
-):Promise<number>{
+)
+:Promise<number>{
 
 
   if(
@@ -230,6 +278,7 @@ export async function getPaidDistributionAmount(
     return 0
 
   }
+
 
 
   const {
@@ -249,11 +298,13 @@ export async function getPaidDistributionAmount(
     )
 
 
+
   if(error){
 
     throw error
 
   }
+
 
 
   return (
@@ -272,5 +323,118 @@ export async function getPaidDistributionAmount(
     0
   )
 
+}
+
+
+
+
+
+
+
+
+
+export async function getAllCommissionDistributions()
+:Promise<CommissionDistribution[]> {
+
+
+  const {
+    data,
+    error,
+  } =
+  await supabase
+    .from(
+      "commission_distributions"
+    )
+    .select(`
+      *,
+      user:user_profiles(
+        name
+      ),
+      commissions(
+        amount,
+        deals(
+          name
+        )
+      )
+    `)
+    .order(
+      "created_at",
+      {
+        ascending:false,
+      }
+    )
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+
+  return (
+    data ?? []
+  )
+  .map(
+    mapRow
+  )
+
+}
+
+export async function deleteCommissionDistributionGroup(
+  commissionId:string
+){
+
+  const {
+    error,
+  } =
+  await supabase
+    .from(
+      "commission_distributions"
+    )
+    .delete()
+    .eq(
+      "commission_id",
+      commissionId
+    )
+
+
+  if(error){
+
+    throw error
+
+  }
+
+}
+
+export async function updateCommissionDistributionGroupStatus(
+  commissionId:string,
+  status:"pending"|"paid"
+){
+
+  const {
+    error,
+  } =
+  await supabase
+    .from(
+      "commission_distributions"
+    )
+    .update({
+      status,
+      paid_date:
+        status === "paid"
+          ? new Date().toISOString()
+          : null,
+    })
+    .eq(
+      "commission_id",
+      commissionId
+    )
+
+
+  if(error){
+    throw error
+  }
 
 }

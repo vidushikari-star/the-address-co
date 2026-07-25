@@ -23,6 +23,10 @@ export interface CommissionDistribution {
 
   userName?:string
 
+  dealName?:string
+
+  commissionAmount?:number
+
   role:CommissionDistributionRole
 
   percentage?:number
@@ -36,5 +40,6 @@ export interface CommissionDistribution {
   notes?:string
 
   createdAt:string
+
 
 }

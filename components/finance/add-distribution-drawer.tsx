@@ -14,10 +14,6 @@ import {
 } from "@/components/forms/form-drawer"
 
 import {
-  Input,
-} from "@/components/ui/input"
-
-import {
   Button,
 } from "@/components/ui/button"
 
@@ -27,12 +23,20 @@ import {
 
 import {
   createCommissionDistribution,
+  deleteCommissionDistributionGroup,
 } from "@/lib/repositories/commission-distribution-repository"
 
+import type {
+  Commission,
+} from "@/types/commission"
 
 import type {
   CommissionDistributionRole,
+  CommissionDistribution,
 } from "@/types/commission-distribution"
+
+
+
 
 
 type Props = {
@@ -41,9 +45,43 @@ type Props = {
 
   onOpenChange:(open:boolean)=>void
 
-  commissionId:string
+  commissions:Commission[]
+
+  editingCommissionId?:string
+
+  editingDistributions?:CommissionDistribution[]
 
 }
+
+
+
+
+
+type Split = {
+
+  userId:string
+
+  role:CommissionDistributionRole
+
+  amount:string
+
+}
+
+
+
+
+
+const emptySplit:Split = {
+
+  userId:"",
+
+  role:"partner",
+
+  amount:"",
+
+}
+
+
 
 
 
@@ -55,13 +93,29 @@ export function AddDistributionDrawer({
 
   onOpenChange,
 
-  commissionId,
+  commissions,
+
+  editingCommissionId,
+
+  editingDistributions,
 
 }:Props){
 
 
+
   const router =
     useRouter()
+
+
+
+
+
+  const isEditing =
+    Boolean(
+      editingCommissionId
+    )
+
+
 
 
 
@@ -70,14 +124,6 @@ export function AddDistributionDrawer({
     setUsers,
   ] =
   useState<any[]>([])
-
-
-
-  const [
-    loadingUsers,
-    setLoadingUsers,
-  ] =
-  useState(false)
 
 
 
@@ -92,22 +138,26 @@ export function AddDistributionDrawer({
 
 
   const [
-    form,
-    setForm,
+    commissionId,
+    setCommissionId,
   ] =
-  useState({
+  useState("")
 
-    userId:"",
 
-    role:"partner",
 
-    amount:"",
 
-    status:"pending",
 
-    notes:"",
+  const [
+    splits,
+    setSplits,
+  ] =
+  useState<Split[]>([
+    {...emptySplit},
+    {...emptySplit},
+    {...emptySplit},
+  ])
 
-  })
+
 
 
 
@@ -119,12 +169,8 @@ export function AddDistributionDrawer({
     async function loadUsers(){
 
 
-      setLoadingUsers(true)
-
-
       const {
         data,
-        error,
       } =
       await supabase
         .from("user_profiles")
@@ -136,18 +182,9 @@ export function AddDistributionDrawer({
         )
 
 
-
-      if(!error){
-
-        setUsers(
-          data ?? []
-        )
-
-      }
-
-
-      setLoadingUsers(false)
-
+      setUsers(
+        data ?? []
+      )
 
     }
 
@@ -156,10 +193,67 @@ export function AddDistributionDrawer({
 
       loadUsers()
 
+
+      if(
+        editingCommissionId &&
+        editingDistributions
+      ){
+
+        setCommissionId(
+          editingCommissionId
+        )
+
+
+        setSplits(
+
+          editingDistributions
+          .slice(0,3)
+          .map(
+            item => ({
+
+              userId:
+                item.userId,
+
+              role:
+                item.role,
+
+              amount:
+                String(
+                  item.amount
+                ),
+
+            })
+          )
+          .concat(
+            [
+              ...Array(
+                Math.max(
+                  0,
+                  3 -
+                  editingDistributions.length
+                )
+              )
+            ]
+            .map(
+              () => ({
+                ...emptySplit
+              })
+            )
+          )
+
+        )
+
+      }
+
+
     }
 
 
-  },[open])
+  },[
+    open,
+    editingCommissionId,
+    editingDistributions,
+  ])
 
 
 
@@ -167,20 +261,69 @@ export function AddDistributionDrawer({
 
 
 
-  function update(
-    key:string,
+  const selectedCommission =
+    commissions.find(
+      item =>
+        item.id === commissionId
+    )
+
+
+
+
+
+  const totalCommission =
+    selectedCommission?.amount ?? 0
+
+
+
+
+
+  const allocated =
+    splits.reduce(
+      (
+        sum,
+        item
+      ) =>
+        sum +
+        Number(
+          item.amount || 0
+        ),
+      0
+    )
+
+
+
+
+
+  const remaining =
+    totalCommission -
+    allocated
+
+
+
+
+
+  function updateSplit(
+    index:number,
+    key:keyof Split,
     value:string
   ){
 
-    setForm(
-      current => ({
-
-        ...current,
-
-        [key]:
-          value,
-
-      })
+    setSplits(
+      current =>
+        current.map(
+          (
+            item,
+            i
+          ) =>
+            i === index
+              ? {
+                  ...item,
+                  [key]:
+                    value,
+                }
+              : item
+        )
     )
 
   }
@@ -198,6 +341,40 @@ export function AddDistributionDrawer({
     e.preventDefault()
 
 
+
+    if(
+      !selectedCommission
+    ){
+
+      alert(
+        "Select commission"
+      )
+
+      return
+
+    }
+
+
+
+
+
+    if(
+      allocated >
+      totalCommission
+    ){
+
+      alert(
+        "Split exceeds total commission"
+      )
+
+      return
+
+    }
+
+
+
+
+
     setLoading(true)
 
 
@@ -205,48 +382,71 @@ export function AddDistributionDrawer({
     try{
 
 
-      await createCommissionDistribution({
+      if(
+        isEditing &&
+        editingCommissionId
+      ){
 
-        commissionId,
+        await deleteCommissionDistributionGroup(
+          editingCommissionId
+        )
 
-        userId:
-          form.userId,
-
-
-        role:
-  form.role as CommissionDistributionRole,
-
-
-        amount:
-          Number(
-            form.amount
-          ),
-
-
-        status:
-          form.status as any,
-
-
-        notes:
-          form.notes,
-
-      })
+      }
 
 
 
-      setForm({
 
-        userId:"",
 
-        role:"partner" as CommissionDistributionRole,
+      for(
+        const split of splits
+      ){
 
-        amount:"",
+        if(
+          split.userId &&
+          Number(split.amount) > 0
+        ){
 
-        status:"pending",
+          await createCommissionDistribution({
 
-        notes:"",
+            commissionId,
 
-      })
+            userId:
+              split.userId,
+
+
+            role:
+              split.role,
+
+
+            amount:
+              Number(
+                split.amount
+              ),
+
+
+            status:
+              "pending",
+
+          })
+
+        }
+
+      }
+
+
+
+
+
+      setCommissionId("")
+
+
+      setSplits([
+        {...emptySplit},
+        {...emptySplit},
+        {...emptySplit},
+      ])
+
+
 
 
 
@@ -260,13 +460,12 @@ export function AddDistributionDrawer({
 
 
       console.error(
-        "Distribution creation failed",
         error
       )
 
 
       alert(
-        "Could not add distribution"
+        "Could not save split"
       )
 
 
@@ -284,7 +483,7 @@ export function AddDistributionDrawer({
 
 
 
-  return (
+   return (
 
     <FormDrawer
 
@@ -296,9 +495,13 @@ export function AddDistributionDrawer({
         onOpenChange
       }
 
-      title="Add Commission Distribution"
+      title={
+        isEditing
+          ? "Edit Commission Split"
+          : "Record Commission Split"
+      }
 
-      description="Record commission split manually."
+      description="Split commission between team members."
 
     >
 
@@ -315,57 +518,61 @@ export function AddDistributionDrawer({
 
 
 
-
-
         <select
 
           className="w-full rounded-lg border p-3"
 
           value={
-            form.userId
+            commissionId
           }
 
           onChange={
             e =>
-              update(
-                "userId",
+              setCommissionId(
                 e.target.value
               )
           }
 
           required
 
+          disabled={
+            isEditing
+          }
+
         >
 
           <option value="">
-
-            {
-              loadingUsers
-                ? "Loading users..."
-                : "Select person"
-            }
-
+            Select Commission
           </option>
 
 
           {
-            users.map(
-              user => (
+            commissions.map(
+              commission => (
 
                 <option
 
                   key={
-                    user.id
+                    commission.id
                   }
 
                   value={
-                    user.id
+                    commission.id
                   }
 
                 >
 
                   {
-                    user.name
+                    commission.dealName
+                  }
+
+                  {" - "}
+
+                  ₹
+                  {
+                    commission.amount.toLocaleString(
+                      "en-IN"
+                    )
                   }
 
                 </option>
@@ -381,144 +588,228 @@ export function AddDistributionDrawer({
 
 
 
+        <div className="rounded-xl bg-muted p-4 space-y-1">
 
+          <p>
 
-        <select
-
-          className="w-full rounded-lg border p-3"
-
-          value={
-            form.role
-          }
-
-          onChange={
-            e =>
-              update(
-                "role",
-                e.target.value
+            Total Commission:
+            {" "}
+            ₹
+            {
+              totalCommission.toLocaleString(
+                "en-IN"
               )
-          }
+            }
 
-        >
-
-          <option value="partner">
-            Partner
-          </option>
+          </p>
 
 
-          <option value="sales_partner">
-            Sales Partner
-          </option>
+          <p>
 
-
-          <option value="client_source">
-            Client Source
-          </option>
-
-
-          <option value="inventory_source">
-            Inventory Source
-          </option>
-
-
-          <option value="client_inventory">
-            Client + Inventory
-          </option>
-
-
-        </select>
-
-
-
-
-
-
-
-        <Input
-
-          placeholder="Amount"
-
-          type="number"
-
-          value={
-            form.amount
-          }
-
-          onChange={
-            e =>
-              update(
-                "amount",
-                e.target.value
+            Allocated:
+            {" "}
+            ₹
+            {
+              allocated.toLocaleString(
+                "en-IN"
               )
-          }
+            }
 
-          required
-
-        />
+          </p>
 
 
+          <p className="font-semibold">
 
-
-
-
-
-        <select
-
-          className="w-full rounded-lg border p-3"
-
-          value={
-            form.status
-          }
-
-          onChange={
-            e =>
-              update(
-                "status",
-                e.target.value
+            Remaining:
+            {" "}
+            ₹
+            {
+              remaining.toLocaleString(
+                "en-IN"
               )
-          }
+            }
 
-        >
-
-          <option value="pending">
-            Pending
-          </option>
+          </p>
 
 
-          <option value="paid">
-            Received
-          </option>
-
-
-        </select>
+        </div>
 
 
 
 
 
+        {
+          splits.map(
+            (
+              split,
+              index
+            ) => (
+
+              <div
+
+                key={
+                  index
+                }
+
+                className="space-y-3 rounded-xl border p-4"
+
+              >
 
 
-        <textarea
+                <p className="font-medium">
 
-          className="min-h-24 w-full rounded-lg border p-3"
+                  Person {index + 1}
 
-          placeholder="Notes"
-
-          value={
-            form.notes
-          }
-
-          onChange={
-            e =>
-              update(
-                "notes",
-                e.target.value
-              )
-          }
-
-        />
+                </p>
 
 
+
+
+
+                <select
+
+                  className="w-full rounded-lg border p-3"
+
+                  value={
+                    split.userId
+                  }
+
+                  onChange={
+                    e =>
+                      updateSplit(
+                        index,
+                        "userId",
+                        e.target.value
+                      )
+                  }
+
+                >
+
+                  <option value="">
+
+                    Select person
+
+                  </option>
+
+
+                  {
+                    users.map(
+                      user => (
+
+                        <option
+
+                          key={
+                            user.id
+                          }
+
+                          value={
+                            user.id
+                          }
+
+                        >
+
+                          {
+                            user.name
+                          }
+
+                        </option>
+
+                      )
+                    )
+                  }
+
+
+                </select>
+
+
+
+
+
+                <select
+
+                  className="w-full rounded-lg border p-3"
+
+                  value={
+                    split.role
+                  }
+
+                  onChange={
+                    e =>
+                      updateSplit(
+                        index,
+                        "role",
+                        e.target.value as CommissionDistributionRole
+                      )
+                  }
+
+                >
+
+                  <option value="partner">
+                    Partner
+                  </option>
+
+
+                  <option value="sales">
+                    Sales
+                  </option>
+
+
+                  <option value="client_source">
+                    Client Source
+                  </option>
+
+
+                  <option value="inventory_source">
+                    Inventory Source
+                  </option>
+
+
+                  <option value="client_inventory">
+                    Client + Inventory
+                  </option>
+
+
+                  <option value="other">
+                    Other
+                  </option>
+
+
+                </select>
+
+
+
+
+
+                <input
+
+                  className="w-full rounded-lg border p-3"
+
+                  type="number"
+
+                  placeholder="Amount"
+
+                  value={
+                    split.amount
+                  }
+
+                  onChange={
+                    e =>
+                      updateSplit(
+                        index,
+                        "amount",
+                        e.target.value
+                      )
+                  }
+
+                />
+
+
+              </div>
+
+            )
+
+          )
+        }
 
 
 
@@ -529,16 +820,23 @@ export function AddDistributionDrawer({
           type="submit"
 
           disabled={
-            loading
+            loading ||
+            allocated >
+            totalCommission
           }
+
+          className="w-full"
 
         >
 
           {
             loading
               ? "Saving..."
-              : "Save Distribution"
+              : isEditing
+                ? "Update Commission Split"
+                : "Save Commission Split"
           }
+
 
         </Button>
 

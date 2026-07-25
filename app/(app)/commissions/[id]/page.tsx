@@ -9,9 +9,7 @@ import {
 
 import Link from "next/link"
 
-import {
-  CommissionDistributionCard,
-} from "@/components/finance/commission-distribution-card"
+
 
 
 
@@ -580,59 +578,7 @@ export default async function CommissionDetailPage(
 
 
 
-      <CommissionDistributionCard
-
-  commissionId={
-    commission.id
-  }
-
-  distributions={
-    (commission.commission_distributions ?? [])
-    .map(
-      (item:any) => ({
-
-        id:
-          item.id,
-
-        commissionId:
-          item.commission_id,
-
-        userId:
-          item.user_id,
-
-        userName:
-          item.user?.name,
-
-        role:
-          item.role,
-
-        percentage:
-          item.percentage
-            ? Number(item.percentage)
-            : undefined,
-
-        amount:
-          Number(
-            item.amount
-          ),
-
-        status:
-          item.status,
-
-        paidDate:
-          item.paid_date,
-
-        notes:
-          item.notes,
-
-        createdAt:
-          item.created_at,
-
-      })
-    )
-  }
-
-/>
+      
 
 
 
