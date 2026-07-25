@@ -5,41 +5,74 @@ import {
 import * as XLSX from "xlsx"
 
 import {
-  ContactsRepository,
-} from "@/lib/supabase/repositories/contacts.repository"
+  createServerSupabaseClient,
+} from "@/lib/supabase/server"
 
 
 
 export async function GET(){
 
+  const supabase =
+    await createServerSupabaseClient()
 
-  const contacts =
-    await ContactsRepository.getAll()
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("contacts")
+      .select("*")
+      .order(
+        "created_at",
+        {
+          ascending:false,
+        }
+      )
+
+
+  if(error){
+
+    throw error
+
+  }
 
 
 
   const rows =
-    contacts.map(
+    (data ?? []).map(
       contact => ({
 
         Name:
-          contact.name,
+          contact.full_name ??
+          `${contact.first_name ?? ""} ${contact.last_name ?? ""}`.trim(),
+
 
         Phone:
           contact.phone ?? "",
 
+
         Email:
           contact.email ?? "",
 
-        Type:
-          contact.type ?? "",
 
-        
+        LeadSource:
+          contact.lead_source ?? "",
+
+
+        Stage:
+          contact.lead_stage ?? "",
+
+
+        Budget:
+          contact.budget_max ?? "",
+
+
+        Created:
+          contact.created_at ?? "",
 
       })
     )
-
-
 
 
 
@@ -47,12 +80,10 @@ export async function GET(){
     XLSX.utils.book_new()
 
 
-
   const sheet =
     XLSX.utils.json_to_sheet(
       rows
     )
-
 
 
   XLSX.utils.book_append_sheet(
@@ -73,24 +104,19 @@ export async function GET(){
     )
 
 
-
   return new NextResponse(
     buffer,
     {
-
       headers:{
 
         "Content-Type":
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 
-
         "Content-Disposition":
           `attachment; filename="The_Address_Co_Contacts.xlsx"`,
 
       },
-
     }
   )
-
 
 }

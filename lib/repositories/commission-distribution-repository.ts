@@ -1,6 +1,6 @@
 import {
-  supabase,
-} from "@/lib/supabase/client"
+  createServerSupabaseClient,
+} from "@/lib/supabase/server"
 
 
 import type {
@@ -96,6 +96,11 @@ export async function getCommissionDistributions(
 :Promise<CommissionDistribution[]> {
 
 
+  const supabase =
+    await createServerSupabaseClient()
+
+
+
   const {
     data,
     error,
@@ -143,6 +148,11 @@ export async function getCommissionDistributions(
 export async function createCommissionDistribution(
   distribution:Partial<CommissionDistribution>
 ){
+
+
+  const supabase =
+    await createServerSupabaseClient()
+
 
 
   const {
@@ -218,6 +228,11 @@ export async function updateCommissionDistributionStatus(
 ){
 
 
+  const supabase =
+    await createServerSupabaseClient()
+
+
+
   const {
     data,
     error,
@@ -281,6 +296,11 @@ export async function getPaidDistributionAmount(
 
 
 
+  const supabase =
+    await createServerSupabaseClient()
+
+
+
   const {
     data,
     error,
@@ -337,6 +357,11 @@ export async function getAllCommissionDistributions()
 :Promise<CommissionDistribution[]> {
 
 
+  const supabase =
+    await createServerSupabaseClient()
+
+
+
   const {
     data,
     error,
@@ -382,9 +407,22 @@ export async function getAllCommissionDistributions()
 
 }
 
+
+
+
+
+
+
+
+
 export async function deleteCommissionDistributionGroup(
   commissionId:string
 ){
+
+  const supabase =
+    await createServerSupabaseClient()
+
+
 
   const {
     error,
@@ -408,10 +446,24 @@ export async function deleteCommissionDistributionGroup(
 
 }
 
+
+
+
+
+
+
+
+
 export async function updateCommissionDistributionGroupStatus(
   commissionId:string,
   status:"pending"|"paid"
 ){
+
+
+  const supabase =
+    await createServerSupabaseClient()
+
+
 
   const {
     error,

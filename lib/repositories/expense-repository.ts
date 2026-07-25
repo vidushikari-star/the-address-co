@@ -1,6 +1,6 @@
 import {
-  supabase,
-} from "@/lib/supabase/client"
+  createServerSupabaseClient,
+} from "@/lib/supabase/server"
 
 
 import type {
@@ -75,6 +75,11 @@ export async function getExpenses()
 :Promise<Expense[]> {
 
 
+  const supabase =
+    await createServerSupabaseClient()
+
+
+
   const {
     data,
     error,
@@ -125,6 +130,11 @@ export async function createExpense(
   expense:Partial<Expense>
 )
 :Promise<Expense>{
+
+
+  const supabase =
+    await createServerSupabaseClient()
+
 
 
   const {
@@ -203,6 +213,11 @@ export async function updateExpense(
 :Promise<Expense>{
 
 
+  const supabase =
+    await createServerSupabaseClient()
+
+
+
   const {
     data,
     error,
@@ -276,6 +291,11 @@ export async function deleteExpense(
   id:string
 )
 :Promise<void>{
+
+
+  const supabase =
+    await createServerSupabaseClient()
+
 
 
   const {

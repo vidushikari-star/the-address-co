@@ -4,33 +4,71 @@ import {
 
 import * as XLSX from "xlsx"
 
-
 import {
-  getProperties,
-} from "@/lib/repositories/property-repository"
-
-
+  createServerSupabaseClient,
+} from "@/lib/supabase/server"
 
 
 
 export async function GET(){
 
+  const supabase =
+    await createServerSupabaseClient()
 
-  const properties =
-    await getProperties()
+
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("properties")
+      .select("*")
+      .order(
+        "created_at",
+        {
+          ascending:false,
+        }
+      )
+
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
 
 
 
   const rows =
-    properties.map(
+    (data ?? []).map(
       property => ({
 
         Name:
-          property.name,
+          property.name ?? "",
+
+
+        Developer:
+          property.developer ?? "",
+
+
+        Type:
+          property.property_type ?? "",
+
+
+        ListingType:
+          property.listing_type ?? "",
+
+
+        Status:
+          property.status ?? "",
 
 
         Location:
-          property.location,
+          property.location ?? "",
 
 
         Locality:
@@ -38,15 +76,51 @@ export async function GET(){
 
 
         Price:
-          property.price?.asking ?? 0,
+          typeof property.price === "object"
+            ? property.price?.asking ?? ""
+            : property.price ?? "",
 
 
-        Status:
-          property.status ?? "",
+        Bedrooms:
+          property.bedrooms ?? 
+          property.specifications?.bedrooms ??
+          "",
 
 
-        
+        Bathrooms:
+          property.bathrooms ??
+          property.specifications?.bathrooms ??
+          "",
 
+
+        CarpetArea:
+          property.carpet_area ??
+          property.specifications?.carpetArea ??
+          "",
+
+
+        BuiltUpArea:
+          property.built_up_area ??
+          property.specifications?.builtUpArea ??
+          "",
+
+
+        PlotArea:
+          property.plot_area ??
+          property.specifications?.plotArea ??
+          "",
+
+
+        Furnishing:
+          property.furnishing ?? "",
+
+
+        Description:
+          property.description ?? "",
+
+
+        Created:
+          property.created_at ?? "",
 
       })
     )
@@ -75,6 +149,8 @@ export async function GET(){
 
 
 
+
+
   const buffer =
     XLSX.write(
       workbook,
@@ -83,6 +159,8 @@ export async function GET(){
         bookType:"xlsx",
       }
     )
+
+
 
 
 
@@ -103,6 +181,5 @@ export async function GET(){
 
     }
   )
-
 
 }

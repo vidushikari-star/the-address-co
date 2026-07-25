@@ -6,9 +6,7 @@ import {
 import * as XLSX from "xlsx"
 
 
-import {
-  ContactsRepository,
-} from "@/lib/supabase/repositories/contacts.repository"
+
 
 
 import {
@@ -53,7 +51,37 @@ import {
 
 
 
+async function getContacts(){
 
+  const supabase =
+    await createServerSupabaseClient()
+
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("contacts")
+      .select("*")
+      .order(
+        "created_at",
+        {
+          ascending:false,
+        }
+      )
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+  return data ?? []
+
+}
 
 
 export async function GET(){
@@ -71,7 +99,7 @@ export async function GET(){
   ] =
   await Promise.all([
 
-    ContactsRepository.getAll(),
+    getContacts(),
 
     getProperties(),
 
