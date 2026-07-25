@@ -33,7 +33,6 @@ import {
 const listingTypes = [
   "Primary",
   "Resale",
-  "Rental",
 ]
 
 
@@ -53,70 +52,103 @@ const propertyTypes = [
 ]
 
 
+const transactionTypes = [
+  "Sale",
+  "Rental",
+]
+
+
+
 export default function NewPropertyPage() {
+
 
   const router =
     useRouter()
 
 
-  const [saving, setSaving] =
+
+  const [saving,setSaving] =
     useState(false)
 
 
 
-  const [form, setForm] =
+
+
+  const [form,setForm] =
     useState({
 
-      name: "",
+      name:"",
 
-      slug: "",
+      slug:"",
 
-      developer: "",
+      developer:"",
 
-      listingType: "Primary",
 
-      developmentStage:
-        "ready_to_move",
+      transactionType:
+        "Sale",
+
 
       propertyType:
         "Villa",
 
+
+      listingType:
+        "Primary",
+
+
+      developmentStage:
+        "ready_to_move",
+
+
       status:
         "available",
 
-      location: "",
 
-      locality: "",
+      location:"",
 
-      price: "",
+      locality:"",
 
-      bedrooms: "",
 
-      bathrooms: "",
+      price:"",
 
-      carpetArea: "",
 
-      tags: "",
+      bedrooms:"",
 
-      coverImage: "",
+      bathrooms:"",
 
-      advisor: "",
+      carpetArea:"",
 
-      note: "",
+
+      tags:"",
+
+
+      coverImage:"",
+
+
+      advisor:"",
+
+
+      note:"",
 
     })
 
 
 
+
+
   function update(
-    key: string,
-    value: string
-  ) {
+    key:string,
+    value:string
+  ){
 
     setForm(
-      (current) => ({
+      current => ({
+
         ...current,
-        [key]: value,
+
+        [key]:
+          value,
+
       })
     )
 
@@ -125,80 +157,122 @@ export default function NewPropertyPage() {
 
 
 
+
+
+
   async function saveProperty(
-    event: React.FormEvent
-  ) {
+    event:React.FormEvent
+  ){
 
     event.preventDefault()
+
 
     setSaving(true)
 
 
-    try {
+
+    try{
+
 
       const property =
+
         await createProperty({
 
           name:
             form.name,
 
+
           slug:
             form.slug,
+
 
           developer:
             form.developer,
 
+
+
+          transactionType:
+            form.transactionType,
+
+
+
           listingType:
             form.listingType,
+
+
 
           developmentStage:
             form.developmentStage,
 
+
+
           propertyType:
             form.propertyType,
+
+
 
           status:
             form.status,
 
+
+
           location:
             form.location,
+
+
 
           locality:
             form.locality,
 
 
+
           price:
-            Number(form.price),
+            Number(
+              form.price
+            ),
+
 
 
           bedrooms:
-            Number(form.bedrooms),
+            Number(
+              form.bedrooms
+            ),
+
 
 
           bathrooms:
-            Number(form.bathrooms),
+            Number(
+              form.bathrooms
+            ),
+
 
 
           carpetArea:
-            Number(form.carpetArea),
+            Number(
+              form.carpetArea
+            ),
+
 
 
           tags:
             form.tags
               .split(",")
               .map(
-                (item) =>
+                item =>
                   item.trim()
               )
               .filter(Boolean),
+
 
 
           coverImage:
             form.coverImage,
 
 
+
           advisor:
             form.advisor,
+
 
 
           note:
@@ -207,29 +281,44 @@ export default function NewPropertyPage() {
         })
 
 
+
+
+
       router.push(
         `/properties/${property.slug}`
       )
 
 
-    } catch (error) {
+    }
+    catch(error){
+
 
       console.error(
         "Failed creating property",
         error
       )
 
+
       alert(
         "Unable to create property"
       )
 
-    } finally {
+
+    }
+    finally{
+
 
       setSaving(false)
+
 
     }
 
   }
+
+
+
+
+
 
 
 
@@ -240,11 +329,13 @@ export default function NewPropertyPage() {
 
       <div className="flex items-center gap-3">
 
+
         <div className="rounded-xl bg-primary/10 p-3">
 
           <Building2 className="h-6 w-6 text-primary" />
 
         </div>
+
 
 
         <div>
@@ -260,7 +351,10 @@ export default function NewPropertyPage() {
 
         </div>
 
+
       </div>
+
+
 
 
 
@@ -271,14 +365,16 @@ export default function NewPropertyPage() {
       >
 
 
+
         <Input
           placeholder="Property Name"
           value={form.name}
-          onChange={(e) =>
-            update(
-              "name",
-              e.target.value
-            )
+          onChange={
+            e =>
+              update(
+                "name",
+                e.target.value
+              )
           }
         />
 
@@ -287,11 +383,12 @@ export default function NewPropertyPage() {
         <Input
           placeholder="Slug"
           value={form.slug}
-          onChange={(e) =>
-            update(
-              "slug",
-              e.target.value
-            )
+          onChange={
+            e =>
+              update(
+                "slug",
+                e.target.value
+              )
           }
         />
 
@@ -300,37 +397,48 @@ export default function NewPropertyPage() {
         <Input
           placeholder="Developer"
           value={form.developer}
-          onChange={(e) =>
-            update(
-              "developer",
-              e.target.value
-            )
+          onChange={
+            e =>
+              update(
+                "developer",
+                e.target.value
+              )
           }
         />
 
 
 
+
+
         <select
           className="w-full rounded-lg border p-3"
-          value={form.listingType}
-          onChange={(e) =>
-            update(
-              "listingType",
-              e.target.value
-            )
+          value={form.transactionType}
+          onChange={
+            e =>
+              update(
+                "transactionType",
+                e.target.value
+              )
           }
         >
-          {listingTypes.map(
-            (item) => (
-              <option
-                key={item}
-              >
-                {item}
-              </option>
+
+          {
+            transactionTypes.map(
+              item => (
+
+                <option
+                  key={item}
+                  value={item}
+                >
+                  {item}
+                </option>
+
+              )
             )
-          )}
+          }
 
         </select>
+
 
 
 
@@ -338,25 +446,65 @@ export default function NewPropertyPage() {
         <select
           className="w-full rounded-lg border p-3"
           value={form.propertyType}
-          onChange={(e) =>
-            update(
-              "propertyType",
-              e.target.value
-            )
+          onChange={
+            e =>
+              update(
+                "propertyType",
+                e.target.value
+              )
           }
         >
 
-          {propertyTypes.map(
-            (item) => (
-              <option
-                key={item}
-              >
-                {item}
-              </option>
+          {
+            propertyTypes.map(
+              item => (
+
+                <option
+                  key={item}
+                  value={item}
+                >
+                  {item}
+                </option>
+
+              )
             )
-          )}
+          }
 
         </select>
+
+
+
+
+
+        <select
+          className="w-full rounded-lg border p-3"
+          value={form.listingType}
+          onChange={
+            e =>
+              update(
+                "listingType",
+                e.target.value
+              )
+          }
+        >
+
+          {
+            listingTypes.map(
+              item => (
+
+                <option
+                  key={item}
+                  value={item}
+                >
+                  {item}
+                </option>
+
+              )
+            )
+          }
+
+        </select>
+
 
 
 
@@ -364,55 +512,69 @@ export default function NewPropertyPage() {
         <select
           className="w-full rounded-lg border p-3"
           value={form.developmentStage}
-          onChange={(e) =>
-            update(
-              "developmentStage",
-              e.target.value
-            )
+          onChange={
+            e =>
+              update(
+                "developmentStage",
+                e.target.value
+              )
           }
         >
 
-          {developmentStages.map(
-            (item) => (
-              <option
-                key={item}
-              >
-                {item}
-              </option>
+          {
+            developmentStages.map(
+              item => (
+
+                <option
+                  key={item}
+                  value={item}
+                >
+                  {item}
+                </option>
+
+              )
             )
-          )}
+          }
 
         </select>
 
 
 
 
+
         <div className="grid gap-4 md:grid-cols-2">
+
 
           <Input
             placeholder="Location"
             value={form.location}
-            onChange={(e) =>
-              update(
-                "location",
-                e.target.value
-              )
+            onChange={
+              e =>
+                update(
+                  "location",
+                  e.target.value
+                )
             }
           />
+
 
 
           <Input
             placeholder="Locality"
             value={form.locality}
-            onChange={(e) =>
-              update(
-                "locality",
-                e.target.value
-              )
+            onChange={
+              e =>
+                update(
+                  "locality",
+                  e.target.value
+                )
             }
           />
 
+
         </div>
+
+
 
 
 
@@ -420,54 +582,67 @@ export default function NewPropertyPage() {
         <Input
           placeholder="Asking Price"
           value={form.price}
-          onChange={(e) =>
-            update(
-              "price",
-              e.target.value
-            )
+          onChange={
+            e =>
+              update(
+                "price",
+                e.target.value
+              )
           }
         />
 
 
 
+
+
+
         <div className="grid gap-4 md:grid-cols-3">
+
 
           <Input
             placeholder="Bedrooms"
             value={form.bedrooms}
-            onChange={(e) =>
-              update(
-                "bedrooms",
-                e.target.value
-              )
+            onChange={
+              e =>
+                update(
+                  "bedrooms",
+                  e.target.value
+                )
             }
           />
+
 
 
           <Input
             placeholder="Bathrooms"
             value={form.bathrooms}
-            onChange={(e) =>
-              update(
-                "bathrooms",
-                e.target.value
-              )
+            onChange={
+              e =>
+                update(
+                  "bathrooms",
+                  e.target.value
+                )
             }
           />
+
 
 
           <Input
             placeholder="Carpet Area"
             value={form.carpetArea}
-            onChange={(e) =>
-              update(
-                "carpetArea",
-                e.target.value
-              )
+            onChange={
+              e =>
+                update(
+                  "carpetArea",
+                  e.target.value
+                )
             }
           />
 
+
         </div>
+
+
 
 
 
@@ -475,52 +650,64 @@ export default function NewPropertyPage() {
         <Input
           placeholder="Tags (comma separated)"
           value={form.tags}
-          onChange={(e) =>
-            update(
-              "tags",
-              e.target.value
-            )
+          onChange={
+            e =>
+              update(
+                "tags",
+                e.target.value
+              )
           }
         />
+
+
 
 
 
         <Input
           placeholder="Cover Image URL"
           value={form.coverImage}
-          onChange={(e) =>
-            update(
-              "coverImage",
-              e.target.value
-            )
+          onChange={
+            e =>
+              update(
+                "coverImage",
+                e.target.value
+              )
           }
         />
+
+
 
 
 
         <Input
           placeholder="Advisor"
           value={form.advisor}
-          onChange={(e) =>
-            update(
-              "advisor",
-              e.target.value
-            )
+          onChange={
+            e =>
+              update(
+                "advisor",
+                e.target.value
+              )
           }
         />
+
+
 
 
 
         <Textarea
           placeholder="Notes"
           value={form.note}
-          onChange={(e) =>
-            update(
-              "note",
-              e.target.value
-            )
+          onChange={
+            e =>
+              update(
+                "note",
+                e.target.value
+              )
           }
         />
+
+
 
 
 
@@ -528,11 +715,14 @@ export default function NewPropertyPage() {
           disabled={saving}
         >
 
-          {saving
-            ? "Saving..."
-            : "Create Property"}
+          {
+            saving
+              ? "Saving..."
+              : "Create Property"
+          }
 
         </Button>
+
 
 
       </form>
@@ -541,4 +731,5 @@ export default function NewPropertyPage() {
     </div>
 
   )
+
 }

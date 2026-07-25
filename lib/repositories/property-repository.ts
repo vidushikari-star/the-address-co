@@ -20,6 +20,8 @@ export interface CreatePropertyDto {
 
   listingType:string
 
+  transactionType:string
+
   developmentStage:string
 
   propertyType:string
@@ -303,6 +305,9 @@ export async function createProperty(
     listing_type:
       property.listingType,
 
+      transaction_type:
+  property.transactionType,
+
 
 
     development_stage:
@@ -477,6 +482,16 @@ export async function updateProperty(
   if(property.developer !== undefined)
     payload.developer =
       property.developer
+
+      if(property.transactionType !== undefined)
+  payload.transaction_type =
+    property.transactionType
+
+
+
+if(property.propertyType !== undefined)
+  payload.property_type =
+    property.propertyType
 
 
 

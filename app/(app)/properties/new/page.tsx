@@ -73,6 +73,8 @@ export default function NewPropertyPage() {
 
       developer: "",
 
+      transactionType:"Sale",
+
       listingType: "Primary",
 
       developmentStage:
@@ -80,6 +82,7 @@ export default function NewPropertyPage() {
 
       propertyType:
         "Villa",
+        
 
       status:
         "available",
@@ -103,6 +106,8 @@ export default function NewPropertyPage() {
       advisor: "",
 
       note: "",
+
+
 
     })
 
@@ -150,6 +155,9 @@ export default function NewPropertyPage() {
 
           listingType:
             form.listingType,
+
+            transactionType:
+  form.transactionType ?? "Sale",
 
           developmentStage:
             form.developmentStage,
@@ -307,6 +315,77 @@ export default function NewPropertyPage() {
             )
           }
         />
+
+        <select
+
+  className="w-full rounded-lg border p-3"
+
+  value={
+    form.transactionType
+  }
+
+  onChange={
+    e =>
+      update(
+        "transactionType",
+        e.target.value
+      )
+  }
+
+>
+
+  <option value="Sale">
+    Sale
+  </option>
+
+  <option value="Rental">
+    Rental
+  </option>
+
+</select>
+
+
+
+
+<select
+
+  className="w-full rounded-lg border p-3"
+
+  value={
+    form.propertyType
+  }
+
+  onChange={
+    e =>
+      update(
+        "propertyType",
+        e.target.value
+      )
+  }
+
+>
+
+  <option value="Villa">
+    Villa
+  </option>
+
+  <option value="Apartment">
+    Apartment
+  </option>
+
+  <option value="Plot">
+    Plot
+  </option>
+
+  <option value="Penthouse">
+    Penthouse
+  </option>
+
+  <option value="Commercial">
+    Commercial
+  </option>
+
+</select>
 
 
 

@@ -97,16 +97,17 @@ export function PropertyDrawer({
 
     developer:"",
 
+    transactionType:"Sale",
+
+propertyType:"Villa",
+
 
     location:"",
 
     locality:"",
 
 
-
-    propertyType:"Villa",
-
-    listingType:"Primary",
+listingType:"Primary",
 
     developmentStage:"ready_to_move",
 
@@ -215,17 +216,25 @@ export function PropertyDrawer({
         developer:
           form.developer,
 
+          transactionType:
+  form.transactionType,
+
+
+propertyType:
+  form.propertyType,
+
 
         listingType:
           form.listingType,
+
+          
 
 
         developmentStage:
           form.developmentStage,
 
 
-        propertyType:
-          form.propertyType,
+    
 
 
 
@@ -427,6 +436,83 @@ export function PropertyDrawer({
           }
 
         />
+
+        <select
+
+  className="w-full rounded-lg border p-3"
+
+  value={
+    form.transactionType
+  }
+
+  onChange={
+    e =>
+      update(
+        "transactionType",
+        e.target.value
+      )
+  }
+
+>
+
+  <option value="Sale">
+    Sale
+  </option>
+
+
+  <option value="Rental">
+    Rental
+  </option>
+
+</select>
+
+
+
+
+
+<select
+
+  className="w-full rounded-lg border p-3"
+
+  value={
+    form.propertyType
+  }
+
+  onChange={
+    e =>
+      update(
+        "propertyType",
+        e.target.value
+      )
+  }
+
+>
+
+  <option value="Villa">
+    Villa
+  </option>
+
+
+  <option value="Apartment">
+    Apartment
+  </option>
+
+
+  <option value="Plot">
+    Plot
+  </option>
+
+
+  <option value="Penthouse">
+    Penthouse
+  </option>
+
+
+  <option value="Commercial">
+    Commercial
+  </option>
+
+</select>
 
 
 

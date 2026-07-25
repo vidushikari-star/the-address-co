@@ -10,6 +10,10 @@ export type PropertyStatus =
 export type ListingType =
   | "Primary"
   | "Resale"
+
+
+export type TransactionType =
+  | "Sale"
   | "Rental"
 
 
@@ -86,6 +90,8 @@ export interface Property {
 
 
   listingType:ListingType
+
+  transactionType: TransactionType
 
   developmentStage:DevelopmentStage
 

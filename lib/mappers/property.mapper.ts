@@ -46,6 +46,11 @@ export function mapPropertyRow(
       row.listingType ??
       "Primary",
 
+      transactionType:
+  row.transaction_type ??
+  row.transactionType ??
+  "Sale",
+
 
 
 

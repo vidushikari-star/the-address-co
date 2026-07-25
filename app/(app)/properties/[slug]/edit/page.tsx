@@ -29,6 +29,22 @@ import {
 
 
 
+const transactionTypes = [
+  "Sale",
+  "Rental",
+]
+
+
+const propertyTypes = [
+  "Villa",
+  "Apartment",
+  "Plot",
+  "Penthouse",
+  "Commercial",
+]
+
+
+
 export default function EditPropertyPage(){
 
 
@@ -66,6 +82,10 @@ export default function EditPropertyPage(){
       name:"",
 
       developer:"",
+
+      transactionType:"Sale",
+
+      propertyType:"Villa",
 
       location:"",
 
@@ -106,6 +126,7 @@ export default function EditPropertyPage(){
 
 
 
+
   useEffect(()=>{
 
 
@@ -124,7 +145,6 @@ export default function EditPropertyPage(){
 
 
 
-
       setId(
         property.id
       )
@@ -133,13 +153,20 @@ export default function EditPropertyPage(){
 
       setForm({
 
-
         name:
           property.name,
 
 
         developer:
           property.developer,
+
+
+        transactionType:
+          property.transactionType ?? "Sale",
+
+
+        propertyType:
+          property.propertyType ?? "Villa",
 
 
         location:
@@ -154,12 +181,10 @@ export default function EditPropertyPage(){
           property.googleMapLink ?? "",
 
 
-
         price:
           String(
             property.price.asking
           ),
-
 
 
         bedrooms:
@@ -168,12 +193,10 @@ export default function EditPropertyPage(){
           ),
 
 
-
         bathrooms:
           String(
             property.specifications.bathrooms
           ),
-
 
 
         carpetArea:
@@ -182,12 +205,10 @@ export default function EditPropertyPage(){
           ),
 
 
-
         plotArea:
           String(
             property.specifications.plotArea ?? 0
           ),
-
 
 
         builtUpArea:
@@ -196,15 +217,12 @@ export default function EditPropertyPage(){
           ),
 
 
-
         furnishing:
           property.furnishing ?? "unfurnished",
 
 
-
         description:
           property.description ?? "",
-
 
 
         amenities:
@@ -212,15 +230,12 @@ export default function EditPropertyPage(){
           ?? "",
 
 
-
         status:
           property.status,
 
 
-
         advisor:
           property.advisor,
-
 
 
         tags:
@@ -228,13 +243,11 @@ export default function EditPropertyPage(){
           ?? "",
 
 
-
         note:
           property.note ?? "",
 
 
       })
-
 
 
       setLoading(false)
@@ -298,6 +311,14 @@ export default function EditPropertyPage(){
 
         developer:
           form.developer,
+
+
+        transactionType:
+          form.transactionType,
+
+
+        propertyType:
+          form.propertyType,
 
 
         location:
@@ -367,13 +388,13 @@ export default function EditPropertyPage(){
     )
 
 
-
     router.push(
       `/properties/${slug}`
     )
 
 
   }
+
 
 
 
@@ -414,7 +435,12 @@ export default function EditPropertyPage(){
         <Input
           placeholder="Property Name"
           value={form.name}
-          onChange={e=>update("name",e.target.value)}
+          onChange={
+            e=>update(
+              "name",
+              e.target.value
+            )
+          }
         />
 
 
@@ -422,8 +448,79 @@ export default function EditPropertyPage(){
         <Input
           placeholder="Developer"
           value={form.developer}
-          onChange={e=>update("developer",e.target.value)}
+          onChange={
+            e=>update(
+              "developer",
+              e.target.value
+            )
+          }
         />
+
+
+
+
+
+        <select
+          className="w-full rounded-lg border p-3"
+          value={form.transactionType}
+          onChange={
+            e=>update(
+              "transactionType",
+              e.target.value
+            )
+          }
+        >
+
+          {
+            transactionTypes.map(
+              item=>(
+
+                <option
+                  key={item}
+                  value={item}
+                >
+                  {item}
+                </option>
+
+              )
+            )
+          }
+
+        </select>
+
+
+
+
+
+        <select
+          className="w-full rounded-lg border p-3"
+          value={form.propertyType}
+          onChange={
+            e=>update(
+              "propertyType",
+              e.target.value
+            )
+          }
+        >
+
+          {
+            propertyTypes.map(
+              item=>(
+
+                <option
+                  key={item}
+                  value={item}
+                >
+                  {item}
+                </option>
+
+              )
+            )
+          }
+
+        </select>
+
+
 
 
 
@@ -432,13 +529,24 @@ export default function EditPropertyPage(){
           <Input
             placeholder="Location"
             value={form.location}
-            onChange={e=>update("location",e.target.value)}
+            onChange={
+              e=>update(
+                "location",
+                e.target.value
+              )
+            }
           />
+
 
           <Input
             placeholder="Locality"
             value={form.locality}
-            onChange={e=>update("locality",e.target.value)}
+            onChange={
+              e=>update(
+                "locality",
+                e.target.value
+              )
+            }
           />
 
         </div>
@@ -446,10 +554,16 @@ export default function EditPropertyPage(){
 
 
 
+
         <Input
           placeholder="Google Map Link"
           value={form.googleMapLink}
-          onChange={e=>update("googleMapLink",e.target.value)}
+          onChange={
+            e=>update(
+              "googleMapLink",
+              e.target.value
+            )
+          }
         />
 
 
@@ -459,7 +573,12 @@ export default function EditPropertyPage(){
         <Input
           placeholder="Price"
           value={form.price}
-          onChange={e=>update("price",e.target.value)}
+          onChange={
+            e=>update(
+              "price",
+              e.target.value
+            )
+          }
         />
 
 
@@ -471,21 +590,36 @@ export default function EditPropertyPage(){
           <Input
             placeholder="Bedrooms"
             value={form.bedrooms}
-            onChange={e=>update("bedrooms",e.target.value)}
+            onChange={
+              e=>update(
+                "bedrooms",
+                e.target.value
+              )
+            }
           />
 
 
           <Input
             placeholder="Bathrooms"
             value={form.bathrooms}
-            onChange={e=>update("bathrooms",e.target.value)}
+            onChange={
+              e=>update(
+                "bathrooms",
+                e.target.value
+              )
+            }
           />
 
 
           <Input
             placeholder="Carpet Area"
             value={form.carpetArea}
-            onChange={e=>update("carpetArea",e.target.value)}
+            onChange={
+              e=>update(
+                "carpetArea",
+                e.target.value
+              )
+            }
           />
 
         </div>
@@ -496,20 +630,28 @@ export default function EditPropertyPage(){
 
         <div className="grid md:grid-cols-2 gap-4">
 
-
           <Input
             placeholder="Plot Area"
             value={form.plotArea}
-            onChange={e=>update("plotArea",e.target.value)}
+            onChange={
+              e=>update(
+                "plotArea",
+                e.target.value
+              )
+            }
           />
 
 
           <Input
             placeholder="Built Up Area"
             value={form.builtUpArea}
-            onChange={e=>update("builtUpArea",e.target.value)}
+            onChange={
+              e=>update(
+                "builtUpArea",
+                e.target.value
+              )
+            }
           />
-
 
         </div>
 
@@ -520,8 +662,14 @@ export default function EditPropertyPage(){
         <Input
           placeholder="Furnishing"
           value={form.furnishing}
-          onChange={e=>update("furnishing",e.target.value)}
+          onChange={
+            e=>update(
+              "furnishing",
+              e.target.value
+            )
+          }
         />
+
 
 
 
@@ -529,7 +677,12 @@ export default function EditPropertyPage(){
         <Input
           placeholder="Amenities"
           value={form.amenities}
-          onChange={e=>update("amenities",e.target.value)}
+          onChange={
+            e=>update(
+              "amenities",
+              e.target.value
+            )
+          }
         />
 
 
@@ -539,7 +692,12 @@ export default function EditPropertyPage(){
         <Textarea
           placeholder="Property Description"
           value={form.description}
-          onChange={e=>update("description",e.target.value)}
+          onChange={
+            e=>update(
+              "description",
+              e.target.value
+            )
+          }
         />
 
 
@@ -549,8 +707,14 @@ export default function EditPropertyPage(){
         <Input
           placeholder="Advisor"
           value={form.advisor}
-          onChange={e=>update("advisor",e.target.value)}
+          onChange={
+            e=>update(
+              "advisor",
+              e.target.value
+            )
+          }
         />
+
 
 
 
@@ -558,7 +722,12 @@ export default function EditPropertyPage(){
         <Textarea
           placeholder="Internal Notes"
           value={form.note}
-          onChange={e=>update("note",e.target.value)}
+          onChange={
+            e=>update(
+              "note",
+              e.target.value
+            )
+          }
         />
 
 
