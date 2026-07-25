@@ -49,10 +49,6 @@ export default async function FinancePage() {
   const user =
   await getServerUserProfile()
 
-console.log(
-  "FINANCE USER:",
-  user
-)
 
 
 
@@ -61,22 +57,15 @@ console.log(
   user.role !== "admin"
 ){
 
-  console.log(
-    "FINANCE REDIRECT:",
-    user
-  )
-
   redirect(
     "/dashboard"
   )
 
 }
 
-    redirect(
-      "/dashboard"
-    )
+  
 
-  }
+  
 
 
 
