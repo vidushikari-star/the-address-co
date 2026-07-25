@@ -52,11 +52,15 @@ export async function getServerUserProfile()
 
 
 
+
+
   const {
     data:userData,
     error:userError,
   } =
-    await supabase.auth.getUser()
+  await supabase.auth.getUser()
+
+
 
 
 
@@ -64,11 +68,6 @@ export async function getServerUserProfile()
     userError ||
     !userData.user
   ){
-
-    console.error(
-  "SERVER USER ERROR",
-  userError
-)
 
     return null
 
@@ -82,23 +81,20 @@ export async function getServerUserProfile()
     data,
     error,
   } =
-    await supabase
-      .from("user_profiles")
-      .select("*")
-      .eq(
-        "id",
-        userData.user.id
-      )
-      .single()
+  await supabase
+    .from("user_profiles")
+    .select("*")
+    .eq(
+      "id",
+      userData.user.id
+    )
+    .single()
+
+
 
 
 
   if(error){
-
-    console.error(
-      "SERVER PROFILE ERROR",
-      error
-    )
 
     return null
 
