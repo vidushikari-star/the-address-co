@@ -401,11 +401,12 @@ export async function getHotLeads(){
 
 
   const [
-    contacts,
+    deals,
     properties,
-  ] = await Promise.all([
+  ] =
+  await Promise.all([
 
-    ContactsRepository.getAll(),
+    getDeals(),
 
     getProperties(),
 
@@ -417,32 +418,53 @@ export async function getHotLeads(){
 
   return (
 
-    contacts
+    deals
+
+      .filter(
+        deal => {
+
+
+          const isActive =
+            deal.stage !== "closed_won"
+            &&
+            deal.stage !== "closed_lost"
+
+
+
+          const isHot =
+            deal.priority === "high"
+            ||
+            deal.stage === "negotiation"
+            ||
+            deal.stage === "documentation"
+            ||
+            deal.stage === "site_visit"
+
+
+
+          return (
+            isActive &&
+            isHot
+          )
+
+
+        }
+      )
+
+      .slice(
+        0,
+        5
+      )
+
       .map(
+        deal => {
 
-        contact => {
 
-
-          const matches =
-            getPropertyMatches(
-              contact,
-              properties
+          const property =
+            properties.find(
+              item =>
+                item.id === deal.propertyId
             )
-
-
-
-          if(matches.length === 0){
-
-            return null
-
-          }
-
-
-
-
-
-          const bestMatch =
-            matches[0]
 
 
 
@@ -450,44 +472,53 @@ export async function getHotLeads(){
 
           return {
 
+            id:
+              deal.id,
+
+
             name:
-              contact.name,
-
-
-            budget:
-              contact.budgetMax
-                ? `₹${(
-                    contact.budgetMax /
-                    10000000
-                  ).toFixed(1)} Cr`
-                : "Budget not set",
+              deal.name,
 
 
             location:
-              bestMatch.property.locality ??
-              bestMatch.property.location,
+              property?.locality ??
+              property?.location ??
+              "-",
 
 
             stage:
-              `${bestMatch.score}% Match`,
+              deal.stage
+                .replace(
+                  "_",
+                  " "
+                )
+                .replace(
+                  /\b\w/g,
+                  char =>
+                    char.toUpperCase()
+                ),
+
+
+            budget:
+              `₹${(
+                deal.value.propertyPrice /
+                10000000
+              ).toFixed(1)} Cr`,
+
+
+            advisor:
+              deal.advisor ?? "-",
+
+
+            contactId:
+              deal.contactId,
+
 
           }
 
 
         }
 
-      )
-
-      .filter(
-        (
-          lead
-        ): lead is NonNullable<typeof lead> =>
-          lead !== null
-      )
-
-      .slice(
-        0,
-        5
       )
 
   )
@@ -780,5 +811,117 @@ export async function getMyWork(){
       0,
 
   }
+
+}
+
+export async function getDealsToFollowUp(){
+
+
+  const [
+    dealsResult,
+    tasksResult,
+  ] =
+  await Promise.all([
+
+
+    supabase
+      .from("deals")
+      .select("*")
+      .not(
+        "stage",
+        "in",
+        "(closed_won,closed_lost)"
+      ),
+
+
+
+    supabase
+      .from("tasks")
+      .select("*")
+      .eq(
+        "status",
+        "pending"
+      ),
+
+
+  ])
+
+
+
+
+
+  const deals =
+    dealsResult.data ?? []
+
+
+
+  const tasks =
+    tasksResult.data ?? []
+
+
+
+
+
+  return deals
+
+    .filter(
+      deal => {
+
+
+        const relatedTask =
+          tasks.some(
+            task =>
+              task.deal_id === deal.id
+          )
+
+
+
+        const lastActivity =
+          new Date(
+            deal.last_activity
+          )
+
+
+
+        const daysSinceActivity =
+          Math.floor(
+            (
+              Date.now()
+              -
+              lastActivity.getTime()
+            )
+            /
+            (
+              1000 *
+              60 *
+              60 *
+              24
+            )
+          )
+
+
+
+        return (
+
+          deal.priority === "high"
+
+          ||
+
+          relatedTask
+
+          ||
+
+          daysSinceActivity > 7
+
+        )
+
+
+      }
+    )
+
+    .slice(
+      0,
+      5
+    )
 
 }

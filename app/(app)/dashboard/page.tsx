@@ -13,6 +13,7 @@ import {
   getHotLeads,
   getNewLeads,
   getMyWork,
+  getDealsToFollowUp,
 } from "@/lib/services/dashboard-service"
 
 
@@ -49,39 +50,34 @@ export default async function DashboardPage() {
 
 
   const [
-    stats,
-    recentActivities,
-    upcomingTasks,
-    hotLeads,
-    newLeads,
-    commissionStats,
-    myWork,
+  stats,
+  recentActivities,
+  upcomingTasks,
+  hotLeads,
+  newLeads,
+  commissionStats,
+  myWork,
+  dealsToFollowUp,
+] =
+  await Promise.all([
 
-  ] =
-    await Promise.all([
+    getDashboardStats(),
 
+    getRecentActivities(),
 
-      getDashboardStats(),
+    getUpcomingTasks(),
 
+    getHotLeads(),
 
-      getRecentActivities(),
+    getNewLeads(),
 
+    getCommissionStats(),
 
-      getUpcomingTasks(),
+    getMyWork(),
 
+    getDealsToFollowUp(),
 
-      getHotLeads(),
-
-
-      getNewLeads(),
-
-
-      getCommissionStats(),
-
-      getMyWork(),
-
-
-    ])
+  ])
 
 
 
@@ -395,12 +391,8 @@ export default async function DashboardPage() {
 
 
         <NeedsAttention
-
-          deals={
-            stats.deals
-          }
-
-        />
+  deals={dealsToFollowUp}
+/>
 
 
       </section>
