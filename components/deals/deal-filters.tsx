@@ -5,6 +5,10 @@ import {
   useState,
 } from "react"
 
+import {
+  useSearchParams,
+} from "next/navigation"
+
 import type {
   Deal,
 } from "@/types/deal"
@@ -26,6 +30,17 @@ type Props = {
 export function DealFilters({
   deals,
 }: Props) {
+
+
+  const searchParams =
+    useSearchParams()
+
+
+
+  const isHotFilter =
+    searchParams.get("filter") === "hot"
+
+
 
 
   const [
@@ -51,12 +66,45 @@ export function DealFilters({
 
 
 
+
   const filteredDeals =
     useMemo(
       () => {
 
+
         return deals.filter(
           deal => {
+
+
+            const active =
+              deal.stage !== "closed_won"
+              &&
+              deal.stage !== "closed_lost"
+
+
+
+            const hot =
+              deal.priority === "high"
+              ||
+              deal.stage === "negotiation"
+              ||
+              deal.stage === "documentation"
+              ||
+              deal.stage === "site_visit"
+
+
+
+
+            const matchesHot =
+              !isHotFilter
+              ||
+              (
+                active &&
+                hot
+              )
+
+
+
 
 
             const searchText =
@@ -73,10 +121,14 @@ export function DealFilters({
 
 
 
+
+
             const matchesStage =
               stage === "all"
               ||
               deal.stage === stage
+
+
 
 
 
@@ -87,7 +139,11 @@ export function DealFilters({
 
 
 
+
+
             return (
+              matchesHot
+              &&
               matchesSearch
               &&
               matchesStage
@@ -98,14 +154,18 @@ export function DealFilters({
           }
         )
 
+
       },
       [
         deals,
         search,
         stage,
         priority,
+        isHotFilter,
       ]
     )
+
+
 
 
 
@@ -114,6 +174,22 @@ export function DealFilters({
   return (
 
     <div className="space-y-5">
+
+
+      {
+        isHotFilter && (
+
+          <div className="rounded-lg bg-muted px-4 py-3 text-sm">
+
+            Showing hot opportunities requiring attention.
+
+          </div>
+
+        )
+      }
+
+
+
 
 
       <div className="grid gap-3 md:grid-cols-3">
@@ -125,9 +201,7 @@ export function DealFilters({
 
           placeholder="Search deals..."
 
-          value={
-            search
-          }
+          value={search}
 
           onChange={
             e =>
@@ -146,9 +220,7 @@ export function DealFilters({
 
           className="rounded-lg border px-3 py-2"
 
-          value={
-            stage
-          }
+          value={stage}
 
           onChange={
             e =>
@@ -195,7 +267,6 @@ export function DealFilters({
             Closed Lost
           </option>
 
-
         </select>
 
 
@@ -206,9 +277,7 @@ export function DealFilters({
 
           className="rounded-lg border px-3 py-2"
 
-          value={
-            priority
-          }
+          value={priority}
 
           onChange={
             e =>

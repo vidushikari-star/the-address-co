@@ -170,6 +170,8 @@ export interface Contact {
 
   // CRM fields
 
+  relationshipTypes?: string[]
+
   budgetMin?: number
 
   budgetMax?: number

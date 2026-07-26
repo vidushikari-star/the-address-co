@@ -203,7 +203,7 @@ export function AppHeader() {
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur-xl">
 
 
-      <div className="flex h-20 items-center justify-between gap-6 px-6 lg:px-8">
+      <div className="flex h-24 items-center justify-between gap-6 px-6 lg:px-8">
 
 
 
@@ -216,7 +216,7 @@ export function AppHeader() {
 
           <div>
 
-            <h2 className="text-2xl font-semibold tracking-tight">
+            <h2 className="text-xl font-semibold tracking-tight">
 
               {greeting}, {userName}
 
@@ -224,7 +224,7 @@ export function AppHeader() {
 
 
 
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
 
               {today}
 
@@ -304,15 +304,17 @@ export function AppHeader() {
 
               <DropdownMenuItem
 
-                onClick={() => openDrawer("buyer")}
+  onClick={() =>
+    router.push("/contacts/new")
+  }
 
-              >
+>
 
-                <UserPlus className="mr-2 h-4 w-4" />
+  <UserPlus className="mr-2 h-4 w-4" />
 
-                New Buyer
+  New Relationship
 
-              </DropdownMenuItem>
+</DropdownMenuItem>
 
 
 

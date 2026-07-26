@@ -15,6 +15,8 @@ export interface CreateContactDto {
 
   leadSource?: string
 
+  relationshipTypes?: string[]
+
   assignedAdvisor?: string
 
   budgetMin?: number

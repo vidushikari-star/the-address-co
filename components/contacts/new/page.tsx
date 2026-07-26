@@ -17,6 +17,18 @@ import {
 } from "@/lib/supabase/repositories/contacts.repository"
 
 
+
+const relationshipTypes = [
+  "buyer",
+  "seller",
+  "investor",
+  "tenant",
+  "landlord",
+  "developer",
+  "broker",
+]
+
+
 const leadSources = [
   "instagram",
   "housing",
@@ -38,66 +50,104 @@ const propertyTypes = [
 ]
 
 
-export default function NewBuyerPage() {
+
+
+
+export default function NewRelationshipPage() {
+
 
   const router =
     useRouter()
 
 
-  const [loading, setLoading] =
-    useState(false)
+
+  const [
+    loading,
+    setLoading,
+  ] =
+  useState(false)
 
 
-  const [form, setForm] =
-    useState({
 
-      fullName: "",
 
-      phone: "",
 
-      email: "",
+  const [
+    form,
+    setForm,
+  ] =
+  useState({
 
-      whatsapp: "",
+    fullName:"",
 
-      city: "",
+    phone:"",
 
-      country: "",
+    email:"",
 
-      leadSource: "referral",
+    whatsapp:"",
 
-      budgetMin: "",
+    city:"",
 
-      budgetMax: "",
+    country:"",
 
-      propertyType: "villa",
 
-      bedrooms: "",
+    relationshipTypes:
+      [] as string[],
 
-      purpose: "self_use",
 
-      financing: "cash",
 
-      timeline: "",
+    leadSource:"referral",
 
-      locations: "",
 
-      mustHave: "",
+    budgetMin:"",
 
-      notes: "",
+    budgetMax:"",
 
-    })
+
+    propertyType:"villa",
+
+
+    bedrooms:"",
+
+
+    purpose:"",
+
+financing:"",
+
+
+    timeline:"",
+
+
+    locations:"",
+
+
+    mustHave:"",
+
+
+    notes:"",
+
+
+  })
+
+
+
+
+
 
 
 
   function update(
-    key: string,
-    value: string
-  ) {
+    key:string,
+    value:string
+  ){
 
     setForm(
-      (current) => ({
+      current => ({
+
         ...current,
-        [key]: value,
+
+        [key]:
+          value,
+
       })
     )
 
@@ -105,41 +155,114 @@ export default function NewBuyerPage() {
 
 
 
+
+
+
+
+
+  function toggleRelationship(
+    type:string
+  ){
+
+    setForm(
+      current => ({
+
+        ...current,
+
+        relationshipTypes:
+
+          current.relationshipTypes.includes(type)
+
+            ? current.relationshipTypes.filter(
+                item => item !== type
+              )
+
+            :
+
+              [
+                ...current.relationshipTypes,
+                type,
+              ]
+
+      })
+    )
+
+  }
+
+
+
+
+
+
+
+
+  const isBuyerRelated =
+
+    form.relationshipTypes.includes("buyer")
+
+    ||
+
+    form.relationshipTypes.includes("investor")
+
+
+
+
+
+
+
+
+
   async function handleSubmit(
-    event: React.FormEvent
-  ) {
+    event:React.FormEvent
+  ){
 
     event.preventDefault()
+
 
     setLoading(true)
 
 
+
     try {
 
+
       const contact =
+
         await ContactsRepository.create({
 
           fullName:
             form.fullName,
 
+
           phone:
             form.phone,
+
 
           email:
             form.email,
 
+
           whatsapp:
             form.whatsapp,
 
+
           city:
             form.city,
+
 
           country:
             form.country,
 
 
+
+          relationshipTypes:
+            form.relationshipTypes,
+
+
+
           leadSource:
             form.leadSource,
+
 
 
           budgetMin:
@@ -148,56 +271,67 @@ export default function NewBuyerPage() {
               : undefined,
 
 
+
           budgetMax:
             form.budgetMax
               ? Number(form.budgetMax)
               : undefined,
 
 
+
           propertyType:
-            form.propertyType,
+  form.propertyType || undefined,
+
 
 
           bedrooms:
-            form.bedrooms,
+  form.bedrooms || undefined,
+
 
 
           purpose:
-            form.purpose,
+  form.purpose || undefined,
+
 
 
           financing:
-            form.financing,
+  form.financing || undefined,
+
 
 
           timeline:
             form.timeline,
 
 
+
           locations:
             form.locations
               .split(",")
               .map(
-                (item) =>
+                item =>
                   item.trim()
               )
               .filter(Boolean),
+
 
 
           mustHave:
             form.mustHave
               .split(",")
               .map(
-                (item) =>
+                item =>
                   item.trim()
               )
               .filter(Boolean),
 
 
+
           notes:
             form.notes,
 
+
         })
+
 
 
       router.push(
@@ -205,24 +339,37 @@ export default function NewBuyerPage() {
       )
 
 
-    } catch (error) {
+    }
+    catch(error){
+
 
       console.error(
-        "Failed creating contact",
+        "Failed creating relationship",
         error
       )
 
+
       alert(
-        "Unable to create buyer"
+        "Unable to create relationship"
       )
 
-    } finally {
+
+    }
+    finally{
+
 
       setLoading(false)
+
 
     }
 
   }
+
+
+
+
+
+
 
 
 
@@ -231,7 +378,9 @@ export default function NewBuyerPage() {
     <div className="mx-auto max-w-4xl space-y-8 p-8">
 
 
+
       <div className="flex items-center gap-3">
+
 
         <div className="rounded-xl bg-primary/10 p-3">
 
@@ -240,253 +389,502 @@ export default function NewBuyerPage() {
         </div>
 
 
+
         <div>
 
           <h1 className="text-3xl font-bold">
-            New Buyer
+
+            New Relationship
+
           </h1>
 
 
+
           <p className="text-muted-foreground">
-            Add a new buyer to your CRM.
+
+            Add a buyer, seller, investor or business contact.
+
           </p>
 
+
         </div>
+
 
       </div>
 
 
 
+
+
+
+
+
       <form
+
         onSubmit={handleSubmit}
+
         className="rounded-2xl border bg-card p-8 space-y-6"
+
       >
 
 
+
         <input
+
           required
+
           placeholder="Full Name"
+
           className="w-full rounded-lg border p-3"
+
           value={form.fullName}
-          onChange={(e) =>
-            update(
-              "fullName",
-              e.target.value
-            )
+
+          onChange={
+            e =>
+              update(
+                "fullName",
+                e.target.value
+              )
           }
+
         />
 
 
+
+
         <input
+
           required
+
           placeholder="Phone"
+
           className="w-full rounded-lg border p-3"
+
           value={form.phone}
-          onChange={(e) =>
-            update(
-              "phone",
-              e.target.value
-            )
+
+          onChange={
+            e =>
+              update(
+                "phone",
+                e.target.value
+              )
           }
+
         />
 
 
-        <input
-          placeholder="Email"
-          className="w-full rounded-lg border p-3"
-          value={form.email}
-          onChange={(e) =>
-            update(
-              "email",
-              e.target.value
-            )
-          }
-        />
 
 
         <input
+
           placeholder="WhatsApp"
+
           className="w-full rounded-lg border p-3"
+
           value={form.whatsapp}
-          onChange={(e) =>
-            update(
-              "whatsapp",
-              e.target.value
-            )
+
+          onChange={
+            e =>
+              update(
+                "whatsapp",
+                e.target.value
+              )
           }
+
         />
 
 
 
+
+        <input
+
+          placeholder="Email"
+
+          className="w-full rounded-lg border p-3"
+
+          value={form.email}
+
+          onChange={
+            e =>
+              update(
+                "email",
+                e.target.value
+              )
+          }
+
+        />
+
+
+
+
+
+
+
+        <div>
+
+          <p className="mb-3 text-sm font-medium">
+
+            Relationship Type
+
+          </p>
+
+
+          <div className="flex flex-wrap gap-2">
+
+
+            {
+              relationshipTypes.map(
+
+                type => (
+
+                  <button
+
+                    key={type}
+
+                    type="button"
+
+                    onClick={() =>
+                      toggleRelationship(type)
+                    }
+
+                    className={
+
+                      form.relationshipTypes.includes(type)
+
+                        ? "rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
+
+                        : "rounded-full border px-4 py-2 text-sm"
+
+                    }
+
+                  >
+
+                    {type}
+
+                  </button>
+
+                )
+
+              )
+
+            }
+
+
+          </div>
+
+
+        </div>
+
+
+
+
+
+
+
+
+
         <div className="grid gap-4 md:grid-cols-2">
 
+
           <input
+
             placeholder="City"
+
             className="rounded-lg border p-3"
+
             value={form.city}
-            onChange={(e) =>
-              update(
-                "city",
-                e.target.value
-              )
+
+            onChange={
+              e =>
+                update(
+                  "city",
+                  e.target.value
+                )
             }
+
           />
 
 
+
           <input
+
             placeholder="Country"
+
             className="rounded-lg border p-3"
+
             value={form.country}
-            onChange={(e) =>
-              update(
-                "country",
-                e.target.value
-              )
+
+            onChange={
+              e =>
+                update(
+                  "country",
+                  e.target.value
+                )
             }
+
           />
+
 
         </div>
 
 
 
-        <div className="grid gap-4 md:grid-cols-2">
-
-          <input
-            placeholder="Minimum Budget"
-            className="rounded-lg border p-3"
-            value={form.budgetMin}
-            onChange={(e) =>
-              update(
-                "budgetMin",
-                e.target.value
-              )
-            }
-          />
 
 
-          <input
-            placeholder="Maximum Budget"
-            className="rounded-lg border p-3"
-            value={form.budgetMax}
-            onChange={(e) =>
-              update(
-                "budgetMax",
-                e.target.value
-              )
-            }
-          />
 
-        </div>
+
+
+        {
+          isBuyerRelated && (
+
+            <>
+
+
+              <div className="grid gap-4 md:grid-cols-2">
+
+
+                <input
+
+                  placeholder="Minimum Budget"
+
+                  className="rounded-lg border p-3"
+
+                  value={form.budgetMin}
+
+                  onChange={
+                    e =>
+                      update(
+                        "budgetMin",
+                        e.target.value
+                      )
+                  }
+
+                />
+
+
+
+                <input
+
+                  placeholder="Maximum Budget"
+
+                  className="rounded-lg border p-3"
+
+                  value={form.budgetMax}
+
+                  onChange={
+                    e =>
+                      update(
+                        "budgetMax",
+                        e.target.value
+                      )
+                  }
+
+                />
+
+
+              </div>
+
+
+
+
+
+              <select
+
+                className="w-full rounded-lg border p-3"
+
+                value={form.propertyType}
+
+                onChange={
+                  e =>
+                    update(
+                      "propertyType",
+                      e.target.value
+                    )
+                }
+
+              >
+
+                {
+                  propertyTypes.map(
+
+                    item => (
+
+                      <option key={item}>
+
+                        {item}
+
+                      </option>
+
+                    )
+
+                  )
+                }
+
+
+              </select>
+
+
+
+
+
+              <input
+
+                placeholder="Bedrooms"
+
+                className="w-full rounded-lg border p-3"
+
+                value={form.bedrooms}
+
+                onChange={
+                  e =>
+                    update(
+                      "bedrooms",
+                      e.target.value
+                    )
+                }
+
+              />
+
+
+
+
+
+              <input
+
+                placeholder="Preferred Locations (comma separated)"
+
+                className="w-full rounded-lg border p-3"
+
+                value={form.locations}
+
+                onChange={
+                  e =>
+                    update(
+                      "locations",
+                      e.target.value
+                    )
+                }
+
+              />
+
+
+
+
+
+              <input
+
+                placeholder="Must have features"
+
+                className="w-full rounded-lg border p-3"
+
+                value={form.mustHave}
+
+                onChange={
+                  e =>
+                    update(
+                      "mustHave",
+                      e.target.value
+                    )
+                }
+
+              />
+
+
+
+            </>
+
+          )
+        }
+
+
+
+
 
 
 
         <select
+
           className="w-full rounded-lg border p-3"
-          value={form.propertyType}
-          onChange={(e) =>
-            update(
-              "propertyType",
-              e.target.value
-            )
+
+          value={form.leadSource}
+
+          onChange={
+            e =>
+              update(
+                "leadSource",
+                e.target.value
+              )
           }
+
         >
 
-          {propertyTypes.map(
-            (type) => (
+          {
+            leadSources.map(
 
-              <option
-                key={type}
-                value={type}
-              >
-                {type}
-              </option>
+              source => (
+
+                <option key={source}>
+
+                  {source}
+
+                </option>
+
+              )
 
             )
-          )}
+          }
+
 
         </select>
 
 
 
-        <input
-          placeholder="Preferred Locations (comma separated)"
-          className="w-full rounded-lg border p-3"
-          value={form.locations}
-          onChange={(e) =>
-            update(
-              "locations",
-              e.target.value
-            )
-          }
-        />
 
-
-
-        <input
-          placeholder="Bedrooms"
-          className="w-full rounded-lg border p-3"
-          value={form.bedrooms}
-          onChange={(e) =>
-            update(
-              "bedrooms",
-              e.target.value
-            )
-          }
-        />
-
-
-
-        <input
-          placeholder="Timeline"
-          className="w-full rounded-lg border p-3"
-          value={form.timeline}
-          onChange={(e) =>
-            update(
-              "timeline",
-              e.target.value
-            )
-          }
-        />
-
-
-
-        <input
-          placeholder="Must have features (comma separated)"
-          className="w-full rounded-lg border p-3"
-          value={form.mustHave}
-          onChange={(e) =>
-            update(
-              "mustHave",
-              e.target.value
-            )
-          }
-        />
 
 
 
         <textarea
+
           placeholder="Notes"
+
           className="w-full rounded-lg border p-3"
+
           value={form.notes}
-          onChange={(e) =>
-            update(
-              "notes",
-              e.target.value
-            )
+
+          onChange={
+            e =>
+              update(
+                "notes",
+                e.target.value
+              )
           }
+
         />
 
 
 
+
+
+
         <button
-          disabled={loading}
-          className="rounded-xl bg-primary px-6 py-3 text-primary-foreground"
-        >
-          {loading
-            ? "Saving..."
-            : "Create Buyer"
+
+          disabled={
+            loading
           }
+
+          className="rounded-xl bg-primary px-6 py-3 text-primary-foreground"
+
+        >
+
+          {
+            loading
+              ? "Saving..."
+              : "Create Relationship"
+          }
+
+
         </button>
+
 
 
       </form>
@@ -495,4 +893,5 @@ export default function NewBuyerPage() {
     </div>
 
   )
+
 }

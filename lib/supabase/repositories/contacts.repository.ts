@@ -517,6 +517,11 @@ export const ContactsRepository = {
       payload.lead_source =
         contact.leadSource ?? null
 
+        if(contact.relationshipTypes !== undefined)
+
+  payload.relationship_types =
+    contact.relationshipTypes
+
 
 
 

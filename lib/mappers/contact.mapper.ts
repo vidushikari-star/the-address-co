@@ -54,6 +54,9 @@ export function mapContactRow(
     leadSource:
       row.lead_source as Contact["leadSource"],
 
+      relationshipTypes:
+  row.relationship_types ?? [],
+
 
     assignedAdvisor:
       row.assigned_advisor ?? undefined,

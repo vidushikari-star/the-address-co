@@ -20,6 +20,9 @@ export interface ContactRow {
   country: string | null
 
   lead_source: string | null
+
+  relationship_types: string[] | null
+  
   lead_stage: string
   lead_temperature: string
 

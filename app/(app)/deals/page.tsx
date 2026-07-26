@@ -8,11 +8,54 @@ import {
 
 
 
-export default async function DealsPage() {
+export default async function DealsPage({
+  searchParams,
+}:{
+  searchParams: Promise<{
+    filter?:string
+  }>
+}) {
 
 
-  const deals =
+  const params =
+    await searchParams
+
+
+  let deals =
     await getDeals()
+
+
+
+  if(
+    params.filter === "hot"
+  ){
+
+    deals =
+      deals.filter(
+        deal => {
+
+          const active =
+            deal.stage !== "closed_won"
+            &&
+            deal.stage !== "closed_lost"
+
+
+          const hot =
+            deal.priority === "high"
+            ||
+            deal.stage === "negotiation"
+            ||
+            deal.stage === "documentation"
+            ||
+            deal.stage === "site_visit"
+
+
+          return active && hot
+
+        }
+      )
+
+  }
 
 
 
@@ -27,13 +70,21 @@ export default async function DealsPage() {
         <div>
 
           <h1 className="text-3xl font-semibold">
-            Deals
-          </h1>
+  {
+    params.filter === "hot"
+      ? "Hot Deals"
+      : "Deals"
+  }
+</h1>
 
 
-          <p className="text-muted-foreground">
-            Manage your active opportunities.
-          </p>
+<p className="text-muted-foreground">
+  {
+    params.filter === "hot"
+      ? "Priority opportunities requiring attention."
+      : "Manage your active opportunities."
+  }
+</p>
 
 
         </div>
