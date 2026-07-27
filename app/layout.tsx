@@ -14,8 +14,26 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "The Address Co.",
-  description: "Luxury Real Estate Operating System",
+
+  title:
+    "The Address Co.",
+
+  description:
+    "Luxury Real Estate Operating System",
+
+  applicationName:
+    "The Address Co.",
+
+  icons: {
+
+    icon:
+      "/icon-192.png",
+
+    apple:
+      "/icon-192.png",
+
+  },
+
 };
 
 export default function RootLayout({
