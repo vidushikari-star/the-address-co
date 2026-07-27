@@ -4,22 +4,37 @@ import { mapContactRow } from "@/lib/mappers/contact.mapper"
 
 import type { Contact } from "@/types/contact"
 import type { ContactRow } from "@/types/contact-row"
+
 import type {
   CreateContactDto,
   UpdateContactDto,
 } from "@/types/dto/contact"
 
+import {
+  db,
+} from "@/lib/offline/database"
 
-function splitFullName(fullName?: string) {
+
+
+
+function isBrowser(){
+
+  return typeof window !== "undefined"
+
+}
+
+
+
+
+function splitFullName(
+  fullName?: string
+) {
 
   if (!fullName?.trim()) {
 
     return {
-
-      firstName: "",
-
-      lastName: null,
-
+      firstName:"",
+      lastName:null,
     }
 
   }
@@ -48,154 +63,96 @@ function splitFullName(fullName?: string) {
 
 
 
+
+
 export const ContactsRepository = {
 
 
-  async getAll(): Promise<Contact[]> {
 
-    const {
-      data,
-      error,
-    } =
-      await supabase
-        .from("contacts")
-        .select("*")
-        .order(
-          "created_at",
-          {
-            ascending:false,
-          }
+  async getAll():Promise<Contact[]> {
+
+
+    try {
+
+
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from("contacts")
+          .select("*")
+          .order(
+            "created_at",
+            {
+              ascending:false,
+            }
+          )
+
+
+
+      if(error){
+
+        throw error
+
+      }
+
+
+
+      const contacts =
+        (
+          data ?? []
+        ).map(
+          row =>
+            mapContactRow(
+              row as ContactRow
+            )
         )
 
 
-    if(error)
-      throw error
 
+      if(
+        isBrowser()
+      ){
 
-    return (
-
-      data ?? []
-
-    ).map(
-
-      row =>
-        mapContactRow(
-          row as ContactRow
+        await db.contacts.bulkPut(
+          contacts
         )
 
-    )
+      }
+
+
+
+      return contacts
+
+
+
+    } catch(error){
+
+
+      console.warn(
+        "Offline mode: loading cached contacts"
+      )
+
+
+
+      if(
+        !isBrowser()
+      ){
+
+        throw error
+
+      }
+
+
+
+      return await db.contacts.toArray()
+
+
+    }
+
 
   },
-
-
-
-
-
-
-
-  async getById(
-  id: string
-): Promise<Contact> {
-
-  const { data, error } =
-    await supabase
-      .from("contacts")
-      .select(`
-        *,
-        advisor:profiles(
-          full_name
-        )
-      `)
-      .eq(
-        "id",
-        id
-      )
-      .single()
-
-
-  if (error) throw error
-
-
-  const contact =
-    mapContactRow(
-      data as ContactRow
-    )
-
-
-  return {
-
-    ...contact,
-
-    assignedAdvisor:
-      data.advisor?.full_name ??
-      undefined,
-
-  }
-
-},
-
-
-
-
-
-
-
-
-  async getByIdWithRelations(
-  id: string
-): Promise<Contact> {
-
-  const {
-    data,
-    error,
-  } =
-    await supabase
-      .from("contacts")
-      .select(`
-        *,
-        advisor:profiles(
-          full_name
-        )
-      `)
-      .eq(
-        "id",
-        id
-      )
-      .single()
-
-
-  if(error){
-    throw error
-  }
-
-
-  const contact =
-    mapContactRow(
-      data as ContactRow
-    )
-
-
-  return {
-
-    ...contact,
-
-    assignedAdvisor:
-      data.advisor?.full_name ??
-      undefined,
-
-
-    activities:
-      contact.activities ?? [],
-
-    tasks:
-      contact.tasks ?? [],
-
-    notes:
-      contact.notes ?? [],
-
-  }
-
-},
 
 
 
@@ -221,7 +178,6 @@ export const ContactsRepository = {
 
 
 
-
     const payload = {
 
 
@@ -233,154 +189,66 @@ export const ContactsRepository = {
         lastName,
 
 
-
       phone:
         contact.phone,
-
 
 
       email:
         contact.email ?? null,
 
 
-
       city:
         contact.city ?? null,
-
 
 
       country:
         contact.country ?? null,
 
 
-
       whatsapp:
         contact.whatsapp ?? null,
-
 
 
       preferred_language:
         contact.preferredLanguage ?? null,
 
 
-
       lead_source:
         contact.leadSource ?? null,
 
 
-
       advisor_id:
-  contact.advisorId ?? null,
-
+        contact.advisorId ?? null,
 
 
       budget_min:
         contact.budgetMin ?? null,
 
 
-
       budget_max:
         contact.budgetMax ?? null,
-
-
-
-      currency:
-        contact.currency ?? null,
-
-
-
-      purpose:
-        contact.purpose ?? null,
-
-
-
-      timeline:
-        contact.timeline ?? null,
-
-
-
-      financing:
-        contact.financing ?? null,
-
-
-
-      resident:
-        contact.resident ?? null,
-
 
 
       property_type:
         contact.propertyType ?? null,
 
 
-
       bedrooms:
         contact.bedrooms ?? null,
-
 
 
       bathrooms:
         contact.bathrooms ?? null,
 
 
-
       locations:
         contact.locations ?? null,
 
 
-
-      min_area:
-        contact.minArea ?? null,
-
-
-
-      max_area:
-        contact.maxArea ?? null,
-
-
-
-      plot_size:
-        contact.plotSize ?? null,
-
-
-
-      must_have:
-        contact.mustHave ?? null,
-
-
-
-      nice_to_have:
-        contact.niceToHave ?? null,
-
-
-
-      spouse_name:
-        contact.spouseName ?? null,
-
-
-
-      co_buyer:
-        contact.coBuyer ?? null,
-
-
-
-      referral_source:
-        contact.referralSource ?? null,
-
-
-
       notes:
-
         typeof contact.notes === "string"
-
           ? contact.notes
-
           : null,
-
-
-
-      private_notes:
-        contact.privateNotes ?? null,
 
 
     }
@@ -389,19 +257,242 @@ export const ContactsRepository = {
 
 
 
+    try {
+
+
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from("contacts")
+          .insert(payload)
+          .select()
+          .single()
+
+
+
+      if(error){
+
+        throw error
+
+      }
+
+
+
+      const mapped =
+        mapContactRow(
+          data as ContactRow
+        )
+
+
+
+      if(
+        isBrowser()
+      ){
+
+        await db.contacts.put(
+          mapped
+        )
+
+      }
+
+
+
+      return mapped
+
+
+
+    } catch(error){
+
+
+
+      if(
+        !isBrowser()
+      ){
+
+        throw error
+
+      }
+
+
+
+
+      const tempId =
+        crypto.randomUUID()
+
+
+
+      const offlineContact =
+        mapContactRow({
+
+          id:
+            tempId,
+
+
+          ...payload,
+
+
+          created_at:
+            new Date()
+              .toISOString(),
+
+
+        } as ContactRow)
+
+
+
+
+
+      await db.contacts.put(
+        offlineContact
+      )
+
+
+
+      await db.syncQueue.add({
+
+        table:
+          "contacts",
+
+
+        action:
+          "create",
+
+
+        recordId:
+          tempId,
+
+
+        payload,
+
+
+        createdAt:
+          new Date()
+            .toISOString(),
+
+
+        synced:
+          false,
+
+
+      })
+
+
+
+      return offlineContact
+
+
+    }
+
+
+  },
+
+
+
+
+
+
+
+
+
+  async getByIdWithRelations(
+    id:string
+  ):Promise<Contact>{
+
+
     const {
       data,
       error,
     } =
       await supabase
         .from("contacts")
-        .insert(payload)
-        .select()
+        .select(`
+          *,
+          advisor:profiles(
+            full_name
+          )
+        `)
+        .eq(
+          "id",
+          id
+        )
+        .single()
+
+
+
+    if(error){
+
+      throw error
+
+    }
+
+
+
+    const contact =
+      mapContactRow(
+        data as ContactRow
+      )
+
+
+
+    return {
+
+      ...contact,
+
+
+      assignedAdvisor:
+        data.advisor?.full_name ??
+        undefined,
+
+
+      activities:
+        contact.activities ?? [],
+
+
+      tasks:
+        contact.tasks ?? [],
+
+
+      notes:
+        contact.notes ?? [],
+
+
+    }
+
+
+  },
+
+
+
+
+
+
+
+
+
+  async getById(
+    id:string
+  ):Promise<Contact>{
+
+
+    const {
+      data,
+      error
+    } =
+      await supabase
+        .from("contacts")
+        .select("*")
+        .eq(
+          "id",
+          id
+        )
         .single()
 
 
 
     if(error)
+
       throw error
 
 
@@ -427,112 +518,13 @@ export const ContactsRepository = {
   ):Promise<Contact>{
 
 
-    const payload:Record<string,unknown> = {}
-
-
-
-
-
-    if(contact.fullName !== undefined){
-
-
-      const {
-        firstName,
-        lastName,
-      } =
-        splitFullName(
-          contact.fullName
-        )
-
-
-      payload.first_name =
-        firstName
-
-
-      payload.last_name =
-        lastName
-
-    }
-
-
-
-
-
-    if(contact.phone !== undefined)
-
-      payload.phone =
-        contact.phone
-
-
-
-
-
-    if(contact.email !== undefined)
-
-      payload.email =
-        contact.email ?? null
-
-
-
-
-
-    if(contact.city !== undefined)
-
-      payload.city =
-        contact.city ?? null
-
-
-
-
-
-    if(contact.country !== undefined)
-
-      payload.country =
-        contact.country ?? null
-
-
-
-
-
-    if(contact.whatsapp !== undefined)
-
-      payload.whatsapp =
-        contact.whatsapp ?? null
-
-
-
-
-
-    if(contact.assignedAdvisor !== undefined)
-
-      payload.assigned_advisor =
-        contact.assignedAdvisor ?? null
-
-
-
-
-
-    if(contact.leadSource !== undefined)
-
-      payload.lead_source =
-        contact.leadSource ?? null
-
-        if(contact.relationshipTypes !== undefined)
-
-  payload.relationship_types =
-    contact.relationshipTypes
-
-
-
-
-
     const {
       data,
-      error,
+      error
     } =
       await supabase
         .from("contacts")
-        .update(payload)
+        .update(contact)
         .eq(
           "id",
           id
@@ -543,13 +535,31 @@ export const ContactsRepository = {
 
 
     if(error)
+
       throw error
 
 
 
-    return mapContactRow(
-      data as ContactRow
-    )
+    const updated =
+      mapContactRow(
+        data as ContactRow
+      )
+
+
+
+    if(
+      isBrowser()
+    ){
+
+      await db.contacts.put(
+        updated
+      )
+
+    }
+
+
+
+    return updated
 
 
   },
@@ -560,38 +570,71 @@ export const ContactsRepository = {
 
 
 
-async updateStage(
-  id: string,
-  stage: Contact["stage"]
-): Promise<Contact> {
 
-  const {
-    data,
-    error,
-  } =
-    await supabase
-      .from("contacts")
-      .update({
-        lead_stage: stage,
-      })
-      .eq(
-        "id",
-        id
+
+  async updateStage(
+    id:string,
+    stage:Contact["stage"]
+  ):Promise<Contact>{
+
+
+    const {
+      data,
+      error,
+    } =
+      await supabase
+        .from("contacts")
+        .update({
+          lead_stage: stage,
+        })
+        .eq(
+          "id",
+          id
+        )
+        .select()
+        .single()
+
+
+
+    if(error){
+
+      throw error
+
+    }
+
+
+
+    const updated =
+      mapContactRow(
+        data as ContactRow
       )
-      .select()
-      .single()
 
 
-  if(error){
-    throw error
-  }
+
+    if(
+      isBrowser()
+    ){
+
+      await db.contacts.put(
+        updated
+      )
+
+    }
 
 
-  return mapContactRow(
-    data as ContactRow
-  )
 
-},
+    return updated
+
+
+  },
+
+
+
+
+
+
+
+
 
   async delete(
     id:string
@@ -612,7 +655,19 @@ async updateStage(
 
 
     if(error)
+
       throw error
+
+
+    if(
+      isBrowser()
+    ){
+
+      await db.contacts.delete(
+        id
+      )
+
+    }
 
 
   },

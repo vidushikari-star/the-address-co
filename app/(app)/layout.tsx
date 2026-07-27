@@ -32,7 +32,13 @@ import {
 } from "@/components/providers/drawer-provider"
 
 
+import {
+  OfflineSyncProvider,
+} from "@/components/providers/offline-sync-provider"
 
+import {
+  OfflineStatusProvider,
+} from "@/components/providers/offline-status-provider"
 
 
 type AppLayoutProps = {
@@ -69,7 +75,11 @@ export default async function AppLayout({
 
     <DrawerProvider>
 
-      <SidebarProvider defaultOpen>
+  <OfflineStatusProvider />
+
+  <OfflineSyncProvider />
+
+  <SidebarProvider defaultOpen>
 
 
         <AppSidebar
