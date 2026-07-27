@@ -27,7 +27,9 @@ export function ContactHeader() {
 
         <Button
 
-          size="lg"
+          size="default"
+          
+          className="w-full sm:w-auto"
 
           onClick={() =>
             window.location.href =

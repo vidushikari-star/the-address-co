@@ -1,7 +1,8 @@
 import Link from "next/link"
 
 import {
-  ArrowUpRight,
+  ArrowRight,
+  Flame,
 } from "lucide-react"
 
 import {
@@ -13,16 +14,16 @@ import {
 
 
 type Lead = {
-  name: string
-  budget: string
-  location: string
-  stage: string
+  name:string
+  budget:string
+  location:string
+  stage:string
 }
 
 
 
 type HotLeadsProps = {
-  leads: Lead[]
+  leads:Lead[]
 }
 
 
@@ -31,18 +32,16 @@ type HotLeadsProps = {
 
 export function HotLeads({
   leads,
-}: HotLeadsProps) {
+}:HotLeadsProps){
 
 
   return (
 
     <Link
-
       href="/deals?filter=hot"
-
       className="block"
-
     >
+
 
       <DashboardCard
 
@@ -58,9 +57,13 @@ export function HotLeads({
 
         <DashboardCardHeader>
 
+
           <div>
 
-            <p className="text-sm font-medium tracking-wide text-muted-foreground">
+
+            <p className="flex items-center gap-2 text-sm font-medium tracking-wide text-muted-foreground">
+
+              <Flame className="h-4 w-4" />
 
               Hot Leads
 
@@ -68,7 +71,7 @@ export function HotLeads({
 
 
 
-            <h3 className="mt-2 text-2xl font-semibold tracking-tight">
+            <h3 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">
 
               {leads.length} Priority Clients
 
@@ -84,51 +87,100 @@ export function HotLeads({
 
 
 
-        <DashboardCardContent className="space-y-4">
+
+        <DashboardCardContent>
 
 
-          {leads.map((lead) => (
+          {
+            leads.length === 0 ? (
 
-            <div
+              <p className="text-sm text-muted-foreground">
+                No hot leads currently.
+              </p>
 
-              key={lead.name}
-
-              className="
-                group
-                rounded-2xl
-                border
-                border-border/60
-                bg-muted/20
-                p-4
-                transition-all
-                duration-200
-                hover:-translate-y-0.5
-                hover:border-primary/20
-                hover:bg-background
-              "
-
-            >
+            ) : (
 
 
-              <div className="flex items-start justify-between">
+              <>
 
 
-                <div>
+                {/* MOBILE */}
+
+                <div className="space-y-3 md:hidden">
 
 
-                  <h4 className="font-medium">
+                  {
+                    leads.map(
+                      lead => (
 
-                    {lead.name}
+                        <div
 
-                  </h4>
+                          key={lead.name}
+
+                          className="
+                            flex
+                            items-center
+                            justify-between
+                            rounded-xl
+                            border
+                            p-4
+                          "
+
+                        >
+
+
+                          <div>
+
+
+                            <p className="font-medium">
+                              {lead.name}
+                            </p>
 
 
 
-                  <p className="mt-1 text-sm text-muted-foreground">
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {lead.location}
+                            </p>
 
-                    {lead.location}
 
-                  </p>
+
+                            <div className="mt-2 flex items-center gap-2">
+
+
+                              <span className="rounded-full bg-muted px-2.5 py-1 text-xs">
+
+                                {lead.stage}
+
+                              </span>
+
+
+
+                              <span className="text-xs text-muted-foreground">
+
+                                {lead.budget}
+
+                              </span>
+
+
+                            </div>
+
+
+                          </div>
+
+
+
+
+
+                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+
+
+                        </div>
+
+                      )
+
+                    )
+
+                  }
 
 
                 </div>
@@ -136,66 +188,136 @@ export function HotLeads({
 
 
 
-                <ArrowUpRight
-
-                  className="
-                    h-4 w-4
-                    text-muted-foreground
-                    transition-transform
-                    group-hover:translate-x-0.5
-                    group-hover:-translate-y-0.5
-                  "
-
-                />
-
-
-              </div>
 
 
 
+                {/* DESKTOP */}
+
+                <div className="hidden space-y-4 md:block">
 
 
-              <div className="mt-4 flex items-center justify-between text-sm">
+                  {
+                    leads.map(
+                      lead => (
+
+                        <div
+
+                          key={lead.name}
+
+                          className="
+                            group
+                            rounded-2xl
+                            border
+                            border-border/60
+                            bg-muted/20
+                            p-4
+                            transition-all
+                            duration-200
+                            hover:-translate-y-0.5
+                            hover:border-primary/20
+                            hover:bg-background
+                          "
+
+                        >
 
 
-                <div>
+                          <div className="flex items-start justify-between">
 
 
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-
-                    Budget
-
-                  </p>
+                            <div>
 
 
+                              <h4 className="font-medium">
 
-                  <p className="mt-1 font-medium">
+                                {lead.name}
 
-                    {lead.budget}
+                              </h4>
 
-                  </p>
+
+
+                              <p className="mt-1 text-sm text-muted-foreground">
+
+                                {lead.location}
+
+                              </p>
+
+
+                            </div>
+
+
+
+                            <ArrowRight
+
+                              className="
+                                h-4 w-4
+                                text-muted-foreground
+                                transition-transform
+                                group-hover:translate-x-1
+                              "
+
+                            />
+
+
+                          </div>
+
+
+
+
+
+                          <div className="mt-4 flex items-center justify-between text-sm">
+
+
+                            <div>
+
+
+                              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+
+                                Budget
+
+                              </p>
+
+
+
+                              <p className="mt-1 font-medium">
+
+                                {lead.budget}
+
+                              </p>
+
+
+                            </div>
+
+
+
+
+
+                            <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">
+
+                              {lead.stage}
+
+                            </span>
+
+
+                          </div>
+
+
+                        </div>
+
+                      )
+
+                    )
+
+                  }
 
 
                 </div>
 
 
+              </>
 
+            )
 
-
-                <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">
-
-                  {lead.stage}
-
-                </span>
-
-
-              </div>
-
-
-            </div>
-
-
-          ))}
+          }
 
 
         </DashboardCardContent>

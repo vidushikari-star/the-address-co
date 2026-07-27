@@ -1,8 +1,12 @@
 import { supabase } from "@/lib/supabase/client"
 
-import { mapPropertyRow } from "@/lib/mappers/property.mapper"
+import {
+  mapPropertyRow,
+} from "@/lib/mappers/property.mapper"
 
-import type { Property } from "@/types/property"
+import type {
+  Property,
+} from "@/types/property"
 
 
 
@@ -35,11 +39,7 @@ export interface CreatePropertyDto {
   locality?:string
 
 
-
-
   price:number
-
-
 
 
   bedrooms:number
@@ -53,35 +53,23 @@ export interface CreatePropertyDto {
   builtUpArea?:number
 
 
-
-
-
   description?:string
-
 
   amenities?:string[]
 
-
   furnishing?:string
-
 
   googleMapLink?:string
 
 
-
-
-
   tags?:string[]
-
 
   coverImage?:string
 
 
   advisor:string
 
-
   note?:string
-
 
 }
 
@@ -122,7 +110,8 @@ export async function getProperties():Promise<Property[]> {
 
   return (
     data ?? []
-  ).map(
+  )
+  .map(
     mapPropertyRow
   )
 
@@ -267,7 +256,8 @@ export async function getPropertiesByIds(
 
   return (
     data ?? []
-  ).map(
+  )
+  .map(
     mapPropertyRow
   )
 
@@ -286,6 +276,7 @@ export async function createProperty(
 ):Promise<Property>{
 
 
+
   const payload = {
 
 
@@ -301,39 +292,32 @@ export async function createProperty(
       property.developer,
 
 
-
     listing_type:
       property.listingType,
 
-      transaction_type:
-  property.transactionType,
 
+    transaction_type:
+      property.transactionType,
 
 
     development_stage:
       property.developmentStage,
 
 
-
     property_type:
       property.propertyType,
-
 
 
     status:
       property.status,
 
 
-
     location:
       property.location,
 
 
-
     locality:
       property.locality ?? null,
-
-
 
 
 
@@ -343,8 +327,6 @@ export async function createProperty(
         property.price,
 
     },
-
-
 
 
 
@@ -375,51 +357,36 @@ export async function createProperty(
 
 
 
-
-
     description:
       property.description ?? null,
-
 
 
     amenities:
       property.amenities ?? [],
 
 
-
     furnishing:
       property.furnishing ?? null,
-
 
 
     google_map_link:
       property.googleMapLink ?? null,
 
 
-
-
-
     tags:
       property.tags ?? [],
-
-
 
 
     cover_image:
       property.coverImage ?? null,
 
 
-
-
     advisor:
       property.advisor,
 
 
-
-
     note:
       property.note ?? null,
-
 
   }
 
@@ -473,65 +440,142 @@ export async function updateProperty(
 
 
   if(property.name !== undefined)
+
     payload.name =
       property.name
 
 
 
 
+
+  if(property.slug !== undefined)
+
+    payload.slug =
+      property.slug
+
+
+
+
+
   if(property.developer !== undefined)
+
     payload.developer =
       property.developer
 
-      if(property.transactionType !== undefined)
-  payload.transaction_type =
-    property.transactionType
 
 
 
-if(property.propertyType !== undefined)
-  payload.property_type =
-    property.propertyType
+
+  if(property.listingType !== undefined)
+
+    payload.listing_type =
+      property.listingType
+
+
+
+
+
+  if(property.transactionType !== undefined)
+
+    payload.transaction_type =
+      property.transactionType
+
+
+
+
+
+  if(property.developmentStage !== undefined)
+
+    payload.development_stage =
+      property.developmentStage
+
+
+
+
+
+  if(property.propertyType !== undefined)
+
+    payload.property_type =
+      property.propertyType
+
+
+
+
+
+  if(property.status !== undefined)
+
+    payload.status =
+      property.status
+
 
 
 
 
   if(property.location !== undefined)
+
     payload.location =
       property.location
 
 
 
 
+
   if(property.locality !== undefined)
+
     payload.locality =
       property.locality
 
 
 
 
+
   if(property.googleMapLink !== undefined)
+
     payload.google_map_link =
       property.googleMapLink
 
 
 
 
+
   if(property.description !== undefined)
+
     payload.description =
       property.description
 
 
 
 
+
   if(property.amenities !== undefined)
+
     payload.amenities =
       property.amenities
 
 
 
 
+
+  if(property.tags !== undefined)
+
+    payload.tags =
+      property.tags
+
+
+
+
+
+  if(property.coverImage !== undefined)
+
+    payload.cover_image =
+      property.coverImage
+
+
+
+
+
   if(property.furnishing !== undefined)
+
     payload.furnishing =
       property.furnishing
 
@@ -539,16 +583,14 @@ if(property.propertyType !== undefined)
 
 
 
-
   if(property.price !== undefined)
+
     payload.price = {
 
       asking:
         property.price,
 
     }
-
-
 
 
 
@@ -561,6 +603,7 @@ if(property.propertyType !== undefined)
     property.plotArea !== undefined ||
     property.builtUpArea !== undefined
   ){
+
 
     payload.specifications = {
 
@@ -584,7 +627,6 @@ if(property.propertyType !== undefined)
       builtUpArea:
         property.builtUpArea ?? 0,
 
-
     }
 
   }
@@ -593,15 +635,8 @@ if(property.propertyType !== undefined)
 
 
 
-  if(property.status !== undefined)
-    payload.status =
-      property.status
-
-
-
-
-
   if(property.advisor !== undefined)
+
     payload.advisor =
       property.advisor
 
@@ -610,9 +645,9 @@ if(property.propertyType !== undefined)
 
 
   if(property.note !== undefined)
+
     payload.note =
       property.note
-
 
 
 

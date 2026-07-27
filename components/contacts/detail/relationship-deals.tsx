@@ -5,15 +5,14 @@ import {
   useState,
 } from "react"
 
-import type { Contact } from "@/types"
+import Link from "next/link"
 
+import type { Contact } from "@/types"
 import type { Deal } from "@/types/deal"
 
 import {
   getDealsByContactId,
 } from "@/lib/repositories/deal-repository"
-
-
 
 import {
   Card,
@@ -22,10 +21,14 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
+import {
+  Badge,
+} from "@/components/ui/badge"
 
 import {
   BriefcaseBusiness,
 } from "lucide-react"
+
 
 
 
@@ -61,12 +64,10 @@ export function RelationshipDeals({
 
       try {
 
-
         const data =
           await getDealsByContactId(
             contact.id
           )
-
 
         setDeals(data)
 
@@ -100,91 +101,198 @@ export function RelationshipDeals({
 
     <Card>
 
-      <CardHeader>
 
-        <CardTitle className="flex items-center gap-2">
+      <CardHeader className="px-4 py-3">
 
-          <BriefcaseBusiness className="h-4 w-4"/>
 
-          Deals
+        <CardTitle className="flex items-center justify-between text-base">
+
+
+          <span className="flex items-center gap-2">
+
+            <BriefcaseBusiness className="h-4 w-4"/>
+
+            Deals
+
+          </span>
+
+
+
+          <Badge variant="secondary">
+
+            {deals.length}
+
+          </Badge>
+
 
         </CardTitle>
+
 
       </CardHeader>
 
 
 
 
-      <CardContent className="space-y-4">
+
+
+      <CardContent className="space-y-3 px-4 pb-4">
+
 
 
         {
-          deals.length === 0
-
-          ?
-
-          (
+          deals.length === 0 ? (
 
             <p className="text-sm text-muted-foreground">
+
               No active deals.
+
             </p>
 
-          )
+          ) : (
 
-          :
-
-          (
 
             deals.map(
+
               deal => (
 
-                <div
+                <Link
+
                   key={deal.id}
-                  className="rounded-lg border p-4"
+
+                  href={`/deals/${deal.id}`}
+
+                  className="block"
+
                 >
 
-                  <p className="font-medium">
-                    {deal.name}
-                  </p>
 
+                  <div
 
-                  <p className="text-sm text-muted-foreground mt-1">
+                    className="
+                      rounded-xl
+                      border
+                      p-3
+                      transition
+                      hover:border-primary/30
+                    "
 
-                    Stage:
-                    {" "}
-                    {deal.stage}
-
-                  </p>
-
-
-
-                  <p className="text-sm text-muted-foreground">
-
-                    Advisor:
-                    {" "}
-                    {deal.advisor || "Not assigned"}
-
-                  </p>
+                  >
 
 
 
-                  <p className="text-sm text-muted-foreground">
-
-                    Value:
-                    {" "}
-                    ₹
-                    {(
-                      deal.value?.propertyPrice ?? 0
-                    ).toLocaleString(
-                      "en-IN"
-                    )}
-
-                  </p>
+                    <div className="flex items-start justify-between gap-3">
 
 
-                </div>
+                      <div className="min-w-0">
+
+
+                        <p className="truncate font-medium">
+
+                          {deal.name}
+
+                        </p>
+
+
+
+                        <p className="mt-1 text-xs text-muted-foreground capitalize">
+
+                          {deal.stage.replace(
+                            /_/g,
+                            " "
+                          )}
+
+                        </p>
+
+
+                      </div>
+
+
+
+
+
+                      <Badge
+                        variant="outline"
+                      >
+
+                        {
+                          deal.probability
+                        }%
+
+                      </Badge>
+
+
+                    </div>
+
+
+
+
+
+
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+
+
+                      <div>
+
+                        <p className="text-xs text-muted-foreground">
+                          Value
+                        </p>
+
+
+                        <p className="font-semibold">
+
+                          ₹
+                          {
+                            (
+                              deal.value?.propertyPrice
+                              ??
+                              0
+                            ).toLocaleString(
+                              "en-IN"
+                            )
+                          }
+
+                        </p>
+
+
+                      </div>
+
+
+
+
+
+
+                      <div>
+
+                        <p className="text-xs text-muted-foreground">
+                          Advisor
+                        </p>
+
+
+                        <p className="truncate font-medium">
+
+                          {
+                            deal.advisor ??
+                            "Unassigned"
+                          }
+
+                        </p>
+
+
+                      </div>
+
+
+                    </div>
+
+
+
+                  </div>
+
+
+                </Link>
+
 
               )
+
             )
 
           )
@@ -193,6 +301,7 @@ export function RelationshipDeals({
 
 
       </CardContent>
+
 
     </Card>
 

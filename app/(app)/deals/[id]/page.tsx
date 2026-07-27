@@ -265,331 +265,295 @@ export default async function DealPage({
 
   return (
 
-    <div className="space-y-8 p-8">
+<div className="space-y-6 p-4 md:p-8">
 
 
 
+{/* HEADER */}
 
+<div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 
+<div>
 
-        <div>
 
-          <h1 className="text-3xl font-semibold">
+<h1 className="text-2xl font-semibold md:text-3xl">
+{deal.name}
+</h1>
 
-            {deal.name}
 
-          </h1>
+<div className="mt-3 flex flex-wrap gap-2">
 
 
-          <div className="mt-3 flex gap-3">
+<DealStageSelect
+deal={deal}
+/>
 
 
-            <DealStageSelect
-              deal={deal}
-            />
+<Badge variant="outline">
 
+{deal.probability}% probability
 
-            <Badge variant="outline">
+</Badge>
 
-              {deal.probability}% probability
 
-            </Badge>
+</div>
 
 
-          </div>
+</div>
 
 
-        </div>
 
 
 
+<div className="w-full md:w-auto">
 
 
-        <div className="flex items-center gap-3">
+<DealActions
 
+deal={deal}
 
-          <DealActions
+contact={contact}
 
-            deal={
-              deal
-            }
+/>
 
-            contact={
-              contact
-            }
 
-          />
+</div>
 
 
-        </div>
+</div>
 
 
-      </div>
 
 
 
 
 
 
+{/* QUICK INFO */}
 
 
+<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
-      <div className="grid gap-6 md:grid-cols-4">
 
 
+<div className="rounded-2xl border p-4">
 
-        <div className="rounded-2xl border p-6">
+<h2 className="text-sm text-muted-foreground">
+Buyer
+</h2>
 
-          <h2 className="font-semibold">
-            Buyer
-          </h2>
 
-          <p className="mt-3">
+<p className="mt-2 font-medium">
+{contact?.name ?? "Not assigned"}
+</p>
 
-            {contact?.name ?? "Not assigned"}
+</div>
 
-          </p>
 
-        </div>
 
 
 
+<div className="rounded-2xl border p-4">
 
+<h2 className="text-sm text-muted-foreground">
+Property
+</h2>
 
-        <div className="rounded-2xl border p-6">
 
-          <h2 className="font-semibold">
-            Property
-          </h2>
+<p className="mt-2 font-medium">
+{property?.name ?? "Not assigned"}
+</p>
 
-          <p className="mt-3">
 
-            {property?.name ?? "Not assigned"}
+<p className="text-sm text-muted-foreground">
+{property?.locality ?? ""}
+</p>
 
-          </p>
+</div>
 
 
-          <p className="text-sm text-muted-foreground">
 
-            {property?.locality ?? ""}
 
-          </p>
 
-        </div>
+<div className="rounded-2xl border p-4">
 
+<h2 className="text-sm text-muted-foreground">
+Advisor
+</h2>
 
 
+<p className="mt-2 font-medium">
+{deal.advisor ?? "Not assigned"}
+</p>
 
+</div>
 
-        <div className="rounded-2xl border p-6">
 
-          <h2 className="font-semibold">
-            Advisor
-          </h2>
 
 
-          <p className="mt-3">
 
-            {deal.advisor ?? "Not assigned"}
+<div className="rounded-2xl border p-4">
 
-          </p>
+<h2 className="text-sm text-muted-foreground">
+Financials
+</h2>
 
-        </div>
 
+<p className="mt-2 font-semibold">
 
+₹
+{(
+deal.value?.propertyPrice ?? 0
+).toLocaleString(
+"en-IN"
+)}
 
+</p>
 
+</div>
 
-        <div className="rounded-2xl border p-6">
 
-          <h2 className="font-semibold">
-            Financials
-          </h2>
+</div>
 
 
-          <p className="mt-3">
 
-            Value:
-            ₹
-            {(
-              deal.value?.propertyPrice ?? 0
-            ).toLocaleString(
-              "en-IN"
-            )}
 
-          </p>
 
-        </div>
 
 
-      </div>
 
 
+{/* WORK AREA */}
 
 
+<div className="grid gap-6 lg:grid-cols-2">
 
 
 
+<DealTasks
 
+deal={deal}
 
-      <div className="grid gap-6 md:grid-cols-2">
+/>
 
 
-        <DealCommission
 
-          commissions={
-            commissions
-          }
+<DealNotes
 
-          role={
-            user?.role
-          }
+deal={deal}
 
-          paidDistributionAmount={
-            paidDistributionAmount
-          }
+/>
 
-        />
 
 
+<DealHealth
 
-        <DealHealth
+deal={deal}
 
-          deal={
-            deal
-          }
+/>
 
-        />
 
 
+<DealCommission
 
-        <DealNotes
+commissions={commissions}
 
-          deal={
-            deal
-          }
+role={user?.role}
 
-        />
-
-
-
-        <DealTasks
-
-          deal={
-            deal
-          }
-
-        />
-
-
-      </div>
-
-
-
-
-
-
-
-
-
-      <section className="rounded-2xl border p-6 space-y-4">
-
-
-        <h2 className="text-xl font-semibold">
-
-          Shared Properties
-
-        </h2>
-
-
-
-        <SharedProperties
-
-          shares={
-            sharedProperties
-          }
-
-
-          properties={
-            sharedPropertyDetails
-          }
-
-        />
-
-
-      </section>
-
-
-
-
-
-
-
-
-
-      <SiteVisitsSection
-
-        visits={
-          siteVisits
-        }
-
-
-        properties={
-          siteVisitProperties
-        }
-
-
-        dealId={
-          deal.id
-        }
-
-
-        contactId={
-          deal.contactId
-        }
-
-
-        dealStage={
-          deal.stage
-        }
-
-      />
-
-
-
-
-
-
-
-
-
-      <section className="space-y-4">
-
-
-        <h2 className="text-xl font-semibold">
-
-          Activity Timeline
-
-        </h2>
-
-
-
-        <DealActivityTimeline
-
-          activities={
-            activities
-          }
-
-        />
-
-
-      </section>
-
-
-    </div>
-
-  )
-
+paidDistributionAmount={
+paidDistributionAmount
 }
+
+/>
+
+
+
+</div>
+
+
+
+
+
+
+
+
+{/* SHARED PROPERTIES */}
+
+
+<section className="rounded-2xl border p-5 space-y-4">
+
+
+<h2 className="text-xl font-semibold">
+Shared Properties
+</h2>
+
+
+<SharedProperties
+
+shares={sharedProperties}
+
+properties={sharedPropertyDetails}
+
+/>
+
+
+</section>
+
+
+
+
+
+
+
+
+
+{/* SITE VISITS */}
+
+
+<SiteVisitsSection
+
+visits={siteVisits}
+
+properties={siteVisitProperties}
+
+dealId={deal.id}
+
+contactId={deal.contactId}
+
+dealStage={deal.stage}
+
+/>
+
+
+
+
+
+
+
+
+
+{/* ACTIVITY */}
+
+
+<section className="space-y-4">
+
+
+<h2 className="text-xl font-semibold">
+Activity Timeline
+</h2>
+
+
+<DealActivityTimeline
+
+activities={activities}
+
+/>
+
+
+</section>
+
+
+</div>
+
+)}

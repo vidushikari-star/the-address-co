@@ -20,7 +20,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-import { Separator } from "@/components/ui/separator"
 
 
 type RelationshipSnapshotProps = {
@@ -28,56 +27,85 @@ type RelationshipSnapshotProps = {
 }
 
 
+
+
+
 export function RelationshipSnapshot({
   contact,
 }: RelationshipSnapshotProps) {
+
 
   const locations =
     contact.locations ?? []
 
 
+
   return (
 
-    <div className="space-y-6">
+    <div className="space-y-4">
 
+
+
+
+
+      {/* CONTACT */}
 
       <Card>
 
-        <CardHeader>
 
-          <CardTitle>
+        <CardHeader className="px-4 py-3">
+
+          <CardTitle className="text-base">
             Contact
           </CardTitle>
 
         </CardHeader>
 
 
-        <CardContent className="space-y-4">
+
+        <CardContent className="space-y-3 px-4 pb-4">
 
 
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex min-w-0 items-center gap-3 text-sm">
 
-            <Phone className="h-4 w-4 text-muted-foreground" />
+            <Phone className="h-4 w-4 shrink-0 text-muted-foreground"/>
 
-            {contact.phone || "Not provided"}
+            <span className="truncate">
 
-          </div>
+              {contact.phone || "Not provided"}
 
-
-
-          <div className="flex items-center gap-3 text-sm">
-
-            <Mail className="h-4 w-4 text-muted-foreground" />
-
-            {contact.email || "Not provided"}
+            </span>
 
           </div>
 
 
 
+
+          {
+            contact.email && (
+
+              <div className="flex min-w-0 items-center gap-3 text-sm">
+
+                <Mail className="h-4 w-4 shrink-0 text-muted-foreground"/>
+
+                <span className="truncate">
+
+                  {contact.email}
+
+                </span>
+
+              </div>
+
+            )
+          }
+
+
+
+
+
           <div className="flex items-center gap-3 text-sm">
 
-            <User className="h-4 w-4 text-muted-foreground" />
+            <User className="h-4 w-4 shrink-0 text-muted-foreground"/>
 
             Buyer
 
@@ -85,26 +113,25 @@ export function RelationshipSnapshot({
 
 
 
-          {contact.city && (
 
-            <div className="flex items-center gap-3 text-sm">
 
-              <MapPin className="h-4 w-4 text-muted-foreground" />
+          {
+            contact.city && (
 
-              {contact.city}
+              <div className="flex items-center gap-3 text-sm">
 
-              {
-                contact.country
-                  ? `, ${contact.country}`
-                  : ""
-              }
+                <MapPin className="h-4 w-4 shrink-0 text-muted-foreground"/>
 
-            </div>
+                {contact.city}
 
-          )}
+              </div>
+
+            )
+          }
 
 
         </CardContent>
+
 
       </Card>
 
@@ -112,11 +139,17 @@ export function RelationshipSnapshot({
 
 
 
+
+
+
+      {/* REQUIREMENTS */}
+
       <Card>
 
-        <CardHeader>
 
-          <CardTitle>
+        <CardHeader className="px-4 py-3">
+
+          <CardTitle className="text-base">
             Requirements
           </CardTitle>
 
@@ -124,103 +157,142 @@ export function RelationshipSnapshot({
 
 
 
-        <CardContent className="space-y-5">
+
+        <CardContent className="
+          grid
+          grid-cols-1
+          gap-4
+          px-4
+          pb-4
+          sm:grid-cols-2
+        ">
 
 
-          {(contact.budgetMin ||
+
+
+
+          {
+            (contact.budgetMin ||
             contact.budgetMax) && (
 
-            <div>
+              <div className="sm:col-span-2">
 
-              <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                <p className="flex items-center gap-2 text-xs text-muted-foreground">
 
-                <BadgeIndianRupee className="h-4 w-4" />
+                  <BadgeIndianRupee className="h-3.5 w-3.5"/>
 
-                Budget
+                  Budget
 
-              </div>
-
-
-              <p className="text-sm text-muted-foreground">
-
-                ₹
-                {
-                  contact.budgetMin?.toLocaleString()
-                  ?? "—"
-                }
-
-                {" – "}
-
-                ₹
-                {
-                  contact.budgetMax?.toLocaleString()
-                  ?? "—"
-                }
-
-              </p>
-
-            </div>
-
-          )}
-
-
-
-
-
-          {contact.propertyType && (
-
-            <>
-
-              <Separator />
-
-
-              <div>
-
-                <p className="mb-2 text-sm font-medium">
-                  Property Type
                 </p>
 
 
-                <Badge variant="secondary">
+                <p className="mt-1 text-sm font-medium">
+
+                  ₹
+                  {
+                    contact.budgetMin?.toLocaleString()
+                    ??
+                    "—"
+                  }
+
+                  {" - "}
+
+                  ₹
+                  {
+                    contact.budgetMax?.toLocaleString()
+                    ??
+                    "—"
+                  }
+
+                </p>
+
+
+              </div>
+
+            )
+          }
+
+
+
+
+
+          {
+            contact.propertyType && (
+
+              <div>
+
+                <p className="text-xs text-muted-foreground">
+                  Type
+                </p>
+
+                <Badge
+                  className="mt-1"
+                  variant="secondary"
+                >
 
                   {contact.propertyType}
 
                 </Badge>
 
-
               </div>
 
-            </>
-
-          )}
-
+            )
+          }
 
 
 
 
-          {locations.length > 0 && (
 
-            <>
 
-              <Separator />
-
+          {
+            contact.bedrooms && (
 
               <div>
 
-                <p className="mb-2 text-sm font-medium">
-                  Preferred Locations
+                <p className="text-xs text-muted-foreground">
+                  Size
                 </p>
+
+
+                <Badge className="mt-1">
+
+                  {contact.bedrooms} BHK
+
+                </Badge>
+
+              </div>
+
+            )
+          }
+
+
+
+
+
+          {
+            locations.length > 0 && (
+
+              <div className="sm:col-span-2">
+
+
+                <p className="mb-2 text-xs text-muted-foreground">
+
+                  Preferred Locations
+
+                </p>
+
 
 
                 <div className="flex flex-wrap gap-2">
 
                   {
                     locations.map(
-                      (location) => (
+                      location => (
 
                         <Badge
                           key={location}
                           variant="outline"
+                          className="break-words"
                         >
 
                           {location}
@@ -233,45 +305,16 @@ export function RelationshipSnapshot({
 
                 </div>
 
-              </div>
-
-            </>
-
-          )}
-
-
-
-
-
-          {contact.bedrooms && (
-
-            <>
-
-              <Separator />
-
-
-              <div>
-
-                <p className="mb-2 text-sm font-medium">
-                  Bedrooms
-                </p>
-
-
-                <Badge>
-
-                  {contact.bedrooms} BHK
-
-                </Badge>
-
 
               </div>
 
-            </>
+            )
+          }
 
-          )}
 
 
         </CardContent>
+
 
       </Card>
 
@@ -279,11 +322,18 @@ export function RelationshipSnapshot({
 
 
 
+
+
+
+
+      {/* CRM */}
+
       <Card>
 
-        <CardHeader>
 
-          <CardTitle>
+        <CardHeader className="px-4 py-3">
+
+          <CardTitle className="text-base">
             CRM
           </CardTitle>
 
@@ -291,24 +341,19 @@ export function RelationshipSnapshot({
 
 
 
-        <CardContent className="space-y-4">
+
+        <CardContent className="space-y-3 px-4 pb-4">
 
 
 
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-start justify-between gap-4 text-sm">
 
-            <span className="text-muted-foreground">
+            <span className="shrink-0 text-muted-foreground">
               Advisor
             </span>
 
-
-            <span className="font-medium">
-
-              {
-                contact.assignedAdvisor ??
-                "Unassigned"
-              }
-
+            <span className="truncate text-right font-medium">
+              {contact.assignedAdvisor ?? "Unassigned"}
             </span>
 
           </div>
@@ -316,20 +361,15 @@ export function RelationshipSnapshot({
 
 
 
-          <div className="flex items-center justify-between text-sm">
 
-            <span className="text-muted-foreground">
+          <div className="flex items-start justify-between gap-4 text-sm">
+
+            <span className="shrink-0 text-muted-foreground">
               Source
             </span>
 
-
-            <span className="font-medium">
-
-              {
-                contact.leadSource ??
-                "Unknown"
-              }
-
+            <span className="truncate text-right font-medium">
+              {contact.leadSource ?? "Unknown"}
             </span>
 
           </div>
@@ -337,79 +377,31 @@ export function RelationshipSnapshot({
 
 
 
-          <div className="flex items-center justify-between text-sm">
 
-            <span className="text-muted-foreground">
+          <div className="flex items-start justify-between gap-4 text-sm">
+
+            <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
+
+              <CalendarClock className="h-4 w-4"/>
+
               Timeline
+
             </span>
 
 
-            <div className="flex items-center gap-2">
+            <span className="truncate text-right font-medium">
 
-              <CalendarClock className="h-4 w-4 text-muted-foreground" />
+              {contact.timeline ?? "Not specified"}
 
+            </span>
 
-              <span className="font-medium">
-
-                {
-                  contact.timeline ??
-                  "Not specified"
-                }
-
-              </span>
-
-
-            </div>
 
           </div>
 
-
-
-
-
-          {locations.length > 0 && (
-
-            <div className="flex items-start justify-between gap-3 text-sm">
-
-
-              <span className="text-muted-foreground">
-
-                Preferred Areas
-
-              </span>
-
-
-
-              <div className="flex max-w-[180px] flex-wrap justify-end gap-1">
-
-                {
-                  locations.map(
-                    (area) => (
-
-                      <Badge
-                        key={area}
-                        variant="outline"
-                      >
-
-                        <MapPin className="mr-1 h-3 w-3" />
-
-                        {area}
-
-                      </Badge>
-
-                    )
-                  )
-                }
-
-              </div>
-
-
-            </div>
-
-          )}
 
 
         </CardContent>
+
 
       </Card>
 

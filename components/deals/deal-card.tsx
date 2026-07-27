@@ -17,6 +17,7 @@ import {
   CheckSquare,
   FileText,
   MapPin,
+  ArrowRight,
 } from "lucide-react"
 
 import {
@@ -32,6 +33,9 @@ type Props = {
 }
 
 
+
+
+
 export function DealCard({
   deal,
 }: Props) {
@@ -43,19 +47,22 @@ export function DealCard({
   ] = React.useState<Contact | null>(null)
 
 
+
   const [
     property,
     setProperty,
   ] = React.useState<Property | undefined>()
 
 
+
+
   React.useEffect(() => {
 
-    async function loadData() {
+    async function loadData(){
 
       try {
 
-        if (deal.contactId) {
+        if(deal.contactId){
 
           const contact =
             await ContactsRepository.getById(
@@ -67,7 +74,8 @@ export function DealCard({
         }
 
 
-        if (deal.propertyId) {
+
+        if(deal.propertyId){
 
           const propertyData =
             await getPropertyById(
@@ -77,6 +85,7 @@ export function DealCard({
           setProperty(propertyData)
 
         }
+
 
       } catch {
 
@@ -91,7 +100,7 @@ export function DealCard({
 
     loadData()
 
-  }, [
+  },[
     deal.contactId,
     deal.propertyId,
   ])
@@ -100,17 +109,36 @@ export function DealCard({
 
 
 
+
+
   return (
 
-    <Link href={`/deals/${deal.id}`}>
-
-      <div className="rounded-2xl border bg-card p-4 transition hover:border-primary hover:shadow-md">
-
-
-        <div className="flex items-start justify-between">
+    <Link
+      href={`/deals/${deal.id}`}
+      className="block"
+    >
 
 
-          <div className="flex items-center gap-3">
+      <div
+
+        className="
+          rounded-2xl
+          border
+          bg-card
+          p-4
+          transition
+          hover:border-primary
+          hover:shadow-md
+        "
+
+      >
+
+
+
+        <div className="flex items-start justify-between gap-3">
+
+
+          <div className="flex min-w-0 items-center gap-3">
 
 
             <Avatar>
@@ -119,11 +147,11 @@ export function DealCard({
 
                 {
                   buyer?.name
-                    ?.split(" ")
-                    .map(
-                      n => n[0]
-                    )
-                    .join("")
+                  ?.split(" ")
+                  .map(
+                    n => n[0]
+                  )
+                  .join("")
                 }
 
               </AvatarFallback>
@@ -132,38 +160,25 @@ export function DealCard({
 
 
 
-            <div>
 
 
-              <p className="font-semibold">
-                {
-                  deal.name ??
-                  "Untitled Deal"
-                }
-              </p>
+            <div className="min-w-0">
 
 
+              <p className="truncate font-semibold">
 
-              <p className="text-xs text-muted-foreground">
-
-                {
-                  buyer?.name ??
-                  "Buyer not assigned"
-                }
+                {deal.name || "Untitled Deal"}
 
               </p>
 
 
 
-              <p className="text-xs text-muted-foreground">
+              <p className="truncate text-xs text-muted-foreground">
 
-                Advisor:
-{" "}
-{
-  deal.advisor ?? "Unassigned"
-}
+                {buyer?.name || "Buyer not assigned"}
 
               </p>
+
 
 
             </div>
@@ -175,13 +190,7 @@ export function DealCard({
 
 
 
-          <Badge>
-
-            {
-              deal.probability
-            }%
-
-          </Badge>
+          <ArrowRight className="h-4 w-4 text-muted-foreground" />
 
 
         </div>
@@ -190,25 +199,40 @@ export function DealCard({
 
 
 
-        {
-          property?.coverImage && (
 
-            <img
 
-              src={
-                property.coverImage
-              }
+        <div className="mt-4 flex flex-wrap items-center gap-2">
 
-              alt={
-                property.name
-              }
 
-              className="mt-4 h-36 w-full rounded-xl object-cover"
+          <Badge>
 
-            />
+            {deal.stage.replace(
+              "_",
+              " "
+            )}
 
-          )
-        }
+          </Badge>
+
+
+
+
+          {
+            deal.priority === "high" && (
+
+              <Badge variant="destructive">
+
+                High Priority
+
+              </Badge>
+
+            )
+          }
+
+
+        </div>
+
+
+
 
 
 
@@ -217,83 +241,96 @@ export function DealCard({
         <div className="mt-4">
 
 
-          <p className="font-semibold">
+          <p className="text-xs text-muted-foreground">
+            Deal Value
+          </p>
+
+
+          <p className="text-xl font-semibold">
 
             {
-              property?.name ??
-              "No property assigned"
+              formatCurrencyCr(
+                deal.value.propertyPrice
+              )
             }
 
           </p>
 
 
-
-          <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-
-
-            <MapPin className="h-3 w-3" />
-
-
-            {
-              property?.locality
-            }
-
-
-          </div>
-
-
         </div>
 
 
 
 
 
-        <div className="mt-5 grid grid-cols-1 gap-4 text-sm">
 
 
-          <div>
 
-            <p className="text-muted-foreground">
-              Deal Value
-            </p>
+        {
+          property && (
+
+            <div className="mt-4 rounded-xl bg-muted/40 p-3">
 
 
-            <p className="font-semibold">
+              <p className="font-medium">
+
+                {property.name}
+
+              </p>
+
+
 
               {
-                formatCurrencyCr(
-                  deal.value.propertyPrice
+                property.locality && (
+
+                  <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+
+
+                    <MapPin className="h-3 w-3"/>
+
+
+                    {property.locality}
+
+
+                  </p>
+
                 )
               }
 
-            </p>
 
+            </div>
 
-          </div>
+          )
 
-
-        </div>
-
-
+        }
 
 
 
-        <div className="mt-5 flex items-center justify-between border-t pt-4 text-xs text-muted-foreground">
+
+
+
+
+
+        <div className="mt-4 flex items-center justify-between border-t pt-3 text-xs text-muted-foreground">
 
 
           <div className="flex items-center gap-1">
 
 
-            <Calendar className="h-4 w-4" />
+            <Calendar className="h-4 w-4"/>
 
 
             {
-  deal.expectedCloseDate
-    ? new Date(
-        deal.expectedCloseDate
-      ).toLocaleDateString()
-    : "No date"
-}
+              deal.expectedCloseDate
+              ?
+              new Date(
+                deal.expectedCloseDate
+              ).toLocaleDateString(
+                "en-IN"
+              )
+              :
+              "No close date"
+            }
 
 
           </div>
@@ -305,35 +342,25 @@ export function DealCard({
           <div className="flex items-center gap-3">
 
 
-            <div className="flex items-center gap-1">
+            <span className="flex items-center gap-1">
 
+              <CheckSquare className="h-4 w-4"/>
 
-              <CheckSquare className="h-4 w-4" />
+              {deal.tasks?.length ?? 0}
 
-
-              {
-                deal.tasks?.length ?? 0
-              }
-
-
-            </div>
+            </span>
 
 
 
 
 
-            <div className="flex items-center gap-1">
+            <span className="flex items-center gap-1">
 
+              <FileText className="h-4 w-4"/>
 
-              <FileText className="h-4 w-4" />
+              {deal.notes?.length ?? 0}
 
-
-              {
-                deal.notes?.length ?? 0
-              }
-
-
-            </div>
+            </span>
 
 
           </div>

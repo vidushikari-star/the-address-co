@@ -21,14 +21,22 @@ type Props = {
 
 export function PropertyActivityTimeline({
   activities,
-}:Props){
+}: Props){
 
 
   if(!activities.length){
 
     return (
 
-      <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
+      <div className="
+        rounded-2xl
+        border
+        border-dashed
+        p-6
+        text-center
+        text-sm
+        text-muted-foreground
+      ">
 
         No activity recorded yet.
 
@@ -44,11 +52,12 @@ export function PropertyActivityTimeline({
 
   return (
 
-    <div className="space-y-5">
+    <div className="space-y-4">
 
 
       {
         activities.map(
+
           activity => (
 
             <div
@@ -57,18 +66,41 @@ export function PropertyActivityTimeline({
                 activity.id
               }
 
-              className="flex gap-4"
+              className="
+                flex
+                gap-3
+                sm:gap-4
+              "
 
             >
 
 
-              <div className="mt-1">
 
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+              <div className="mt-1 shrink-0">
 
-                  <CircleDot className="h-4 w-4 text-primary"/>
+
+                <div className="
+                  flex
+                  h-8
+                  w-8
+                  items-center
+                  justify-center
+                  rounded-full
+                  bg-primary/10
+                ">
+
+
+                  <CircleDot
+                    className="
+                      h-4
+                      w-4
+                      text-primary
+                    "
+                  />
+
 
                 </div>
+
 
               </div>
 
@@ -76,13 +108,32 @@ export function PropertyActivityTimeline({
 
 
 
-              <div className="flex-1 rounded-xl border p-4">
 
 
-                <div className="flex items-center justify-between">
+              <div className="
+                min-w-0
+                flex-1
+                rounded-xl
+                border
+                p-3
+                sm:p-4
+              ">
 
 
-                  <p className="font-medium">
+                <div className="
+                  flex
+                  flex-col
+                  gap-2
+                  sm:flex-row
+                  sm:items-start
+                  sm:justify-between
+                ">
+
+
+                  <p className="
+                    font-medium
+                    break-words
+                  ">
 
                     {activity.title}
 
@@ -90,9 +141,21 @@ export function PropertyActivityTimeline({
 
 
 
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+
+
+                  <div className="
+                    flex
+                    shrink-0
+                    items-center
+                    gap-1
+                    text-xs
+                    text-muted-foreground
+                  ">
+
 
                     <Calendar className="h-3 w-3"/>
+
+
 
                     {
                       activity.date
@@ -106,6 +169,7 @@ export function PropertyActivityTimeline({
                       "-"
                     }
 
+
                   </div>
 
 
@@ -115,10 +179,17 @@ export function PropertyActivityTimeline({
 
 
 
+
+
                 {
                   activity.description && (
 
-                    <p className="mt-2 text-sm text-muted-foreground">
+                    <p className="
+                      mt-2
+                      break-words
+                      text-sm
+                      text-muted-foreground
+                    ">
 
                       {
                         activity.description
@@ -134,10 +205,17 @@ export function PropertyActivityTimeline({
 
 
 
+
+
+
                 {
                   activity.body && (
 
-                    <p className="mt-2 text-sm">
+                    <p className="
+                      mt-2
+                      break-words
+                      text-sm
+                    ">
 
                       {
                         activity.body
@@ -156,7 +234,9 @@ export function PropertyActivityTimeline({
             </div>
 
           )
+
         )
+
       }
 
 

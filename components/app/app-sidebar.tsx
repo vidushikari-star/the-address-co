@@ -51,9 +51,10 @@ export function AppSidebar({
 
   return (
     <Sidebar
-      collapsible="icon"
-      variant="inset"
-    >
+  collapsible="icon"
+  variant="inset"
+  side="left"
+>
       <SidebarHeader className="border-b border-sidebar-border px-5 py-4">
         <AppLogo />
       </SidebarHeader>

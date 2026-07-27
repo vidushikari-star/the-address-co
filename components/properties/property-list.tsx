@@ -18,6 +18,24 @@ import type {
   Property,
 } from "@/types/property"
 
+import {
+  Button,
+} from "@/components/ui/button"
+
+import {
+  Input,
+} from "@/components/ui/input"
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+
+
 
 
 export function PropertyList() {
@@ -26,35 +44,42 @@ export function PropertyList() {
   const [
     properties,
     setProperties,
-  ] = useState<Property[]>([])
+  ] =
+  useState<Property[]>([])
 
 
 
   const [
     loading,
     setLoading,
-  ] = useState(true)
+  ] =
+  useState(true)
 
 
 
   const [
     search,
     setSearch,
-  ] = useState("")
+  ] =
+  useState("")
 
 
 
   const [
     status,
     setStatus,
-  ] = useState("all")
+  ] =
+  useState("all")
 
 
 
   const [
     maxPrice,
     setMaxPrice,
-  ] = useState("")
+  ] =
+  useState("")
+
+
 
 
 
@@ -63,7 +88,7 @@ export function PropertyList() {
   useEffect(() => {
 
 
-    async function loadProperties() {
+    async function loadProperties(){
 
 
       try {
@@ -73,12 +98,10 @@ export function PropertyList() {
           await getProperties()
 
 
-        setProperties(
-          data
-        )
+        setProperties(data)
 
 
-      } catch(error) {
+      } catch(error){
 
 
         console.error(
@@ -88,7 +111,6 @@ export function PropertyList() {
 
 
       } finally {
-
 
         setLoading(false)
 
@@ -103,6 +125,7 @@ export function PropertyList() {
 
 
   }, [])
+
 
 
 
@@ -149,26 +172,25 @@ export function PropertyList() {
 
 
 
+
             const matchesPrice =
               !maxPrice
               ||
               property.price.asking
               <=
-              Number(
-                maxPrice
-              )
+              Number(maxPrice)
+
 
 
 
             return (
-
               matchesSearch
               &&
               matchesStatus
               &&
               matchesPrice
-
             )
+
 
           }
 
@@ -190,11 +212,34 @@ export function PropertyList() {
 
 
 
-  if (loading) {
+  function clearFilters(){
+
+    setSearch("")
+
+    setStatus("all")
+
+    setMaxPrice("")
+
+  }
+
+
+
+
+
+
+
+
+  if(loading){
 
     return (
 
-      <div className="rounded-xl border p-10 text-center">
+      <div className="
+        rounded-2xl
+        border
+        p-8
+        text-center
+        text-muted-foreground
+      ">
 
         Loading properties...
 
@@ -210,23 +255,100 @@ export function PropertyList() {
 
 
 
+  const hasFilters =
+    search !== ""
+    ||
+    status !== "all"
+    ||
+    maxPrice !== ""
+
+
+
+
+
+
+
   return (
 
     <div className="space-y-5">
 
 
-      <div className="grid gap-3 md:grid-cols-3">
 
 
-        <input
 
-          className="rounded-lg border px-3 py-2"
+
+      <div className="
+        flex
+        flex-col
+        gap-3
+        sm:flex-row
+        sm:items-center
+        sm:justify-between
+      ">
+
+
+        <p className="
+          text-sm
+          text-muted-foreground
+        ">
+
+          {filteredProperties.length} properties
+
+        </p>
+
+
+
+
+
+        {
+          hasFilters && (
+
+            <Button
+
+              variant="ghost"
+
+              size="sm"
+
+              onClick={clearFilters}
+
+            >
+
+              Clear Filters
+
+            </Button>
+
+          )
+
+        }
+
+
+      </div>
+
+
+
+
+
+
+
+      <div className="
+  grid
+  gap-3
+  sm:grid-cols-2
+  lg:grid-cols-3
+">
+
+
+
+        <Input
+
+          className="
+            h-11
+            rounded-xl
+          "
 
           placeholder="Search property or locality..."
 
-          value={
-            search
-          }
+          value={search}
 
           onChange={
             e =>
@@ -241,82 +363,97 @@ export function PropertyList() {
 
 
 
-        <select
 
-          className="rounded-lg border px-3 py-2"
 
-          value={
-            status
-          }
+        <Select
 
-          onChange={
-            e =>
-              setStatus(
-                e.target.value
-              )
-          }
+          value={status}
+
+          onValueChange={
+  value =>
+    setStatus(
+      value ?? "all"
+    )
+}
 
         >
 
-          <option value="all">
-            All Status
-          </option>
+          <SelectTrigger className="
+            h-11
+            rounded-xl
+          ">
+
+            <SelectValue placeholder="Status"/>
+
+          </SelectTrigger>
 
 
-          <option value="available">
-            Available
-          </option>
+          <SelectContent>
+
+            <SelectItem value="all">
+              All Status
+            </SelectItem>
+
+            <SelectItem value="available">
+              Available
+            </SelectItem>
+
+            <SelectItem value="viewed">
+              Viewed
+            </SelectItem>
+
+            <SelectItem value="shortlisted">
+              Shortlisted
+            </SelectItem>
+
+            <SelectItem value="offer">
+              Offer
+            </SelectItem>
+
+            <SelectItem value="purchased">
+              Purchased
+            </SelectItem>
+
+            <SelectItem value="rejected">
+              Rejected
+            </SelectItem>
 
 
-          <option value="viewed">
-            Viewed
-          </option>
+          </SelectContent>
 
 
-          <option value="shortlisted">
-            Shortlisted
-          </option>
-
-
-          <option value="offer">
-            Offer
-          </option>
-
-
-          <option value="purchased">
-            Purchased
-          </option>
-
-
-          <option value="rejected">
-            Rejected
-          </option>
-
-
-        </select>
+        </Select>
 
 
 
 
 
-        <input
 
-          className="rounded-lg border px-3 py-2"
 
-          placeholder="Maximum price"
+        <Input
 
-          value={
-            maxPrice
-          }
+  className="
+    h-11
+    rounded-xl
+  "
 
-          onChange={
-            e =>
-              setMaxPrice(
-                e.target.value
-              )
-          }
+  placeholder="Maximum price (₹)"
 
-        />
+  inputMode="numeric"
+
+  value={maxPrice}
+
+  onChange={
+    e =>
+      setMaxPrice(
+        e.target.value.replace(
+          /\D/g,
+          ""
+        )
+      )
+  }
+
+/>
 
 
       </div>
@@ -327,19 +464,31 @@ export function PropertyList() {
 
 
 
+
       {
         filteredProperties.length === 0 ? (
 
-          <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground">
+
+          <div className="
+            rounded-2xl
+            border
+            border-dashed
+            p-10
+            text-center
+            text-muted-foreground
+          ">
 
             No properties found.
 
           </div>
 
+
+
         ) : (
 
 
-          <div className="space-y-5">
+
+          <div className="space-y-4">
 
 
             {
@@ -349,13 +498,9 @@ export function PropertyList() {
 
                   <PropertyCard
 
-                    key={
-                      property.id
-                    }
+                    key={property.id}
 
-                    property={
-                      property
-                    }
+                    property={property}
 
                   />
 

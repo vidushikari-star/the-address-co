@@ -20,8 +20,6 @@ import {
 
 
 
-
-
 type Props = {
 
   propertyId:string
@@ -44,11 +42,14 @@ export function PropertyGallery({
     useRouter()
 
 
+
   const [
     loading,
     setLoading,
   ] =
   useState(false)
+
+
 
 
 
@@ -68,6 +69,7 @@ export function PropertyGallery({
         propertyId
       )
 
+
       router.refresh()
 
 
@@ -78,6 +80,7 @@ export function PropertyGallery({
         error
       )
 
+
     } finally {
 
       setLoading(false)
@@ -85,7 +88,6 @@ export function PropertyGallery({
     }
 
   }
-
 
 
 
@@ -108,6 +110,7 @@ export function PropertyGallery({
         url
       )
 
+
       router.refresh()
 
 
@@ -117,6 +120,7 @@ export function PropertyGallery({
         "Failed deleting image",
         error
       )
+
 
     } finally {
 
@@ -130,13 +134,21 @@ export function PropertyGallery({
 
 
 
-  if(
-    images.length === 0
-  ){
+
+
+
+  if(images.length === 0){
 
     return (
 
-      <div className="rounded-2xl border border-dashed p-8 text-center text-muted-foreground">
+      <div className="
+        rounded-2xl
+        border
+        border-dashed
+        p-8
+        text-center
+        text-muted-foreground
+      ">
 
         No property images added yet.
 
@@ -150,13 +162,22 @@ export function PropertyGallery({
 
 
 
+
+
+
   return (
 
-    <div className="grid gap-5 md:grid-cols-3">
+    <div className="
+      grid
+      gap-4
+      sm:grid-cols-2
+      lg:grid-cols-3
+    ">
 
 
       {
         images.map(
+
           image => (
 
             <div
@@ -165,33 +186,74 @@ export function PropertyGallery({
                 image.id
               }
 
-              className="rounded-2xl border overflow-hidden"
+              className="
+                overflow-hidden
+                rounded-2xl
+                border
+                bg-card
+              "
 
             >
 
 
-              <img
 
-                src={
-                  image.url
-                }
-
-                alt="Property image"
-
-                className="h-56 w-full object-cover"
-
-              />
+              <div
+  className="
+    group
+    aspect-[4/3]
+    overflow-hidden
+    bg-muted
+  "
+>
 
 
+                <img
+
+                  src={
+                    image.url
+                  }
+
+                  alt="Property image"
+
+                  className="
+                    h-full
+                    w-full
+                    object-cover
+                    transition-transform
+                    duration-300
+                    group-hover:scale-105
+                  "
+
+                />
 
 
-              <div className="flex items-center justify-between p-3">
+              </div>
+
+
+
+
+
+
+
+              <div className="
+                flex
+                flex-col
+                gap-3
+                p-3
+                sm:flex-row
+                sm:items-center
+                sm:justify-between
+              ">
 
 
                 {
                   image.isCover ? (
 
-                    <span className="text-xs font-medium text-primary">
+                    <span className="
+                      text-xs
+                      font-medium
+                      text-primary
+                    ">
 
                       Cover Image
 
@@ -204,6 +266,8 @@ export function PropertyGallery({
                       size="sm"
 
                       variant="outline"
+
+                      className="w-full sm:w-auto"
 
                       disabled={loading}
 
@@ -227,11 +291,15 @@ export function PropertyGallery({
 
 
 
+
+
                 <Button
 
                   size="sm"
 
                   variant="destructive"
+
+                  className="w-full sm:w-auto"
 
                   disabled={loading}
 
@@ -255,7 +323,9 @@ export function PropertyGallery({
             </div>
 
           )
+
         )
+
       }
 
 

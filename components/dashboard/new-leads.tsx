@@ -2,6 +2,7 @@ import Link from "next/link"
 
 import {
   Users,
+  ArrowRight,
 } from "lucide-react"
 
 
@@ -17,29 +18,38 @@ type Props = {
 
 
 export function NewLeads({
-
   leads,
-
 }:Props){
 
 
 
   return (
 
-    <div className="rounded-2xl border p-6">
+    <div className="rounded-2xl border p-4 sm:p-6">
 
 
-      <div className="mb-5 flex items-center gap-3">
+      <div className="mb-5 flex items-center justify-between">
 
 
-        <Users size={22}/>
+        <div className="flex items-center gap-3">
 
 
-        <h2 className="text-xl font-semibold">
+          <Users size={22}/>
 
-          New Leads
 
-        </h2>
+          <h2 className="text-xl font-semibold">
+            New Leads
+          </h2>
+
+
+        </div>
+
+
+        <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">
+
+          {leads.length}
+
+        </span>
 
 
       </div>
@@ -52,16 +62,14 @@ export function NewLeads({
         leads.length === 0 ? (
 
           <p className="text-muted-foreground">
-
             No new enquiries yet.
-
           </p>
 
 
         ) : (
 
 
-          <div className="space-y-4">
+          <div className="space-y-3">
 
 
             {
@@ -71,39 +79,50 @@ export function NewLeads({
 
                   <div
 
-                    key={
-                      lead.id
-                    }
+                    key={lead.id}
 
-                    className="rounded-xl border p-4"
+                    className="
+                      rounded-xl
+                      border
+                      p-4
+                      transition
+                      hover:border-primary/30
+                    "
 
                   >
 
 
-                    <div>
+                    <div className="flex items-start justify-between gap-3">
 
 
-                      <p className="font-semibold">
-
-                        {
-                          lead.name
-                        }
-
-                      </p>
+                      <div className="min-w-0">
 
 
+                        <p className="font-semibold">
 
-                      <p className="text-sm text-muted-foreground">
+                          {lead.name}
 
-                        Interested in:
+                        </p>
 
-                        {" "}
 
-                        {
-                          lead.property
-                        }
 
-                      </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+
+                          Interested in:
+
+                          {" "}
+
+                          {lead.property || "-"}
+
+                        </p>
+
+
+
+                      </div>
+
+
+
+                      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
 
 
                     </div>
@@ -112,14 +131,13 @@ export function NewLeads({
 
 
 
+
                     {
                       lead.description && (
 
-                        <p className="mt-3 text-sm">
+                        <p className="mt-3 text-sm text-muted-foreground">
 
-                          {
-                            lead.description
-                          }
+                          {lead.description}
 
                         </p>
 
@@ -131,7 +149,7 @@ export function NewLeads({
 
 
 
-                    <p className="mt-2 text-xs text-muted-foreground">
+                    <p className="mt-3 text-xs text-muted-foreground">
 
                       {
                         new Date(
@@ -147,7 +165,8 @@ export function NewLeads({
 
 
 
-                    <div className="mt-4 flex gap-3">
+
+                    <div className="mt-4 flex flex-wrap gap-3">
 
 
                       {
@@ -159,7 +178,13 @@ export function NewLeads({
                               `/contacts/${lead.contactId}`
                             }
 
-                            className="rounded-md border px-3 py-2 text-sm"
+                            className="
+                              rounded-md
+                              border
+                              px-3
+                              py-2
+                              text-sm
+                            "
 
                           >
 
@@ -170,6 +195,7 @@ export function NewLeads({
                         )
 
                       }
+
 
 
 
@@ -188,7 +214,14 @@ export function NewLeads({
 
                             rel="noopener noreferrer"
 
-                            className="rounded-md bg-primary px-3 py-2 text-sm text-white"
+                            className="
+                              rounded-md
+                              bg-primary
+                              px-3
+                              py-2
+                              text-sm
+                              text-white
+                            "
 
                           >
 
@@ -201,11 +234,11 @@ export function NewLeads({
                       }
 
 
+
                     </div>
 
 
                   </div>
-
 
                 )
 

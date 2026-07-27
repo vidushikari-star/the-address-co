@@ -94,7 +94,6 @@ export function DealFilters({
 
 
 
-
             const matchesHot =
               !isHotFilter
               ||
@@ -102,8 +101,6 @@ export function DealFilters({
                 active &&
                 hot
               )
-
-
 
 
 
@@ -121,8 +118,6 @@ export function DealFilters({
 
 
 
-
-
             const matchesStage =
               stage === "all"
               ||
@@ -131,13 +126,10 @@ export function DealFilters({
 
 
 
-
             const matchesPriority =
               priority === "all"
               ||
               deal.priority === priority
-
-
 
 
 
@@ -170,6 +162,17 @@ export function DealFilters({
 
 
 
+  function clearFilters(){
+
+    setSearch("")
+    setStage("all")
+    setPriority("all")
+
+  }
+
+
+
+
 
   return (
 
@@ -179,7 +182,7 @@ export function DealFilters({
       {
         isHotFilter && (
 
-          <div className="rounded-lg bg-muted px-4 py-3 text-sm">
+          <div className="rounded-xl bg-muted px-4 py-3 text-sm">
 
             Showing hot opportunities requiring attention.
 
@@ -192,12 +195,67 @@ export function DealFilters({
 
 
 
-      <div className="grid gap-3 md:grid-cols-3">
+
+      <div className="flex items-center justify-between">
+
+
+        <p className="text-sm text-muted-foreground">
+
+          {filteredDeals.length} deals
+
+        </p>
+
+
+
+
+        {
+          (
+            search
+            ||
+            stage !== "all"
+            ||
+            priority !== "all"
+          ) && (
+
+            <button
+
+              onClick={clearFilters}
+
+              className="text-sm text-primary"
+
+            >
+
+              Clear filters
+
+            </button>
+
+          )
+        }
+
+
+      </div>
+
+
+
+
+
+
+      <div className="
+        grid
+        gap-3
+        sm:grid-cols-3
+      ">
 
 
         <input
 
-          className="rounded-lg border px-3 py-2"
+          className="
+            rounded-xl
+            border
+            px-3
+            py-3
+            text-sm
+          "
 
           placeholder="Search deals..."
 
@@ -216,9 +274,16 @@ export function DealFilters({
 
 
 
+
         <select
 
-          className="rounded-lg border px-3 py-2"
+          className="
+            rounded-xl
+            border
+            px-3
+            py-3
+            text-sm
+          "
 
           value={stage}
 
@@ -273,9 +338,17 @@ export function DealFilters({
 
 
 
+
+
         <select
 
-          className="rounded-lg border px-3 py-2"
+          className="
+            rounded-xl
+            border
+            px-3
+            py-3
+            text-sm
+          "
 
           value={priority}
 
@@ -287,6 +360,7 @@ export function DealFilters({
           }
 
         >
+
 
           <option value="all">
             All Priorities
@@ -311,7 +385,9 @@ export function DealFilters({
         </select>
 
 
+
       </div>
+
 
 
 

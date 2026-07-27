@@ -2,6 +2,7 @@ import {
   Home,
   FileText,
   MessageCircle,
+  Clock,
 } from "lucide-react"
 
 
@@ -40,6 +41,7 @@ type Props = {
 
 
 
+
 function ActivityIcon({
   title
 }:{
@@ -49,19 +51,39 @@ function ActivityIcon({
 
   if(
     title.toLowerCase().includes("whatsapp")
-  )
-    return <MessageCircle className="h-4 w-4"/>
+  ){
+
+    return (
+      <MessageCircle className="h-4 w-4" />
+    )
+
+  }
+
 
 
   if(
     title.toLowerCase().includes("deal")
+    ||
+    title.toLowerCase().includes("document")
+  ){
+
+    return (
+      <FileText className="h-4 w-4" />
+    )
+
+  }
+
+
+
+  return (
+    <Home className="h-4 w-4" />
   )
-    return <FileText className="h-4 w-4"/>
-
-
-  return <Home className="h-4 w-4"/>
 
 }
+
+
+
+
 
 
 
@@ -70,104 +92,172 @@ export function ActivityFeed({
 }:Props){
 
 
-return (
+  return (
 
-<DashboardCard>
-
-
-<DashboardCardHeader>
-
-<p className="text-sm text-muted-foreground">
-Recent Activity
-</p>
-
-<h3 className="mt-2 text-2xl font-semibold">
-Today
-</h3>
-
-</DashboardCardHeader>
+    <DashboardCard>
 
 
-
-<DashboardCardContent>
-
-
-<div className="space-y-6">
+      <DashboardCardHeader>
 
 
-{
-activities.slice(0,8).map(
-activity=>(
+        <div>
 
 
-<div
-key={`${activity.title}-${activity.time}`}
->
+          <p className="text-sm text-muted-foreground">
+            Recent Activity
+          </p>
 
 
-<div className="rounded-full border p-2 h-fit">
+          <h3 className="mt-2 text-xl font-semibold sm:text-2xl">
+            Today
+          </h3>
 
-<ActivityIcon
-title={activity.title}
-/>
 
-</div>
+        </div>
+
+
+      </DashboardCardHeader>
 
 
 
-<div className="flex-1">
-
-
-<div className="flex justify-between gap-4">
-
-<h4 className="font-medium">
-{activity.title}
-</h4>
-
-
-<span className="text-xs text-muted-foreground whitespace-nowrap">
-
-{
-activity.time
-}
-
-</span>
-
-
-</div>
 
 
 
-<p className="mt-1 text-sm text-muted-foreground">
-
-{
-activity.description
-}
-
-</p>
+      <DashboardCardContent>
 
 
-</div>
+        {
+          activities.length === 0 ? (
+
+            <p className="text-sm text-muted-foreground">
+              No recent activity.
+            </p>
+
+          ) : (
+
+
+            <div className="space-y-4">
+
+
+              {
+                activities
+                  .slice(0,8)
+                  .map(
+                    (activity) => (
+
+
+                      <div
+
+                        key={`${activity.title}-${activity.time}`}
+
+                        className="
+                          flex
+                          gap-3
+                          rounded-xl
+                          border
+                          p-3
+                          sm:p-4
+                        "
+
+                      >
+
+
+                        <div className="
+                          flex
+                          h-9
+                          w-9
+                          shrink-0
+                          items-center
+                          justify-center
+                          rounded-full
+                          bg-muted
+                        ">
+
+
+                          <ActivityIcon
+                            title={activity.title}
+                          />
+
+
+                        </div>
 
 
 
-</div>
 
 
-)
-)
 
-}
+                        <div className="min-w-0 flex-1">
 
 
-</div>
+                          <div className="flex items-start justify-between gap-3">
 
 
-</DashboardCardContent>
+                            <h4 className="truncate text-sm font-medium">
+
+                              {activity.title}
+
+                            </h4>
 
 
-</DashboardCard>
 
-)
+
+
+                            <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+
+                              <Clock className="h-3 w-3"/>
+
+                              {activity.time}
+
+                            </span>
+
+
+                          </div>
+
+
+
+
+
+
+                          {
+                            activity.description && (
+
+                              <p className="mt-1 text-sm text-muted-foreground">
+
+                                {activity.description}
+
+                              </p>
+
+                            )
+                          }
+
+
+
+
+                        </div>
+
+
+                      </div>
+
+
+                    )
+
+                  )
+
+              }
+
+
+            </div>
+
+
+          )
+        }
+
+
+      </DashboardCardContent>
+
+
+    </DashboardCard>
+
+  )
 
 }

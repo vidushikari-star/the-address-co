@@ -89,10 +89,10 @@ export function DealActions({
   )
 
 
-const phone =
-  rawPhone.startsWith("91")
-    ? rawPhone
-    : `91${rawPhone}`
+  const phone =
+    rawPhone.startsWith("91")
+      ? rawPhone
+      : `91${rawPhone}`
 
 
 
@@ -105,6 +105,7 @@ const phone =
 Following up regarding your property requirement.
 
 Please let me know if you would like to discuss the next steps.`
+
 
 
 
@@ -123,6 +124,7 @@ Please let me know if you would like to discuss the next steps.`
     }
 
 
+
     try{
 
 
@@ -131,32 +133,25 @@ Please let me know if you would like to discuss the next steps.`
         type:
           "whatsapp",
 
-
         title:
           "WhatsApp opened",
-
 
         body:
           whatsappMessage,
 
-
         contactId:
           contact.id,
-
 
         dealId:
           deal.id,
 
-
         propertyId:
           deal.propertyId,
-
 
         date:
           new Date().toISOString(),
 
       })
-
 
 
     }catch(error){
@@ -167,7 +162,6 @@ Please let me know if you would like to discuss the next steps.`
       )
 
     }
-
 
 
 
@@ -190,88 +184,133 @@ Please let me know if you would like to discuss the next steps.`
 
 
 
+
   return (
 
     <>
 
-
-      {
-        phone && (
-
-          <Button
-
-            variant="outline"
-
-            onClick={openWhatsApp}
-
-          >
-
-            <MessageCircle className="mr-2 h-4 w-4" />
-
-            WhatsApp Buyer
-
-          </Button>
-
-        )
-      }
+      <div className="
+        grid
+        w-full
+        grid-cols-2
+        gap-3
+        md:flex
+        md:w-auto
+      ">
 
 
 
+        {
+          phone && (
 
+            <Button
 
-      <Button
+              onClick={openWhatsApp}
 
-        variant="outline"
+              className="
+                h-12
+                w-full
+                md:w-auto
+              "
 
-        onClick={() =>
-          setSiteVisitOpen(true)
+            >
+
+              <MessageCircle className="mr-2 h-4 w-4"/>
+
+              WhatsApp
+
+            </Button>
+
+          )
+
         }
 
-      >
-
-        <CalendarPlus className="mr-2 h-4 w-4" />
-
-        Site Visit
-
-      </Button>
 
 
 
 
 
-      <Button
+        <Button
 
-        variant="outline"
+          variant="outline"
 
-        onClick={() =>
-          setCloseDealOpen(true)
-        }
+          onClick={() =>
+            setSiteVisitOpen(true)
+          }
 
-      >
+          className="
+            h-12
+            w-full
+            md:w-auto
+          "
 
-        <CheckCircle className="mr-2 h-4 w-4" />
+        >
 
-        Close Deal
+          <CalendarPlus className="mr-2 h-4 w-4"/>
 
-      </Button>
+          Site Visit
+
+        </Button>
 
 
 
 
 
-      <Button
 
-        onClick={() =>
-          setActivityOpen(true)
-        }
 
-      >
+        <Button
 
-        <Plus className="mr-2 h-4 w-4" />
+          variant="outline"
 
-        Add Activity
+          onClick={() =>
+            setCloseDealOpen(true)
+          }
 
-      </Button>
+          className="
+            h-12
+            w-full
+            md:w-auto
+          "
+
+        >
+
+          <CheckCircle className="mr-2 h-4 w-4"/>
+
+          Close Deal
+
+        </Button>
+
+
+
+
+
+
+
+        <Button
+
+          onClick={() =>
+            setActivityOpen(true)
+          }
+
+          className="
+            h-12
+            w-full
+            md:w-auto
+          "
+
+        >
+
+          <Plus className="mr-2 h-4 w-4"/>
+
+          Activity
+
+        </Button>
+
+
+      </div>
+
+
+
 
 
 
@@ -305,6 +344,8 @@ Please let me know if you would like to discuss the next steps.`
 
 
 
+
+
       <SiteVisitDrawer
 
         open={
@@ -329,6 +370,9 @@ Please let me know if you would like to discuss the next steps.`
 
 
 
+
+
+
       <CloseDealDrawer
 
         open={
@@ -344,6 +388,7 @@ Please let me know if you would like to discuss the next steps.`
         }
 
       />
+
 
 
     </>

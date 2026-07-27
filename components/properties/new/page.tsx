@@ -324,10 +324,22 @@ export default function NewPropertyPage() {
 
   return (
 
-    <div className="mx-auto max-w-4xl space-y-8 p-8">
+    <div className="
+  mx-auto
+  w-full
+  max-w-5xl
+  space-y-6
+  p-4
+  sm:p-6
+  lg:p-8
+">
 
 
-      <div className="flex items-center gap-3">
+      <div className="
+  flex
+  items-start
+  gap-3
+">
 
 
         <div className="rounded-xl bg-primary/10 p-3">
@@ -340,7 +352,11 @@ export default function NewPropertyPage() {
 
         <div>
 
-          <h1 className="text-3xl font-bold">
+          <h1 className="
+  text-2xl
+  font-semibold
+  sm:text-3xl
+">
             New Property
           </h1>
 
@@ -360,51 +376,71 @@ export default function NewPropertyPage() {
 
 
       <form
-        onSubmit={saveProperty}
-        className="rounded-2xl border bg-card p-8 space-y-5"
-      >
+  onSubmit={saveProperty}
+  className="
+    space-y-6
+    rounded-2xl
+    border
+    bg-card
+    p-4
+    sm:p-6
+    lg:p-8
+  "
+>
 
 
 
-        <Input
-          placeholder="Property Name"
-          value={form.name}
-          onChange={
-            e =>
-              update(
-                "name",
-                e.target.value
-              )
-          }
-        />
+        <section className="space-y-4">
+
+<h2 className="text-lg font-semibold">
+  Basic Information
+</h2>
 
 
+<div className="grid gap-4 md:grid-cols-2">
 
-        <Input
-          placeholder="Slug"
-          value={form.slug}
-          onChange={
-            e =>
-              update(
-                "slug",
-                e.target.value
-              )
-          }
-        />
+<Input
+  placeholder="Property Name"
+  value={form.name}
+  onChange={
+    e =>
+      update(
+        "name",
+        e.target.value
+      )
+  }
+/>
 
 
+<Input
+  placeholder="Developer"
+  value={form.developer}
+  onChange={
+    e =>
+      update(
+        "developer",
+        e.target.value
+      )
+  }
+/>
 
-        <Input
-          placeholder="Developer"
-          value={form.developer}
-          onChange={
-            e =>
-              update(
-                "developer",
-                e.target.value
-              )
-          }
-        />
+</div>
+
+
+<Input
+  placeholder="Slug"
+  value={form.slug}
+  onChange={
+    e =>
+      update(
+        "slug",
+        e.target.value
+      )
+  }
+/>
+
+
+</section>
 
 
 
@@ -580,7 +616,9 @@ export default function NewPropertyPage() {
 
 
         <Input
-          placeholder="Asking Price"
+ type="number"
+ inputMode="numeric"
+ placeholder="Asking Price"
           value={form.price}
           onChange={
             e =>
@@ -600,7 +638,9 @@ export default function NewPropertyPage() {
 
 
           <Input
-            placeholder="Bedrooms"
+ type="number"
+ inputMode="numeric"
+ placeholder="Bedrooms"
             value={form.bedrooms}
             onChange={
               e =>
@@ -614,7 +654,9 @@ export default function NewPropertyPage() {
 
 
           <Input
-            placeholder="Bathrooms"
+ type="number"
+ inputMode="numeric"
+ placeholder="Bathrooms"
             value={form.bathrooms}
             onChange={
               e =>
@@ -628,7 +670,9 @@ export default function NewPropertyPage() {
 
 
           <Input
-            placeholder="Carpet Area"
+ type="number"
+ inputMode="numeric"
+ placeholder="Carpet Area"
             value={form.carpetArea}
             onChange={
               e =>

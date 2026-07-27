@@ -30,7 +30,6 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-
 import { Input } from "@/components/ui/input"
 
 import {
@@ -44,9 +43,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 
 
 
-
-
-type RelationshipTasksProps = {
+type Props = {
   contact: Contact
 }
 
@@ -56,7 +53,7 @@ type RelationshipTasksProps = {
 
 export function RelationshipTasks({
   contact,
-}: RelationshipTasksProps) {
+}: Props) {
 
 
   const [
@@ -66,13 +63,11 @@ export function RelationshipTasks({
   useState<Task[]>([])
 
 
-
   const [
     showForm,
     setShowForm,
   ] =
   useState(false)
-
 
 
   const [
@@ -82,13 +77,11 @@ export function RelationshipTasks({
   useState("")
 
 
-
   const [
     dueDate,
     setDueDate,
   ] =
   useState("")
-
 
 
   const [
@@ -130,7 +123,7 @@ export function RelationshipTasks({
 
   async function toggleTask(
     task: Task
-  ) {
+  ){
 
     const updated =
       await updateTask(
@@ -181,18 +174,14 @@ export function RelationshipTasks({
         contactId:
           contact.id,
 
-
         title,
-
 
         dueDate:
           dueDate
             ? new Date(dueDate)
             : undefined,
 
-
         assignedTo,
-
 
       })
 
@@ -203,18 +192,14 @@ export function RelationshipTasks({
       type:
         "task_created",
 
-
       title:
         "Follow-up Created",
-
 
       description:
         `${title} created for ${contact.name}`,
 
-
       contactId:
         contact.id,
-
 
       date:
         new Date().toISOString(),
@@ -232,11 +217,8 @@ export function RelationshipTasks({
 
 
     setTitle("")
-
     setDueDate("")
-
     setShowForm(false)
-
 
   }
 
@@ -253,7 +235,6 @@ export function RelationshipTasks({
     )
 
 
-
   const completed =
     tasks.filter(
       task =>
@@ -266,16 +247,28 @@ export function RelationshipTasks({
 
 
 
+
   return (
 
     <Card>
 
 
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="
+        flex
+        flex-col
+        gap-3
+        px-4
+        py-3
+        sm:flex-row
+        sm:items-center
+        sm:justify-between
+      ">
 
 
-        <CardTitle>
+        <CardTitle className="text-base">
+
           Tasks
+
         </CardTitle>
 
 
@@ -290,6 +283,8 @@ export function RelationshipTasks({
               : "default"
           }
 
+          className="w-full sm:w-auto"
+
           onClick={() =>
             setShowForm(
               !showForm
@@ -302,13 +297,13 @@ export function RelationshipTasks({
             showForm
               ? (
                 <>
-                  <X className="mr-2 h-4 w-4" />
+                  <X className="mr-1 h-4 w-4"/>
                   Cancel
                 </>
               )
               : (
                 <>
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus className="mr-1 h-4 w-4"/>
                   Add
                 </>
               )
@@ -323,19 +318,34 @@ export function RelationshipTasks({
 
 
 
-      <CardContent className="space-y-6">
+
+
+      <CardContent className="
+        space-y-4
+        px-4
+        pb-4
+      ">
+
+
 
 
 
         {
           showForm && (
 
-            <div className="space-y-3 rounded-xl border p-4">
+            <div className="
+              space-y-3
+              rounded-xl
+              border
+              p-3
+            ">
 
 
               <Input
 
-                placeholder="Task title"
+                className="h-11"
+
+                placeholder="Follow-up task"
 
                 value={title}
 
@@ -351,6 +361,8 @@ export function RelationshipTasks({
 
 
               <Input
+
+                className="h-11"
 
                 type="date"
 
@@ -369,7 +381,14 @@ export function RelationshipTasks({
 
               <select
 
-                className="w-full rounded-md border p-2 text-sm"
+                className="
+                  h-11
+                  w-full
+                  rounded-lg
+                  border
+                  px-3
+                  text-sm
+                "
 
                 value={assignedTo}
 
@@ -389,17 +408,11 @@ export function RelationshipTasks({
                     advisor => (
 
                       <option
-                        key={
-                          advisor.name
-                        }
-                        value={
-                          advisor.name
-                        }
+                        key={advisor.name}
+                        value={advisor.name}
                       >
 
-                        {
-                          advisor.name
-                        }
+                        {advisor.name}
 
                       </option>
 
@@ -433,89 +446,128 @@ export function RelationshipTasks({
 
 
 
-        {pending.length === 0 ? (
-
-          <p className="text-sm text-muted-foreground">
-
-            No pending tasks.
-
-          </p>
-
-        ) : (
-
-          <div>
 
 
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {
+          pending.length === 0 ? (
 
-              Upcoming
+            <p className="text-sm text-muted-foreground">
+
+              No pending tasks.
 
             </p>
 
 
-
-            <div className="space-y-3">
-
-
-              {
-                pending.map(
-                  task => (
-
-                    <div
-                      key={task.id}
-                      className="rounded-lg border p-3"
-                    >
-
-                      <div className="flex items-start gap-3">
+          ) : (
 
 
-                        <Checkbox
+            <div>
 
-                          checked={
-                            task.completed
-                          }
 
-                          onCheckedChange={() =>
-                            toggleTask(
-                              task
-                            )
-                          }
+              <p className="
+                mb-2
+                text-xs
+                font-semibold
+                uppercase
+                tracking-wide
+                text-muted-foreground
+              ">
 
-                        />
+                Upcoming
+
+              </p>
 
 
 
-                        <div className="flex-1">
+
+              <div className="space-y-2">
 
 
-                          <p className="text-sm font-medium">
+                {
+                  pending.map(
+                    task => (
 
-                            {task.title}
+                      <div
 
-                          </p>
+                        key={task.id}
 
+                        className="
+                          rounded-xl
+                          border
+                          p-3
+                        "
 
-
-                          {
-                            task.dueDate && (
-
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-
-
-                                <CalendarClock className="h-3.5 w-3.5" />
-
-
-                                {
-                                  new Date(
-                                    task.dueDate
-                                  ).toLocaleDateString()
-                                }
+                      >
 
 
-                              </div>
+                        <div className="
+                          flex
+                          items-start
+                          gap-3
+                        ">
 
-                            )
-                          }
+
+                          <Checkbox
+
+                            className="mt-1 h-5 w-5"
+
+                            checked={
+                              task.completed
+                            }
+
+                            onCheckedChange={() =>
+                              toggleTask(task)
+                            }
+
+                          />
+
+
+
+                          <div className="min-w-0 flex-1">
+
+
+                            <p className="
+                              break-words
+                              text-sm
+                              font-medium
+                            ">
+
+                              {task.title}
+
+                            </p>
+
+
+
+
+                            {
+                              task.dueDate && (
+
+                                <div className="
+                                  mt-1
+                                  flex
+                                  items-center
+                                  gap-1
+                                  text-xs
+                                  text-muted-foreground
+                                ">
+
+                                  <CalendarClock className="h-3.5 w-3.5"/>
+
+                                  {
+                                    new Date(
+                                      task.dueDate
+                                    ).toLocaleDateString(
+                                      "en-IN"
+                                    )
+                                  }
+
+                                </div>
+
+                              )
+                            }
+
+
+                          </div>
 
 
                         </div>
@@ -523,20 +575,21 @@ export function RelationshipTasks({
 
                       </div>
 
-
-                    </div>
-
+                    )
                   )
-                )
-              }
+                }
+
+
+              </div>
 
 
             </div>
 
 
-          </div>
+          )
 
-        )}
+        }
+
 
 
 
@@ -550,7 +603,14 @@ export function RelationshipTasks({
             <div>
 
 
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="
+                mb-2
+                text-xs
+                font-semibold
+                uppercase
+                tracking-wide
+                text-muted-foreground
+              ">
 
                 Completed
 
@@ -558,37 +618,56 @@ export function RelationshipTasks({
 
 
 
-              {
-                completed.map(
-                  task => (
+              <div className="space-y-2">
 
-                    <div
-                      key={task.id}
-                      className="rounded-lg border bg-muted/30 p-3"
-                    >
+                {
+                  completed.map(
+                    task => (
 
-                      <div className="flex items-center gap-3">
+                      <div
 
-                        <CheckCircle2 className="h-4 w-4" />
+                        key={task.id}
 
-                        <p className="text-sm text-muted-foreground line-through">
+                        className="
+                          rounded-xl
+                          bg-muted/30
+                          p-3
+                        "
 
-                          {task.title}
+                      >
 
-                        </p>
+                        <div className="flex items-center gap-2">
+
+                          <CheckCircle2 className="h-4 w-4 shrink-0"/>
+
+                          <p className="
+                            break-words
+                            text-sm
+                            text-muted-foreground
+                            line-through
+                          ">
+
+                            {task.title}
+
+                          </p>
+
+
+                        </div>
+
 
                       </div>
 
-                    </div>
-
+                    )
                   )
-                )
-              }
+                }
+
+              </div>
 
 
             </div>
 
           )
+
         }
 
 

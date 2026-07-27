@@ -2,12 +2,30 @@
 
 import type { Contact } from "@/types"
 
-import { RelationshipHeader } from "./relationship-header"
-import { RelationshipSnapshot } from "./relationship-snapshot"
-import { RelationshipTimeline } from "./relationship-timeline"
-import { RelationshipProperties } from "./relationship-properties"
-import { RelationshipTasks } from "./relationship-tasks"
-import { RelationshipDeals } from "./relationship-deals"
+import {
+  RelationshipHeader,
+} from "./relationship-header"
+
+import {
+  RelationshipSnapshot,
+} from "./relationship-snapshot"
+
+import {
+  RelationshipTimeline,
+} from "./relationship-timeline"
+
+import {
+  RelationshipProperties,
+} from "./relationship-properties"
+
+import {
+  RelationshipTasks,
+} from "./relationship-tasks"
+
+import {
+  RelationshipDeals,
+} from "./relationship-deals"
+
 
 
 type RelationshipDetailProps = {
@@ -23,7 +41,7 @@ export function RelationshipDetail({
 
   return (
 
-    <div className="flex flex-col">
+    <div className="flex min-h-0 flex-col">
 
 
       <RelationshipHeader
@@ -32,27 +50,77 @@ export function RelationshipDetail({
 
 
 
-      <div className="grid gap-6 p-6 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
 
 
-        <RelationshipSnapshot
-          contact={contact}
-        />
+      <div
+        className="
+          grid
+          gap-4
+          p-4
+          sm:gap-6
+          sm:p-6
+          xl:grid-cols-[280px_minmax(0,1fr)_360px]
+        "
+      >
 
 
 
-        <RelationshipTimeline
-          contact={contact}
-        />
 
 
+        {/* CLIENT SNAPSHOT */}
 
-        <div className="space-y-6">
+        <section
+          className="
+            order-1
+            min-w-0
+          "
+        >
 
-
-          <RelationshipProperties
+          <RelationshipSnapshot
             contact={contact}
           />
+
+        </section>
+
+
+
+
+
+
+
+        {/* ACTIVITY TIMELINE */}
+
+        <section
+          className="
+            order-5
+            min-w-0
+            xl:order-2
+          "
+        >
+
+          <RelationshipTimeline
+            contact={contact}
+          />
+
+        </section>
+
+
+
+
+
+
+
+        {/* CRM ACTIONS */}
+
+        <section
+          className="
+            order-2
+            min-w-0
+            space-y-4
+            sm:space-y-6
+            xl:order-3
+          "
+        >
 
 
           <RelationshipDeals
@@ -60,12 +128,20 @@ export function RelationshipDetail({
           />
 
 
+
+          <RelationshipProperties
+            contact={contact}
+          />
+
+
+
           <RelationshipTasks
             contact={contact}
           />
 
 
-        </div>
+        </section>
+
 
 
       </div>

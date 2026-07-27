@@ -50,13 +50,10 @@ import {
 
 
 
-
 type Props = {
-
   params: Promise<{
-    slug:string
+    slug: string
   }>
-
 }
 
 
@@ -66,15 +63,14 @@ type Props = {
 function DetailRow({
   label,
   value,
-}:{
-  label:string
-  value:any
-}){
-
+}: {
+  label: string
+  value?: string | number | null
+}) {
 
   return (
 
-    <div>
+    <div className="flex flex-col gap-1">
 
       <p className="text-sm text-muted-foreground">
         {label}
@@ -100,7 +96,7 @@ function DetailRow({
 
 export default async function PropertyDetailPage({
   params,
-}:Props){
+}: Props) {
 
 
   const {
@@ -121,12 +117,11 @@ export default async function PropertyDetailPage({
 
 
 
-  if(!property){
+  if (!property) {
 
     notFound()
 
   }
-
 
 
 
@@ -163,11 +158,14 @@ export default async function PropertyDetailPage({
 
 
 
-
-
   return (
 
-    <div className="space-y-8 p-8">
+    <div className="
+      space-y-6
+      p-4
+      sm:p-6
+      lg:p-8
+    ">
 
 
 
@@ -175,26 +173,44 @@ export default async function PropertyDetailPage({
 
       {/* HEADER */}
 
-      <div className="flex items-start justify-between">
+      <div className="
+        flex
+        flex-col
+        gap-4
+        sm:flex-row
+        sm:items-start
+        sm:justify-between
+      ">
 
 
-        <div>
+        <div className="min-w-0">
 
 
-          <h1 className="text-3xl font-semibold">
+          <h1 className="
+            truncate
+            text-2xl
+            font-semibold
+            sm:text-3xl
+          ">
+
             {property.name}
+
           </h1>
 
 
 
           <p className="mt-2 text-muted-foreground">
+
             {property.developer}
+
           </p>
 
 
 
           <p className="mt-1 text-sm text-muted-foreground">
+
             {property.location}
+
           </p>
 
 
@@ -204,9 +220,13 @@ export default async function PropertyDetailPage({
 
 
 
-
-
-        <div className="flex gap-3 items-center">
+        <div className="
+          flex
+          flex-col
+          gap-2
+          sm:flex-row
+          sm:flex-wrap
+        ">
 
 
           <StatusBadge
@@ -216,11 +236,7 @@ export default async function PropertyDetailPage({
 
 
           <SharePropertyButton
-
-            property={
-              property
-            }
-
+            property={property}
           />
 
 
@@ -229,7 +245,15 @@ export default async function PropertyDetailPage({
 
             href={`/properties/${property.slug}/edit`}
 
-            className="rounded-md bg-primary px-4 py-2 text-sm text-white"
+            className="
+              rounded-md
+              bg-primary
+              px-4
+              py-2
+              text-center
+              text-sm
+              text-white
+            "
 
           >
 
@@ -253,15 +277,29 @@ export default async function PropertyDetailPage({
 
       {/* IMAGES */}
 
+      <section className="
+        rounded-2xl
+        border
+        p-4
+        space-y-4
+        sm:p-6
+      ">
 
-      <section className="rounded-2xl border p-6 space-y-5">
 
-
-        <div className="flex items-center justify-between">
+        <div className="
+          flex
+          flex-col
+          gap-3
+          sm:flex-row
+          sm:items-center
+          sm:justify-between
+        ">
 
 
           <h2 className="text-xl font-semibold">
+
             Property Images
+
           </h2>
 
 
@@ -306,18 +344,17 @@ export default async function PropertyDetailPage({
 
       {/* DOCUMENTS */}
 
-
       <PropertyDocuments
 
-  documents={
-    documents
-  }
+        documents={
+          documents
+        }
 
-  propertyId={
-    property.id
-  }
+        propertyId={
+          property.id
+        }
 
-/>
+      />
 
 
 
@@ -329,17 +366,27 @@ export default async function PropertyDetailPage({
 
       {/* DESCRIPTION */}
 
+      <section className="
+        rounded-2xl
+        border
+        p-4
+        space-y-4
+        sm:p-6
+      ">
 
-      <section className="rounded-2xl border p-6">
 
+        <h2 className="text-xl font-semibold">
 
-        <h2 className="text-xl font-semibold mb-3">
           About the Property
+
         </h2>
 
 
 
-        <p className="text-muted-foreground whitespace-pre-line">
+        <p className="
+          whitespace-pre-line
+          text-muted-foreground
+        ">
 
           {
             property.description ||
@@ -359,13 +406,25 @@ export default async function PropertyDetailPage({
 
 
 
-      <div className="grid gap-6 md:grid-cols-3">
+      {/* DETAILS */}
+
+      <div className="
+        grid
+        gap-6
+        md:grid-cols-3
+      ">
 
 
 
 
 
-        <div className="rounded-2xl border p-6 space-y-5">
+        <div className="
+          rounded-2xl
+          border
+          p-4
+          space-y-4
+          sm:p-6
+        ">
 
 
           <h2 className="text-xl font-semibold">
@@ -375,10 +434,15 @@ export default async function PropertyDetailPage({
 
 
           <DetailRow
+            label="Transaction Type"
+            value={property.transactionType}
+          />
+
+
+          <DetailRow
             label="Property Type"
             value={property.propertyType}
           />
-
 
 
           <DetailRow
@@ -387,12 +451,10 @@ export default async function PropertyDetailPage({
           />
 
 
-
           <DetailRow
             label="Development Stage"
             value={property.developmentStage}
           />
-
 
 
           <DetailRow
@@ -401,12 +463,10 @@ export default async function PropertyDetailPage({
           />
 
 
-
           <DetailRow
             label="Locality"
             value={property.locality}
           />
-
 
 
           <DetailRow
@@ -425,7 +485,13 @@ export default async function PropertyDetailPage({
 
 
 
-        <div className="rounded-2xl border p-6 space-y-5">
+        <div className="
+          rounded-2xl
+          border
+          p-4
+          space-y-4
+          sm:p-6
+        ">
 
 
           <h2 className="text-xl font-semibold">
@@ -435,65 +501,40 @@ export default async function PropertyDetailPage({
 
 
           <DetailRow
-
             label="Bedrooms"
-
-            value={
-              property.specifications.bedrooms
-            }
-
+            value={property.specifications.bedrooms}
           />
 
 
-
           <DetailRow
-
             label="Bathrooms"
-
-            value={
-              property.specifications.bathrooms
-            }
-
+            value={property.specifications.bathrooms}
           />
 
 
-
           <DetailRow
-
             label="Carpet Area"
-
-            value={
-              `${property.specifications.carpetArea} sqft`
-            }
-
+            value={`${property.specifications.carpetArea} sqft`}
           />
 
 
-
           <DetailRow
-
             label="Plot Area"
-
             value={
               property.specifications.plotArea
                 ? `${property.specifications.plotArea} sqm`
                 : "-"
             }
-
           />
 
 
-
           <DetailRow
-
             label="Built Up Area"
-
             value={
               property.specifications.builtUpArea
                 ? `${property.specifications.builtUpArea} sqft`
                 : "-"
             }
-
           />
 
 
@@ -507,7 +548,13 @@ export default async function PropertyDetailPage({
 
 
 
-        <div className="rounded-2xl border p-6 space-y-5">
+        <div className="
+          rounded-2xl
+          border
+          p-4
+          space-y-4
+          sm:p-6
+        ">
 
 
           <h2 className="text-xl font-semibold">
@@ -517,27 +564,18 @@ export default async function PropertyDetailPage({
 
 
           <DetailRow
-
             label="Asking Price"
-
             value={
               formatCurrencyCr(
                 property.price.asking
               )
             }
-
           />
 
 
-
           <DetailRow
-
             label="Advisor"
-
-            value={
-              property.advisor
-            }
-
+            value={property.advisor}
           />
 
 
@@ -556,13 +594,21 @@ export default async function PropertyDetailPage({
 
       {/* AMENITIES */}
 
+      <section className="
+        rounded-2xl
+        border
+        p-4
+        space-y-4
+        sm:p-6
+      ">
 
-      <section className="rounded-2xl border p-6">
 
+        <h2 className="text-xl font-semibold">
 
-        <h2 className="text-xl font-semibold mb-4">
           Amenities
+
         </h2>
+
 
 
 
@@ -570,8 +616,7 @@ export default async function PropertyDetailPage({
           property.amenities &&
           property.amenities.length > 0 ? (
 
-
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
 
 
               {
@@ -581,11 +626,15 @@ export default async function PropertyDetailPage({
 
                     <span
 
-                      key={
-                        amenity
-                      }
+                      key={amenity}
 
-                      className="rounded-full border px-4 py-2 text-sm"
+                      className="
+                        rounded-full
+                        border
+                        px-3
+                        py-1.5
+                        text-sm
+                      "
 
                     >
 
@@ -602,14 +651,13 @@ export default async function PropertyDetailPage({
 
             </div>
 
-
           ) : (
 
-
             <p className="text-muted-foreground">
-              No amenities added.
-            </p>
 
+              No amenities added.
+
+            </p>
 
           )
 
@@ -626,29 +674,105 @@ export default async function PropertyDetailPage({
 
 
 
-      {/* LOCATION */}
+      {/* TAGS */}
 
+      {
+        property.tags &&
+        property.tags.length > 0 && (
+
+          <section className="
+            rounded-2xl
+            border
+            p-4
+            space-y-4
+            sm:p-6
+          ">
+
+
+            <h2 className="text-xl font-semibold">
+              Tags
+            </h2>
+
+
+
+            <div className="flex flex-wrap gap-2">
+
+
+              {
+                property.tags.map(
+
+                  tag => (
+
+                    <span
+
+                      key={tag}
+
+                      className="
+                        rounded-full
+                        border
+                        px-3
+                        py-1.5
+                        text-sm
+                      "
+
+                    >
+
+                      {tag}
+
+                    </span>
+
+                  )
+
+                )
+
+              }
+
+
+            </div>
+
+
+          </section>
+
+        )
+      }
+
+
+
+
+
+
+
+
+
+      {/* LOCATION */}
 
       {
         property.googleMapLink && (
 
+          <section className="
+            rounded-2xl
+            border
+            p-4
+            space-y-4
+            sm:p-6
+          ">
 
-          <section className="rounded-2xl border p-6">
 
+            <h2 className="text-xl font-semibold">
 
-            <h2 className="text-xl font-semibold mb-3">
               Location
+
             </h2>
 
 
 
             <a
 
-              href={
-                property.googleMapLink
-              }
+              href={property.googleMapLink}
 
               target="_blank"
+
+              rel="noopener noreferrer"
 
               className="text-primary underline"
 
@@ -660,7 +784,6 @@ export default async function PropertyDetailPage({
 
 
           </section>
-
 
         )
 
@@ -676,12 +799,19 @@ export default async function PropertyDetailPage({
 
       {/* NOTES */}
 
+      <section className="
+        rounded-2xl
+        border
+        p-4
+        space-y-4
+        sm:p-6
+      ">
 
-      <section className="rounded-2xl border p-6">
 
+        <h2 className="text-xl font-semibold">
 
-        <h2 className="text-xl font-semibold mb-3">
           Internal Notes
+
         </h2>
 
 
@@ -708,12 +838,19 @@ export default async function PropertyDetailPage({
 
       {/* ACTIVITY */}
 
-
-      <section className="rounded-2xl border p-6 space-y-4">
+      <section className="
+        rounded-2xl
+        border
+        p-4
+        space-y-4
+        sm:p-6
+      ">
 
 
         <h2 className="text-xl font-semibold">
+
           Activity Timeline
+
         </h2>
 
 

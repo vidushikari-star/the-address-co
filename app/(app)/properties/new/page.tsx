@@ -13,20 +13,29 @@ import {
 } from "lucide-react"
 
 import {
-  Input
+  Input,
 } from "@/components/ui/input"
 
 import {
-  Textarea
+  Textarea,
 } from "@/components/ui/textarea"
 
 import {
-  Button
+  Button,
 } from "@/components/ui/button"
 
 import {
   createProperty,
 } from "@/lib/repositories/property-repository"
+
+
+
+
+
+const transactionTypes = [
+  "Sale",
+  "Rental",
+]
 
 
 
@@ -37,11 +46,13 @@ const listingTypes = [
 ]
 
 
+
 const developmentStages = [
   "under_construction",
   "ready_to_move",
   "resale",
 ]
+
 
 
 const propertyTypes = [
@@ -53,75 +64,145 @@ const propertyTypes = [
 ]
 
 
-export default function NewPropertyPage() {
+
+const statuses = [
+  "available",
+  "viewed",
+  "shortlisted",
+  "offer",
+  "purchased",
+  "rejected",
+]
+
+
+
+
+
+const dropdowns = [
+  {
+    key: "transactionType",
+    options: transactionTypes,
+  },
+  {
+    key: "listingType",
+    options: listingTypes,
+  },
+  {
+    key: "propertyType",
+    options: propertyTypes,
+  },
+  {
+    key: "developmentStage",
+    options: developmentStages,
+  },
+  {
+    key: "status",
+    options: statuses,
+  },
+] as const
+
+
+
+
+
+export default function NewPropertyPage(){
+
 
   const router =
     useRouter()
 
 
-  const [saving, setSaving] =
-    useState(false)
 
 
 
-  const [form, setForm] =
-    useState({
-
-      name: "",
-
-      slug: "",
-
-      developer: "",
-
-      transactionType:"Sale",
-
-      listingType: "Primary",
-
-      developmentStage:
-        "ready_to_move",
-
-      propertyType:
-        "Villa",
-        
-
-      status:
-        "available",
-
-      location: "",
-
-      locality: "",
-
-      price: "",
-
-      bedrooms: "",
-
-      bathrooms: "",
-
-      carpetArea: "",
-
-      tags: "",
-
-      coverImage: "",
-
-      advisor: "",
-
-      note: "",
+  const [
+    saving,
+    setSaving,
+  ] =
+  useState(false)
 
 
 
-    })
+
+
+
+
+  const [
+    form,
+    setForm,
+  ] =
+  useState({
+
+    name:"",
+
+    slug:"",
+
+    developer:"",
+
+    transactionType:"Sale",
+
+    listingType:"Primary",
+
+    developmentStage:"ready_to_move",
+
+    propertyType:"Villa",
+
+    status:"available",
+
+    location:"",
+
+    locality:"",
+
+    googleMapLink:"",
+
+    price:"",
+
+    bedrooms:"",
+
+    bathrooms:"",
+
+    carpetArea:"",
+
+    plotArea:"",
+
+    builtUpArea:"",
+
+    furnishing:"",
+
+    amenities:"",
+
+    description:"",
+
+    tags:"",
+
+    coverImage:"",
+
+    advisor:"",
+
+    note:"",
+
+  })
+
+
+
+
+
 
 
 
   function update(
-    key: string,
-    value: string
-  ) {
+    key:string,
+    value:string
+  ){
 
     setForm(
-      (current) => ({
+      current => ({
+
         ...current,
-        [key]: value,
+
+        [key]:
+          value,
+
       })
     )
 
@@ -130,16 +211,24 @@ export default function NewPropertyPage() {
 
 
 
+
+
+
+
+
   async function saveProperty(
-    event: React.FormEvent
-  ) {
+    event:React.FormEvent
+  ){
 
     event.preventDefault()
+
 
     setSaving(true)
 
 
+
     try {
+
 
       const property =
         await createProperty({
@@ -147,55 +236,106 @@ export default function NewPropertyPage() {
           name:
             form.name,
 
+
           slug:
             form.slug,
+
 
           developer:
             form.developer,
 
+
+          transactionType:
+            form.transactionType,
+
+
           listingType:
             form.listingType,
 
-            transactionType:
-  form.transactionType ?? "Sale",
 
           developmentStage:
             form.developmentStage,
 
+
           propertyType:
             form.propertyType,
+
 
           status:
             form.status,
 
+
           location:
             form.location,
+
 
           locality:
             form.locality,
 
 
           price:
-            Number(form.price),
+            Number(
+              form.price
+            ),
 
 
           bedrooms:
-            Number(form.bedrooms),
+            Number(
+              form.bedrooms
+            ),
 
 
           bathrooms:
-            Number(form.bathrooms),
+            Number(
+              form.bathrooms
+            ),
 
 
           carpetArea:
-            Number(form.carpetArea),
+            Number(
+              form.carpetArea
+            ),
+
+
+          plotArea:
+            Number(
+              form.plotArea
+            ),
+
+
+          builtUpArea:
+            Number(
+              form.builtUpArea
+            ),
+
+
+          description:
+            form.description,
+
+
+          amenities:
+            form.amenities
+              .split(",")
+              .map(
+                item =>
+                  item.trim()
+              )
+              .filter(Boolean),
+
+
+          furnishing:
+            form.furnishing,
+
+
+          googleMapLink:
+            form.googleMapLink,
 
 
           tags:
             form.tags
               .split(",")
               .map(
-                (item) =>
+                item =>
                   item.trim()
               )
               .filter(Boolean),
@@ -212,7 +352,10 @@ export default function NewPropertyPage() {
           note:
             form.note,
 
+
         })
+
+
 
 
       router.push(
@@ -220,398 +363,618 @@ export default function NewPropertyPage() {
       )
 
 
-    } catch (error) {
+
+    }
+    catch(error){
+
 
       console.error(
         "Failed creating property",
         error
       )
 
+
       alert(
         "Unable to create property"
       )
 
-    } finally {
+
+    }
+    finally{
+
 
       setSaving(false)
 
+
     }
 
+
   }
+    return (
 
-
-
-  return (
-
-    <div className="mx-auto max-w-4xl space-y-8 p-8">
+    <div className="
+      mx-auto
+      max-w-4xl
+      space-y-8
+      p-4
+      sm:p-8
+    ">
 
 
       <div className="flex items-center gap-3">
 
+
         <div className="rounded-xl bg-primary/10 p-3">
 
-          <Building2 className="h-6 w-6 text-primary" />
+          <Building2 className="h-6 w-6 text-primary"/>
 
         </div>
+
+
 
 
         <div>
 
           <h1 className="text-3xl font-bold">
+
             New Property
+
           </h1>
 
 
           <p className="text-muted-foreground">
+
             Add a property to your inventory.
+
           </p>
 
         </div>
+
 
       </div>
 
 
 
 
+
+
+
       <form
+
         onSubmit={saveProperty}
-        className="rounded-2xl border bg-card p-8 space-y-5"
+
+        className="
+          space-y-5
+          rounded-2xl
+          border
+          bg-card
+          p-4
+          sm:p-8
+        "
+
       >
 
 
+
+
         <Input
+
           placeholder="Property Name"
+
           value={form.name}
-          onChange={(e) =>
-            update(
-              "name",
-              e.target.value
-            )
+
+          onChange={
+            e =>
+              update(
+                "name",
+                e.target.value
+              )
           }
+
         />
 
 
 
+
+
         <Input
-          placeholder="Slug"
+
+          placeholder="Slug (example: casa-brilhante)"
+
           value={form.slug}
-          onChange={(e) =>
-            update(
-              "slug",
-              e.target.value
-            )
+
+          onChange={
+            e =>
+              update(
+                "slug",
+                e.target.value
+              )
           }
+
         />
 
 
 
+
+
         <Input
+
           placeholder="Developer"
+
           value={form.developer}
-          onChange={(e) =>
-            update(
-              "developer",
-              e.target.value
-            )
+
+          onChange={
+            e =>
+              update(
+                "developer",
+                e.target.value
+              )
           }
+
         />
 
-        <select
-
-  className="w-full rounded-lg border p-3"
-
-  value={
-    form.transactionType
-  }
-
-  onChange={
-    e =>
-      update(
-        "transactionType",
-        e.target.value
-      )
-  }
-
->
-
-  <option value="Sale">
-    Sale
-  </option>
-
-  <option value="Rental">
-    Rental
-  </option>
-
-</select>
 
 
 
 
-<select
 
-  className="w-full rounded-lg border p-3"
+        {
+          dropdowns.map(
+            dropdown => (
 
-  value={
-    form.propertyType
-  }
+              <select
 
-  onChange={
-    e =>
-      update(
-        "propertyType",
-        e.target.value
-      )
-  }
+                key={dropdown.key}
 
->
+                className="
+                  w-full
+                  rounded-lg
+                  border
+                  p-3
+                "
 
-  <option value="Villa">
-    Villa
-  </option>
+                value={
+                  form[
+                    dropdown.key
+                  ]
+                }
 
-  <option value="Apartment">
-    Apartment
-  </option>
+                onChange={
+                  e =>
+                    update(
+                      dropdown.key,
+                      e.target.value
+                    )
+                }
 
-  <option value="Plot">
-    Plot
-  </option>
-
-  <option value="Penthouse">
-    Penthouse
-  </option>
-
-  <option value="Commercial">
-    Commercial
-  </option>
-
-</select>
-
-
-
-        <select
-          className="w-full rounded-lg border p-3"
-          value={form.listingType}
-          onChange={(e) =>
-            update(
-              "listingType",
-              e.target.value
-            )
-          }
-        >
-          {listingTypes.map(
-            (item) => (
-              <option
-                key={item}
               >
-                {item}
-              </option>
+
+                {
+                  dropdown.options.map(
+                    option => (
+
+                      <option
+
+                        key={option}
+
+                        value={option}
+
+                      >
+
+                        {option}
+
+                      </option>
+
+                    )
+                  )
+                }
+
+
+              </select>
+
+
             )
-          )}
-
-        </select>
-
-
-
-
-        <select
-          className="w-full rounded-lg border p-3"
-          value={form.propertyType}
-          onChange={(e) =>
-            update(
-              "propertyType",
-              e.target.value
-            )
-          }
-        >
-
-          {propertyTypes.map(
-            (item) => (
-              <option
-                key={item}
-              >
-                {item}
-              </option>
-            )
-          )}
-
-        </select>
+          )
+        }
 
 
 
 
-        <select
-          className="w-full rounded-lg border p-3"
-          value={form.developmentStage}
-          onChange={(e) =>
-            update(
-              "developmentStage",
-              e.target.value
-            )
-          }
-        >
-
-          {developmentStages.map(
-            (item) => (
-              <option
-                key={item}
-              >
-                {item}
-              </option>
-            )
-          )}
-
-        </select>
 
 
 
+        <div className="
+          grid
+          gap-4
+          md:grid-cols-2
+        ">
 
-        <div className="grid gap-4 md:grid-cols-2">
 
           <Input
+
             placeholder="Location"
+
             value={form.location}
-            onChange={(e) =>
-              update(
-                "location",
-                e.target.value
-              )
+
+            onChange={
+              e =>
+                update(
+                  "location",
+                  e.target.value
+                )
             }
+
           />
 
 
+
           <Input
+
             placeholder="Locality"
+
             value={form.locality}
-            onChange={(e) =>
-              update(
-                "locality",
-                e.target.value
-              )
+
+            onChange={
+              e =>
+                update(
+                  "locality",
+                  e.target.value
+                )
             }
+
           />
+
 
         </div>
 
 
 
 
+
+
+
         <Input
+
+          placeholder="Google Map Link"
+
+          value={
+            form.googleMapLink
+          }
+
+          onChange={
+            e =>
+              update(
+                "googleMapLink",
+                e.target.value
+              )
+          }
+
+        />
+
+
+
+
+
+
+
+
+        <Input
+
           placeholder="Asking Price"
+
           value={form.price}
-          onChange={(e) =>
-            update(
-              "price",
-              e.target.value
-            )
+
+          onChange={
+            e =>
+              update(
+                "price",
+                e.target.value
+              )
           }
+
         />
 
 
 
-        <div className="grid gap-4 md:grid-cols-3">
+
+
+
+
+
+        <div className="
+          grid
+          gap-4
+          md:grid-cols-3
+        ">
+
 
           <Input
+
             placeholder="Bedrooms"
+
             value={form.bedrooms}
-            onChange={(e) =>
-              update(
-                "bedrooms",
-                e.target.value
-              )
+
+            onChange={
+              e =>
+                update(
+                  "bedrooms",
+                  e.target.value
+                )
             }
+
           />
 
 
+
           <Input
+
             placeholder="Bathrooms"
+
             value={form.bathrooms}
-            onChange={(e) =>
-              update(
-                "bathrooms",
-                e.target.value
-              )
+
+            onChange={
+              e =>
+                update(
+                  "bathrooms",
+                  e.target.value
+                )
             }
+
           />
+
 
 
           <Input
-            placeholder="Carpet Area"
+
+            placeholder="Carpet Area sqft"
+
             value={form.carpetArea}
-            onChange={(e) =>
-              update(
-                "carpetArea",
-                e.target.value
-              )
+
+            onChange={
+              e =>
+                update(
+                  "carpetArea",
+                  e.target.value
+                )
             }
+
           />
+
 
         </div>
 
 
 
 
+
+
+
+        <div className="
+          grid
+          gap-4
+          md:grid-cols-2
+        ">
+
+
+          <Input
+
+            placeholder="Plot Area sqm"
+
+            value={form.plotArea}
+
+            onChange={
+              e =>
+                update(
+                  "plotArea",
+                  e.target.value
+                )
+            }
+
+          />
+
+
+
+          <Input
+
+            placeholder="Built Up Area sqft"
+
+            value={form.builtUpArea}
+
+            onChange={
+              e =>
+                update(
+                  "builtUpArea",
+                  e.target.value
+                )
+            }
+
+          />
+
+
+        </div>
+
+
+
+
+
+
+
+
         <Input
+
+          placeholder="Furnishing"
+
+          value={form.furnishing}
+
+          onChange={
+            e =>
+              update(
+                "furnishing",
+                e.target.value
+              )
+          }
+
+        />
+
+
+
+
+
+
+
+
+        <Input
+
+          placeholder="Amenities (comma separated)"
+
+          value={form.amenities}
+
+          onChange={
+            e =>
+              update(
+                "amenities",
+                e.target.value
+              )
+          }
+
+        />
+
+
+
+
+
+
+
+
+        <Input
+
           placeholder="Tags (comma separated)"
+
           value={form.tags}
-          onChange={(e) =>
-            update(
-              "tags",
-              e.target.value
-            )
+
+          onChange={
+            e =>
+              update(
+                "tags",
+                e.target.value
+              )
           }
+
         />
 
 
 
+
+
+
+
+
         <Input
+
           placeholder="Cover Image URL"
+
           value={form.coverImage}
-          onChange={(e) =>
-            update(
-              "coverImage",
-              e.target.value
-            )
+
+          onChange={
+            e =>
+              update(
+                "coverImage",
+                e.target.value
+              )
           }
+
         />
+
+
+
+
+
 
 
 
         <Input
+
           placeholder="Advisor"
+
           value={form.advisor}
-          onChange={(e) =>
-            update(
-              "advisor",
-              e.target.value
-            )
+
+          onChange={
+            e =>
+              update(
+                "advisor",
+                e.target.value
+              )
           }
+
         />
+
+
+
+
+
 
 
 
         <Textarea
-          placeholder="Notes"
-          value={form.note}
-          onChange={(e) =>
-            update(
-              "note",
-              e.target.value
-            )
+
+          placeholder="Property Description"
+
+          value={form.description}
+
+          onChange={
+            e =>
+              update(
+                "description",
+                e.target.value
+              )
           }
+
         />
 
 
 
+
+
+
+
+
+        <Textarea
+
+          placeholder="Internal Notes"
+
+          value={form.note}
+
+          onChange={
+            e =>
+              update(
+                "note",
+                e.target.value
+              )
+          }
+
+        />
+
+
+
+
+
+
+
+
         <Button
+
           disabled={saving}
+
         >
 
-          {saving
+          {
+            saving
             ? "Saving..."
-            : "Create Property"}
+            : "Create Property"
+          }
 
         </Button>
+
 
 
       </form>
@@ -620,4 +983,5 @@ export default function NewPropertyPage() {
     </div>
 
   )
+
 }

@@ -5,6 +5,10 @@ import {
 } from "react"
 
 import {
+  Share2,
+} from "lucide-react"
+
+import {
   Button,
 } from "@/components/ui/button"
 
@@ -15,6 +19,7 @@ import {
 import type {
   Property,
 } from "@/types/property"
+
 
 
 type Props = {
@@ -28,10 +33,8 @@ type Props = {
 
 
 export function SharePropertyButton({
-
   property,
-
-}:Props){
+}: Props){
 
 
   const [
@@ -42,19 +45,29 @@ export function SharePropertyButton({
 
 
 
+
   return (
 
     <>
 
       <Button
 
+        variant="outline"
+
+        size="sm"
+
         onClick={() =>
           setOpen(true)
         }
 
-        className="rounded-md"
+        className="
+          rounded-md
+          whitespace-nowrap
+        "
 
       >
+
+        <Share2 className="mr-2 h-4 w-4"/>
 
         Share Property
 

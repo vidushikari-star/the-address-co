@@ -46,6 +46,7 @@ export function PropertyDocuments({
     useRouter()
 
 
+
   const [
     deleting,
     setDeleting,
@@ -56,8 +57,10 @@ export function PropertyDocuments({
 
 
 
+
+
   async function removeDocument(
-    document:PropertyDocument
+    document: PropertyDocument
   ){
 
 
@@ -72,6 +75,7 @@ export function PropertyDocuments({
       return
 
     }
+
 
 
 
@@ -95,8 +99,7 @@ export function PropertyDocuments({
       router.refresh()
 
 
-    }
-    catch(error){
+    } catch(error){
 
 
       console.error(
@@ -110,8 +113,7 @@ export function PropertyDocuments({
       )
 
 
-    }
-    finally{
+    } finally {
 
 
       setDeleting(null)
@@ -119,8 +121,10 @@ export function PropertyDocuments({
 
     }
 
-
   }
+
+
+
 
 
 
@@ -128,14 +132,29 @@ export function PropertyDocuments({
 
   return (
 
-    <section className="rounded-2xl border p-6 space-y-5">
+    <section className="
+      rounded-2xl
+      border
+      p-4
+      space-y-4
+      sm:p-6
+    ">
 
 
-      <div className="flex items-center justify-between">
+      <div className="
+        flex
+        flex-col
+        gap-3
+        sm:flex-row
+        sm:items-center
+        sm:justify-between
+      ">
 
 
         <h2 className="text-xl font-semibold">
+
           Property Documents
+
         </h2>
 
 
@@ -155,6 +174,8 @@ export function PropertyDocuments({
 
 
 
+
+
       {
         documents.length > 0 ? (
 
@@ -163,6 +184,7 @@ export function PropertyDocuments({
 
             {
               documents.map(
+
                 document => (
 
                   <div
@@ -171,22 +193,45 @@ export function PropertyDocuments({
                       document.id
                     }
 
-                    className="flex items-center justify-between rounded-xl border p-4"
+                    className="
+                      flex
+                      flex-col
+                      gap-4
+                      rounded-xl
+                      border
+                      p-4
+                      sm:flex-row
+                      sm:items-center
+                      sm:justify-between
+                    "
 
                   >
 
 
-                    <div>
+
+                    <div className="min-w-0">
 
 
-                      <p className="font-medium">
+                      <p className="
+                        truncate
+                        font-medium
+                      ">
+
                         {document.name}
+
                       </p>
 
 
 
-                      <p className="text-sm text-muted-foreground capitalize">
+                      <p className="
+                        mt-1
+                        text-sm
+                        capitalize
+                        text-muted-foreground
+                      ">
+
                         {document.category}
+
                       </p>
 
 
@@ -196,7 +241,16 @@ export function PropertyDocuments({
 
 
 
-                    <div className="flex items-center gap-3">
+
+
+                    <div className="
+  flex
+  w-full
+  gap-3
+  sm:w-auto
+  sm:shrink-0
+">
+
 
 
                       <a
@@ -209,13 +263,27 @@ export function PropertyDocuments({
 
                         rel="noopener noreferrer"
 
-                        className="text-sm text-primary underline"
+                        className="
+  flex
+  flex-1
+  items-center
+  justify-center
+  rounded-md
+  border
+  px-3
+  py-2
+  text-sm
+  text-primary
+  sm:flex-none
+"
 
                       >
 
                         Open
 
                       </a>
+
+
 
 
 
@@ -241,8 +309,8 @@ export function PropertyDocuments({
 
                         {
                           deleting === document.id
-                          ? "Deleting..."
-                          : "Delete"
+                            ? "Deleting..."
+                            : "Delete"
                         }
 
                       </Button>
@@ -267,7 +335,9 @@ export function PropertyDocuments({
 
 
           <p className="text-muted-foreground">
+
             No documents uploaded.
+
           </p>
 
 

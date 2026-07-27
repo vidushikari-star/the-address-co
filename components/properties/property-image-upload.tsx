@@ -17,6 +17,10 @@ import {
   useRouter,
 } from "next/navigation"
 
+import {
+  ImagePlus,
+} from "lucide-react"
+
 
 
 
@@ -40,8 +44,11 @@ export function PropertyImageUpload({
     useRouter()
 
 
+
   const fileRef =
     useRef<HTMLInputElement>(null)
+
+
 
 
 
@@ -53,11 +60,55 @@ export function PropertyImageUpload({
 
 
 
+
+
+  const [
+    preview,
+    setPreview,
+  ] =
+  useState<string | null>(null)
+
+
+
+
+
   const [
     loading,
     setLoading,
   ] =
   useState(false)
+
+
+
+
+
+
+
+  function selectFile(
+    selected:File | undefined
+  ){
+
+    if(!selected){
+
+      return
+
+    }
+
+
+    setFile(
+      selected
+    )
+
+
+    setPreview(
+      URL.createObjectURL(
+        selected
+      )
+    )
+
+  }
+
+
 
 
 
@@ -90,7 +141,11 @@ export function PropertyImageUpload({
       )
 
 
+
       setFile(null)
+
+      setPreview(null)
+
 
 
       if(fileRef.current){
@@ -98,6 +153,7 @@ export function PropertyImageUpload({
         fileRef.current.value = ""
 
       }
+
 
 
       router.refresh()
@@ -131,9 +187,18 @@ export function PropertyImageUpload({
 
 
 
+
+
   return (
 
-    <div className="flex items-center gap-3">
+    <div className="
+      flex
+      flex-col
+      gap-3
+      sm:flex-row
+      sm:items-center
+    ">
+
 
 
       <input
@@ -144,16 +209,52 @@ export function PropertyImageUpload({
 
         accept="image/*"
 
+        capture="environment"
+
         hidden
 
         onChange={
           e =>
-            setFile(
-              e.target.files?.[0] ?? null
+            selectFile(
+              e.target.files?.[0]
             )
         }
 
       />
+
+
+
+
+
+
+
+      {
+  preview && (
+
+    <div className="flex items-center gap-3">
+
+      <img
+
+        src={preview}
+
+        alt="Preview"
+
+        className="
+          h-16
+          w-16
+          rounded-xl
+          border
+          object-cover
+        "
+
+      />
+
+    </div>
+
+  )
+}
+
+
 
 
 
@@ -165,11 +266,18 @@ export function PropertyImageUpload({
 
         variant="outline"
 
+        className="
+          w-full
+          sm:w-auto
+        "
+
         onClick={() =>
           fileRef.current?.click()
         }
 
       >
+
+        <ImagePlus className="mr-2 h-4 w-4"/>
 
         Choose Image
 
@@ -179,14 +287,21 @@ export function PropertyImageUpload({
 
 
 
+
+
       {
         file && (
 
-          <span className="text-sm text-muted-foreground">
+          <p className="
+            max-w-full
+            truncate
+            text-sm
+            text-muted-foreground
+          ">
 
             {file.name}
 
-          </span>
+          </p>
 
         )
       }
@@ -195,9 +310,16 @@ export function PropertyImageUpload({
 
 
 
+
+
       <Button
 
         type="button"
+
+        className="
+          w-full
+          sm:w-auto
+        "
 
         onClick={upload}
 
@@ -210,8 +332,8 @@ export function PropertyImageUpload({
 
         {
           loading
-          ? "Uploading..."
-          : "Upload"
+            ? "Uploading..."
+            : "Upload"
         }
 
       </Button>

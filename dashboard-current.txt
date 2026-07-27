@@ -79,9 +79,10 @@ export default async function DashboardPage() {
 
 
 
-    return (
+  return (
 
     <div className="mx-auto flex w-full max-w-[1650px] flex-col gap-6 px-6 pb-6 pt-6">
+
 
 
       {/* TOP STATS */}
@@ -139,13 +140,17 @@ export default async function DashboardPage() {
 
 
 
-      {/* DAILY WORK */}
+      {/* MAIN DASHBOARD AREA */}
 
 
       <section className="grid gap-6 xl:grid-cols-3">
 
 
-        <div className="xl:col-span-2">
+
+        {/* LEFT COLUMN */}
+
+
+        <div className="space-y-6 xl:col-span-2">
 
 
           <MyWork
@@ -153,129 +158,136 @@ export default async function DashboardPage() {
           />
 
 
+
+          <div className="grid gap-6 xl:grid-cols-3">
+
+
+            <div className="xl:col-span-2">
+
+
+              <PipelineCard
+
+                stages={[
+
+                  {
+                    title:"Lead",
+                    count:
+                      stats.deals.filter(
+                        deal =>
+                          deal.stage === "lead"
+                      ).length,
+                  },
+
+
+                  {
+                    title:"Qualified",
+                    count:
+                      stats.deals.filter(
+                        deal =>
+                          deal.stage === "qualification"
+                      ).length,
+                  },
+
+
+                  {
+                    title:"Site Visit",
+                    count:
+                      stats.deals.filter(
+                        deal =>
+                          deal.stage === "site_visit"
+                      ).length,
+                  },
+
+
+                  {
+                    title:"Negotiation",
+                    count:
+                      stats.deals.filter(
+                        deal =>
+                          deal.stage === "negotiation"
+                      ).length,
+                  },
+
+
+                  {
+                    title:"Documentation",
+                    count:
+                      stats.deals.filter(
+                        deal =>
+                          deal.stage === "documentation"
+                      ).length,
+                  },
+
+
+                  {
+                    title:"Closed",
+                    count:
+                      stats.deals.filter(
+                        deal =>
+                          deal.stage === "closed_won"
+                      ).length,
+                  },
+
+                ]}
+
+              />
+
+
+            </div>
+
+
+
+            <AgendaCard
+
+              items={
+                upcomingTasks
+              }
+
+            />
+
+
+          </div>
+
+
         </div>
 
 
 
-        <AgendaCard
-          items={upcomingTasks}
-        />
-
-
-      </section>
 
 
 
 
+        {/* RIGHT COLUMN */}
 
 
+        <div className="space-y-6">
 
 
-      {/* SALES PRIORITY */}
+          <DealHealthCard
 
+            data={
+              dealHealth
+            }
 
-      <section className="grid gap-6 xl:grid-cols-3">
+          />
 
-
-        <div className="xl:col-span-2">
 
 
           <HotLeads
-            leads={hotLeads}
+
+            leads={
+              hotLeads
+            }
+
           />
 
 
-        </div>
 
+          <ActivityFeed
 
-
-        <NeedsAttention
-          deals={dealsToFollowUp}
-        />
-
-
-      </section>
-
-
-
-
-
-
-
-
-      {/* PIPELINE HEALTH */}
-
-
-      <section className="grid gap-6 xl:grid-cols-3">
-
-
-        <div className="xl:col-span-2">
-
-
-          <PipelineCard
-
-            stages={[
-
-              {
-                title:"Lead",
-                count:
-                  stats.deals.filter(
-                    deal =>
-                      deal.stage === "lead"
-                  ).length,
-              },
-
-
-              {
-                title:"Qualified",
-                count:
-                  stats.deals.filter(
-                    deal =>
-                      deal.stage === "qualification"
-                  ).length,
-              },
-
-
-              {
-                title:"Site Visit",
-                count:
-                  stats.deals.filter(
-                    deal =>
-                      deal.stage === "site_visit"
-                  ).length,
-              },
-
-
-              {
-                title:"Negotiation",
-                count:
-                  stats.deals.filter(
-                    deal =>
-                      deal.stage === "negotiation"
-                  ).length,
-              },
-
-
-              {
-                title:"Documentation",
-                count:
-                  stats.deals.filter(
-                    deal =>
-                      deal.stage === "documentation"
-                  ).length,
-              },
-
-
-              {
-                title:"Closed",
-                count:
-                  stats.deals.filter(
-                    deal =>
-                      deal.stage === "closed_won"
-                  ).length,
-              },
-
-            ]}
+            activities={
+              recentActivities
+            }
 
           />
 
@@ -284,15 +296,6 @@ export default async function DashboardPage() {
 
 
 
-
-
-        <DealHealthCard
-
-          data={dealHealth}
-
-        />
-
-
       </section>
 
 
@@ -301,55 +304,20 @@ export default async function DashboardPage() {
 
 
 
+      {/* LOWER SECTIONS */}
 
-
-      {/* ACTIVITY */}
 
 
       <section className="grid gap-6">
-
-
-        <ActivityFeed
-
-          activities={
-            recentActivities
-          }
-
-        />
-
-
-      </section>
-
-
-
-
-
-
-
-
-      {/* NEW BUSINESS */}
-
-
-      <section className="grid gap-6">
-
 
         <NewLeads
-
           leads={newLeads}
-
         />
-
 
       </section>
 
 
 
-
-
-
-
-
-      {/* COMMISSIONS */}
 
 
       <section className="grid gap-6">
@@ -368,9 +336,28 @@ export default async function DashboardPage() {
 
 
 
+
+
+
+      <section className="grid gap-6">
+
+
+        <NeedsAttention
+
+          deals={
+            dealsToFollowUp
+          }
+
+        />
+
+
+      </section>
+
+
+
+
     </div>
 
   )
 
 }
-

@@ -29,10 +29,21 @@ import {
 
 
 
+
+
 const transactionTypes = [
   "Sale",
   "Rental",
 ]
+
+
+
+const listingTypes = [
+  "Primary",
+  "Resale",
+  "Rental",
+]
+
 
 
 const propertyTypes = [
@@ -45,6 +56,29 @@ const propertyTypes = [
 
 
 
+const developmentStages = [
+  "under_construction",
+  "ready_to_move",
+  "resale",
+]
+
+
+
+const statuses = [
+  "available",
+  "viewed",
+  "shortlisted",
+  "offer",
+  "purchased",
+  "rejected",
+]
+
+
+
+
+
+
+
 export default function EditPropertyPage(){
 
 
@@ -52,8 +86,10 @@ export default function EditPropertyPage(){
     useRouter()
 
 
+
   const params =
     useParams()
+
 
 
   const slug =
@@ -61,65 +97,141 @@ export default function EditPropertyPage(){
 
 
 
-  const [loading,setLoading] =
-    useState(true)
-
-
-  const [saving,setSaving] =
-    useState(false)
 
 
 
-  const [id,setId] =
-    useState("")
+  const [
+    loading,
+    setLoading,
+  ] =
+  useState(true)
+
+
+
+  const [
+    saving,
+    setSaving,
+  ] =
+  useState(false)
+
+
+
+  const [
+    id,
+    setId,
+  ] =
+  useState("")
 
 
 
 
-  const [form,setForm] =
-    useState({
 
-      name:"",
 
-      developer:"",
 
-      transactionType:"Sale",
+  const [
+    form,
+    setForm,
+  ] =
+  useState({
 
-      propertyType:"Villa",
 
-      location:"",
+    name:"",
 
-      locality:"",
 
-      googleMapLink:"",
+    developer:"",
 
-      price:"",
 
-      bedrooms:"",
 
-      bathrooms:"",
+    transactionType:
+      "Sale",
 
-      carpetArea:"",
 
-      plotArea:"",
 
-      builtUpArea:"",
+    listingType:
+      "Primary",
 
-      furnishing:"unfurnished",
 
-      description:"",
 
-      amenities:"",
+    propertyType:
+      "Villa",
 
-      status:"available",
 
-      advisor:"",
 
-      tags:"",
+    developmentStage:
+      "ready_to_move",
 
-      note:"",
 
-    })
+
+    status:
+      "available",
+
+
+
+    location:"",
+
+
+    locality:"",
+
+
+
+    googleMapLink:"",
+
+
+
+    price:"",
+
+
+
+    bedrooms:"",
+
+
+
+    bathrooms:"",
+
+
+
+    carpetArea:"",
+
+
+
+    plotArea:"",
+
+
+
+    builtUpArea:"",
+
+
+
+    furnishing:"",
+
+
+
+    description:"",
+
+
+
+    amenities:"",
+
+
+
+    tags:"",
+
+
+
+    coverImage:"",
+
+
+
+    advisor:"",
+
+
+
+    note:"",
+
+
+  })
+
+
 
 
 
@@ -133,133 +245,218 @@ export default function EditPropertyPage(){
     async function load(){
 
 
-      const property =
-        await getPropertyBySlug(
-          slug
+      try{
+
+
+        const property =
+          await getPropertyBySlug(
+            slug
+          )
+
+
+
+        if(!property){
+
+          return
+
+        }
+
+
+
+
+
+        setId(
+          property.id
         )
 
 
 
-      if(!property)
-        return
+
+
+        setForm({
+
+          name:
+            property.name ?? "",
 
 
 
-      setId(
-        property.id
-      )
+          developer:
+            property.developer ?? "",
 
 
 
-      setForm({
-
-        name:
-          property.name,
-
-
-        developer:
-          property.developer,
+          transactionType:
+            property.transactionType
+            ?? "Sale",
 
 
-        transactionType:
-          property.transactionType ?? "Sale",
+
+          listingType:
+            property.listingType
+            ?? "Primary",
 
 
-        propertyType:
-          property.propertyType ?? "Villa",
+
+          propertyType:
+            property.propertyType
+            ?? "Villa",
 
 
-        location:
-          property.location,
+
+          developmentStage:
+            property.developmentStage
+            ?? "ready_to_move",
 
 
-        locality:
-          property.locality ?? "",
+
+          status:
+            property.status
+            ?? "available",
 
 
-        googleMapLink:
-          property.googleMapLink ?? "",
+
+          location:
+            property.location
+            ?? "",
 
 
-        price:
-          String(
-            property.price.asking
-          ),
+
+          locality:
+            property.locality
+            ?? "",
 
 
-        bedrooms:
-          String(
-            property.specifications.bedrooms
-          ),
+
+          googleMapLink:
+            property.googleMapLink
+            ?? "",
 
 
-        bathrooms:
-          String(
-            property.specifications.bathrooms
-          ),
+
+          price:
+            String(
+              property.price?.asking
+              ?? ""
+            ),
 
 
-        carpetArea:
-          String(
-            property.specifications.carpetArea
-          ),
+
+          bedrooms:
+            String(
+              property.specifications?.bedrooms
+              ?? ""
+            ),
 
 
-        plotArea:
-          String(
-            property.specifications.plotArea ?? 0
-          ),
+
+          bathrooms:
+            String(
+              property.specifications?.bathrooms
+              ?? ""
+            ),
 
 
-        builtUpArea:
-          String(
-            property.specifications.builtUpArea ?? 0
-          ),
+
+          carpetArea:
+            String(
+              property.specifications?.carpetArea
+              ?? ""
+            ),
 
 
-        furnishing:
-          property.furnishing ?? "unfurnished",
+
+          plotArea:
+            String(
+              property.specifications?.plotArea
+              ?? ""
+            ),
 
 
-        description:
-          property.description ?? "",
+
+          builtUpArea:
+            String(
+              property.specifications?.builtUpArea
+              ?? ""
+            ),
 
 
-        amenities:
-          property.amenities?.join(", ")
-          ?? "",
+
+          furnishing:
+            property.furnishing
+            ?? "",
 
 
-        status:
-          property.status,
+
+          description:
+            property.description
+            ?? "",
 
 
-        advisor:
-          property.advisor,
+
+          amenities:
+            property.amenities?.join(", ")
+            ?? "",
 
 
-        tags:
-          property.tags?.join(", ")
-          ?? "",
+
+          tags:
+            property.tags?.join(", ")
+            ?? "",
 
 
-        note:
-          property.note ?? "",
+
+          coverImage:
+            property.coverImage
+            ?? "",
 
 
-      })
+
+          advisor:
+            property.advisor
+            ?? "",
 
 
-      setLoading(false)
+
+          note:
+            property.note
+            ?? "",
+
+
+        })
+
+
+      }
+      catch(error){
+
+
+        console.error(
+          "Failed loading property",
+          error
+        )
+
+
+      }
+      finally{
+
+
+        setLoading(false)
+
+
+      }
 
 
     }
 
 
+
     load()
 
 
-  },[slug])
+  },[
+    slug,
+  ])
+
+
 
 
 
@@ -273,16 +470,18 @@ export default function EditPropertyPage(){
   ){
 
     setForm(
-      current=>({
+      current => ({
 
         ...current,
 
-        [key]:value
+        [key]:
+          value,
 
       })
     )
 
   }
+
 
 
 
@@ -298,115 +497,207 @@ export default function EditPropertyPage(){
 
 
 
-    await updateProperty(
-
-      id,
-
-      {
+    try{
 
 
-        name:
-          form.name,
+      await updateProperty(
+
+        id,
+
+        {
 
 
-        developer:
-          form.developer,
+          name:
+            form.name,
 
 
-        transactionType:
-          form.transactionType,
+
+          developer:
+            form.developer,
 
 
-        propertyType:
-          form.propertyType,
+
+          transactionType:
+            form.transactionType,
 
 
-        location:
-          form.location,
+
+          listingType:
+            form.listingType,
 
 
-        locality:
-          form.locality,
+
+          propertyType:
+            form.propertyType,
 
 
-        googleMapLink:
-          form.googleMapLink,
+
+          developmentStage:
+            form.developmentStage,
 
 
-        price:
-          Number(form.price),
+
+          status:
+            form.status,
 
 
-        bedrooms:
-          Number(form.bedrooms),
+
+          location:
+            form.location,
 
 
-        bathrooms:
-          Number(form.bathrooms),
+
+          locality:
+            form.locality,
 
 
-        carpetArea:
-          Number(form.carpetArea),
+
+          googleMapLink:
+            form.googleMapLink,
 
 
-        plotArea:
-          Number(form.plotArea),
+
+          price:
+            Number(
+              form.price
+            ),
 
 
-        builtUpArea:
-          Number(form.builtUpArea),
+
+          bedrooms:
+            Number(
+              form.bedrooms
+            ),
 
 
-        furnishing:
-          form.furnishing,
+
+          bathrooms:
+            Number(
+              form.bathrooms
+            ),
 
 
-        description:
-          form.description,
+
+          carpetArea:
+            Number(
+              form.carpetArea
+            ),
 
 
-        amenities:
-          form.amenities
-            .split(",")
-            .map(x=>x.trim())
-            .filter(Boolean),
+
+          plotArea:
+            Number(
+              form.plotArea
+            ),
 
 
-        status:
-          form.status,
+
+          builtUpArea:
+            Number(
+              form.builtUpArea
+            ),
 
 
-        advisor:
-          form.advisor,
+
+          furnishing:
+            form.furnishing,
 
 
-        note:
-          form.note,
 
-      }
-
-    )
+          description:
+            form.description,
 
 
-    router.push(
-      `/properties/${slug}`
-    )
+
+          amenities:
+            form.amenities
+              .split(",")
+              .map(
+                item =>
+                  item.trim()
+              )
+              .filter(Boolean),
+
+
+
+          tags:
+            form.tags
+              .split(",")
+              .map(
+                item =>
+                  item.trim()
+              )
+              .filter(Boolean),
+
+
+
+          coverImage:
+            form.coverImage,
+
+
+
+          advisor:
+            form.advisor,
+
+
+
+          note:
+            form.note,
+
+
+        }
+
+      )
+
+
+
+      router.push(
+        `/properties/${slug}`
+      )
+
+
+    }
+    catch(error){
+
+
+      console.error(
+        "Failed updating property",
+        error
+      )
+
+
+      alert(
+        "Unable to update property"
+      )
+
+
+    }
+    finally{
+
+
+      setSaving(false)
+
+
+    }
 
 
   }
-
-
-
-
-
-
-
-  if(loading){
+    if(loading){
 
     return (
-      <div className="p-8">
-        Loading...
+
+      <div className="
+        rounded-2xl
+        border
+        p-8
+        text-center
+        text-muted-foreground
+      ">
+
+        Loading property...
+
       </div>
+
     )
 
   }
@@ -419,67 +710,146 @@ export default function EditPropertyPage(){
 
   return (
 
-    <div className="mx-auto max-w-4xl space-y-8 p-8">
+    <div className="
+      mx-auto
+      max-w-4xl
+      space-y-6
+      p-4
+      sm:p-6
+      lg:p-8
+    ">
 
 
-      <h1 className="text-3xl font-bold">
-        Edit Property
-      </h1>
+
+      <div>
+
+
+        <h1 className="
+          text-3xl
+          font-semibold
+        ">
+
+          Edit Property
+
+        </h1>
 
 
 
-      <div className="rounded-2xl border bg-card p-8 space-y-5">
+        <p className="
+          mt-2
+          text-muted-foreground
+        ">
+
+          Update property details, pricing and inventory information.
+
+        </p>
+
+
+      </div>
+
+
+
+
+
+
+
+
+
+      <form
+
+        onSubmit={
+          e => {
+            e.preventDefault()
+            save()
+          }
+        }
+
+        className="
+          space-y-5
+          rounded-2xl
+          border
+          bg-card
+          p-4
+          sm:p-6
+        "
+
+      >
+
+
 
 
 
         <Input
+
           placeholder="Property Name"
+
           value={form.name}
+
           onChange={
-            e=>update(
-              "name",
-              e.target.value
-            )
+            e =>
+              update(
+                "name",
+                e.target.value
+              )
           }
+
         />
+
+
+
+
 
 
 
         <Input
+
           placeholder="Developer"
+
           value={form.developer}
+
           onChange={
-            e=>update(
-              "developer",
-              e.target.value
-            )
+            e =>
+              update(
+                "developer",
+                e.target.value
+              )
           }
+
         />
+
+
 
 
 
 
 
         <select
-          className="w-full rounded-lg border p-3"
+
+          className="w-full rounded-xl border p-3"
+
           value={form.transactionType}
+
           onChange={
-            e=>update(
-              "transactionType",
-              e.target.value
-            )
+            e =>
+              update(
+                "transactionType",
+                e.target.value
+              )
           }
+
         >
 
           {
             transactionTypes.map(
-              item=>(
+              item => (
 
                 <option
                   key={item}
                   value={item}
                 >
+
                   {item}
+
                 </option>
 
               )
@@ -487,31 +857,41 @@ export default function EditPropertyPage(){
           }
 
         </select>
+
+
+
 
 
 
 
 
         <select
-          className="w-full rounded-lg border p-3"
-          value={form.propertyType}
+
+          className="w-full rounded-xl border p-3"
+
+          value={form.listingType}
+
           onChange={
-            e=>update(
-              "propertyType",
-              e.target.value
-            )
+            e =>
+              update(
+                "listingType",
+                e.target.value
+              )
           }
+
         >
 
           {
-            propertyTypes.map(
-              item=>(
+            listingTypes.map(
+              item => (
 
                 <option
                   key={item}
                   value={item}
                 >
+
                   {item}
+
                 </option>
 
               )
@@ -524,30 +904,179 @@ export default function EditPropertyPage(){
 
 
 
-        <div className="grid md:grid-cols-2 gap-4">
+
+
+
+
+        <select
+
+          className="w-full rounded-xl border p-3"
+
+          value={form.propertyType}
+
+          onChange={
+            e =>
+              update(
+                "propertyType",
+                e.target.value
+              )
+          }
+
+        >
+
+          {
+            propertyTypes.map(
+              item => (
+
+                <option
+                  key={item}
+                  value={item}
+                >
+
+                  {item}
+
+                </option>
+
+              )
+            )
+          }
+
+        </select>
+
+
+
+
+
+
+
+
+        <select
+
+          className="w-full rounded-xl border p-3"
+
+          value={form.developmentStage}
+
+          onChange={
+            e =>
+              update(
+                "developmentStage",
+                e.target.value
+              )
+          }
+
+        >
+
+          {
+            developmentStages.map(
+              item => (
+
+                <option
+                  key={item}
+                  value={item}
+                >
+
+                  {item}
+
+                </option>
+
+              )
+            )
+          }
+
+        </select>
+
+
+
+
+
+
+
+
+        <select
+
+          className="w-full rounded-xl border p-3"
+
+          value={form.status}
+
+          onChange={
+            e =>
+              update(
+                "status",
+                e.target.value
+              )
+          }
+
+        >
+
+          {
+            statuses.map(
+              item => (
+
+                <option
+                  key={item}
+                  value={item}
+                >
+
+                  {item}
+
+                </option>
+
+              )
+            )
+          }
+
+        </select>
+
+
+
+
+
+
+
+
+
+        <div className="
+          grid
+          gap-4
+          md:grid-cols-2
+        ">
+
 
           <Input
+
             placeholder="Location"
+
             value={form.location}
+
             onChange={
-              e=>update(
-                "location",
-                e.target.value
-              )
+              e =>
+                update(
+                  "location",
+                  e.target.value
+                )
             }
+
           />
 
 
+
+
           <Input
+
             placeholder="Locality"
+
             value={form.locality}
+
             onChange={
-              e=>update(
-                "locality",
-                e.target.value
-              )
+              e =>
+                update(
+                  "locality",
+                  e.target.value
+                )
             }
+
           />
+
 
         </div>
 
@@ -555,72 +1084,143 @@ export default function EditPropertyPage(){
 
 
 
+
+
+
+
         <Input
+
           placeholder="Google Map Link"
+
           value={form.googleMapLink}
+
           onChange={
-            e=>update(
-              "googleMapLink",
-              e.target.value
-            )
+            e =>
+              update(
+                "googleMapLink",
+                e.target.value
+              )
           }
+
         />
 
 
 
 
 
+
+
+
+
         <Input
-          placeholder="Price"
+
+          placeholder="Cover Image URL"
+
+          value={form.coverImage}
+
+          onChange={
+            e =>
+              update(
+                "coverImage",
+                e.target.value
+              )
+          }
+
+        />
+
+
+
+
+
+
+
+
+
+        <Input
+
+          placeholder="Asking Price"
+
           value={form.price}
+
           onChange={
-            e=>update(
-              "price",
-              e.target.value
-            )
+            e =>
+              update(
+                "price",
+                e.target.value
+              )
           }
+
         />
 
 
 
 
 
-        <div className="grid md:grid-cols-3 gap-4">
+
+
+
+
+        <div className="
+          grid
+          gap-4
+          md:grid-cols-3
+        ">
+
 
           <Input
+
             placeholder="Bedrooms"
+
             value={form.bedrooms}
+
             onChange={
-              e=>update(
-                "bedrooms",
-                e.target.value
-              )
+              e =>
+                update(
+                  "bedrooms",
+                  e.target.value
+                )
             }
+
           />
 
 
+
+
           <Input
+
             placeholder="Bathrooms"
+
             value={form.bathrooms}
+
             onChange={
-              e=>update(
-                "bathrooms",
-                e.target.value
-              )
+              e =>
+                update(
+                  "bathrooms",
+                  e.target.value
+                )
             }
+
           />
 
 
+
+
           <Input
+
             placeholder="Carpet Area"
+
             value={form.carpetArea}
+
             onChange={
-              e=>update(
-                "carpetArea",
-                e.target.value
-              )
+              e =>
+                update(
+                  "carpetArea",
+                  e.target.value
+                )
             }
+
           />
+
 
         </div>
 
@@ -628,30 +1228,52 @@ export default function EditPropertyPage(){
 
 
 
-        <div className="grid md:grid-cols-2 gap-4">
+
+
+
+
+        <div className="
+          grid
+          gap-4
+          md:grid-cols-2
+        ">
+
 
           <Input
+
             placeholder="Plot Area"
+
             value={form.plotArea}
+
             onChange={
-              e=>update(
-                "plotArea",
-                e.target.value
-              )
+              e =>
+                update(
+                  "plotArea",
+                  e.target.value
+                )
             }
+
           />
+
+
 
 
           <Input
+
             placeholder="Built Up Area"
+
             value={form.builtUpArea}
+
             onChange={
-              e=>update(
-                "builtUpArea",
-                e.target.value
-              )
+              e =>
+                update(
+                  "builtUpArea",
+                  e.target.value
+                )
             }
+
           />
+
 
         </div>
 
@@ -659,84 +1281,160 @@ export default function EditPropertyPage(){
 
 
 
+
+
+
+
         <Input
+
           placeholder="Furnishing"
+
           value={form.furnishing}
+
           onChange={
-            e=>update(
-              "furnishing",
-              e.target.value
-            )
+            e =>
+              update(
+                "furnishing",
+                e.target.value
+              )
           }
+
         />
 
 
 
 
 
+
+
+
+
         <Input
-          placeholder="Amenities"
+
+          placeholder="Amenities (comma separated)"
+
           value={form.amenities}
+
           onChange={
-            e=>update(
-              "amenities",
-              e.target.value
-            )
+            e =>
+              update(
+                "amenities",
+                e.target.value
+              )
           }
+
         />
 
 
 
 
-
-        <Textarea
-          placeholder="Property Description"
-          value={form.description}
-          onChange={
-            e=>update(
-              "description",
-              e.target.value
-            )
-          }
-        />
 
 
 
 
 
         <Input
-          placeholder="Advisor"
-          value={form.advisor}
+
+          placeholder="Tags (comma separated)"
+
+          value={form.tags}
+
           onChange={
-            e=>update(
-              "advisor",
-              e.target.value
-            )
+            e =>
+              update(
+                "tags",
+                e.target.value
+              )
           }
+
         />
+
+
+
+
 
 
 
 
 
         <Textarea
-          placeholder="Internal Notes"
-          value={form.note}
+
+          placeholder="Property Description"
+
+          value={form.description}
+
           onChange={
-            e=>update(
-              "note",
-              e.target.value
-            )
+            e =>
+              update(
+                "description",
+                e.target.value
+              )
           }
+
         />
+
+
+
+
+
+
+
+
+
+        <Input
+
+          placeholder="Advisor"
+
+          value={form.advisor}
+
+          onChange={
+            e =>
+              update(
+                "advisor",
+                e.target.value
+              )
+          }
+
+        />
+
+
+
+
+
+
+
+
+
+        <Textarea
+
+          placeholder="Internal Notes"
+
+          value={form.note}
+
+          onChange={
+            e =>
+              update(
+                "note",
+                e.target.value
+              )
+          }
+
+        />
+
+
+
+
 
 
 
 
 
         <Button
-          onClick={save}
+
+          type="submit"
+
           disabled={saving}
+
         >
 
           {
@@ -748,7 +1446,10 @@ export default function EditPropertyPage(){
         </Button>
 
 
-      </div>
+
+
+
+      </form>
 
 
     </div>

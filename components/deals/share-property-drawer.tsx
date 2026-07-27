@@ -43,8 +43,6 @@ import type {
 
 
 
-
-
 type Props = {
 
   open:boolean
@@ -115,7 +113,7 @@ export function SharePropertyDrawer({
 
 
 
-  useEffect(()=>{
+  useEffect(() => {
 
 
     async function load(){
@@ -230,11 +228,8 @@ export function SharePropertyDrawer({
     try {
 
 
-
-
       const propertyUrl =
         `${window.location.origin}/share/${property.slug}`
-
 
 
 
@@ -247,20 +242,17 @@ export function SharePropertyDrawer({
 
 Sharing details of this luxury property:
 
-\u{1F3E1} ${property.name}
+🏠 ${property.name}
 
-
-\u{1F4CD} Location:
+📍 Location:
 ${property.location || "-"}
 
-
-\u{1F4B0} Asking Price:
+💰 Asking Price:
 ${
   property.price.asking
     ? `₹${property.price.asking.toLocaleString("en-IN")}`
     : "-"
 }
-
 
 
 Property Details:
@@ -292,8 +284,7 @@ ${
 ${property.furnishing || "-"}
 
 
-
-\u{2728} Amenities:
+✨ Amenities:
 
 ${
   property.amenities?.length
@@ -306,17 +297,14 @@ ${
 }
 
 
-
 About the Property:
 
 ${property.description || "-"}
 
 
-
 View complete property details and images:
 
 ${propertyUrl}
-
 
 
 Please let me know if you would like to schedule a private viewing.
@@ -333,16 +321,15 @@ ${currentUser?.name || "The Address Co."}
 
 
       const phone =
-
         (
           buyer.whatsapp ??
-          buyer.phone
+          buyer.phone ??
+          ""
         )
         .replace(
           /\D/g,
           ""
         )
-
 
 
 
@@ -384,8 +371,6 @@ ${currentUser?.name || "The Address Co."}
 
 
 
-
-
       window.open(
 
         `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
@@ -398,15 +383,11 @@ ${currentUser?.name || "The Address Co."}
 
 
 
-
       onOpenChange(false)
 
 
 
-
-
-    }
-    catch(error){
+    } catch(error){
 
 
       console.error(
@@ -420,8 +401,7 @@ ${currentUser?.name || "The Address Co."}
       )
 
 
-    }
-    finally{
+    } finally {
 
 
       setLoading(false)
@@ -458,62 +438,93 @@ ${currentUser?.name || "The Address Co."}
     >
 
 
-      <div className="space-y-5">
+      <div className="
+        space-y-5
+        pb-2
+      ">
 
 
-        <select
+        <div>
 
-          className="w-full rounded-lg border p-3"
+          <label className="
+            mb-2
+            block
+            text-sm
+            font-medium
+          ">
 
-          value={
-            selectedContact
-          }
-
-          onChange={
-            e =>
-              setSelectedContact(
-                e.target.value
-              )
-          }
-
-        >
-
-          <option value="">
             Select Buyer
-          </option>
+
+          </label>
 
 
-          {
-            contacts.map(
 
-              contact => (
+          <select
 
-                <option
+            className="
+              w-full
+              rounded-xl
+              border
+              p-3
+              text-sm
+            "
 
-                  key={
-                    contact.id
-                  }
+            value={
+              selectedContact
+            }
 
-                  value={
-                    contact.id
-                  }
+            onChange={
+              e =>
+                setSelectedContact(
+                  e.target.value
+                )
+            }
 
-                >
+          >
 
-                  {contact.name}
-                  {" - "}
-                  {contact.phone}
+            <option value="">
 
-                </option>
+              Select Buyer
+
+            </option>
+
+
+            {
+              contacts.map(
+
+                contact => (
+
+                  <option
+
+                    key={
+                      contact.id
+                    }
+
+                    value={
+                      contact.id
+                    }
+
+                  >
+
+                    {contact.name}
+                    {" - "}
+                    {contact.phone}
+
+                  </option>
+
+                )
 
               )
 
-            )
-
-          }
+            }
 
 
-        </select>
+          </select>
+
+
+        </div>
+
+
 
 
 
@@ -521,7 +532,10 @@ ${currentUser?.name || "The Address Co."}
 
         <Button
 
-          className="w-full"
+          className="
+            w-full
+            h-11
+          "
 
           disabled={
             loading ||

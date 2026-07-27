@@ -28,6 +28,11 @@ import {
   PipelineColumn,
 } from "./pipeline-column"
 
+import {
+  DealCard,
+} from "./deal-card"
+
+
 
 
 const stages = [
@@ -58,6 +63,7 @@ const validStages: DealStage[] = [
 
 
 
+
 type Props = {
   deals: Deal[]
 }
@@ -80,6 +86,14 @@ export function DealPipeline({
 
 
 
+  const [
+    mobileStage,
+    setMobileStage,
+  ] =
+  useState<DealStage>("lead")
+
+
+
 
 
   useEffect(() => {
@@ -88,7 +102,9 @@ export function DealPipeline({
       initialDeals
     )
 
-  }, [initialDeals])
+  },[
+    initialDeals
+  ])
 
 
 
@@ -108,7 +124,7 @@ export function DealPipeline({
 
 
 
-    if (!over) {
+    if(!over){
 
       return
 
@@ -129,12 +145,11 @@ export function DealPipeline({
 
 
 
-    if (!currentDeal) {
+    if(!currentDeal){
 
       return
 
     }
-
 
 
 
@@ -145,23 +160,16 @@ export function DealPipeline({
 
 
 
-
-    if (
-
+    if(
       validStages.includes(
         over.id.toString() as DealStage
       )
-
-    ) {
-
+    ){
 
       newStage =
         over.id.toString() as DealStage
 
-
     }
-
-
     else {
 
 
@@ -170,7 +178,6 @@ export function DealPipeline({
           deal =>
             deal.id === over.id
         )
-
 
 
       if(targetDeal){
@@ -186,19 +193,7 @@ export function DealPipeline({
 
 
 
-    if(!newStage){
-
-      return
-
-    }
-
-
-
-
-
-    if(
-      currentDeal.stage === newStage
-    ){
+    if(!newStage || currentDeal.stage === newStage){
 
       return
 
@@ -213,15 +208,14 @@ export function DealPipeline({
         current.map(
           deal =>
             deal.id === dealId
-              ? {
-                  ...deal,
-                  stage:
-                    newStage,
-                }
-              : deal
+            ? {
+                ...deal,
+                stage:newStage,
+              }
+            :
+              deal
         )
     )
-
 
 
 
@@ -235,22 +229,12 @@ export function DealPipeline({
 
 
       await updateDeal(
-
         dealId,
-
         {
-
-          stage:
-            newStage,
-
-
-          lastActivity:
-            now,
-
+          stage:newStage,
+          lastActivity:now,
         }
-
       )
-
 
 
 
@@ -260,16 +244,11 @@ export function DealPipeline({
         type:
           "deal_stage_changed",
 
-
         title:
           "Deal Stage Changed",
 
-
-
         description:
           currentDeal.name,
-
-
 
         body:
           `Stage changed from ${
@@ -284,21 +263,13 @@ export function DealPipeline({
             )
           }`,
 
-
-
         dealId,
-
-
 
         contactId:
           currentDeal.contactId,
 
-
-
         propertyId:
           currentDeal.propertyId,
-
-
 
         date:
           now,
@@ -311,7 +282,6 @@ export function DealPipeline({
 
 
       console.error(
-        "FAILED DRAG UPDATE:",
         error
       )
 
@@ -321,15 +291,14 @@ export function DealPipeline({
       )
 
 
-
       setDeals(
         [
           ...initialDeals
         ]
       )
 
-    }
 
+    }
 
   }
 
@@ -337,63 +306,206 @@ export function DealPipeline({
 
 
 
+
+
   return (
 
-    <DndContext
-
-      collisionDetection={
-        closestCorners
-      }
-
-      onDragEnd={
-        handleDragEnd
-      }
-
-    >
+    <>
 
 
-      <div className="flex gap-6 overflow-x-auto pb-6">
+      {/* DESKTOP PIPELINE */}
+
+      <div className="hidden md:block">
 
 
-        {
-          stages.map(
-            ([
-              stage,
-              title,
-            ]) => (
+        <DndContext
 
-              <PipelineColumn
+          collisionDetection={
+            closestCorners
+          }
 
-                key={
-                  stage
-                }
+          onDragEnd={
+            handleDragEnd
+          }
 
-                stage={
-                  stage
-                }
+        >
 
-                title={
-                  title
-                }
 
-                deals={
-                  deals.filter(
-                    deal =>
-                      deal.stage === stage
-                  )
-                }
+          <div className="flex gap-6 overflow-x-auto pb-6">
 
-              />
 
-            )
-          )
-        }
+            {
+              stages.map(
+                ([
+                  stage,
+                  title,
+                ]) => (
+
+                  <PipelineColumn
+
+                    key={stage}
+
+                    stage={
+                      stage
+                    }
+
+                    title={
+                      title
+                    }
+
+                    deals={
+                      deals.filter(
+                        deal =>
+                          deal.stage === stage
+                      )
+                    }
+
+                  />
+
+                )
+              )
+            }
+
+
+          </div>
+
+
+        </DndContext>
 
 
       </div>
 
 
-    </DndContext>
+
+
+
+
+
+
+      {/* MOBILE PIPELINE */}
+
+      <div className="md:hidden space-y-4">
+
+
+
+        <div className="flex gap-2 overflow-x-auto pb-2">
+
+
+          {
+            stages.map(
+              ([
+                stage,
+                title,
+              ]) => (
+
+                <button
+
+                  key={stage}
+
+                  onClick={() =>
+                    setMobileStage(
+                      stage
+                    )
+                  }
+
+                  className={`
+                    whitespace-nowrap
+                    rounded-full
+                    border
+                    px-4
+                    py-2
+                    text-sm
+                    ${
+                      mobileStage === stage
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background"
+                    }
+                  `}
+
+                >
+
+                  {title}
+
+                  {" "}
+
+                  (
+                  {
+                    deals.filter(
+                      deal =>
+                        deal.stage === stage
+                    ).length
+                  }
+                  )
+
+                </button>
+
+              )
+
+            )
+          }
+
+
+        </div>
+
+
+
+
+
+
+        <div className="space-y-4">
+
+
+          {
+            deals.filter(
+              deal =>
+                deal.stage === mobileStage
+            )
+            .map(
+              deal => (
+
+                <DealCard
+
+                  key={
+                    deal.id
+                  }
+
+                  deal={
+                    deal
+                  }
+
+                />
+
+              )
+            )
+          }
+
+
+
+          {
+            deals.filter(
+              deal =>
+                deal.stage === mobileStage
+            )
+            .length === 0 && (
+
+              <p className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
+
+                No deals in this stage.
+
+              </p>
+
+            )
+
+          }
+
+
+        </div>
+
+
+      </div>
+
+
+    </>
 
   )
 

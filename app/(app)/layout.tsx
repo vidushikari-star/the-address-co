@@ -20,12 +20,18 @@ import {
 } from "@/components/app/app-header"
 
 import {
+  MobileBottomNav,
+} from "@/components/app/mobile-bottom-nav"
+
+import {
   AppSidebar,
 } from "@/components/app/app-sidebar"
 
 import {
   DrawerProvider,
 } from "@/components/providers/drawer-provider"
+
+
 
 
 
@@ -95,11 +101,14 @@ export default async function AppLayout({
 
 
 
-          <main className="flex-1 bg-stone-50">
+          <main className="flex-1 bg-stone-50 pb-16 md:pb-0">
 
-            {children}
+  {children}
 
-          </main>
+</main>
+
+
+<MobileBottomNav />
 
 
         </SidebarInset>

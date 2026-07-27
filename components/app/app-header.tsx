@@ -53,9 +53,7 @@ import {
 
 
 
-
-
-function getGreeting() {
+function getGreeting(){
 
   const hour =
     new Date().getHours()
@@ -77,9 +75,7 @@ function getGreeting() {
 
 
 
-
-
-export function AppHeader() {
+export function AppHeader(){
 
 
   const {
@@ -87,11 +83,8 @@ export function AppHeader() {
   } = useDrawer()
 
 
-
   const router =
     useRouter()
-
-
 
 
 
@@ -139,7 +132,7 @@ export function AppHeader() {
 
 
 
-  useEffect(() => {
+  useEffect(()=>{
 
 
     setGreeting(
@@ -173,7 +166,6 @@ export function AppHeader() {
         await getCurrentUserProfile()
 
 
-
       if(user){
 
         setUserName(
@@ -189,8 +181,8 @@ export function AppHeader() {
     loadUser()
 
 
+  },[])
 
-  }, [])
 
 
 
@@ -200,31 +192,70 @@ export function AppHeader() {
 
   return (
 
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur-xl">
+    <header className="
+      sticky
+      top-0
+      z-40
+      border-b
+      border-border/60
+      bg-background/90
+      backdrop-blur-xl
+    ">
 
 
-      <div className="flex h-24 items-center justify-between gap-6 px-6 lg:px-8">
+      <div className="
+        flex
+        h-16
+        items-center
+        justify-between
+        gap-3
+        px-4
+        lg:h-24
+        lg:px-8
+      ">
 
 
 
-        <div className="flex items-center gap-4">
+        <div className="
+          flex
+          min-w-0
+          items-center
+          gap-3
+        ">
 
 
           <SidebarTrigger />
 
 
 
-          <div>
+          <div className="min-w-0">
 
-            <h2 className="text-xl font-semibold tracking-tight">
 
-              {greeting}, {userName}
+            <h2 className="
+              truncate
+              text-sm
+              font-semibold
+              lg:text-xl
+            ">
+
+
+              <span className="hidden lg:inline">
+                {greeting},{" "}
+              </span>
+
+              Hi {userName}
+
 
             </h2>
 
 
 
-            <p className="text-xs text-muted-foreground">
+            <p className="
+              hidden
+              text-xs
+              text-muted-foreground
+              sm:block
+            ">
 
               {today}
 
@@ -242,21 +273,42 @@ export function AppHeader() {
 
 
 
-        <div className="hidden flex-1 justify-center lg:flex">
+        <div className="
+          hidden
+          flex-1
+          justify-center
+          lg:flex
+        ">
 
 
-          <div className="relative w-full max-w-xl">
+          <div className="
+            relative
+            w-full
+            max-w-xl
+          ">
 
 
-            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="
+              absolute
+              left-4
+              top-1/2
+              h-4
+              w-4
+              -translate-y-1/2
+              text-muted-foreground
+            "/>
 
 
 
             <Input
 
-              placeholder="Search (coming soon)..."
+              placeholder="Search coming soon..."
 
-              className="h-11 rounded-full pl-11"
+              className="
+                h-11
+                rounded-full
+                pl-11
+              "
 
             />
 
@@ -272,7 +324,12 @@ export function AppHeader() {
 
 
 
-        <div className="flex items-center gap-3">
+
+        <div className="
+          flex
+          items-center
+          gap-2
+        ">
 
 
 
@@ -281,52 +338,57 @@ export function AppHeader() {
 
             <DropdownMenuTrigger
 
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+              className="
+                flex
+                h-11
+                items-center
+                gap-2
+                rounded-full
+                border
+                px-3
+                text-sm
+              "
 
             >
 
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4"/>
+
+              <span className="hidden lg:inline">
+                Add
+              </span>
 
             </DropdownMenuTrigger>
 
 
 
 
-
             <DropdownMenuContent
-
               align="end"
-
               className="w-56"
-
             >
 
-
               <DropdownMenuItem
-
-  onClick={() =>
-    router.push("/contacts/new")
-  }
-
->
-
-  <UserPlus className="mr-2 h-4 w-4" />
-
-  New Relationship
-
-</DropdownMenuItem>
-
-
-
-
-
-              <DropdownMenuItem
-
-                onClick={() => openDrawer("property")}
-
+                onClick={() =>
+                  router.push("/contacts/new")
+                }
               >
 
-                <Building2 className="mr-2 h-4 w-4" />
+                <UserPlus className="mr-2 h-4 w-4"/>
+
+                New Relationship
+
+              </DropdownMenuItem>
+
+
+
+
+              <DropdownMenuItem
+                onClick={() =>
+                  openDrawer("property")
+                }
+              >
+
+                <Building2 className="mr-2 h-4 w-4"/>
 
                 New Property
 
@@ -335,14 +397,13 @@ export function AppHeader() {
 
 
 
-
               <DropdownMenuItem
-
-                onClick={() => openDrawer("deal")}
-
+                onClick={() =>
+                  openDrawer("deal")
+                }
               >
 
-                <Handshake className="mr-2 h-4 w-4" />
+                <Handshake className="mr-2 h-4 w-4"/>
 
                 New Deal
 
@@ -366,13 +427,19 @@ export function AppHeader() {
 
             size="icon"
 
-            className="h-11 rounded-full"
+            className="
+              hidden
+              h-11
+              rounded-full
+              sm:flex
+            "
 
           >
 
-            <Bell className="h-5 w-5" />
+            <Bell className="h-5 w-5"/>
 
           </Button>
+
 
 
 
@@ -385,13 +452,25 @@ export function AppHeader() {
 
             <DropdownMenuTrigger
 
-              className="flex h-11 items-center gap-2 rounded-full border px-4 text-sm"
+              className="
+                flex
+                h-11
+                items-center
+                gap-2
+                rounded-full
+                border
+                px-3
+                text-sm
+              "
 
             >
 
-              <UserCircle className="h-5 w-5" />
+              <UserCircle className="h-5 w-5"/>
 
-              {userName}
+
+              <span className="hidden sm:inline">
+                {userName}
+              </span>
 
 
             </DropdownMenuTrigger>
@@ -400,24 +479,17 @@ export function AppHeader() {
 
 
             <DropdownMenuContent
-
               align="end"
-
               className="w-40"
-
             >
 
-
               <DropdownMenuItem
-
                 onClick={logout}
-
               >
 
-                <LogOut className="mr-2 h-4 w-4" />
+                <LogOut className="mr-2 h-4 w-4"/>
 
                 Logout
-
 
               </DropdownMenuItem>
 
@@ -429,10 +501,7 @@ export function AppHeader() {
 
 
 
-
-
         </div>
-
 
 
       </div>

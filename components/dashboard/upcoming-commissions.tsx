@@ -25,10 +25,16 @@ type Props = {
 
 
 export function UpcomingCommissions({
-
   commissions,
-
 }:Props){
+
+
+  const total =
+    commissions.reduce(
+      (sum, commission) =>
+        sum + commission.amount,
+      0
+    )
 
 
 
@@ -39,22 +45,45 @@ export function UpcomingCommissions({
 
       <DashboardCardHeader>
 
+
         <div>
 
+
           <p className="text-sm font-medium tracking-wide text-muted-foreground">
-
             Upcoming Payments
-
           </p>
 
 
-          <h3 className="mt-2 text-2xl font-semibold tracking-tight">
 
+          <h3 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">
             Commission Due
-
           </h3>
 
+
+
+          {
+            commissions.length > 0 && (
+
+              <p className="mt-2 text-sm text-muted-foreground">
+
+                Total expected:
+
+                {" "}
+
+                <span className="font-semibold text-foreground">
+
+                  ₹{total.toLocaleString("en-IN")}
+
+                </span>
+
+              </p>
+
+            )
+          }
+
+
         </div>
+
 
 
       </DashboardCardHeader>
@@ -63,53 +92,78 @@ export function UpcomingCommissions({
 
 
 
-      <DashboardCardContent className="space-y-4">
+
+
+      <DashboardCardContent className="space-y-3">
 
 
         {
           commissions.length === 0 ? (
 
             <p className="text-sm text-muted-foreground">
-
               No upcoming commission payments.
-
             </p>
+
 
           ) : (
 
 
             commissions.map(
-
               commission => (
+
 
                 <div
 
-                  key={
-                    commission.id
-                  }
+                  key={commission.id}
 
-                  className="flex items-center justify-between rounded-xl border p-4"
+                  className="
+                    flex
+                    items-start
+justify-between
+gap-3
+                    rounded-xl
+                    border
+                    p-4
+                  "
 
                 >
+
 
                   <div className="flex items-center gap-3">
 
 
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full border bg-muted/40">
+                    <div className="
+                      flex
+                      h-10
+                      w-10
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-full
+                      bg-muted
+                    ">
 
-                      <CircleDollarSign className="h-4 w-4" />
+
+                      <CircleDollarSign className="h-5 w-5" />
+
 
                     </div>
 
 
 
+
+
                     <div>
+
 
                       <p className="font-medium capitalize">
 
                         {commission.type}
 
                       </p>
+
+
+
 
 
                       {
@@ -134,6 +188,8 @@ export function UpcomingCommissions({
                         )
                       }
 
+
+
                     </div>
 
 
@@ -143,7 +199,14 @@ export function UpcomingCommissions({
 
 
 
-                  <p className="font-semibold">
+
+                  <p className="
+ text-right
+ text-sm
+ font-semibold
+ sm:text-base
+ shrink-0
+">
 
                     ₹
                     {
@@ -155,7 +218,9 @@ export function UpcomingCommissions({
                   </p>
 
 
+
                 </div>
+
 
               )
 

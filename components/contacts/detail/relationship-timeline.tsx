@@ -5,8 +5,13 @@ import {
   useState,
 } from "react"
 
-import type { Contact } from "@/types/contact"
-import type { Activity } from "@/types/activity"
+import type {
+  Contact,
+} from "@/types/contact"
+
+import type {
+  Activity,
+} from "@/types/activity"
 
 import {
   getActivitiesByContactId,
@@ -29,7 +34,6 @@ import {
   XCircle,
 } from "lucide-react"
 
-
 import {
   Card,
   CardContent,
@@ -42,39 +46,22 @@ import {
 const activityIcons = {
 
   contact_created: UserPlus,
-
   call: Phone,
-
   meeting: Calendar,
-
   site_visit: MapPin,
-
   email: Mail,
-
   whatsapp: MessageCircle,
-
   note: FileText,
-
   task_created: ClipboardList,
-
   task_completed: CheckCircle2,
-
   task_removed: XCircle,
-
   property_shared: Home,
-
   property_viewed: Home,
-
   offer_made: HandCoins,
-
   deal_stage_changed: HandCoins,
-
   lead_stage_changed: GitBranch,
-
   deal_closed: CheckCircle2,
-
   commission_received: CircleDollarSign,
-
   commission: CircleDollarSign,
 
 } satisfies Record<
@@ -100,13 +87,16 @@ export function RelationshipTimeline({
   const [
     activities,
     setActivities,
-  ] = useState<Activity[]>([])
+  ] =
+  useState<Activity[]>([])
+
+
 
 
 
   useEffect(() => {
 
-    async function loadActivities() {
+    async function loadActivities(){
 
       try {
 
@@ -117,7 +107,8 @@ export function RelationshipTimeline({
 
         setActivities(data)
 
-      } catch (error) {
+
+      } catch(error){
 
         console.error(
           "Failed loading activities",
@@ -131,7 +122,38 @@ export function RelationshipTimeline({
 
     loadActivities()
 
-  }, [contact.id])
+
+  },[
+    contact.id
+  ])
+
+
+
+
+
+
+
+  const sortedActivities =
+    activities
+      .slice()
+      .sort(
+        (a,b)=>
+          new Date(
+            b.date ??
+            b.createdAt
+          ).getTime()
+          -
+          new Date(
+            a.date ??
+            a.createdAt
+          ).getTime()
+      )
+      .slice(
+        0,
+        20
+      )
+
+
 
 
 
@@ -141,97 +163,109 @@ export function RelationshipTimeline({
 
     <Card>
 
-      <CardHeader>
 
-        <CardTitle>
+      <CardHeader className="
+        px-4
+        py-3
+      ">
+
+        <CardTitle className="text-base">
           Activity Timeline
         </CardTitle>
 
       </CardHeader>
 
 
-      <CardContent>
-
-
-        {activities.length === 0 ? (
-
-          <div className="py-10 text-center text-sm text-muted-foreground">
-
-            No activity yet.
-
-          </div>
-
-        ) : (
-
-          <div className="space-y-6">
-
-
-            {activities
-              .slice()
-              .sort(
-                (a,b)=>
-                  new Date(
-                    b.date ??
-                    b.createdAt
-                  ).getTime()
-                  -
-                  new Date(
-                    a.date ??
-                    a.createdAt
-                  ).getTime()
-              )
-              .map(
-
-                activity => {
-
-                  const Icon =
-  activityIcons[
-    activity.type
-  ] ?? FileText
-
-
-                  return (
-
-                    <div
-
-                      key={
-                        activity.id
-                      }
-
-                      className="flex gap-4"
-
-                    >
-
-                      <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full border bg-background">
-
-                        <Icon className="h-4 w-4" />
-
-                      </div>
 
 
 
-                      <div className="flex-1">
+
+      <CardContent className="
+        px-4
+        pb-4
+      ">
 
 
-                        <div className="flex items-center justify-between">
+        {
+          sortedActivities.length === 0 ? (
+
+            <div className="
+              py-8
+              text-center
+              text-sm
+              text-muted-foreground
+            ">
+
+              No activity yet.
+
+            </div>
 
 
-                          <h4 className="font-medium">
-
-                            {activity.title}
-
-                          </h4>
+          ) : (
 
 
+            <div className="space-y-5">
 
-                          <span className="text-xs text-muted-foreground">
 
-                            {new Date(
-                              activity.date ??
-                              activity.createdAt
-                            ).toLocaleDateString()}
+              {
+                sortedActivities.map(
 
-                          </span>
+                  activity => {
+
+
+                    const Icon =
+                      activityIcons[
+                        activity.type
+                      ] ?? FileText
+
+
+
+                    const text =
+                      (
+                        activity.body ??
+                        activity.description ??
+                        ""
+                      )
+
+
+
+
+
+                    return (
+
+                      <div
+
+                        key={
+                          activity.id
+                        }
+
+                        className="
+                          flex
+                          gap-3
+                        "
+
+                      >
+
+
+
+                        <div className="
+                          mt-1
+                          flex
+                          h-8
+                          w-8
+                          shrink-0
+                          items-center
+                          justify-center
+                          rounded-full
+                          border
+                          bg-background
+                        ">
+
+
+                          <Icon className="
+                            h-3.5
+                            w-3.5
+                          "/>
 
 
                         </div>
@@ -239,44 +273,107 @@ export function RelationshipTimeline({
 
 
 
-                        {
-                          (
-                            activity.body ||
-                            activity.description
-                          )
-                          &&
 
-                          (
+                        <div className="
+                          min-w-0
+                          flex-1
+                        ">
 
-                            <p className="mt-1 text-sm text-muted-foreground">
+
+                          <div className="
+                            flex
+                            flex-col
+                            gap-1
+                            sm:flex-row
+                            sm:items-start
+                            sm:justify-between
+                          ">
+
+
+                            <h4 className="
+                              break-words
+                              text-sm
+                              font-medium
+                            ">
+
+                              {activity.title}
+
+                            </h4>
+
+
+
+                            <span className="
+                              shrink-0
+                              text-xs
+                              text-muted-foreground
+                            ">
 
                               {
-                                activity.body ??
-                                activity.description
+                                new Date(
+                                  activity.date ??
+                                  activity.createdAt
+                                ).toLocaleDateString(
+                                  "en-IN",
+                                  {
+                                    day:"numeric",
+                                    month:"short",
+                                  }
+                                )
                               }
 
-                            </p>
+                            </span>
 
-                          )
-                        }
+
+                          </div>
+
+
+
+
+
+                          {
+                            text && (
+
+                              <p className="
+                                mt-1
+                                line-clamp-2
+                                break-words
+                                text-xs
+                                text-muted-foreground
+                              ">
+
+                                {text}
+
+                              </p>
+
+                            )
+                          }
+
+
+                        </div>
 
 
                       </div>
 
+                    )
 
-                    </div>
 
-                  )
+                  }
 
-                }
+                )
 
-              )}
+              }
 
-          </div>
 
-        )}
+            </div>
+
+
+          )
+
+        }
+
 
       </CardContent>
+
 
     </Card>
 
