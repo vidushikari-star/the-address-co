@@ -40,6 +40,8 @@ type RelationshipHeaderProps = {
 
 
 
+
+
 export function RelationshipHeader({
   contact,
 }: RelationshipHeaderProps) {
@@ -55,6 +57,7 @@ export function RelationshipHeader({
       /\D/g,
       ""
     )
+
 
 
 
@@ -108,7 +111,6 @@ Please let me know how I can assist you.`
 
 
 
-
   async function handleWhatsApp(){
 
     await logActivity(
@@ -149,7 +151,6 @@ Please let me know how I can assist you.`
 
 
 
-
   return (
 
     <header
@@ -158,7 +159,6 @@ Please let me know how I can assist you.`
         bg-background
       "
     >
-
 
       <div
         className="
@@ -174,10 +174,6 @@ Please let me know how I can assist you.`
       >
 
 
-
-
-
-
         {/* PROFILE */}
 
         <div
@@ -188,7 +184,6 @@ Please let me know how I can assist you.`
             gap-3
           "
         >
-
 
           <Avatar
             className="
@@ -228,7 +223,6 @@ Please let me know how I can assist you.`
               space-y-2
             "
           >
-
 
             <div
               className="
@@ -278,7 +272,6 @@ Please let me know how I can assist you.`
               "
             >
 
-
               {
                 contact.propertyType && (
 
@@ -327,15 +320,11 @@ Please let me know how I can assist you.`
                 )
               }
 
-
             </div>
-
 
           </div>
 
-
         </div>
-
 
 
 
@@ -357,7 +346,6 @@ Please let me know how I can assist you.`
         >
 
 
-
           {
             phone && (
 
@@ -376,6 +364,7 @@ Please let me know how I can assist you.`
 
             )
           }
+
 
 
 
@@ -406,27 +395,28 @@ Please let me know how I can assist you.`
 
 
 
+
           {
             contact.email && (
 
-              <Button
-                variant="outline"
-                size="sm"
+              <a
+                href={`mailto:${contact.email}`}
                 className="w-full"
-                asChild
               >
 
-                <a
-                  href={`mailto:${contact.email}`}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
                 >
 
                   <Mail className="mr-2 h-4 w-4"/>
 
                   Email
 
-                </a>
+                </Button>
 
-              </Button>
+              </a>
 
             )
           }
@@ -436,23 +426,25 @@ Please let me know how I can assist you.`
 
 
 
-          <Button
-            size="sm"
+
+          <Link
+            href={`/contacts/${contact.id}/edit`}
             className="w-full"
-            asChild
           >
 
-            <Link
-              href={`/contacts/${contact.id}/edit`}
+            <Button
+              size="sm"
+              className="w-full"
             >
 
               <Edit className="mr-2 h-4 w-4"/>
 
               Edit
 
-            </Link>
+            </Button>
 
-          </Button>
+          </Link>
+
 
 
 
