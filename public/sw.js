@@ -1,40 +1,14 @@
-const CACHE_NAME = "tac-app-shell-v1"
-
-const APP_SHELL = [
-  "/",
-  "/manifest.webmanifest",
-  "/icon-192.png",
-  "/icon-512.png",
-]
-
-
-
+const CACHE_NAME = "tac-shell-v2"
 
 
 self.addEventListener(
   "install",
-  (event) => {
-
-    event.waitUntil(
-
-      caches.open(
-        CACHE_NAME
-      )
-      .then(
-        (cache) =>
-          cache.addAll(
-            APP_SHELL
-          )
-      )
-
-    )
+  (event)=>{
 
     self.skipWaiting()
 
   }
 )
-
-
 
 
 
@@ -48,29 +22,21 @@ self.addEventListener(
 
       caches.keys()
       .then(
-        (keys)=>
-
-
+        keys =>
           Promise.all(
 
             keys.map(
-
-              (key)=>{
-
+              key => {
 
                 if(
                   key !== CACHE_NAME
                 ){
 
-                  return caches.delete(
-                    key
-                  )
+                  return caches.delete(key)
 
                 }
 
-
               }
-
             )
 
           )
@@ -78,7 +44,6 @@ self.addEventListener(
       )
 
     )
-
 
     self.clients.claim()
 
@@ -91,24 +56,74 @@ self.addEventListener(
 
 
 
-
 self.addEventListener(
   "fetch",
   (event)=>{
 
 
+    const request =
+      event.request
+
+
+
+    if(
+      request.method !== "GET"
+    ){
+
+      return
+
+    }
+
+
+
     event.respondWith(
 
-      fetch(
-        event.request
-      )
-      .catch(
+      caches.match(request)
+      .then(
+        cached => {
 
-        () =>
-          caches.match(
-            event.request
+
+          if(cached){
+
+            return cached
+
+          }
+
+
+
+          return fetch(request)
+          .then(
+            response => {
+
+
+              const copy =
+                response.clone()
+
+
+
+              caches.open(
+                CACHE_NAME
+              )
+              .then(
+                cache =>
+                  cache.put(
+                    request,
+                    copy
+                  )
+              )
+
+
+              return response
+
+            }
           )
 
+
+        }
+      )
+      .catch(
+        () =>
+          caches.match("/")
       )
 
     )

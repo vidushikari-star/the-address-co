@@ -13,6 +13,7 @@ import {
 
 export async function processSyncQueue(){
 
+
   const pendingItems =
     await db.syncQueue
       .where("synced")
@@ -33,11 +34,13 @@ export async function processSyncQueue(){
 
 
 
+
   for(
     const item of pendingItems
   ){
 
-    try {
+
+    try{
 
 
       await syncItem(
@@ -54,7 +57,9 @@ export async function processSyncQueue(){
       )
 
 
-    } catch(error){
+
+    }
+    catch(error){
 
 
       console.error(
@@ -78,9 +83,13 @@ export async function processSyncQueue(){
 
 
 
+
+
 async function syncItem(
   item:SyncQueueItem
 ){
+
+
 
   switch(
     item.table
@@ -91,18 +100,25 @@ async function syncItem(
     case "contacts":
 
 
+
       if(
         item.action === "create"
       ){
 
+
+
         const {
+          data,
           error,
         } =
           await supabase
             .from("contacts")
             .insert(
-              item.payload as Record<string, unknown>
+              item.payload as Record<string,unknown>
             )
+            .select()
+            .single()
+
 
 
 
@@ -113,64 +129,28 @@ async function syncItem(
         }
 
 
-      }
 
 
 
 
-
-      if(
-        item.action === "update"
-      ){
-
-        const {
-          error,
-        } =
-          await supabase
-            .from("contacts")
-            .update(
-              item.payload as Record<string, unknown>
-            )
-            .eq(
-              "id",
-              item.recordId
-            )
+        /*
+          Replace temporary offline record
+          with real Supabase record
+        */
 
 
-
-        if(error){
-
-          throw error
-
-        }
-
-      }
+        await db.contacts.delete(
+          item.recordId
+        )
 
 
 
 
-      if(
-        item.action === "delete"
-      ){
-
-        const {
-          error,
-        } =
-          await supabase
-            .from("contacts")
-            .delete()
-            .eq(
-              "id",
-              item.recordId
-            )
+        await db.contacts.put(
+          data
+        )
 
 
-
-        if(error){
-
-          throw error
-
-        }
 
       }
 
@@ -181,13 +161,18 @@ async function syncItem(
 
 
 
+
+
     default:
+
 
       console.warn(
         "No sync handler for",
         item.table
       )
 
+
   }
+
 
 }

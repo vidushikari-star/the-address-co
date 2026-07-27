@@ -17,6 +17,7 @@ import {
 
 
 
+
 function isBrowser(){
 
   return typeof window !== "undefined"
@@ -26,11 +27,12 @@ function isBrowser(){
 
 
 
+
 function splitFullName(
   fullName?: string
-) {
+){
 
-  if (!fullName?.trim()) {
+  if(!fullName?.trim()){
 
     return {
       firstName:"",
@@ -40,8 +42,12 @@ function splitFullName(
   }
 
 
+
   const parts =
-    fullName.trim().split(/\s+/)
+    fullName
+      .trim()
+      .split(/\s+/)
+
 
 
   return {
@@ -65,14 +71,15 @@ function splitFullName(
 
 
 
+
 export const ContactsRepository = {
 
 
 
-  async getAll():Promise<Contact[]> {
+  async getAll():Promise<Contact[]>{
 
 
-    try {
+    try{
 
 
       const {
@@ -91,11 +98,8 @@ export const ContactsRepository = {
 
 
 
-      if(error){
-
+      if(error)
         throw error
-
-      }
 
 
 
@@ -111,9 +115,7 @@ export const ContactsRepository = {
 
 
 
-      if(
-        isBrowser()
-      ){
+      if(isBrowser()){
 
         await db.contacts.bulkPut(
           contacts
@@ -127,7 +129,8 @@ export const ContactsRepository = {
 
 
 
-    } catch(error){
+    }
+    catch(error){
 
 
       console.warn(
@@ -136,13 +139,8 @@ export const ContactsRepository = {
 
 
 
-      if(
-        !isBrowser()
-      ){
-
+      if(!isBrowser())
         throw error
-
-      }
 
 
 
@@ -167,6 +165,7 @@ export const ContactsRepository = {
   ):Promise<Contact>{
 
 
+
     const {
       firstName,
       lastName,
@@ -181,12 +180,9 @@ export const ContactsRepository = {
     const payload = {
 
 
-      first_name:
-        firstName,
+      first_name:firstName,
 
-
-      last_name:
-        lastName,
+      last_name:lastName,
 
 
       phone:
@@ -217,6 +213,10 @@ export const ContactsRepository = {
         contact.leadSource ?? null,
 
 
+      relationship_types:
+        contact.relationshipTypes ?? [],
+
+
       advisor_id:
         contact.advisorId ?? null,
 
@@ -242,7 +242,7 @@ export const ContactsRepository = {
 
 
       locations:
-        contact.locations ?? null,
+        contact.locations ?? [],
 
 
       notes:
@@ -257,91 +257,40 @@ export const ContactsRepository = {
 
 
 
-    try {
-
-
-      const {
-        data,
-        error,
-      } =
-        await supabase
-          .from("contacts")
-          .insert(payload)
-          .select()
-          .single()
-
-
-
-      if(error){
-
-        throw error
-
-      }
-
-
-
-      const mapped =
-        mapContactRow(
-          data as ContactRow
-        )
-
-
-
-      if(
-        isBrowser()
-      ){
-
-        await db.contacts.put(
-          mapped
-        )
-
-      }
-
-
-
-      return mapped
-
-
-
-    } catch(error){
-
-
-
-      if(
-        !isBrowser()
-      ){
-
-        throw error
-
-      }
+    const tempId =
+      crypto.randomUUID()
 
 
 
 
-      const tempId =
-        crypto.randomUUID()
+
+    const offlineContact =
+      mapContactRow({
+
+        id:
+          tempId,
+
+
+        ...payload,
+
+
+        lead_stage:
+          "new",
+
+
+        created_at:
+          new Date()
+            .toISOString(),
+
+
+      } as ContactRow)
 
 
 
-      const offlineContact =
-        mapContactRow({
-
-          id:
-            tempId,
-
-
-          ...payload,
-
-
-          created_at:
-            new Date()
-              .toISOString(),
-
-
-        } as ContactRow)
 
 
 
+    if(isBrowser()){
 
 
       await db.contacts.put(
@@ -372,18 +321,109 @@ export const ContactsRepository = {
             .toISOString(),
 
 
-        synced:
-          false,
-
+        synced:false,
 
       })
 
 
+    }
 
-      return offlineContact
+
+
+
+
+
+    if(
+      isBrowser() &&
+      navigator.onLine
+    ){
+
+
+      try{
+
+
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from("contacts")
+            .insert(payload)
+            .select()
+            .single()
+
+
+
+        if(error)
+          throw error
+
+
+
+
+        const syncedContact =
+          mapContactRow(
+            data as ContactRow
+          )
+
+
+
+
+        await db.contacts.delete(
+          tempId
+        )
+
+
+        await db.contacts.put(
+          syncedContact
+        )
+
+
+
+
+        const queueItem =
+          await db.syncQueue
+            .where("recordId")
+            .equals(tempId)
+            .first()
+
+
+
+        if(queueItem?.id){
+
+          await db.syncQueue.update(
+            queueItem.id,
+            {
+              synced:true,
+            }
+          )
+
+        }
+
+
+
+        return syncedContact
+
+
+
+      }
+      catch(error){
+
+
+        console.warn(
+          "Queued for later sync",
+          error
+        )
+
+
+      }
 
 
     }
+
+
+
+
+    return offlineContact
 
 
   },
@@ -421,11 +461,8 @@ export const ContactsRepository = {
 
 
 
-    if(error){
-
+    if(error)
       throw error
-
-    }
 
 
 
@@ -457,7 +494,6 @@ export const ContactsRepository = {
       notes:
         contact.notes ?? [],
 
-
     }
 
 
@@ -478,7 +514,7 @@ export const ContactsRepository = {
 
     const {
       data,
-      error
+      error,
     } =
       await supabase
         .from("contacts")
@@ -492,7 +528,6 @@ export const ContactsRepository = {
 
 
     if(error)
-
       throw error
 
 
@@ -520,7 +555,7 @@ export const ContactsRepository = {
 
     const {
       data,
-      error
+      error,
     } =
       await supabase
         .from("contacts")
@@ -535,7 +570,6 @@ export const ContactsRepository = {
 
 
     if(error)
-
       throw error
 
 
@@ -547,9 +581,7 @@ export const ContactsRepository = {
 
 
 
-    if(
-      isBrowser()
-    ){
+    if(isBrowser()){
 
       await db.contacts.put(
         updated
@@ -585,7 +617,7 @@ export const ContactsRepository = {
       await supabase
         .from("contacts")
         .update({
-          lead_stage: stage,
+          lead_stage:stage,
         })
         .eq(
           "id",
@@ -596,11 +628,8 @@ export const ContactsRepository = {
 
 
 
-    if(error){
-
+    if(error)
       throw error
-
-    }
 
 
 
@@ -611,9 +640,7 @@ export const ContactsRepository = {
 
 
 
-    if(
-      isBrowser()
-    ){
+    if(isBrowser()){
 
       await db.contacts.put(
         updated
@@ -655,13 +682,11 @@ export const ContactsRepository = {
 
 
     if(error)
-
       throw error
 
 
-    if(
-      isBrowser()
-    ){
+
+    if(isBrowser()){
 
       await db.contacts.delete(
         id
