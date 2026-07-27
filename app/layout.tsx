@@ -24,17 +24,32 @@ export const metadata: Metadata = {
   applicationName:
     "The Address Co.",
 
-  icons: {
 
-    icon:
-      "/icon-192.png",
+  appleWebApp: {
 
-    apple:
-      "/icon-192.png",
+    capable:
+      true,
+
+    title:
+      "The Address Co.",
+
+    statusBarStyle:
+      "black",
 
   },
 
-};
+
+  icons: {
+
+    icon:
+      "/icon-512.png",
+
+    apple:
+      "/icon-512.png",
+
+  },
+
+}
 
 export default function RootLayout({
   children,
