@@ -13,6 +13,10 @@ import {
 } from "@/lib/repositories/property-image-repository"
 
 import {
+  getPropertyDocuments,
+} from "@/lib/repositories/property-document-repository"
+
+import {
   formatCurrencyCr,
 } from "@/lib/formatters/currency"
 
@@ -40,6 +44,9 @@ import {
   PropertyImageUpload,
 } from "@/components/properties/property-image-upload"
 
+import {
+  PropertyDocuments,
+} from "@/components/properties/property-documents"
 
 
 
@@ -128,6 +135,7 @@ export default async function PropertyDetailPage({
   const [
     activities,
     images,
+    documents,
   ] =
   await Promise.all([
 
@@ -138,6 +146,11 @@ export default async function PropertyDetailPage({
 
 
     getPropertyImages(
+      property.id
+    ),
+
+
+    getPropertyDocuments(
       property.id
     ),
 
@@ -282,6 +295,29 @@ export default async function PropertyDetailPage({
 
 
       </section>
+
+
+
+
+
+
+
+
+
+      {/* DOCUMENTS */}
+
+
+      <PropertyDocuments
+
+  documents={
+    documents
+  }
+
+  propertyId={
+    property.id
+  }
+
+/>
 
 
 
