@@ -1,9 +1,9 @@
 import {
-  CircleDollarSign,
-  FileText,
   Home,
-  UserPlus,
+  FileText,
+  MessageCircle,
 } from "lucide-react"
+
 
 import {
   DashboardCard,
@@ -12,74 +12,54 @@ import {
 } from "@/components/ui/dashboard-card"
 
 
-type ActivityType =
-  | "client"
-  | "property"
-  | "document"
-  | "commission"
-
-
 
 type Activity = {
 
-  id?: string
+  time:string
 
-  time: string
+  title:string
 
-  title: string
+  description?:string
 
-  description: string
+  type:
+    | "client"
+    | "property"
+    | "document"
+    | "commission"
 
-  type: ActivityType
+}
+
+
+
+type Props = {
+
+  activities:Activity[]
 
 }
 
-
-
-type ActivityFeedProps = {
-
-  activities: Activity[]
-
-}
 
 
 
 function ActivityIcon({
-  type,
-}: {
-  type: ActivityType
-}) {
-
-  switch (type) {
-
-    case "client":
-
-      return (
-        <UserPlus className="h-4 w-4" />
-      )
+  title
+}:{
+  title:string
+}){
 
 
-    case "property":
-
-      return (
-        <Home className="h-4 w-4" />
-      )
-
-
-    case "document":
-
-      return (
-        <FileText className="h-4 w-4" />
-      )
+  if(
+    title.toLowerCase().includes("whatsapp")
+  )
+    return <MessageCircle className="h-4 w-4"/>
 
 
-    case "commission":
+  if(
+    title.toLowerCase().includes("deal")
+  )
+    return <FileText className="h-4 w-4"/>
 
-      return (
-        <CircleDollarSign className="h-4 w-4" />
-      )
 
-  }
+  return <Home className="h-4 w-4"/>
 
 }
 
@@ -87,144 +67,107 @@ function ActivityIcon({
 
 export function ActivityFeed({
   activities,
-}: ActivityFeedProps) {
+}:Props){
 
 
-  return (
+return (
 
-    <DashboardCard className="h-full">
+<DashboardCard>
 
 
-      <DashboardCardHeader>
+<DashboardCardHeader>
 
-        <div>
+<p className="text-sm text-muted-foreground">
+Recent Activity
+</p>
 
-          <p className="text-sm font-medium tracking-wide text-muted-foreground">
+<h3 className="mt-2 text-2xl font-semibold">
+Today
+</h3>
 
-            Recent Activity
+</DashboardCardHeader>
 
-          </p>
 
 
-          <h3 className="mt-2 text-2xl font-semibold tracking-tight">
+<DashboardCardContent>
 
-            Today
 
-          </h3>
+<div className="space-y-6">
 
 
-        </div>
+{
+activities.slice(0,8).map(
+activity=>(
 
 
-      </DashboardCardHeader>
+<div
+key={`${activity.title}-${activity.time}`}
+>
 
 
+<div className="rounded-full border p-2 h-fit">
 
+<ActivityIcon
+title={activity.title}
+/>
 
-      <DashboardCardContent className="space-y-5">
+</div>
 
 
-        {
-          activities.map(
-            (
-              activity,
-              index
-            ) => (
 
+<div className="flex-1">
 
-              <div
 
-                key={
-                  activity.id ??
-                  `${activity.title}-${activity.time}-${index}`
-                }
+<div className="flex justify-between gap-4">
 
-                className="flex gap-4"
+<h4 className="font-medium">
+{activity.title}
+</h4>
 
-              >
 
+<span className="text-xs text-muted-foreground whitespace-nowrap">
 
-                <div className="flex flex-col items-center">
+{
+activity.time
+}
 
+</span>
 
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-muted/40">
 
-                    <ActivityIcon
-                      type={
-                        activity.type
-                      }
-                    />
+</div>
 
-                  </div>
 
 
+<p className="mt-1 text-sm text-muted-foreground">
 
-                  {
-                    index !== activities.length - 1 && (
+{
+activity.description
+}
 
-                      <div className="mt-2 h-full w-px bg-border" />
+</p>
 
-                    )
-                  }
 
+</div>
 
-                </div>
 
 
+</div>
 
 
+)
+)
 
-                <div className="flex-1 pb-6">
+}
 
 
-                  <div className="flex items-center justify-between">
+</div>
 
 
-                    <h4 className="font-medium">
+</DashboardCardContent>
 
-                      {activity.title}
 
-                    </h4>
+</DashboardCard>
 
-
-
-                    <span className="text-xs text-muted-foreground">
-
-                      {activity.time}
-
-                    </span>
-
-
-                  </div>
-
-
-
-
-
-                  <p className="mt-1 text-sm text-muted-foreground">
-
-                    {activity.description}
-
-                  </p>
-
-
-                </div>
-
-
-              </div>
-
-
-            )
-
-          )
-        }
-
-
-      </DashboardCardContent>
-
-
-    </DashboardCard>
-
-  )
+)
 
 }

@@ -4,6 +4,10 @@ import type {
   Deal,
 } from "@/types/deal"
 
+import {
+  calculateDealHealth,
+} from "@/lib/services/deal-health-service"
+
 
 
 type Props = {
@@ -19,52 +23,102 @@ export function DealHealth({
 }: Props) {
 
 
-  const lastActivity =
-    new Date(
-      deal.lastActivity
+  const health =
+    calculateDealHealth(
+      deal
     )
 
 
 
-  const daysSinceActivity =
-    Math.floor(
-      (
-        Date.now()
-        -
-        lastActivity.getTime()
-      )
-      /
-      (
-        1000 *
-        60 *
-        60 *
-        24
-      )
-    )
+
+
+  const statusConfig = {
+
+
+    healthy: {
+
+      label:
+        "Healthy",
+
+      icon:
+        "🟢",
+
+      className:
+        "border-green-200 bg-green-50 text-green-700",
+
+    },
+
+
+    attention: {
+
+      label:
+        "Needs Attention",
+
+      icon:
+        "🟡",
+
+      className:
+        "border-yellow-200 bg-yellow-50 text-yellow-700",
+
+    },
+
+
+    risk: {
+
+      label:
+        "At Risk",
+
+      icon:
+        "🔴",
+
+      className:
+        "border-red-200 bg-red-50 text-red-700",
+
+    },
+
+
+  }
+
+
+
+
+
+  const config =
+    statusConfig[
+      health.status
+    ]
+
+
 
 
 
   return (
 
-    <div className="rounded-2xl border p-6 space-y-4">
+    <div className="rounded-2xl border p-6 space-y-5">
 
 
-      <h2 className="font-semibold">
-        Deal Health
-      </h2>
+      <div className="flex items-center justify-between">
+
+
+        <h2 className="font-semibold">
+          Deal Health
+        </h2>
 
 
 
-      <div className="flex justify-between">
+        <span
+          className={`
+            rounded-full
+            border
+            px-3
+            py-1
+            text-sm
+            font-medium
+            ${config.className}
+          `}
+        >
 
-        <span className="text-sm text-muted-foreground">
-          Priority
-        </span>
-
-
-        <span className="capitalize font-medium">
-
-          {deal.priority}
+          {config.icon} {config.label}
 
         </span>
 
@@ -75,68 +129,73 @@ export function DealHealth({
 
 
 
-      <div className="flex justify-between">
-
-        <span className="text-sm text-muted-foreground">
-          Stage
-        </span>
 
 
-        <span className="capitalize font-medium">
+      <div className="flex items-end justify-between">
 
-          {
-            deal.stage.replace(
-              "_",
-              " "
+
+        <div>
+
+          <p className="text-sm text-muted-foreground">
+            Health Score
+          </p>
+
+
+          <p className="mt-1 text-4xl font-bold">
+            {health.score}
+          </p>
+
+        </div>
+
+
+
+        <p className="text-sm text-muted-foreground">
+          / 100
+        </p>
+
+
+      </div>
+
+
+
+
+
+
+
+      <div className="space-y-3">
+
+
+        <p className="text-sm font-medium">
+          Insights
+        </p>
+
+
+
+        {
+          health.reasons.map(
+
+            (reason,index)=>(
+
+              <div
+
+                key={index}
+
+                className="rounded-lg border bg-muted/20 p-3 text-sm"
+
+              >
+
+                {reason}
+
+              </div>
+
             )
-          }
 
-        </span>
+          )
 
-
-      </div>
-
-
-
-
-
-      <div className="flex justify-between">
-
-        <span className="text-sm text-muted-foreground">
-          Last Activity
-        </span>
-
-
-        <span className="font-medium">
-
-          {
-            daysSinceActivity === 0
-              ? "Today"
-              : `${daysSinceActivity} days ago`
-          }
-
-        </span>
+        }
 
 
       </div>
-
-
-
-
-
-      {
-        daysSinceActivity > 7 && (
-
-          <div className="rounded-lg border p-3 text-sm">
-
-            ⚠ No activity recorded for{" "}
-            {daysSinceActivity} days
-
-          </div>
-
-        )
-
-      }
 
 
     </div>

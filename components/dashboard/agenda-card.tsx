@@ -1,10 +1,7 @@
-import Link from "next/link"
-
 import {
   CalendarDays,
-  MapPin,
-  Phone,
-  Users,
+  Clock,
+  User,
 } from "lucide-react"
 
 import {
@@ -15,185 +12,149 @@ import {
 
 
 type AgendaItem = {
-  time: string
-  title: string
-  description: string
-  type: "meeting" | "call" | "visit"
-  contactId?: string
+  title?: string
+  type?: string
+  time?: string
+  assignedTo?: string
 }
 
 
-type AgendaCardProps = {
+type Props = {
   items: AgendaItem[]
 }
 
 
-
-function TypeBadge({
-  type,
-}: {
-  type: AgendaItem["type"]
-}) {
-
-  const label =
-    type === "meeting"
-      ? "Meeting"
-      : type === "call"
-      ? "Call"
-      : "Site Visit"
-
-
-  return (
-    <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-      {label}
-    </span>
-  )
-
-}
-
-
-
-function EventIcon({
-  type,
-}: {
-  type: AgendaItem["type"]
-}) {
-
-  if (type === "meeting") {
-    return <Users className="h-4 w-4" />
-  }
-
-
-  if (type === "call") {
-    return <Phone className="h-4 w-4" />
-  }
-
-
-  return <MapPin className="h-4 w-4" />
-
-}
-
-
-
 export function AgendaCard({
   items,
-}: AgendaCardProps) {
+}: Props) {
 
 
   return (
 
-    <DashboardCard className="h-full">
+    <DashboardCard>
 
       <DashboardCardHeader>
 
-        <div>
+        <div className="flex items-start justify-between w-full">
 
-          <p className="text-sm font-medium tracking-wide text-muted-foreground">
-            Today&apos;s Agenda
-          </p>
+          <div>
+
+            <p className="text-sm text-muted-foreground">
+              Today's Agenda
+            </p>
+
+            <h3 className="mt-2 text-2xl font-semibold">
+              {items.length} Upcoming Events
+            </h3>
+
+          </div>
 
 
-          <h3 className="mt-2 text-2xl font-semibold tracking-tight">
-            {items.length} Upcoming Events
-          </h3>
+          <CalendarDays
+            className="h-5 w-5 text-muted-foreground"
+          />
 
         </div>
-
-
-        <CalendarDays className="h-5 w-5 text-muted-foreground" />
 
       </DashboardCardHeader>
 
 
 
+      <DashboardCardContent>
 
 
-      <DashboardCardContent className="space-y-6">
+        {
+          items.length === 0 ? (
 
+            <p className="text-sm text-muted-foreground">
+              No upcoming events today.
+            </p>
 
-        {items.map(
-          (
-            item,
-            index
-          ) => (
+          ) : (
 
-            <Link
+            <div className="space-y-5">
 
-              key={`${item.time}-${item.title}`}
+              {
+                items.map(
+  (item,index)=>(
 
-              href={
-                item.contactId
-                  ? `/contacts/${item.contactId}`
-                  : "#"
-              }
+                    <div
+                      key={`${item.title}-${item.time}-${index}`}
+                      className="flex gap-4"
+                    >
 
-              className="block"
+                      <div className="flex flex-col items-center">
 
-            >
+                        <div className="h-3 w-3 rounded-full bg-primary"/>
 
-              <div className="relative flex gap-5 rounded-2xl transition-colors hover:bg-muted/40 p-2">
-
-
-                <div className="flex w-14 flex-col items-center">
-
-                  <p className="text-sm font-semibold">
-                    {item.time}
-                  </p>
-
-
-                  <div className="mt-3 h-2.5 w-2.5 rounded-full bg-primary" />
-
-
-                  {index !== items.length - 1 && (
-                    <div className="mt-2 h-full w-px bg-border" />
-                  )}
-
-                </div>
-
-
-
-
-
-                <div className="flex-1 rounded-2xl border border-border/60 p-4">
-
-
-                  <div className="flex items-start justify-between gap-3">
-
-                    <div>
-
-                      <h4 className="font-medium">
-                        {item.title}
-                      </h4>
-
-
-                      <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-
-                        <EventIcon type={item.type} />
-
-                        <span>
-                          {item.description}
-                        </span>
+                        {
+                          index !== items.length-1 &&
+                          <div className="mt-2 h-full w-px bg-border"/>
+                        }
 
                       </div>
 
+
+
+                      <div className="flex-1 rounded-2xl border p-4">
+
+                        <div className="flex justify-between">
+
+
+                          <div>
+
+                            <h4 className="font-medium">
+                              {item.title ?? "Event"}
+                            </h4>
+
+
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {item.type ?? "Meeting"}
+                            </p>
+
+                          </div>
+
+
+                          <div className="text-sm text-muted-foreground flex items-center gap-1">
+
+                            <Clock className="h-4 w-4"/>
+
+                            {item.time ?? "-"}
+
+                          </div>
+
+
+                        </div>
+
+
+                        {
+                          item.assignedTo && (
+
+                            <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+
+                              <User className="h-4 w-4"/>
+
+                              {item.assignedTo}
+
+                            </div>
+
+                          )
+                        }
+
+
+                      </div>
+
+
                     </div>
 
+                  )
+                )
+              }
 
-                    <TypeBadge type={item.type} />
-
-                  </div>
-
-
-                </div>
-
-
-              </div>
-
-
-            </Link>
+            </div>
 
           )
-        )}
+        }
 
 
       </DashboardCardContent>
@@ -201,5 +162,4 @@ export function AgendaCard({
     </DashboardCard>
 
   )
-
 }

@@ -10,7 +10,9 @@ import { getPropertyMatches } from "@/lib/services/property-matching"
 
 import { supabase } from "@/lib/supabase/client"
 
-
+import {
+  calculateDealHealth,
+} from "@/lib/services/deal-health-service"
 
 export async function getDashboardStats() {
 
@@ -923,5 +925,123 @@ export async function getDealsToFollowUp(){
       0,
       5
     )
+
+}
+
+export async function getDealHealthSummary(){
+
+
+  const deals =
+    await getDeals()
+
+
+
+  const activeDeals =
+  deals.filter(
+    deal =>
+      deal.stage !== "closed_won"
+      &&
+      deal.stage !== "closed_lost"
+  )
+
+
+const summary = {
+
+  healthy: 0,
+
+  attention: 0,
+
+  risk: 0,
+
+  total: activeDeals.length,
+
+}
+
+
+
+
+  const concerns: {
+  id: string
+  name: string
+  score: number
+  status: string
+  reasons: string[]
+}[] = []
+
+
+
+  activeDeals.forEach(
+  deal => {
+
+
+      
+
+
+
+
+      const health =
+        calculateDealHealth(
+          deal
+        )
+
+
+
+      summary[
+        health.status
+      ]++
+
+
+
+
+      if(
+        health.status !== "healthy"
+      ){
+
+        concerns.push({
+
+          id:
+            deal.id,
+
+          name:
+            deal.name,
+
+          score:
+            health.score,
+
+          status:
+            health.status,
+
+          reasons:
+            health.reasons,
+
+        })
+
+      }
+
+
+    }
+  )
+
+
+
+
+
+  return {
+
+    ...summary,
+
+    concerns:
+      concerns
+        .sort(
+          (a,b)=>
+            a.score - b.score
+        )
+        .slice(
+          0,
+          5
+        ),
+
+  }
+
 
 }
