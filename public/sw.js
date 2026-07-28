@@ -1,14 +1,42 @@
-const CACHE_NAME = "tac-shell-v2"
+const CACHE_NAME = "tac-shell-v3"
+
+
+const APP_SHELL = [
+  "/",
+  "/manifest.webmanifest",
+  "/icon-192.png",
+  "/icon-512.png",
+]
+
+
+
 
 
 self.addEventListener(
   "install",
   (event)=>{
 
+    event.waitUntil(
+
+      caches.open(
+        CACHE_NAME
+      )
+      .then(
+        cache =>
+          cache.addAll(
+            APP_SHELL
+          )
+      )
+
+    )
+
+
     self.skipWaiting()
 
   }
 )
+
+
 
 
 
@@ -32,7 +60,9 @@ self.addEventListener(
                   key !== CACHE_NAME
                 ){
 
-                  return caches.delete(key)
+                  return caches.delete(
+                    key
+                  )
 
                 }
 
@@ -40,15 +70,16 @@ self.addEventListener(
             )
 
           )
-
       )
 
     )
+
 
     self.clients.claim()
 
   }
 )
+
 
 
 
@@ -96,34 +127,44 @@ self.addEventListener(
             response => {
 
 
-              const copy =
-                response.clone()
+              if(
+                response &&
+                response.status === 200
+              ){
+
+                const clone =
+                  response.clone()
 
 
 
-              caches.open(
-                CACHE_NAME
-              )
-              .then(
-                cache =>
-                  cache.put(
-                    request,
-                    copy
-                  )
-              )
+                caches.open(
+                  CACHE_NAME
+                )
+                .then(
+                  cache =>
+                    cache.put(
+                      request,
+                      clone
+                    )
+                )
+
+              }
+
 
 
               return response
 
+
             }
           )
-
 
         }
       )
       .catch(
+
         () =>
           caches.match("/")
+
       )
 
     )
