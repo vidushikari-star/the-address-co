@@ -536,29 +536,43 @@ export const ContactsRepository = {
 
 
   async getById(
-    id:string
-  ):Promise<Contact>{
+  id:string
+):Promise<Contact>{
 
 
-    if(
-      isBrowser() &&
-      !navigator.onLine
-    ){
+  /*
+    Offline first
+  */
 
-      const cached =
-        await db.contacts.get(id)
+  if(
+    isBrowser() &&
+    !navigator.onLine
+  ){
+
+    console.log(
+      "Offline: loading contact from IndexedDB"
+    )
 
 
-      if(cached){
+    const cached =
+      await db.contacts.get(
+        id
+      )
 
-        return cached
 
-      }
+    if(cached){
+
+      return cached
 
     }
 
+  }
 
 
+
+
+
+  try {
 
 
     const {
@@ -576,8 +590,13 @@ export const ContactsRepository = {
 
 
 
-    if(error)
+    if(error){
+
       throw error
+
+    }
+
+
 
 
 
@@ -585,6 +604,8 @@ export const ContactsRepository = {
       mapContactRow(
         data as ContactRow
       )
+
+
 
 
 
@@ -600,10 +621,50 @@ export const ContactsRepository = {
 
 
 
+
+
     return contact
 
 
-  },
+
+  }
+  catch(error){
+
+
+    console.warn(
+      "Unable to load contact from Supabase, checking local cache",
+      error
+    )
+
+
+
+    if(
+      isBrowser()
+    ){
+
+      const cached =
+        await db.contacts.get(
+          id
+        )
+
+
+      if(cached){
+
+        return cached
+
+      }
+
+    }
+
+
+
+    throw error
+
+
+  }
+
+
+},
 
 
 
