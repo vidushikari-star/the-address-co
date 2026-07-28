@@ -7,6 +7,7 @@ import {
 import {
   ChevronLeft,
   ChevronRight,
+  CalendarDays,
 } from "lucide-react"
 
 import {
@@ -22,6 +23,8 @@ import type {
 type Props = {
   items: CalendarItem[]
 }
+
+
 
 
 
@@ -56,24 +59,6 @@ export function CalendarView({
 
 
 
-  const firstDay =
-    new Date(
-      year,
-      month,
-      1
-    ).getDay()
-
-
-
-  const daysInMonth =
-    new Date(
-      year,
-      month + 1,
-      0
-    ).getDate()
-
-
-
   const monthName =
     currentMonth.toLocaleDateString(
       "en-IN",
@@ -82,7 +67,6 @@ export function CalendarView({
         year:"numeric",
       }
     )
-
 
 
 
@@ -138,6 +122,54 @@ export function CalendarView({
 
 
 
+  const upcoming =
+    items.filter(
+      item =>
+        new Date(item.date) >= today
+    )
+    .slice(
+      0,
+      10
+    )
+
+
+
+
+
+
+
+  const firstDay =
+    new Date(
+      year,
+      month,
+      1
+    ).getDay()
+
+
+
+  const daysInMonth =
+    new Date(
+      year,
+      month + 1,
+      0
+    ).getDate()
+
+
+
+  const cells =
+    Array.from(
+      {
+        length:
+          firstDay +
+          daysInMonth
+      }
+    )
+
+
+
+
+
+
   function changeMonth(
     amount:number
   ){
@@ -156,66 +188,148 @@ export function CalendarView({
 
 
 
-  function goToday(){
-
-    setCurrentMonth(
-      new Date()
-    )
-
-  }
-
-
-
-
-
-
-
-  const cells =
-    Array.from(
-      {
-        length:
-          firstDay +
-          daysInMonth
-      }
-    )
-
-
-
-
-
-
 
   return (
 
-    <div className="space-y-6">
-
-
-      <div className="flex items-center justify-between">
-
-
-        <button
-
-          onClick={() =>
-            changeMonth(-1)
-          }
-
-          className="rounded-md border p-2"
-
-        >
-
-          <ChevronLeft className="h-5 w-5" />
-
-        </button>
+    <div className="space-y-8">
 
 
 
 
 
+      {/* MOBILE UPCOMING VIEW */}
 
-        <div className="flex items-center gap-4">
+      <div className="
+        space-y-4
+        md:hidden
+      ">
 
 
-          <h2 className="text-2xl font-semibold capitalize">
+        <div className="
+          flex
+          items-center
+          gap-2
+        ">
+
+          <CalendarDays className="h-5 w-5"/>
+
+          <h2 className="
+            text-lg
+            font-semibold
+          ">
+
+            Upcoming
+
+          </h2>
+
+        </div>
+
+
+
+        {
+          upcoming.length === 0 ? (
+
+            <div className="
+              rounded-xl
+              border
+              p-6
+              text-center
+              text-muted-foreground
+            ">
+
+              No upcoming events.
+
+            </div>
+
+          ) : (
+
+            <div className="space-y-3">
+
+              {
+                upcoming.map(
+                  item => (
+
+                    <CalendarEvent
+
+                      key={
+                        item.id
+                      }
+
+                      item={
+                        item
+                      }
+
+                      mobile
+
+                    />
+
+                  )
+
+                )
+
+              }
+
+            </div>
+
+          )
+
+        }
+
+
+      </div>
+
+
+
+
+
+
+
+
+
+      {/* DESKTOP MONTH VIEW */}
+
+
+      <div className="
+        hidden
+        space-y-6
+        md:block
+      ">
+
+
+
+        <div className="
+          flex
+          items-center
+          justify-between
+        ">
+
+
+          <button
+
+            onClick={() =>
+              changeMonth(-1)
+            }
+
+            className="
+              rounded-lg
+              border
+              p-2
+            "
+
+          >
+
+            <ChevronLeft />
+
+          </button>
+
+
+
+
+          <h2 className="
+            text-2xl
+            font-semibold
+            capitalize
+          ">
 
             {monthName}
 
@@ -223,15 +337,22 @@ export function CalendarView({
 
 
 
+
           <button
 
-            onClick={goToday}
+            onClick={() =>
+              changeMonth(1)
+            }
 
-            className="rounded-md border px-3 py-1 text-sm"
+            className="
+              rounded-lg
+              border
+              p-2
+            "
 
           >
 
-            Today
+            <ChevronRight />
 
           </button>
 
@@ -243,22 +364,38 @@ export function CalendarView({
 
 
 
-        <button
+        <div className="
+          grid
+          grid-cols-7
+          gap-2
+          text-center
+          text-sm
+          text-muted-foreground
+        ">
 
-          onClick={() =>
-            changeMonth(1)
+          {
+            [
+              "Sun",
+              "Mon",
+              "Tue",
+              "Wed",
+              "Thu",
+              "Fri",
+              "Sat",
+            ]
+            .map(
+              day => (
+
+                <div key={day}>
+                  {day}
+                </div>
+
+              )
+            )
+
           }
 
-          className="rounded-md border p-2"
-
-        >
-
-          <ChevronRight className="h-5 w-5" />
-
-        </button>
-
-
-      </div>
+        </div>
 
 
 
@@ -266,46 +403,64 @@ export function CalendarView({
 
 
 
-      <div className="grid grid-cols-7 gap-2 text-center text-sm font-medium text-muted-foreground">
-
-        {
-          [
-            "Sun",
-            "Mon",
-            "Tue",
-            "Wed",
-            "Thu",
-            "Fri",
-            "Sat",
-          ].map(
-            day => (
-
-              <div key={day}>
-                {day}
-              </div>
-
-            )
-          )
-        }
-
-      </div>
+        <div className="
+          grid
+          grid-cols-7
+          gap-2
+        ">
 
 
+          {
+            cells.map(
+              (_,index)=>{
+
+
+                if(
+                  index < firstDay
+                ){
+
+                  return (
+
+                    <div
+                      key={index}
+                      className="
+                        min-h-32
+                        rounded-xl
+                        border
+                        bg-muted/20
+                      "
+                    />
+
+                  )
+
+                }
 
 
 
 
+                const day =
+                  index -
+                  firstDay +
+                  1
 
 
-      <div className="grid grid-cols-7 gap-2">
 
 
-        {
-          cells.map(
-            (_,index)=>{
+                const date =
+                  new Date(
+                    year,
+                    month,
+                    day
+                  )
 
 
-              if(index < firstDay){
+
+                const key =
+                  date
+                    .toISOString()
+                    .split("T")[0]
+
+
 
                 return (
 
@@ -313,113 +468,60 @@ export function CalendarView({
 
                     key={index}
 
-                    className="min-h-32 rounded-xl border bg-muted/20"
+                    className="
+                      min-h-32
+                      rounded-xl
+                      border
+                      p-2
+                      space-y-2
+                    "
 
-                  />
+                  >
+
+                    <div className="
+                      text-sm
+                      font-semibold
+                    ">
+
+                      {day}
+
+                    </div>
+
+
+
+                    {
+                      grouped[key]?.map(
+                        item => (
+
+                          <CalendarEvent
+
+                            key={
+                              item.id
+                            }
+
+                            item={
+                              item
+                            }
+
+                          />
+
+                        )
+                      )
+                    }
+
+
+                  </div>
 
                 )
 
               }
 
+            )
+
+          }
 
 
-
-              const day =
-                index -
-                firstDay +
-                1
-
-
-
-
-
-              const date =
-                new Date(
-                  year,
-                  month,
-                  day
-                )
-
-
-
-              const dateKey =
-                date
-                  .toISOString()
-                  .split("T")[0]
-
-
-
-              const isToday =
-                today.getDate() === day &&
-                today.getMonth() === month &&
-                today.getFullYear() === year
-
-
-
-
-
-              return (
-
-                <div
-
-                  key={index}
-
-                  className={`
-                    min-h-32
-                    rounded-xl
-                    border
-                    p-2
-                    space-y-2
-                    ${
-                      isToday
-                      ? "ring-2 ring-primary"
-                      : ""
-                    }
-                  `}
-
-                >
-
-                  <div className="text-sm font-semibold">
-
-                    {day}
-
-                  </div>
-
-
-
-
-
-                  {
-                    grouped[dateKey]?.map(
-                      item => (
-
-                        <CalendarEvent
-
-                          key={
-                            item.id
-                          }
-
-                          item={
-                            item
-                          }
-
-                        />
-
-                      )
-                    )
-                  }
-
-
-                </div>
-
-              )
-
-
-            }
-
-          )
-
-        }
+        </div>
 
 
       </div>

@@ -16,7 +16,11 @@ import type {
 
 
 type Props = {
+
   item: CalendarItem
+
+  mobile?: boolean
+
 }
 
 
@@ -25,13 +29,12 @@ type Props = {
 
 export function CalendarEvent({
   item,
+  mobile = false,
 }:Props){
-
 
 
   const isTask =
     item.type === "task"
-
 
 
   const isSiteVisit =
@@ -66,41 +69,41 @@ export function CalendarEvent({
 
       className={`
         block
-        rounded-md
+        rounded-xl
         border
-        p-2
-        text-xs
-        space-y-1
+        ${
+          mobile
+          ? "p-4"
+          : "p-2"
+        }
+        space-y-2
         hover:bg-muted
         transition
-        ${
-          isTask
-          ? "bg-primary/5"
-          : "bg-muted/40"
-        }
       `}
 
     >
 
 
-
-      <div className="flex items-center gap-1 font-medium">
+      <div className="
+        flex
+        items-center
+        gap-2
+        font-medium
+      ">
 
 
         {
           isTask
           ?
-          <CheckCircle2 className="h-3 w-3" />
+          <CheckCircle2 className="h-4 w-4"/>
           :
-          <MapPin className="h-3 w-3" />
+          <MapPin className="h-4 w-4"/>
         }
 
 
         <span className="truncate">
 
-          {
-            item.title
-          }
+          {item.title}
 
         </span>
 
@@ -111,25 +114,46 @@ export function CalendarEvent({
 
 
 
-
-
       {
         item.time && (
 
-          <div className="flex items-center gap-1 text-muted-foreground">
+          <div className="
+            flex
+            items-center
+            gap-2
+            text-sm
+            text-muted-foreground
+          ">
 
-            <Clock className="h-3 w-3" />
+            <Clock className="h-4 w-4"/>
 
             {item.time}
 
           </div>
 
         )
+
       }
 
 
 
 
+
+      {
+        item.contactName && (
+
+          <div className="
+            text-sm
+            text-muted-foreground
+          ">
+
+            {item.contactName}
+
+          </div>
+
+        )
+
+      }
 
 
 
@@ -137,19 +161,23 @@ export function CalendarEvent({
       {
         item.assignedTo && (
 
-          <div className="flex items-center gap-1 text-muted-foreground">
+          <div className="
+            flex
+            items-center
+            gap-2
+            text-sm
+            text-muted-foreground
+          ">
 
-            <User className="h-3 w-3" />
+            <User className="h-4 w-4"/>
 
             {item.assignedTo}
 
           </div>
 
         )
+
       }
-
-
-
 
 
     </Link>
