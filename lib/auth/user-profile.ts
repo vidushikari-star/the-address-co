@@ -58,60 +58,134 @@ export async function getCurrentUserProfile()
 : Promise<UserProfile | null> {
 
 
-  const {
-    data:userData,
-  } =
-    await supabase.auth.getUser()
+  try {
+
+
+    const {
+      data:sessionData,
+    } =
+      await supabase.auth.getSession()
 
 
 
-  const user =
-    userData.user
+    const user =
+      sessionData.session?.user
 
 
 
-  if(!user){
+    if(!user){
 
-    return null
+      return null
 
-  }
-
-
+    }
 
 
 
-  const {
-    data,
-    error,
-  } =
-    await supabase
-      .from("user_profiles")
-      .select("*")
-      .eq(
-        "id",
-        user.id
+
+
+    const {
+      data,
+      error,
+    } =
+      await supabase
+        .from("user_profiles")
+        .select("*")
+        .eq(
+          "id",
+          user.id
+        )
+        .single()
+
+
+
+    if(
+      !error &&
+      data
+    ){
+
+      return mapUserProfile(
+        data
       )
-      .single()
+
+    }
 
 
 
-  if(error){
+
+
+    /*
+      Offline fallback
+    */
+
+
+    if(
+      !navigator.onLine
+    ){
+
+      console.warn(
+        "Offline: using cached session profile"
+      )
+
+
+      return {
+
+        id:
+          user.id,
+
+
+        name:
+          user.email?.split("@")[0] ??
+          "User",
+
+
+        email:
+          user.email ?? undefined,
+
+
+        role:
+  "user" as UserProfile["role"],
+
+
+        createdAt:
+          new Date().toISOString(),
+
+
+        updatedAt:
+          new Date().toISOString(),
+
+      } as UserProfile
+
+
+    }
+
+
+
+
 
     console.error(
       "Failed loading user profile",
       error
     )
 
+
     return null
+
+
+
+  }
+  catch(error){
+
+
+    console.warn(
+      "Auth/profile unavailable offline"
+    )
+
+
+
+    return null
+
 
   }
 
-
-
-
-
-  return mapUserProfile(
-    data
-  )
 
 }

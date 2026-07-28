@@ -80,7 +80,19 @@ export async function middleware(
 
 
 
-  await supabase.auth.getUser()
+  try {
+
+  await supabase.auth.getSession()
+
+}
+catch(error){
+
+  console.warn(
+    "Auth refresh skipped",
+    error
+  )
+
+}
 
 
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = "tac-shell-v4"
+const CACHE_NAME = "tac-shell-v5"
 
 
 self.addEventListener(
@@ -75,49 +75,71 @@ self.addEventListener(
 
 
 
-    event.respondWith(
+    /*
+      Navigation requests
+      */
 
-      fetch(request)
+    if(
+      request.mode === "navigate"
+    ){
 
-      .then(
-        response => {
+      event.respondWith(
 
+        fetch(request)
 
-          const copy =
-            response.clone()
-
-
-
-          caches.open(
-            CACHE_NAME
-          )
-          .then(
-            cache =>
-              cache.put(
-                request,
-                copy
-              )
-          )
+        .catch(
+          async ()=>{
 
 
+            const cached =
+              await caches.match("/")
 
-          return response
+
+            if(cached){
+
+              return cached
+
+            }
 
 
-        }
+            return new Response(
+              "Offline",
+              {
+                status:503,
+                headers:{
+                  "Content-Type":
+                    "text/plain"
+                }
+              }
+            )
+
+          }
+
+        )
+
       )
 
 
-      .catch(
+      return
 
-        async ()=>{
+    }
 
 
-          const cached =
-            await caches.match(
-              request
-            )
 
+
+
+
+
+    /*
+      Static assets
+      */
+
+    event.respondWith(
+
+      caches.match(request)
+
+      .then(
+        cached => {
 
 
           if(cached){
@@ -128,8 +150,40 @@ self.addEventListener(
 
 
 
-          return caches.match(
-            "/"
+          return fetch(request)
+
+          .then(
+            response=>{
+
+
+              if(
+                response.status === 200
+              ){
+
+                const copy =
+                  response.clone()
+
+
+
+                caches.open(
+                  CACHE_NAME
+                )
+                .then(
+                  cache =>
+                    cache.put(
+                      request,
+                      copy
+                    )
+                )
+
+              }
+
+
+
+              return response
+
+            }
+
           )
 
 
@@ -141,4 +195,5 @@ self.addEventListener(
 
 
   }
+
 )
