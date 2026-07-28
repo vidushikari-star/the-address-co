@@ -26,45 +26,19 @@ type Props = {
 }
 
 
+function formatCurrency(value:number){
 
-
-
-
-
-
-
-function formatCurrency(
-  value:number
-) {
-
-  return `₹${value.toLocaleString(
-    "en-IN"
-  )}`
+  return `₹${value.toLocaleString("en-IN")}`
 
 }
 
 
+function formatDate(date?:string){
 
-
-
-
-
-
-
-function formatDate(
-  date?:string
-) {
-
-  if(!date){
-
+  if(!date)
     return "-"
 
-  }
-
-
-  return new Date(
-    date
-  ).toLocaleDateString(
+  return new Date(date).toLocaleDateString(
     "en-IN",
     {
       day:"2-digit",
@@ -76,31 +50,48 @@ function formatDate(
 }
 
 
+function Status({
+  status,
+}:{
+  status:string
+}){
 
+  return (
 
+    <span className="
+      rounded-full
+      bg-muted
+      px-3
+      py-1
+      text-xs
+      capitalize
+    ">
 
+      {status}
 
+    </span>
+
+  )
+
+}
 
 
 
 export function CommissionTable({
   commissions,
   role,
-}:Props) {
+}:Props){
 
 
   const router =
     useRouter()
 
 
-
   const [
-    isPending,
+    pending,
     startTransition,
   ] =
   useTransition()
-
-
 
 
 
@@ -111,17 +102,135 @@ export function CommissionTable({
 
 
 
-
-
-
-
-  if(
-    commissions.length === 0
+  function action(
+    commission:Commission
   ){
+
+    if(!canManage)
+      return null
+
+
+
+    if(
+      commission.status === "pending"
+    ){
+
+      return (
+
+        <button
+
+          disabled={pending}
+
+          className="
+            rounded-lg
+            bg-primary
+            px-3
+            py-2
+            text-xs
+            text-primary-foreground
+          "
+
+          onClick={()=>{
+
+            startTransition(
+              async()=>{
+
+                await invoiceCommission(
+                  commission.id
+                )
+
+                router.refresh()
+
+              }
+            )
+
+          }}
+
+        >
+
+          Mark Invoiced
+
+        </button>
+
+      )
+
+    }
+
+
+
+
+    if(
+      commission.status === "invoiced"
+    ){
+
+      return (
+
+        <button
+
+          disabled={pending}
+
+          className="
+            rounded-lg
+            bg-primary
+            px-3
+            py-2
+            text-xs
+            text-primary-foreground
+          "
+
+          onClick={()=>{
+
+            startTransition(
+              async()=>{
+
+                await receiveCommission(
+                  commission.id
+                )
+
+                router.refresh()
+
+              }
+            )
+
+          }}
+
+        >
+
+          Mark Received
+
+        </button>
+
+      )
+
+    }
+
 
     return (
 
-      <div className="rounded-2xl border border-dashed p-10 text-center text-muted-foreground">
+      <span className="text-xs text-muted-foreground">
+        Completed
+      </span>
+
+    )
+
+  }
+
+
+
+
+
+  if(commissions.length === 0){
+
+    return (
+
+      <div className="
+        rounded-2xl
+        border
+        border-dashed
+        p-10
+        text-center
+        text-muted-foreground
+      ">
 
         No commissions found.
 
@@ -136,348 +245,260 @@ export function CommissionTable({
 
 
 
-
-
-
   return (
 
-    <div className="rounded-2xl border overflow-hidden">
+    <>
 
+      {/* MOBILE */}
 
-      <table className="w-full text-sm">
-
-
-        <thead className="bg-muted">
-
-
-          <tr>
-
-
-            <th className="p-4 text-left">
-              Deal
-            </th>
-
-
-            <th className="p-4 text-left">
-              Type
-            </th>
-
-
-            <th className="p-4 text-left">
-              Advisor
-            </th>
-
-
-            <th className="p-4 text-left">
-              Amount
-            </th>
-
-
-            <th className="p-4 text-left">
-              Status
-            </th>
-
-
-            <th className="p-4 text-left">
-              Due Date
-            </th>
-
-
-            {
-              canManage && (
-
-                <th className="p-4 text-left">
-                  Actions
-                </th>
-
-              )
-            }
-
-
-          </tr>
-
-
-        </thead>
-
-
-
-
-
-
-
-
-
-        <tbody>
-
+      <div className="
+        space-y-4
+        md:hidden
+      ">
 
         {
           commissions.map(
             commission => (
 
-              <tr
+              <div
 
-                key={
-                  commission.id
-                }
+                key={commission.id}
 
-                className="border-t"
+                className="
+                  rounded-2xl
+                  border
+                  bg-card
+                  p-4
+                  space-y-4
+                "
 
               >
 
-
-
-
-
-                <td className="p-4 font-medium">
+                <div className="
+                  flex
+                  justify-between
+                  gap-3
+                ">
 
 
                   <Link
 
                     href={`/commissions/${commission.id}`}
 
-                    className="hover:underline"
+                    className="
+                      font-semibold
+                    "
 
                   >
 
                     {
-                      commission.dealName ??
-                      "-"
+                      commission.dealName ?? "-"
                     }
 
                   </Link>
 
 
-                </td>
+                  <Status
+                    status={commission.status}
+                  />
 
+                </div>
 
 
 
+                <div className="
+                  space-y-2
+                  text-sm
+                  text-muted-foreground
+                ">
 
+                  <p>
+                    Type: {commission.type}
+                  </p>
 
+                  <p>
+                    Advisor: {commission.advisorName ?? "Unassigned"}
+                  </p>
 
+                  <p>
+                    Due: {formatDate(commission.dueDate)}
+                  </p>
 
+                </div>
 
-                <td className="p-4 capitalize">
 
-                  {
-                    commission.type
-                  }
 
-                </td>
+                <div className="
+                  flex
+                  items-center
+                  justify-between
+                  border-t
+                  pt-3
+                ">
 
+                  <span className="
+                    font-semibold
+                  ">
 
+                    {formatCurrency(commission.amount)}
 
+                  </span>
 
 
+                  {action(commission)}
 
+                </div>
 
 
-
-                <td className="p-4">
-
-                  {
-                    commission.advisorName ??
-                    "Unassigned"
-                  }
-
-                </td>
-
-
-
-
-
-
-
-
-
-                <td className="p-4 font-semibold">
-
-                  {
-                    formatCurrency(
-                      commission.amount
-                    )
-                  }
-
-                </td>
-
-
-
-
-
-
-
-
-
-                <td className="p-4 capitalize">
-
-                  {
-                    commission.status
-                  }
-
-                </td>
-
-
-
-
-
-
-
-
-
-                <td className="p-4">
-
-                  {
-                    formatDate(
-                      commission.dueDate
-                    )
-                  }
-
-                </td>
-
-
-
-
-
-
-
-
-
-                {
-                  canManage && (
-
-                    <td className="p-4">
-
-
-                      <div className="flex gap-2">
-
-
-                        {
-                          commission.status === "pending" && (
-
-                            <button
-
-                              disabled={
-                                isPending
-                              }
-
-                              className="rounded-md bg-primary px-3 py-1 text-xs text-white"
-
-                              onClick={() => {
-
-                                startTransition(
-                                  async () => {
-
-                                    await invoiceCommission(
-                                      commission.id
-                                    )
-
-                                    router.refresh()
-
-                                  }
-                                )
-
-                              }}
-
-                            >
-
-                              Mark Invoiced
-
-                            </button>
-
-                          )
-                        }
-
-
-
-
-
-
-
-
-
-                        {
-                          commission.status === "invoiced" && (
-
-                            <button
-
-                              disabled={
-                                isPending
-                              }
-
-                              className="rounded-md bg-primary px-3 py-1 text-xs text-white"
-
-                              onClick={() => {
-
-                                startTransition(
-                                  async () => {
-
-                                    await receiveCommission(
-                                      commission.id
-                                    )
-
-                                    router.refresh()
-
-                                  }
-                                )
-
-                              }}
-
-                            >
-
-                              Mark Received
-
-                            </button>
-
-                          )
-                        }
-
-
-
-
-
-
-
-
-
-                        {
-                          commission.status === "received" && (
-
-                            <span className="text-xs text-muted-foreground">
-
-                              Completed
-
-                            </span>
-
-                          )
-                        }
-
-
-                      </div>
-
-
-                    </td>
-
-                  )
-                }
-
-
-
-
-
-              </tr>
+              </div>
 
             )
           )
+
         }
 
-
-        </tbody>
-
-
-      </table>
+      </div>
 
 
-    </div>
+
+
+
+
+
+      {/* DESKTOP */}
+
+      <div className="
+        hidden
+        overflow-hidden
+        rounded-2xl
+        border
+        md:block
+      ">
+
+
+        <table className="w-full text-sm">
+
+
+          <thead className="bg-muted">
+
+            <tr>
+
+              <th className="p-4 text-left">
+                Deal
+              </th>
+
+              <th className="p-4 text-left">
+                Type
+              </th>
+
+              <th className="p-4 text-left">
+                Advisor
+              </th>
+
+              <th className="p-4 text-left">
+                Amount
+              </th>
+
+              <th className="p-4 text-left">
+                Status
+              </th>
+
+              <th className="p-4 text-left">
+                Due Date
+              </th>
+
+              {
+                canManage && (
+                  <th className="p-4 text-left">
+                    Actions
+                  </th>
+                )
+              }
+
+            </tr>
+
+          </thead>
+
+
+          <tbody>
+
+            {
+              commissions.map(
+                commission => (
+
+                  <tr
+                    key={commission.id}
+                    className="border-t"
+                  >
+
+                    <td className="p-4 font-medium">
+
+                      <Link
+                        href={`/commissions/${commission.id}`}
+                      >
+
+                        {commission.dealName ?? "-"}
+
+                      </Link>
+
+                    </td>
+
+
+                    <td className="p-4 capitalize">
+                      {commission.type}
+                    </td>
+
+
+                    <td className="p-4">
+                      {commission.advisorName ?? "Unassigned"}
+                    </td>
+
+
+                    <td className="p-4 font-semibold">
+                      {formatCurrency(commission.amount)}
+                    </td>
+
+
+                    <td className="p-4">
+                      <Status status={commission.status}/>
+                    </td>
+
+
+                    <td className="p-4">
+                      {formatDate(commission.dueDate)}
+                    </td>
+
+
+                    {
+                      canManage && (
+
+                        <td className="p-4">
+
+                          {action(commission)}
+
+                        </td>
+
+                      )
+                    }
+
+
+                  </tr>
+
+                )
+              )
+
+            }
+
+          </tbody>
+
+
+        </table>
+
+
+      </div>
+
+
+    </>
 
   )
 
