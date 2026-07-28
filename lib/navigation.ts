@@ -47,7 +47,7 @@ export const navigation: readonly NavigationGroup[] = [
 
 
   {
-    title: "CRM",
+    title: "Workspace",
 
     items: [
 
@@ -61,6 +61,17 @@ export const navigation: readonly NavigationGroup[] = [
         ],
       },
 
+    ],
+
+  },
+
+
+
+
+  {
+    title: "Relationships",
+
+    items: [
 
       {
         title: "Contacts",
@@ -74,7 +85,7 @@ export const navigation: readonly NavigationGroup[] = [
 
 
       {
-        title: "Portfolio",
+        title: "Properties",
         href: "/properties",
         icon: FolderKanban,
         roles: [
@@ -96,7 +107,7 @@ export const navigation: readonly NavigationGroup[] = [
 
 
       {
-        title: "My Commissions",
+        title: "Commissions",
         href: "/commissions",
         icon: CircleDollarSign,
         roles: [
@@ -105,10 +116,10 @@ export const navigation: readonly NavigationGroup[] = [
         ],
       },
 
-
     ],
 
   },
+
 
 
 
@@ -144,8 +155,9 @@ export const navigation: readonly NavigationGroup[] = [
 
 
 
+
   {
-    title: "Administration",
+    title: "Insights",
 
     items: [
 

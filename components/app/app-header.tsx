@@ -8,13 +8,13 @@ import {
 import {
   Bell,
   Plus,
-  Search,
   UserPlus,
   Building2,
   Handshake,
   LogOut,
   UserCircle,
 } from "lucide-react"
+
 
 import {
   DropdownMenu,
@@ -23,33 +23,37 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
+
 import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+
 
 import {
   Button,
 } from "@/components/ui/button"
 
-import {
-  Input,
-} from "@/components/ui/input"
 
 import {
   useDrawer,
 } from "@/components/providers/drawer-provider"
 
+
 import {
   getCurrentUserProfile,
 } from "@/lib/auth/user-profile"
+
 
 import {
   supabase,
 } from "@/lib/supabase/client"
 
+
 import {
   useRouter,
 } from "next/navigation"
+
+
 
 
 
@@ -81,6 +85,7 @@ export function AppHeader(){
   const {
     openDrawer,
   } = useDrawer()
+
 
 
   const router =
@@ -208,17 +213,17 @@ export function AppHeader(){
         h-16
         items-center
         justify-between
-        gap-3
         px-4
-        lg:h-24
+        lg:h-20
         lg:px-8
       ">
 
 
 
+
+
         <div className="
           flex
-          min-w-0
           items-center
           gap-3
         ">
@@ -228,22 +233,21 @@ export function AppHeader(){
 
 
 
-          <div className="min-w-0">
+          <div>
 
 
             <h2 className="
-              truncate
               text-sm
               font-semibold
               lg:text-xl
             ">
 
 
-              <span className="hidden lg:inline">
-                {greeting},{" "}
-              </span>
+              {greeting},{" "}
 
-              Hi {userName}
+              <span>
+                {userName}
+              </span>
 
 
             </h2>
@@ -274,62 +278,12 @@ export function AppHeader(){
 
 
         <div className="
-          hidden
-          flex-1
-          justify-center
-          lg:flex
-        ">
-
-
-          <div className="
-            relative
-            w-full
-            max-w-xl
-          ">
-
-
-            <Search className="
-              absolute
-              left-4
-              top-1/2
-              h-4
-              w-4
-              -translate-y-1/2
-              text-muted-foreground
-            "/>
-
-
-
-            <Input
-
-              placeholder="Search coming soon..."
-
-              className="
-                h-11
-                rounded-full
-                pl-11
-              "
-
-            />
-
-
-          </div>
-
-
-        </div>
-
-
-
-
-
-
-
-
-        <div className="
           flex
           items-center
           gap-2
         ">
+
+
 
 
 
@@ -340,24 +294,28 @@ export function AppHeader(){
 
               className="
                 flex
-                h-11
+                h-10
                 items-center
                 gap-2
                 rounded-full
                 border
-                px-3
+                px-4
                 text-sm
+                hover:bg-muted
               "
 
             >
 
               <Plus className="h-4 w-4"/>
 
+
               <span className="hidden lg:inline">
-                Add
+                New
               </span>
 
+
             </DropdownMenuTrigger>
+
 
 
 
@@ -367,10 +325,13 @@ export function AppHeader(){
               className="w-56"
             >
 
+
               <DropdownMenuItem
+
                 onClick={() =>
                   router.push("/contacts/new")
                 }
+
               >
 
                 <UserPlus className="mr-2 h-4 w-4"/>
@@ -382,10 +343,13 @@ export function AppHeader(){
 
 
 
+
               <DropdownMenuItem
+
                 onClick={() =>
                   openDrawer("property")
                 }
+
               >
 
                 <Building2 className="mr-2 h-4 w-4"/>
@@ -397,10 +361,13 @@ export function AppHeader(){
 
 
 
+
               <DropdownMenuItem
+
                 onClick={() =>
                   openDrawer("deal")
                 }
+
               >
 
                 <Handshake className="mr-2 h-4 w-4"/>
@@ -429,7 +396,7 @@ export function AppHeader(){
 
             className="
               hidden
-              h-11
+              h-10
               rounded-full
               sm:flex
             "
@@ -446,7 +413,6 @@ export function AppHeader(){
 
 
 
-
           <DropdownMenu>
 
 
@@ -454,13 +420,14 @@ export function AppHeader(){
 
               className="
                 flex
-                h-11
+                h-10
                 items-center
                 gap-2
                 rounded-full
                 border
                 px-3
                 text-sm
+                hover:bg-muted
               "
 
             >
@@ -478,18 +445,23 @@ export function AppHeader(){
 
 
 
+
             <DropdownMenuContent
               align="end"
               className="w-40"
             >
 
+
               <DropdownMenuItem
+
                 onClick={logout}
+
               >
 
                 <LogOut className="mr-2 h-4 w-4"/>
 
                 Logout
+
 
               </DropdownMenuItem>
 
@@ -498,6 +470,8 @@ export function AppHeader(){
 
 
           </DropdownMenu>
+
+
 
 
 
