@@ -1,42 +1,14 @@
-const CACHE_NAME = "tac-shell-v3"
-
-
-const APP_SHELL = [
-  "/",
-  "/manifest.webmanifest",
-  "/icon-192.png",
-  "/icon-512.png",
-]
-
-
-
+const CACHE_NAME = "tac-shell-v4"
 
 
 self.addEventListener(
   "install",
   (event)=>{
 
-    event.waitUntil(
-
-      caches.open(
-        CACHE_NAME
-      )
-      .then(
-        cache =>
-          cache.addAll(
-            APP_SHELL
-          )
-      )
-
-    )
-
-
     self.skipWaiting()
 
   }
 )
-
-
 
 
 
@@ -52,7 +24,6 @@ self.addEventListener(
       .then(
         keys =>
           Promise.all(
-
             keys.map(
               key => {
 
@@ -60,15 +31,12 @@ self.addEventListener(
                   key !== CACHE_NAME
                 ){
 
-                  return caches.delete(
-                    key
-                  )
+                  return caches.delete(key)
 
                 }
 
               }
             )
-
           )
       )
 
@@ -79,7 +47,6 @@ self.addEventListener(
 
   }
 )
-
 
 
 
@@ -107,11 +74,50 @@ self.addEventListener(
 
 
 
+
     event.respondWith(
 
-      caches.match(request)
+      fetch(request)
+
       .then(
-        cached => {
+        response => {
+
+
+          const copy =
+            response.clone()
+
+
+
+          caches.open(
+            CACHE_NAME
+          )
+          .then(
+            cache =>
+              cache.put(
+                request,
+                copy
+              )
+          )
+
+
+
+          return response
+
+
+        }
+      )
+
+
+      .catch(
+
+        async ()=>{
+
+
+          const cached =
+            await caches.match(
+              request
+            )
+
 
 
           if(cached){
@@ -122,48 +128,12 @@ self.addEventListener(
 
 
 
-          return fetch(request)
-          .then(
-            response => {
-
-
-              if(
-                response &&
-                response.status === 200
-              ){
-
-                const clone =
-                  response.clone()
-
-
-
-                caches.open(
-                  CACHE_NAME
-                )
-                .then(
-                  cache =>
-                    cache.put(
-                      request,
-                      clone
-                    )
-                )
-
-              }
-
-
-
-              return response
-
-
-            }
+          return caches.match(
+            "/"
           )
 
-        }
-      )
-      .catch(
 
-        () =>
-          caches.match("/")
+        }
 
       )
 
