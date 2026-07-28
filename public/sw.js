@@ -8,6 +8,7 @@ const APP_SHELL = [
   "/icon-512.png",
 ]
 
+
 self.addEventListener(
   "install",
   (event)=>{
@@ -46,6 +47,7 @@ self.addEventListener(
       .then(
         keys =>
           Promise.all(
+
             keys.map(
               key => {
 
@@ -59,7 +61,9 @@ self.addEventListener(
 
               }
             )
+
           )
+
       )
 
     )
@@ -98,8 +102,8 @@ self.addEventListener(
 
 
     /*
-      Navigation requests
-      */
+      App navigation
+    */
 
     if(
       request.mode === "navigate"
@@ -108,7 +112,6 @@ self.addEventListener(
       event.respondWith(
 
         fetch(request)
-
         .catch(
           async ()=>{
 
@@ -117,26 +120,12 @@ self.addEventListener(
               await caches.match("/")
 
 
-            if(cached){
-
-              return cached
-
-            }
-
-
-            return new Response(
-              "Offline",
-              {
-                status:503,
-                headers:{
-                  "Content-Type":
-                    "text/plain"
-                }
-              }
+            return (
+              cached ??
+              caches.match("/offline")
             )
 
           }
-
         )
 
       )
@@ -153,13 +142,12 @@ self.addEventListener(
 
 
     /*
-      Static assets
-      */
+      Static files
+    */
 
     event.respondWith(
 
       caches.match(request)
-
       .then(
         cached => {
 
@@ -173,18 +161,16 @@ self.addEventListener(
 
 
           return fetch(request)
-
           .then(
-            response=>{
+            response => {
 
 
               if(
                 response.status === 200
               ){
 
-                const copy =
+                const clone =
                   response.clone()
-
 
 
                 caches.open(
@@ -194,7 +180,7 @@ self.addEventListener(
                   cache =>
                     cache.put(
                       request,
-                      copy
+                      clone
                     )
                 )
 
@@ -205,12 +191,10 @@ self.addEventListener(
               return response
 
             }
-
           )
 
 
         }
-
       )
 
     )
