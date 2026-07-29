@@ -78,6 +78,103 @@ export function TaskPageClient({
 
 
 
+  const counts = {
+
+    all:
+      tasks.length,
+
+
+    today:
+      tasks.filter(
+        task => {
+
+          if(
+            task.completed ||
+            !task.dueDate
+          ){
+
+            return false
+
+          }
+
+
+          const date =
+            new Date(
+              task.dueDate
+            )
+
+
+          date.setHours(
+            0,
+            0,
+            0,
+            0
+          )
+
+
+          return (
+            date.getTime()
+            ===
+            today.getTime()
+          )
+
+        }
+      ).length,
+
+
+
+    upcoming:
+      tasks.filter(
+        task => {
+
+          if(
+            task.completed ||
+            !task.dueDate
+          ){
+
+            return false
+
+          }
+
+
+          const date =
+            new Date(
+              task.dueDate
+            )
+
+
+          date.setHours(
+            0,
+            0,
+            0,
+            0
+          )
+
+
+          return (
+            date >
+            today
+          )
+
+        }
+      ).length,
+
+
+
+    completed:
+      tasks.filter(
+        task =>
+          task.completed
+      ).length,
+
+  }
+
+
+
+
+
+
+
   const filtered =
     tasks.filter(
       task => {
@@ -109,7 +206,6 @@ export function TaskPageClient({
           }
 
 
-
           const date =
             new Date(
               task.dueDate
@@ -122,7 +218,6 @@ export function TaskPageClient({
             0,
             0
           )
-
 
 
           return (
@@ -153,7 +248,6 @@ export function TaskPageClient({
           }
 
 
-
           const date =
             new Date(
               task.dueDate
@@ -168,7 +262,6 @@ export function TaskPageClient({
           )
 
 
-
           return (
             date >
             today
@@ -181,8 +274,8 @@ export function TaskPageClient({
 
 
 
-
         return true
+
 
       }
     )
@@ -193,56 +286,124 @@ export function TaskPageClient({
 
 
 
+  const filters = [
+
+    {
+      id:"all",
+      label:"All",
+      count:counts.all,
+    },
+
+    {
+      id:"today",
+      label:"Today",
+      count:counts.today,
+    },
+
+    {
+      id:"upcoming",
+      label:"Upcoming",
+      count:counts.upcoming,
+    },
+
+    {
+      id:"completed",
+      label:"Completed",
+      count:counts.completed,
+    },
+
+  ]
+
+
+
+
+
+
+
+
   return (
 
-    <div className="space-y-6">
+    <div className="
+      space-y-6
+    ">
 
 
-      <div className="flex gap-3 flex-wrap">
+
+
+
+      <div className="
+        flex
+        gap-2
+        overflow-x-auto
+        pb-2
+        scrollbar-none
+      ">
 
 
         {
-          [
-            ["all","All"],
-            ["today","Today"],
-            ["upcoming","Upcoming"],
-            ["completed","Completed"],
-          ].map(
+          filters.map(
             item => (
 
               <button
 
                 key={
-                  item[0]
+                  item.id
                 }
 
                 onClick={() =>
                   setFilter(
-                    item[0] as Filter
+                    item.id as Filter
                   )
                 }
 
-                className={`rounded-full border px-4 py-2 text-sm ${
-                  filter === item[0]
+                className={`
+                  flex
+                  shrink-0
+                  items-center
+                  gap-2
+                  rounded-full
+                  border
+                  px-4
+                  py-2
+                  text-sm
+                  transition
+                  ${
+                    filter === item.id
                     ? "bg-primary text-primary-foreground"
-                    : ""
-                }`}
+                    : "bg-background"
+                  }
+                `}
 
               >
 
-                {
-                  item[1]
-                }
+                {item.label}
+
+
+                <span className="
+                  rounded-full
+                  bg-black/10
+                  px-2
+                  py-0.5
+                  text-xs
+                ">
+
+                  {item.count}
+
+                </span>
+
 
               </button>
 
             )
+
           )
 
         }
 
 
       </div>
+
+
 
 
 

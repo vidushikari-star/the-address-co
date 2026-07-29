@@ -4,11 +4,12 @@ import {
   CheckCircle2,
   Clock,
   User,
+  Building2,
+  Handshake,
+  AlertCircle,
 } from "lucide-react"
 
-import {
-  Badge,
-} from "@/components/ui/badge"
+import Link from "next/link"
 
 import type {
   TaskWithContext,
@@ -16,13 +17,16 @@ import type {
 
 
 
+
+
 type Props = {
 
   task: TaskWithContext
 
-  onComplete?: (
-    task: TaskWithContext
-  ) => void
+  onComplete?:
+    (
+      task:TaskWithContext
+    ) => void
 
 }
 
@@ -30,71 +34,79 @@ type Props = {
 
 
 
-function getTaskStatus(
-  task: TaskWithContext
+
+
+
+function formatDate(
+  date?:Date
 ){
 
-  if(
-    task.completed ||
-    !task.dueDate
-  ){
+  if(!date){
 
-    return null
+    return "-"
 
   }
 
 
-  const today =
-    new Date()
-
-
-  today.setHours(
-    0,
-    0,
-    0,
-    0
+  return new Date(
+    date
   )
-
-
-  const due =
-    new Date(
-      task.dueDate
-    )
-
-
-  due.setHours(
-    0,
-    0,
-    0,
-    0
+  .toLocaleDateString(
+    "en-IN",
+    {
+      day:"2-digit",
+      month:"short",
+      year:"numeric",
+    }
   )
-
-
-
-  if(
-    due < today
-  ){
-
-    return "overdue"
-
-  }
-
-
-
-  if(
-    due.getTime() ===
-    today.getTime()
-  ){
-
-    return "today"
-
-  }
-
-
-
-  return null
 
 }
+
+
+
+
+
+
+
+
+function PriorityBadge({
+  priority,
+}:{
+  priority:string
+}){
+
+
+  return (
+
+    <span
+
+      className={`
+        rounded-full
+        px-3
+        py-1
+        text-xs
+        capitalize
+        ${
+          priority === "high"
+          ? "bg-red-100 text-red-700"
+          :
+          priority === "medium"
+          ? "bg-yellow-100 text-yellow-700"
+          :
+          "bg-green-100 text-green-700"
+        }
+      `}
+
+    >
+
+      {priority}
+
+    </span>
+
+  )
+
+}
+
 
 
 
@@ -105,136 +117,262 @@ function getTaskStatus(
 export function TaskCard({
   task,
   onComplete,
-}: Props) {
-
-
-  const status =
-    getTaskStatus(
-      task
-    )
+}:Props){
 
 
 
   return (
 
-    <div className="rounded-2xl border p-5 flex items-start justify-between gap-4">
-
-
-      <div className="space-y-2 flex-1">
-
-
-
-
-
-        {
-          status === "overdue" && (
-
-            <Badge variant="destructive">
-
-              Overdue
-
-            </Badge>
-
-          )
-        }
+    <div className="
+      rounded-2xl
+      border
+      bg-card
+      p-4
+      space-y-4
+    ">
 
 
 
-
-        {
-          status === "today" && (
-
-            <Badge variant="secondary">
-
-              Due Today
-
-            </Badge>
-
-          )
-        }
+      <div className="
+        flex
+        items-start
+        justify-between
+        gap-3
+      ">
 
 
 
+        <div className="min-w-0">
 
 
+          <h3 className="
+            font-semibold
+            truncate
+          ">
 
+            {task.title}
 
-        <h3 className="font-semibold">
-
-          {task.title}
-
-        </h3>
-
-
-
-
-
-        {
-          task.description && (
-
-            <p className="text-sm text-muted-foreground">
-
-              {task.description}
-
-            </p>
-
-          )
-        }
-
-
-
-
-
-
-        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+          </h3>
 
 
           {
-            task.dueDate && (
+            task.description && (
 
-              <span className="flex items-center gap-1">
+              <p className="
+                mt-1
+                text-sm
+                text-muted-foreground
+                line-clamp-2
+              ">
 
+                {task.description}
 
-                <Clock className="h-4 w-4" />
-
-
-                {
-                  task.dueDate.toLocaleDateString(
-                    "en-IN",
-                    {
-                      day:"2-digit",
-                      month:"short",
-                      year:"numeric",
-                    }
-                  )
-                }
-
-
-              </span>
+              </p>
 
             )
           }
 
 
+        </div>
 
 
+
+
+
+        <PriorityBadge
+
+          priority={
+            task.priority
+          }
+
+        />
+
+
+      </div>
+
+
+
+
+
+
+
+
+      <div className="
+        grid
+        gap-2
+        text-sm
+        text-muted-foreground
+      ">
+
+
+
+
+        {
+          task.dueDate && (
+
+            <div className="
+              flex
+              items-center
+              gap-2
+            ">
+
+              <Clock className="h-4 w-4"/>
+
+              Due:
+
+              {" "}
+
+              {formatDate(
+                task.dueDate
+              )}
+
+            </div>
+
+          )
+        }
+
+
+
+
+
+
+
+        {
+          task.assignedTo && (
+
+            <div className="
+              flex
+              items-center
+              gap-2
+            ">
+
+              <User className="h-4 w-4"/>
+
+              Assigned
+
+            </div>
+
+          )
+
+        }
+
+
+
+
+
+
+
+        {
+          task.contactName && (
+
+            <Link
+
+              href={`/contacts/${task.contactId}`}
+
+              className="
+                flex
+                items-center
+                gap-2
+                hover:underline
+              "
+
+            >
+
+              <User className="h-4 w-4"/>
+
+              {task.contactName}
+
+            </Link>
+
+          )
+
+        }
+
+
+
+
+
+
+
+
+        {
+          task.dealName && (
+
+            <Link
+
+              href={`/deals/${task.dealId}`}
+
+              className="
+                flex
+                items-center
+                gap-2
+                hover:underline
+              "
+
+            >
+
+              <Handshake className="h-4 w-4"/>
+
+              {task.dealName}
+
+            </Link>
+
+          )
+
+        }
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+
+
+      <div className="
+        flex
+        items-center
+        justify-between
+        border-t
+        pt-3
+      ">
+
+
+        <div className="
+          flex
+          items-center
+          gap-2
+          text-xs
+          text-muted-foreground
+        ">
 
 
           {
-            task.assignedTo && (
+            task.completed
+            ?
+            (
+              <>
+                <CheckCircle2 className="h-4 w-4"/>
 
-              <span className="flex items-center gap-1">
-
-
-                <User className="h-4 w-4" />
-
-
-                {task.assignedTo}
-
-
-              </span>
-
+                Completed
+              </>
             )
+            :
+            (
+              <>
+                <AlertCircle className="h-4 w-4"/>
+
+                Pending
+              </>
+            )
+
           }
 
 
@@ -247,61 +385,30 @@ export function TaskCard({
 
 
         {
-          (
-            task.contactName ||
-            task.propertyName ||
-            task.dealName
-          ) && (
+          !task.completed && (
 
-            <div className="mt-3 space-y-1 text-sm text-muted-foreground">
+            <button
 
-
-              {
-                task.contactName && (
-
-                  <p>
-                    Buyer:
-                    {" "}
-                    {task.contactName}
-                  </p>
-
+              onClick={() =>
+                onComplete?.(
+                  task
                 )
               }
 
+              className="
+                rounded-xl
+                bg-primary
+                px-4
+                py-2
+                text-sm
+                text-primary-foreground
+              "
 
+            >
 
+              Complete
 
-
-              {
-                task.dealName && (
-
-                  <p>
-                    Deal:
-                    {" "}
-                    {task.dealName}
-                  </p>
-
-                )
-              }
-
-
-
-
-
-              {
-                task.propertyName && (
-
-                  <p>
-                    Property:
-                    {" "}
-                    {task.propertyName}
-                  </p>
-
-                )
-              }
-
-
-            </div>
+            </button>
 
           )
         }
@@ -311,28 +418,6 @@ export function TaskCard({
       </div>
 
 
-
-
-
-
-
-      {
-  !task.completed && (
-
-    <button
-      onClick={() =>
-        onComplete?.(task)
-      }
-      className="rounded-full border p-2 hover:bg-muted"
-      title="Complete task"
-    >
-
-      <CheckCircle2 className="h-5 w-5" />
-
-    </button>
-
-  )
-}
 
 
 

@@ -1,7 +1,6 @@
 "use client"
 
 import {
-  useEffect,
   useState,
 } from "react"
 
@@ -10,28 +9,9 @@ import {
 } from "next/navigation"
 
 import {
-  ADVISORS,
-} from "@/lib/config/advisors"
-
-import {
-  ContactsRepository,
-} from "@/lib/supabase/repositories/contacts.repository"
-
-import {
-  getDeals,
-} from "@/lib/repositories/deal-repository"
-
-import {
-  createTask,
-} from "@/lib/repositories/task-repository"
-
-import type {
-  Contact,
-} from "@/types/contact"
-
-import type {
-  Deal,
-} from "@/types/deal"
+  Plus,
+  X,
+} from "lucide-react"
 
 import {
   Button,
@@ -41,15 +21,21 @@ import {
   Input,
 } from "@/components/ui/input"
 
+import {
+  Textarea,
+} from "@/components/ui/textarea"
+
+import {
+  createTask,
+} from "@/lib/repositories/task-repository"
 
 
-type Props = {}
 
 
 
 
 
-export function CreateTaskDialog({}: Props){
+export function CreateTaskDialog(){
 
 
   const router =
@@ -66,115 +52,30 @@ export function CreateTaskDialog({}: Props){
 
 
   const [
-    title,
-    setTitle,
+    saving,
+    setSaving,
   ] =
-  useState("")
+  useState(false)
+
+
 
 
 
   const [
-    dueDate,
-    setDueDate,
+    form,
+    setForm,
   ] =
-  useState("")
+  useState({
 
+    title:"",
 
+    description:"",
 
-  const [
-    assignedTo,
-    setAssignedTo,
-  ] =
-  useState(
-    "Vidushi Kari"
-  )
+    priority:"medium",
 
+    dueDate:"",
 
-
-  const [
-    linkType,
-    setLinkType,
-  ] =
-  useState<
-    "none" | "contact" | "deal"
-  >(
-    "none"
-  )
-
-
-
-  const [
-    contacts,
-    setContacts,
-  ] =
-  useState<Contact[]>([])
-
-
-
-  const [
-    deals,
-    setDeals,
-  ] =
-  useState<Deal[]>([])
-
-
-
-  const [
-    contactId,
-    setContactId,
-  ] =
-  useState("")
-
-
-
-  const [
-    dealId,
-    setDealId,
-  ] =
-  useState("")
-
-
-
-
-
-
-  useEffect(() => {
-
-
-    async function load(){
-
-
-      const [
-        contactsData,
-        dealsData,
-      ] =
-      await Promise.all([
-
-        ContactsRepository.getAll(),
-
-        getDeals(),
-
-      ])
-
-
-
-      setContacts(
-        contactsData
-      )
-
-
-      setDeals(
-        dealsData
-      )
-
-
-    }
-
-
-    load()
-
-
-  }, [])
+  })
 
 
 
@@ -185,7 +86,9 @@ export function CreateTaskDialog({}: Props){
   async function submit(){
 
 
-    if(!title.trim()){
+    if(
+      !form.title
+    ){
 
       return
 
@@ -193,33 +96,53 @@ export function CreateTaskDialog({}: Props){
 
 
 
-    try {
+    setSaving(true)
+
+
+
+    try{
 
 
       await createTask({
 
-        title,
+        title:
+          form.title,
+
+
+        description:
+          form.description,
+
+
+        priority:
+          form.priority as any,
 
 
         dueDate:
-          dueDate
-            ? new Date(dueDate)
+          form.dueDate
+            ? new Date(
+                form.dueDate
+              )
             : undefined,
 
 
-        assignedTo,
+      })
 
 
-        contactId:
-          linkType === "contact"
-            ? contactId
-            : undefined,
 
 
-        dealId:
-          linkType === "deal"
-            ? dealId
-            : undefined,
+      setOpen(false)
+
+
+
+      setForm({
+
+        title:"",
+
+        description:"",
+
+        priority:"medium",
+
+        dueDate:"",
 
       })
 
@@ -229,39 +152,10 @@ export function CreateTaskDialog({}: Props){
 
 
 
-      setTitle("")
+    }
+    finally{
 
-      setDueDate("")
-
-      setAssignedTo(
-        "Vidushi Kari"
-      )
-
-      setLinkType(
-        "none"
-      )
-
-      setContactId("")
-
-      setDealId("")
-
-      setOpen(false)
-
-
-
-    } catch(error){
-
-
-      console.error(
-        "Failed creating task",
-        error
-      )
-
-
-      alert(
-        "Failed creating task"
-      )
-
+      setSaving(false)
 
     }
 
@@ -279,14 +173,26 @@ export function CreateTaskDialog({}: Props){
     <>
 
       <Button
+
+        className="
+          w-full
+          sm:w-auto
+        "
+
         onClick={() =>
           setOpen(true)
         }
+
       >
 
-        + New Task
+        <Plus className="mr-2 h-4 w-4"/>
+
+        New Task
 
       </Button>
+
+
+
 
 
 
@@ -295,299 +201,250 @@ export function CreateTaskDialog({}: Props){
       {
         open && (
 
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="
+            fixed
+            inset-0
+            z-50
+            flex
+            items-end
+            justify-center
+            bg-black/40
+            sm:items-center
+          ">
 
 
-            <div className="w-full max-w-lg rounded-2xl bg-background p-6 space-y-5">
 
+            <div className="
+              w-full
+              rounded-t-3xl
+              bg-background
+              p-5
+              sm:max-w-lg
+              sm:rounded-2xl
+            ">
 
-              <h2 className="text-xl font-semibold">
-                Create Task
-              </h2>
 
+              <div className="
+                mb-5
+                flex
+                items-center
+                justify-between
+              ">
 
 
+                <h2 className="
+                  text-xl
+                  font-semibold
+                ">
 
+                  Create Task
 
-              <Input
+                </h2>
 
-                placeholder="Task title"
 
-                value={
-                  title
-                }
 
-                onChange={
-                  e =>
-                    setTitle(
-                      e.target.value
-                    )
-                }
-
-              />
-
-
-
-
-
-              <Input
-
-                type="date"
-
-                value={
-                  dueDate
-                }
-
-                onChange={
-                  e =>
-                    setDueDate(
-                      e.target.value
-                    )
-                }
-
-              />
-
-
-
-
-
-              <select
-
-                className="w-full rounded-md border p-2"
-
-                value={
-                  assignedTo
-                }
-
-                onChange={
-                  e =>
-                    setAssignedTo(
-                      e.target.value
-                    )
-                }
-
-              >
-
-                {
-                  Object.values(
-                    ADVISORS
-                  ).map(
-
-                    advisor => (
-
-                      <option
-
-                        key={
-                          advisor.name
-                        }
-
-                        value={
-                          advisor.name
-                        }
-
-                      >
-
-                        {advisor.name}
-
-                      </option>
-
-                    )
-
-                  )
-                }
-
-              </select>
-
-
-
-
-
-
-              <select
-
-                className="w-full rounded-md border p-2"
-
-                value={
-                  linkType
-                }
-
-                onChange={
-                  e =>
-                    setLinkType(
-                      e.target.value as
-                      "none" |
-                      "contact" |
-                      "deal"
-                    )
-                }
-
-              >
-
-                <option value="none">
-                  No Link
-                </option>
-
-                <option value="contact">
-                  Contact
-                </option>
-
-                <option value="deal">
-                  Deal
-                </option>
-
-              </select>
-
-
-
-
-
-
-
-              {
-                linkType === "contact" && (
-
-                  <select
-
-                    className="w-full rounded-md border p-2"
-
-                    value={
-                      contactId
-                    }
-
-                    onChange={
-                      e =>
-                        setContactId(
-                          e.target.value
-                        )
-                    }
-
-                  >
-
-                    <option value="">
-                      Select Contact
-                    </option>
-
-
-                    {
-                      contacts.map(
-
-                        contact => (
-
-                          <option
-
-                            key={
-                              contact.id
-                            }
-
-                            value={
-                              contact.id
-                            }
-
-                          >
-
-                            {contact.name}
-
-                          </option>
-
-                        )
-
-                      )
-                    }
-
-                  </select>
-
-                )
-              }
-
-
-
-
-
-
-
-              {
-                linkType === "deal" && (
-
-                  <select
-
-                    className="w-full rounded-md border p-2"
-
-                    value={
-                      dealId
-                    }
-
-                    onChange={
-                      e =>
-                        setDealId(
-                          e.target.value
-                        )
-                    }
-
-                  >
-
-                    <option value="">
-                      Select Deal
-                    </option>
-
-
-                    {
-                      deals.map(
-
-                        deal => (
-
-                          <option
-
-                            key={
-                              deal.id
-                            }
-
-                            value={
-                              deal.id
-                            }
-
-                          >
-
-                            {deal.name}
-
-                          </option>
-
-                        )
-
-                      )
-                    }
-
-                  </select>
-
-                )
-              }
-
-
-
-
-
-
-
-              <div className="flex justify-end gap-3">
-
-
-                <Button
-
-                  variant="outline"
+                <button
 
                   onClick={() =>
                     setOpen(false)
                   }
 
+                  className="
+                    rounded-full
+                    p-2
+                    hover:bg-muted
+                  "
+
                 >
 
-                  Cancel
+                  <X className="h-5 w-5"/>
 
-                </Button>
+                </button>
+
+
+              </div>
+
+
+
+
+
+
+
+              <div className="
+                space-y-5
+              ">
+
+
+
+
+                <div>
+
+                  <label className="text-sm">
+                    Title
+                  </label>
+
+
+                  <Input
+
+                    value={
+                      form.title
+                    }
+
+                    onChange={
+                      e =>
+                        setForm({
+                          ...form,
+                          title:e.target.value,
+                        })
+                    }
+
+                    placeholder="Follow up with client"
+
+                  />
+
+                </div>
+
+
+
+
+
+
+
+                <div>
+
+                  <label className="text-sm">
+                    Description
+                  </label>
+
+
+                  <Textarea
+
+                    value={
+                      form.description
+                    }
+
+                    onChange={
+                      e =>
+                        setForm({
+                          ...form,
+                          description:e.target.value,
+                        })
+                    }
+
+                    placeholder="Add notes"
+
+                  />
+
+                </div>
+
+
+
+
+
+
+
+                <div>
+
+                  <label className="text-sm">
+                    Priority
+                  </label>
+
+
+                  <select
+
+                    value={
+                      form.priority
+                    }
+
+                    onChange={
+                      e =>
+                        setForm({
+                          ...form,
+                          priority:e.target.value,
+                        })
+                    }
+
+                    className="
+                      mt-1
+                      w-full
+                      rounded-md
+                      border
+                      bg-background
+                      px-3
+                      py-2
+                    "
+
+                  >
+
+                    <option value="low">
+                      Low
+                    </option>
+
+
+                    <option value="medium">
+                      Medium
+                    </option>
+
+
+                    <option value="high">
+                      High
+                    </option>
+
+
+                  </select>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div>
+
+                  <label className="text-sm">
+                    Due Date
+                  </label>
+
+
+                  <Input
+
+                    type="date"
+
+                    value={
+                      form.dueDate
+                    }
+
+                    onChange={
+                      e =>
+                        setForm({
+                          ...form,
+                          dueDate:e.target.value,
+                        })
+                    }
+
+                  />
+
+
+                </div>
+
+
+
 
 
 
 
                 <Button
+
+                  className="
+                    w-full
+                  "
+
+                  disabled={
+                    saving
+                  }
 
                   onClick={
                     submit
@@ -595,9 +452,17 @@ export function CreateTaskDialog({}: Props){
 
                 >
 
-                  Create
+                  {
+                    saving
+                    ?
+                    "Saving..."
+                    :
+                    "Create Task"
+                  }
+
 
                 </Button>
+
 
 
               </div>
