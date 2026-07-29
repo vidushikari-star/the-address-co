@@ -28,6 +28,24 @@ type Props = {
 
 
 
+function formatDateKey(
+  date: Date
+){
+
+  return (
+    `${date.getFullYear()}-${
+      String(date.getMonth() + 1)
+        .padStart(2,"0")
+    }-${
+      String(date.getDate())
+        .padStart(2,"0")
+    }`
+  )
+
+}
+
+
+
 
 
 export function CalendarView({
@@ -77,7 +95,8 @@ export function CalendarView({
       .filter(
         item =>
           item.type === "task" ||
-          item.type === "site_visit"
+          item.type === "site_visit" ||
+          item.type === "activity"
       )
       .reduce(
 
@@ -87,12 +106,16 @@ export function CalendarView({
         ) => {
 
 
-          const key =
+          const eventDate =
             new Date(
               item.date
             )
-            .toISOString()
-            .split("T")[0]
+
+
+          const key =
+            formatDateKey(
+              eventDate
+            )
 
 
           if(!acc[key]){
@@ -123,14 +146,15 @@ export function CalendarView({
 
 
   const upcoming =
-    items.filter(
-      item =>
-        new Date(item.date) >= today
-    )
-    .slice(
-      0,
-      10
-    )
+    items
+      .filter(
+        item =>
+          new Date(item.date) >= today
+      )
+      .slice(
+        0,
+        10
+      )
 
 
 
@@ -250,21 +274,16 @@ export function CalendarView({
                   item => (
 
                     <CalendarEvent
-
                       key={
                         item.id
                       }
-
                       item={
                         item
                       }
-
                       mobile
-
                     />
 
                   )
-
                 )
 
               }
@@ -287,7 +306,6 @@ export function CalendarView({
 
 
       {/* DESKTOP MONTH VIEW */}
-
 
       <div className="
         hidden
@@ -456,9 +474,9 @@ export function CalendarView({
 
 
                 const key =
-                  date
-                    .toISOString()
-                    .split("T")[0]
+                  formatDateKey(
+                    date
+                  )
 
 
 
@@ -494,15 +512,12 @@ export function CalendarView({
                         item => (
 
                           <CalendarEvent
-
                             key={
                               item.id
                             }
-
                             item={
                               item
                             }
-
                           />
 
                         )

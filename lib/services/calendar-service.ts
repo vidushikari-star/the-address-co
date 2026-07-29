@@ -1,5 +1,3 @@
-// lib/services/calendar-service.ts
-
 import {
   getAllTasks,
 } from "@/lib/repositories/task-server-repository"
@@ -11,13 +9,15 @@ import {
 
 
 import {
-  supabase,
-} from "@/lib/supabase/client"
+  createServerSupabaseClient,
+} from "@/lib/supabase/server"
 
 
 import type {
   CalendarItem,
 } from "@/types/calendar"
+
+
 
 
 
@@ -55,7 +55,6 @@ export async function getCalendarItems(): Promise<CalendarItem[]> {
 
 
 
-
   const taskItems: CalendarItem[] =
 
     tasks
@@ -71,37 +70,28 @@ export async function getCalendarItems(): Promise<CalendarItem[]> {
         id:
           `task-${task.id}`,
 
-
         title:
           task.title,
 
-
         date:
-          task.dueDate!
-            .toISOString(),
-
+          task.dueDate!.toISOString(),
 
         type:
           "task",
-
 
         status:
           task.completed
             ? "completed"
             : "pending",
 
-
         contactId:
           task.contactId,
-
 
         dealId:
           task.dealId,
 
-
         assignedTo:
           task.assignedTo,
-
 
         url:
           task.dealId
@@ -131,46 +121,35 @@ export async function getCalendarItems(): Promise<CalendarItem[]> {
         id:
           `visit-${visit.id}`,
 
-
         title:
           "Site Visit",
-
 
         date:
           visit.scheduledDate,
 
-
         time:
           visit.scheduledTime,
-
 
         type:
           "site_visit",
 
-
         status:
           visit.status,
-
 
         contactId:
           visit.contactId,
 
-
         dealId:
           visit.dealId,
-
 
         propertyId:
           visit.propertyId,
 
-
         contactName:
           visit.contactName,
 
-
         propertyName:
           visit.propertyName,
-
 
         url:
           visit.dealId
@@ -187,71 +166,70 @@ export async function getCalendarItems(): Promise<CalendarItem[]> {
 
 
 
-  const eventItems: CalendarItem[] =
 
-    calendarEvents
+  const eventItems: CalendarItem[] = calendarEvents.map(
+  (event) => {
 
-    .map(
-      event => ({
+    return {
 
-        id:
-          `event-${event.id}`,
+      id:
+        `event-${event.id}`,
 
+      title:
+        event.title,
 
-        title:
-          event.title,
+      date:
+        event.start_time,
 
-
-        date:
-          event.start_time,
-
-
-        time:
-          new Date(
-            event.start_time
-          )
-          .toLocaleTimeString(
-            "en-IN",
-            {
-              hour:"2-digit",
-              minute:"2-digit",
-            }
-          ),
+      time:
+        new Date(
+          event.start_time
+        ).toLocaleTimeString(
+          "en-IN",
+          {
+            hour:"2-digit",
+            minute:"2-digit",
+          }
+        ),
 
 
-        type:
-          "activity",
+      type:
+        "activity",
 
 
-        status:
-          event.status,
+      status:
+        event.status,
 
 
-        contactId:
-          event.contact_id,
+      contactId:
+        event.contact_id ?? undefined,
 
 
-        dealId:
-          event.deal_id,
+      propertyId:
+        event.property_id ?? undefined,
 
 
-        propertyId:
-          event.property_id,
+      dealId:
+        event.deal_id ?? undefined,
 
 
-        assignedTo:
-          event.assigned_to,
+      assignedTo:
+        event.assigned_to ?? undefined,
 
 
-        url:
-          "/calendar",
+      url:
+        "/calendar",
 
-      })
-    )
+    }
+
+  }
+)
 
 
-
-
+console.log(
+  "EVENT ITEMS CREATED:",
+  eventItems
+)
 
 
 
@@ -269,15 +247,9 @@ export async function getCalendarItems(): Promise<CalendarItem[]> {
 
     (a,b) =>
 
-      new Date(
-        a.date
-      ).getTime()
-
+      new Date(a.date).getTime()
       -
-
-      new Date(
-        b.date
-      ).getTime()
+      new Date(b.date).getTime()
 
   )
 
@@ -293,6 +265,11 @@ export async function getCalendarItems(): Promise<CalendarItem[]> {
 
 
 async function getSharedCalendarEvents(){
+
+
+  const supabase =
+    await createServerSupabaseClient()
+
 
 
   const {
@@ -318,10 +295,14 @@ async function getSharedCalendarEvents(){
       error
     )
 
-
     return []
 
   }
+
+  console.log(
+  "RAW CALENDAR EVENTS:",
+  data
+)
 
 
 

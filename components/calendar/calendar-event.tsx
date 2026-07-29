@@ -5,6 +5,7 @@ import {
   MapPin,
   Clock,
   User,
+  CalendarDays,
 } from "lucide-react"
 
 import Link from "next/link"
@@ -30,7 +31,7 @@ type Props = {
 export function CalendarEvent({
   item,
   mobile = false,
-}:Props){
+}: Props){
 
 
   const isTask =
@@ -41,17 +42,8 @@ export function CalendarEvent({
     item.type === "site_visit"
 
 
-
-
-
-  if(
-    !isTask &&
-    !isSiteVisit
-  ){
-
-    return null
-
-  }
+  const isActivity =
+    item.type === "activity"
 
 
 
@@ -84,6 +76,9 @@ export function CalendarEvent({
     >
 
 
+
+
+
       <div className="
         flex
         items-center
@@ -95,10 +90,23 @@ export function CalendarEvent({
         {
           isTask
           ?
+
           <CheckCircle2 className="h-4 w-4"/>
+
           :
+
+          isSiteVisit
+
+          ?
+
           <MapPin className="h-4 w-4"/>
+
+          :
+
+          <CalendarDays className="h-4 w-4"/>
+
         }
+
 
 
         <span className="truncate">
@@ -109,6 +117,8 @@ export function CalendarEvent({
 
 
       </div>
+
+
 
 
 
@@ -125,15 +135,20 @@ export function CalendarEvent({
             text-muted-foreground
           ">
 
+
             <Clock className="h-4 w-4"/>
 
+
             {item.time}
+
 
           </div>
 
         )
 
       }
+
+
 
 
 
@@ -158,6 +173,31 @@ export function CalendarEvent({
 
 
 
+
+
+
+      {
+        item.propertyName && (
+
+          <div className="
+            text-sm
+            text-muted-foreground
+          ">
+
+            {item.propertyName}
+
+          </div>
+
+        )
+
+      }
+
+
+
+
+
+
+
       {
         item.assignedTo && (
 
@@ -169,15 +209,44 @@ export function CalendarEvent({
             text-muted-foreground
           ">
 
+
             <User className="h-4 w-4"/>
 
+
             {item.assignedTo}
+
 
           </div>
 
         )
 
       }
+
+
+
+
+
+
+
+      {
+        item.status && (
+
+          <div className="
+            text-xs
+            capitalize
+            text-muted-foreground
+          ">
+
+            {item.status}
+
+          </div>
+
+        )
+
+      }
+
+
+
 
 
     </Link>
