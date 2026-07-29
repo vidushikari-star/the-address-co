@@ -1,232 +1,151 @@
-import {
-  NextResponse,
-} from "next/server"
-
-
+import { NextResponse } from "next/server"
 import * as XLSX from "xlsx"
 
+import { getServerUserProfile } from "@/lib/auth/server-user-profile"
 
-import {
-  getCommissions,
-} from "@/lib/repositories/commission-repository"
+import { getCommissions } from "@/lib/repositories/commission-repository"
+import { getExpenses } from "@/lib/repositories/expense-repository"
 
+import { filterByDate } from "@/lib/reports/filter-report-data"
 
-import {
-  getExpenses,
-} from "@/lib/repositories/expense-repository"
-
-
-import {
-  filterByDate,
-} from "@/lib/reports/filter-report-data"
-
-
-import type {
-  ReportRange,
-} from "@/lib/reports/report-date-utils"
-
-
-
-
+import type { ReportRange } from "@/lib/reports/report-date-utils"
 
 export async function GET(
-  request:Request
-){
+  request: Request
+) {
+  const user =
+    await getServerUserProfile()
 
+  if (!user) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    )
+  }
 
-  const {
-    searchParams,
-  } =
-  new URL(
-    request.url
-  )
+  if (user.role !== "admin") {
+    return NextResponse.json(
+      { error: "Forbidden" },
+      { status: 403 }
+    )
+  }
 
-
+  const { searchParams } =
+    new URL(request.url)
 
   const range =
     (
-      searchParams.get(
-        "range"
-      ) ?? "all"
+      searchParams.get("range") ??
+      "all"
     ) as ReportRange
 
+  let commissions
+  let expenses
 
+  try {
+    ;[commissions, expenses] =
+      await Promise.all([
+        getCommissions(),
+        getExpenses(),
+      ])
 
-
-
-  const commissions =
-    filterByDate(
-      await getCommissions(),
+    commissions = filterByDate(
+      commissions,
       range
     )
 
-
-
-  const expenses =
-    filterByDate(
-      await getExpenses(),
+    expenses = filterByDate(
+      expenses,
       range
     )
+  } catch (error) {
+    console.error(error)
 
+    return NextResponse.json(
+      {
+        error:
+          "Failed to generate P&L report.",
+      },
+      {
+        status: 500,
+      }
+    )
+  }
 
-
-
-
-  const income =
-    commissions
-      .filter(
-        item =>
-          item.status === "received"
-      )
-      .reduce(
-        (
-          sum,
-          item
-        ) =>
-          sum + item.amount,
-        0
-      )
-
-
-
-
-
-  const expenseTotal =
-    expenses.reduce(
-      (
-        sum,
-        item
-      ) =>
+  const income = commissions
+    .filter(
+      (item) =>
+        item.status === "received"
+    )
+    .reduce(
+      (sum, item) =>
         sum + item.amount,
       0
     )
 
-
-
-
+  const expenseTotal =
+    expenses.reduce(
+      (sum, item) =>
+        sum + item.amount,
+      0
+    )
 
   const workbook =
     XLSX.utils.book_new()
 
-
-
-
-
   const summary = [
-
     {
       Metric:
         "Commission Received",
-
-      Amount:
-        income,
+      Amount: income,
     },
-
-
     {
-      Metric:
-        "Expenses",
-
-      Amount:
-        expenseTotal,
+      Metric: "Expenses",
+      Amount: expenseTotal,
     },
-
-
     {
-      Metric:
-        "Net Profit",
-
+      Metric: "Net Profit",
       Amount:
         income - expenseTotal,
     },
-
   ]
-
-
-
-
-
-  const incomeSheet =
-    XLSX.utils.json_to_sheet(
-      summary
-    )
-
 
   XLSX.utils.book_append_sheet(
     workbook,
-    incomeSheet,
+    XLSX.utils.json_to_sheet(
+      summary
+    ),
     "Summary"
   )
 
-
-
-
-
-  const expenseSheet =
-    XLSX.utils.json_to_sheet(
-      expenses.map(
-        item => ({
-
-          Date:
-            item.date,
-
-          Category:
-            item.category,
-
-          Description:
-            item.description,
-
-          Amount:
-            item.amount,
-
-          Status:
-            item.status,
-
-        })
-      )
-    )
-
-
-
   XLSX.utils.book_append_sheet(
     workbook,
-    expenseSheet,
+    XLSX.utils.json_to_sheet(
+      expenses.map((item) => ({
+        Date: item.date,
+        Category: item.category,
+        Description:
+          item.description,
+        Amount: item.amount,
+        Status: item.status,
+      }))
+    ),
     "Expenses"
   )
 
-
-
-
-
   const buffer =
-    XLSX.write(
-      workbook,
-      {
-        type:"buffer",
-        bookType:"xlsx",
-      }
-    )
+    XLSX.write(workbook, {
+      type: "buffer",
+      bookType: "xlsx",
+    })
 
+  return new NextResponse(buffer, {
+    headers: {
+      "Content-Type":
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 
-
-
-
-  return new NextResponse(
-    buffer,
-    {
-
-      headers:{
-
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-
-
-        "Content-Disposition":
-          `attachment; filename="The_Address_Co_PnL.xlsx"`,
-
-      },
-
-    }
-  )
-
+      "Content-Disposition":
+        'attachment; filename="The_Address_Co_PnL.xlsx"',
+    },
+  })
 }

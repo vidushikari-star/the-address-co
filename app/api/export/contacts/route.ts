@@ -1,90 +1,90 @@
-import {
-  NextResponse,
-} from "next/server"
-
+import { NextResponse } from "next/server"
 import * as XLSX from "xlsx"
 
-import {
-  createServerSupabaseClient,
-} from "@/lib/supabase/server"
+import { getServerUserProfile } from "@/lib/auth/server-user-profile"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 
+export async function GET() {
+  const user = await getServerUserProfile()
 
+  if (!user) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    )
+  }
 
-export async function GET(){
+  if (user.role !== "admin") {
+    return NextResponse.json(
+      { error: "Forbidden" },
+      { status: 403 }
+    )
+  }
 
   const supabase =
     await createServerSupabaseClient()
 
+  const { data, error } = await supabase
+    .from("contacts")
+    .select(`
+      full_name,
+      first_name,
+      last_name,
+      phone,
+      email,
+      lead_source,
+      lead_stage,
+      budget_max,
+      created_at
+    `)
+    .order("created_at", {
+      ascending: false,
+    })
 
-  const {
-    data,
-    error,
-  } =
-    await supabase
-      .from("contacts")
-      .select("*")
-      .order(
-        "created_at",
-        {
-          ascending:false,
-        }
-      )
+  if (error) {
+    console.error(error)
 
-
-  if(error){
-
-    throw error
-
+    return NextResponse.json(
+      {
+        error: "Failed to export contacts.",
+      },
+      {
+        status: 500,
+      }
+    )
   }
 
+  const rows = (data ?? []).map(
+    (contact) => ({
+      Name:
+        contact.full_name ??
+        `${contact.first_name ?? ""} ${contact.last_name ?? ""}`.trim(),
 
+      Phone:
+        contact.phone ?? "",
 
-  const rows =
-    (data ?? []).map(
-      contact => ({
+      Email:
+        contact.email ?? "",
 
-        Name:
-          contact.full_name ??
-          `${contact.first_name ?? ""} ${contact.last_name ?? ""}`.trim(),
+      LeadSource:
+        contact.lead_source ?? "",
 
+      Stage:
+        contact.lead_stage ?? "",
 
-        Phone:
-          contact.phone ?? "",
+      Budget:
+        contact.budget_max ?? "",
 
-
-        Email:
-          contact.email ?? "",
-
-
-        LeadSource:
-          contact.lead_source ?? "",
-
-
-        Stage:
-          contact.lead_stage ?? "",
-
-
-        Budget:
-          contact.budget_max ?? "",
-
-
-        Created:
-          contact.created_at ?? "",
-
-      })
-    )
-
-
+      Created:
+        contact.created_at ?? "",
+    })
+  )
 
   const workbook =
     XLSX.utils.book_new()
 
-
   const sheet =
-    XLSX.utils.json_to_sheet(
-      rows
-    )
-
+    XLSX.utils.json_to_sheet(rows)
 
   XLSX.utils.book_append_sheet(
     workbook,
@@ -92,31 +92,21 @@ export async function GET(){
     "Contacts"
   )
 
-
-
-  const buffer =
-    XLSX.write(
-      workbook,
-      {
-        type:"buffer",
-        bookType:"xlsx",
-      }
-    )
-
-
-  return new NextResponse(
-    buffer,
+  const buffer = XLSX.write(
+    workbook,
     {
-      headers:{
-
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-
-        "Content-Disposition":
-          `attachment; filename="The_Address_Co_Contacts.xlsx"`,
-
-      },
+      type: "buffer",
+      bookType: "xlsx",
     }
   )
 
+  return new NextResponse(buffer, {
+    headers: {
+      "Content-Type":
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+      "Content-Disposition":
+        'attachment; filename="The_Address_Co_Contacts.xlsx"',
+    },
+  })
 }

@@ -1,111 +1,68 @@
-import {
-  createServerSupabaseClient,
-} from "@/lib/supabase/server"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 
-import type {
-  UserProfile,
-} from "@/types/user"
+import type { UserProfile } from "@/types/user"
 
-
-
-
-
-function mapUserProfile(
-  row:any
-):UserProfile {
-
-  return {
-
-    id:
-      row.id,
-
-    name:
-      row.name,
-
-    email:
-      row.email ?? undefined,
-
-    role:
-      row.role,
-
-    createdAt:
-      row.created_at,
-
-    updatedAt:
-      row.updated_at,
-
-  }
-
+type UserProfileRow = {
+  id: string
+  name: string
+  email: string | null
+  role: UserProfile["role"]
+  created_at: string
+  updated_at: string
 }
 
+function mapUserProfile(
+  row: UserProfileRow
+): UserProfile {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email ?? undefined,
+    role: row.role,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
 
-
-
-
-
-export async function getServerUserProfile()
-: Promise<UserProfile | null> {
-
-
+export async function getServerUserProfile(): Promise<UserProfile | null> {
   const supabase =
     await createServerSupabaseClient()
 
-
-
-
-
   const {
-    data:userData,
-    error:userError,
-  } =
-  await supabase.auth.getUser()
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
 
-
-
-
-
-  if(
-    userError ||
-    !userData.user
-  ){
-
+  if (userError || !user) {
     return null
-
   }
 
-
-
-
-
-  const {
-    data,
-    error,
-  } =
-  await supabase
+  const { data, error } = await supabase
     .from("user_profiles")
-    .select("*")
-    .eq(
-      "id",
-      userData.user.id
+    .select(
+      `
+        id,
+        name,
+        email,
+        role,
+        created_at,
+        updated_at
+      `
     )
-    .single()
+    .eq("id", user.id)
+    .maybeSingle()
 
-
-
-
-
-  if(error){
-
+  if (error) {
+    console.error(
+      "Failed to load user profile:",
+      error
+    )
     return null
-
   }
 
+  if (!data) {
+    return null
+  }
 
-
-
-
-  return mapUserProfile(
-    data
-  )
-
+  return mapUserProfile(data)
 }
