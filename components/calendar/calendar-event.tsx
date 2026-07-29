@@ -28,10 +28,40 @@ type Props = {
 
 
 
+function getTypeLabel(
+  type:string
+){
+
+  switch(type){
+
+    case "site_visit":
+      return "Site Visit"
+
+    case "task":
+      return "Task"
+
+    case "activity":
+      return "Meeting"
+
+    default:
+      return type
+
+  }
+
+}
+
+
+
+
+
+
+
+
 export function CalendarEvent({
   item,
   mobile = false,
-}: Props){
+}:Props){
+
 
 
   const isTask =
@@ -40,10 +70,6 @@ export function CalendarEvent({
 
   const isSiteVisit =
     item.type === "site_visit"
-
-
-  const isActivity =
-    item.type === "activity"
 
 
 
@@ -56,7 +82,9 @@ export function CalendarEvent({
     <Link
 
       href={
-        item.url ?? "#"
+        item.type === "activity"
+          ? `/calendar/${item.id.replace("event-","")}`
+          : item.url ?? "#"
       }
 
       className={`
@@ -66,7 +94,7 @@ export function CalendarEvent({
         ${
           mobile
           ? "p-4"
-          : "p-2"
+          : "p-3"
         }
         space-y-2
         hover:bg-muted
@@ -74,8 +102,6 @@ export function CalendarEvent({
       `}
 
     >
-
-
 
 
 
@@ -90,21 +116,13 @@ export function CalendarEvent({
         {
           isTask
           ?
-
           <CheckCircle2 className="h-4 w-4"/>
-
           :
-
           isSiteVisit
-
           ?
-
           <MapPin className="h-4 w-4"/>
-
           :
-
           <CalendarDays className="h-4 w-4"/>
-
         }
 
 
@@ -123,6 +141,26 @@ export function CalendarEvent({
 
 
 
+      <div className="
+        text-xs
+        text-muted-foreground
+        capitalize
+      ">
+
+        {
+          getTypeLabel(
+            item.type
+          )
+        }
+
+      </div>
+
+
+
+
+
+
+
 
       {
         item.time && (
@@ -135,19 +173,15 @@ export function CalendarEvent({
             text-muted-foreground
           ">
 
-
             <Clock className="h-4 w-4"/>
 
-
             {item.time}
-
 
           </div>
 
         )
 
       }
-
 
 
 
@@ -177,28 +211,6 @@ export function CalendarEvent({
 
 
       {
-        item.propertyName && (
-
-          <div className="
-            text-sm
-            text-muted-foreground
-          ">
-
-            {item.propertyName}
-
-          </div>
-
-        )
-
-      }
-
-
-
-
-
-
-
-      {
         item.assignedTo && (
 
           <div className="
@@ -209,44 +221,15 @@ export function CalendarEvent({
             text-muted-foreground
           ">
 
-
             <User className="h-4 w-4"/>
-
 
             {item.assignedTo}
 
-
           </div>
 
         )
 
       }
-
-
-
-
-
-
-
-      {
-        item.status && (
-
-          <div className="
-            text-xs
-            capitalize
-            text-muted-foreground
-          ">
-
-            {item.status}
-
-          </div>
-
-        )
-
-      }
-
-
-
 
 
     </Link>

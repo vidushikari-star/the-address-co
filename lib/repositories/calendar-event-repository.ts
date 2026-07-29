@@ -4,6 +4,11 @@ import {
 
 
 import type {
+  UserProfile,
+} from "@/types/user"
+
+
+import type {
   CalendarEvent,
 } from "@/types/calendar-event"
 
@@ -11,216 +16,329 @@ import type {
 
 
 
-export const CalendarEventRepository = {
+function mapEvent(
+  row:any
+):CalendarEvent {
+
+  return {
+
+    id:
+      row.id,
+
+    title:
+      row.title,
+
+    description:
+      row.description ?? undefined,
+
+    eventType:
+      row.event_type,
+
+    startTime:
+      row.start_time,
+
+    endTime:
+      row.end_time ?? undefined,
+
+    assignedTo:
+      row.assigned_to ?? undefined,
+
+    createdBy:
+      row.created_by,
+
+    contactId:
+      row.contact_id ?? undefined,
+
+    propertyId:
+      row.property_id ?? undefined,
+
+    dealId:
+      row.deal_id ?? undefined,
+
+    status:
+      row.status,
+
+    createdAt:
+      row.created_at,
+
+    updatedAt:
+      row.updated_at,
+
+  }
+
+}
 
 
 
-  async getAll():Promise<CalendarEvent[]> {
-
-
-    const {
-      data,
-      error,
-    } =
-      await supabase
-        .from("calendar_events")
-        .select("*")
-        .order(
-          "start_time",
-          {
-            ascending:true,
-          }
-        )
-
-
-
-    if(error){
-
-      throw error
-
-    }
 
 
 
 
-    return (
 
-      data ?? []
+export async function createCalendarEvent(
+  event:Partial<CalendarEvent>
+):Promise<CalendarEvent>{
 
-    ).map(
-      row => ({
 
-        id:
-          row.id,
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("calendar_events")
+      .insert({
 
         title:
-          row.title,
+          event.title,
 
         description:
-          row.description ?? undefined,
+          event.description,
 
+        event_type:
+          event.eventType,
 
-        eventType:
-          row.event_type,
+        start_time:
+          event.startTime,
 
+        end_time:
+          event.endTime,
 
-        startTime:
-          row.start_time,
+        assigned_to:
+          event.assignedTo,
 
+        created_by:
+          event.createdBy,
 
-        endTime:
-          row.end_time ?? undefined,
+        contact_id:
+          event.contactId,
 
+        property_id:
+          event.propertyId,
 
-        assignedTo:
-          row.assigned_to ?? undefined,
-
-
-        createdBy:
-          row.created_by,
-
-
-        contactId:
-          row.contact_id ?? undefined,
-
-
-        propertyId:
-          row.property_id ?? undefined,
-
-
-        dealId:
-          row.deal_id ?? undefined,
-
+        deal_id:
+          event.dealId,
 
         status:
-          row.status,
-
-
-        createdAt:
-          row.created_at,
-
-
-        updatedAt:
-          row.updated_at,
+          "scheduled",
 
       })
-
-    )
-
-
-  },
+      .select()
+      .single()
 
 
 
+  if(error){
+
+    throw error
+
+  }
 
 
+  return mapEvent(
+    data
+  )
 
-
-  async create(
-    event:Partial<CalendarEvent>
-  ){
-
-
-    const {
-      data,
-      error,
-    } =
-      await supabase
-        .from("calendar_events")
-        .insert({
-
-          title:
-            event.title,
-
-
-          description:
-            event.description,
-
-
-          event_type:
-            event.eventType,
-
-
-          start_time:
-            event.startTime,
-
-
-          end_time:
-            event.endTime,
-
-
-          assigned_to:
-            event.assignedTo,
-
-
-          created_by:
-            event.createdBy,
-
-
-          contact_id:
-            event.contactId,
-
-
-          property_id:
-            event.propertyId,
-
-
-          deal_id:
-            event.dealId,
-
-
-          status:
-            event.status ?? "scheduled",
-
-        })
-        .select()
-        .single()
-
-
-
-    if(error){
-
-      throw error
-
-    }
-
-
-
-    return data
-
-
-  },
+}
 
 
 
 
 
-  async delete(
-    id:string
-  ){
-
-
-    const {
-      error,
-    } =
-      await supabase
-        .from("calendar_events")
-        .delete()
-        .eq(
-          "id",
-          id
-        )
 
 
 
-    if(error){
 
-      throw error
+export async function getCalendarEvent(
+  id:string
+):Promise<CalendarEvent | null>{
 
-    }
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("calendar_events")
+      .select("*")
+      .eq(
+        "id",
+        id
+      )
+      .single()
 
 
-  },
 
+  if(error){
+
+    return null
+
+  }
+
+
+  return mapEvent(
+    data
+  )
+
+}
+
+
+
+
+
+
+
+
+
+export async function deleteCalendarEvent(
+  id:string
+){
+
+
+  const {
+    error,
+  } =
+    await supabase
+      .from("calendar_events")
+      .delete()
+      .eq(
+        "id",
+        id
+      )
+
+
+  if(error){
+
+    throw error
+
+  }
+
+}
+
+
+
+
+
+
+
+
+export async function updateCalendarEvent(
+  id:string,
+  event:Partial<CalendarEvent>
+):Promise<CalendarEvent>{
+
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("calendar_events")
+      .update({
+
+        title:
+          event.title,
+
+        description:
+          event.description,
+
+        event_type:
+          event.eventType,
+
+        start_time:
+          event.startTime,
+
+        end_time:
+          event.endTime,
+
+        assigned_to:
+          event.assignedTo,
+
+        status:
+          event.status,
+
+      })
+      .eq(
+        "id",
+        id
+      )
+      .select()
+      .single()
+
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+  return mapEvent(
+    data
+  )
+
+}
+
+
+
+
+
+
+
+
+export async function getCalendarUsers()
+:Promise<UserProfile[]> {
+
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("user_profiles")
+      .select("*")
+      .order(
+        "name"
+      )
+
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+
+  return (
+
+    data ?? []
+
+  )
+  .map(
+    user => ({
+
+      id:
+        user.id,
+
+      name:
+        user.name,
+
+      email:
+        user.email ?? undefined,
+
+      role:
+        user.role,
+
+      createdAt:
+        user.created_at,
+
+      updatedAt:
+        user.updated_at,
+
+    })
+
+  )
 
 }
