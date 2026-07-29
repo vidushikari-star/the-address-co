@@ -1,3 +1,5 @@
+// lib/services/calendar-service.ts
+
 import {
   getAllTasks,
 } from "@/lib/repositories/task-server-repository"
@@ -8,11 +10,14 @@ import {
 } from "@/lib/repositories/site-visit-repository"
 
 
+import {
+  supabase,
+} from "@/lib/supabase/client"
+
+
 import type {
   CalendarItem,
 } from "@/types/calendar"
-
-
 
 
 
@@ -27,6 +32,8 @@ export async function getCalendarItems(): Promise<CalendarItem[]> {
 
     siteVisits,
 
+    calendarEvents,
+
   ] =
   await Promise.all([
 
@@ -37,7 +44,11 @@ export async function getCalendarItems(): Promise<CalendarItem[]> {
     getAllSiteVisits(),
 
 
+    getSharedCalendarEvents(),
+
+
   ])
+
 
 
 
@@ -92,14 +103,12 @@ export async function getCalendarItems(): Promise<CalendarItem[]> {
           task.assignedTo,
 
 
-
         url:
           task.dealId
             ? `/deals/${task.dealId}`
             : task.contactId
               ? `/contacts/${task.contactId}`
               : "/tasks",
-
 
       })
     )
@@ -155,15 +164,12 @@ export async function getCalendarItems(): Promise<CalendarItem[]> {
           visit.propertyId,
 
 
-
         contactName:
           visit.contactName,
 
 
-
         propertyName:
           visit.propertyName,
-
 
 
         url:
@@ -171,6 +177,74 @@ export async function getCalendarItems(): Promise<CalendarItem[]> {
             ? `/deals/${visit.dealId}`
             : "/calendar",
 
+      })
+    )
+
+
+
+
+
+
+
+
+  const eventItems: CalendarItem[] =
+
+    calendarEvents
+
+    .map(
+      event => ({
+
+        id:
+          `event-${event.id}`,
+
+
+        title:
+          event.title,
+
+
+        date:
+          event.start_time,
+
+
+        time:
+          new Date(
+            event.start_time
+          )
+          .toLocaleTimeString(
+            "en-IN",
+            {
+              hour:"2-digit",
+              minute:"2-digit",
+            }
+          ),
+
+
+        type:
+          "activity",
+
+
+        status:
+          event.status,
+
+
+        contactId:
+          event.contact_id,
+
+
+        dealId:
+          event.deal_id,
+
+
+        propertyId:
+          event.property_id,
+
+
+        assignedTo:
+          event.assigned_to,
+
+
+        url:
+          "/calendar",
 
       })
     )
@@ -184,6 +258,8 @@ export async function getCalendarItems(): Promise<CalendarItem[]> {
 
 
   return [
+
+    ...eventItems,
 
     ...taskItems,
 
@@ -205,5 +281,50 @@ export async function getCalendarItems(): Promise<CalendarItem[]> {
 
   )
 
+
+}
+
+
+
+
+
+
+
+
+
+async function getSharedCalendarEvents(){
+
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("calendar_events")
+      .select("*")
+      .order(
+        "start_time",
+        {
+          ascending:true,
+        }
+      )
+
+
+
+  if(error){
+
+    console.error(
+      "Failed loading calendar events",
+      error
+    )
+
+
+    return []
+
+  }
+
+
+
+  return data ?? []
 
 }
