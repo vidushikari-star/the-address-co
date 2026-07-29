@@ -9,7 +9,7 @@ export interface HousingSyncResult {
   skipped: number
 }
 
-const contactsRepository = new ContactsServerRepository()
+const contactsRepository = ContactsServerRepository
 
 function mapPropertyType(
   value?: string
@@ -19,11 +19,12 @@ function mapPropertyType(
   const normalized = value.trim().toLowerCase()
 
   if (
-    normalized.includes("apartment") ||
-    normalized.includes("flat")
-  ) {
-    return "apartment"
-  }
+  normalized.includes("apartment") ||
+  normalized.includes("flat") ||
+  normalized.includes("independent floor")
+) {
+  return "apartment"
+}
 
   if (
     normalized.includes("villa") ||
@@ -83,19 +84,8 @@ export async function syncHousingLeads(): Promise<HousingSyncResult> {
         `${lead.country_code}${lead.lead_phone}`
       )
 
-      let existing = null
-
-      if (lead.lead_id) {
-        existing =
-          await contactsRepository.findByHousingLeadId(
-            String(lead.lead_id)
-          )
-      }
-
-      if (!existing) {
-        existing =
-          await contactsRepository.findByPhone(phone)
-      }
+      const existing =
+  await contactsRepository.findByPhone(phone)
 
       const name = (lead.lead_name ?? "").trim()
 
@@ -118,8 +108,6 @@ export async function syncHousingLeads(): Promise<HousingSyncResult> {
         country: "India",
 
         leadSource: "Housing.com",
-
-        housingLeadId: String(lead.lead_id),
 
         budgetMin: lead.min_price,
         budgetMax: lead.max_price,

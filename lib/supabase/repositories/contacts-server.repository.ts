@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { normalizePhone } from "@/lib/utils/phone"
-import type { Database } from "@/types/supabase"
+
 
 export interface UpsertHousingContactInput {
   firstName: string
@@ -11,26 +11,17 @@ export interface UpsertHousingContactInput {
   country?: string
   budgetMin?: number
   budgetMax?: number
-  propertyType?: Database["public"]["Enums"]["property_type"]
+  propertyType?:
+  | "apartment"
+  | "villa"
+  | "plot"
+  | "penthouse"
+  | "commercial"
   locations?: string[]
   leadSource: string
-  housingLeadId: string
 }
 
 export const ContactsServerRepository = {
-  async findByHousingLeadId(housingLeadId: string) {
-    const supabase = await createServerSupabaseClient()
-
-    const { data, error } = await supabase
-      .from("contacts")
-      .select("*")
-      .eq("housing_lead_id", housingLeadId)
-      .limit(1)
-
-    if (error) throw error
-
-    return data?.[0] ?? null
-  },
 
   async findByPhone(phone: string) {
     const supabase = await createServerSupabaseClient()
@@ -65,7 +56,6 @@ export const ContactsServerRepository = {
         property_type: contact.propertyType,
         locations: contact.locations,
         lead_source: contact.leadSource,
-        housing_lead_id: contact.housingLeadId,
       })
       .select()
       .single()
@@ -99,8 +89,6 @@ export const ContactsServerRepository = {
           existing.locations && existing.locations.length > 0
             ? existing.locations
             : contact.locations,
-        housing_lead_id:
-          existing.housing_lead_id ?? contact.housingLeadId,
       })
       .eq("id", id)
       .select()

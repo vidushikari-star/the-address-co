@@ -78,5 +78,5 @@ export async function fetchHousingLeads(
 
   const result: HousingLeadResponse = await response.json()
 
-  return result.data ?? []
+return result.data ?? []
 }
