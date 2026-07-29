@@ -18,15 +18,23 @@ import {
 
 
 
+
+
 type Props = {
   deal: Deal
 }
 
 
 
+
+
+
+
+
 export function DraggableDealCard({
   deal,
-}: Props) {
+}:Props){
+
 
 
   const {
@@ -37,9 +45,16 @@ export function DraggableDealCard({
     transition,
     isDragging,
   } =
-    useSortable({
-      id: deal.id,
-    })
+  useSortable({
+
+    id:
+      deal.id,
+
+  })
+
+
+
+
 
 
 
@@ -47,7 +62,10 @@ export function DraggableDealCard({
 
     <div
 
-      ref={setNodeRef}
+      ref={
+        setNodeRef
+      }
+
 
       style={{
 
@@ -60,29 +78,53 @@ export function DraggableDealCard({
 
         opacity:
           isDragging
-            ? 0.5
-            : 1,
+          ? 0.45
+          : 1,
+
+        zIndex:
+          isDragging
+          ? 50
+          : undefined,
 
       }}
 
+
       {...attributes}
 
+      className={`
+        touch-none
+        ${
+          isDragging
+          ? "scale-[1.02]"
+          : ""
+        }
+      `}
+
     >
+
 
 
       <div
 
         {...listeners}
 
-        className="cursor-grab active:cursor-grabbing"
+        className="
+          cursor-grab
+          active:cursor-grabbing
+        "
 
       >
 
         <DealCard
-          deal={deal}
+
+          deal={
+            deal
+          }
+
         />
 
       </div>
+
 
 
     </div>

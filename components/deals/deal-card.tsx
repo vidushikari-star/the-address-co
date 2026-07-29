@@ -1,31 +1,29 @@
 "use client"
 
-import React from "react"
 import Link from "next/link"
 
-import type { Deal } from "@/types/deal"
-import type { Contact } from "@/types/contact"
-import type { Property } from "@/types/property"
+import type {
+  Deal,
+} from "@/types/deal"
 
-import { ContactsRepository } from "@/lib/supabase/repositories/contacts.repository"
-import { getPropertyById } from "@/lib/repositories/property-repository"
-
-import { formatCurrencyCr } from "@/lib/formatters/currency"
+import {
+  formatCurrencyCr,
+} from "@/lib/formatters/currency"
 
 import {
   Calendar,
   CheckSquare,
   FileText,
-  MapPin,
   ArrowRight,
+  TrendingUp,
 } from "lucide-react"
 
 import {
-  Avatar,
-  AvatarFallback,
-} from "@/components/ui/avatar"
+  Badge,
+} from "@/components/ui/badge"
 
-import { Badge } from "@/components/ui/badge"
+
+
 
 
 type Props = {
@@ -36,152 +34,96 @@ type Props = {
 
 
 
+
+
+function formatStage(
+  stage:string
+){
+
+  return stage
+    .replace(
+      /_/g,
+      " "
+    )
+
+}
+
+
+
+
+
+
+
+
 export function DealCard({
   deal,
-}: Props) {
-
-
-  const [
-    buyer,
-    setBuyer,
-  ] = React.useState<Contact | null>(null)
-
-
-
-  const [
-    property,
-    setProperty,
-  ] = React.useState<Property | undefined>()
-
-
-
-
-  React.useEffect(() => {
-
-    async function loadData(){
-
-      try {
-
-        if(deal.contactId){
-
-          const contact =
-            await ContactsRepository.getById(
-              deal.contactId
-            )
-
-          setBuyer(contact)
-
-        }
-
-
-
-        if(deal.propertyId){
-
-          const propertyData =
-            await getPropertyById(
-              deal.propertyId
-            )
-
-          setProperty(propertyData)
-
-        }
-
-
-      } catch {
-
-        setBuyer(null)
-
-        setProperty(undefined)
-
-      }
-
-    }
-
-
-    loadData()
-
-  },[
-    deal.contactId,
-    deal.propertyId,
-  ])
-
-
-
-
-
+}:Props){
 
 
   return (
 
     <Link
+
       href={`/deals/${deal.id}`}
+
       className="block"
+
     >
 
 
-      <div
-
-        className="
-          rounded-2xl
-          border
-          bg-card
-          p-4
-          transition
-          hover:border-primary
-          hover:shadow-md
-        "
-
-      >
+      <div className="
+        rounded-2xl
+        border
+        bg-card
+        p-4
+        space-y-4
+        transition
+        hover:border-primary
+        hover:shadow-sm
+      ">
 
 
 
-        <div className="flex items-start justify-between gap-3">
-
-
-          <div className="flex min-w-0 items-center gap-3">
-
-
-            <Avatar>
-
-              <AvatarFallback>
-
-                {
-                  buyer?.name
-                  ?.split(" ")
-                  .map(
-                    n => n[0]
-                  )
-                  .join("")
-                }
-
-              </AvatarFallback>
-
-            </Avatar>
+        <div className="
+          flex
+          items-start
+          justify-between
+          gap-3
+        ">
 
 
 
+          <div className="min-w-0">
 
 
-            <div className="min-w-0">
+            <h3 className="
+              truncate
+              font-semibold
+            ">
 
+              {
+                deal.name ||
+                "Untitled Deal"
+              }
 
-              <p className="truncate font-semibold">
-
-                {deal.name || "Untitled Deal"}
-
-              </p>
-
-
-
-              <p className="truncate text-xs text-muted-foreground">
-
-                {buyer?.name || "Buyer not assigned"}
-
-              </p>
+            </h3>
 
 
 
-            </div>
+            <p className="
+              mt-1
+              text-xs
+              text-muted-foreground
+            ">
+
+              Advisor:
+              {" "}
+              {
+                deal.advisor ||
+                "Unassigned"
+              }
+
+            </p>
 
 
           </div>
@@ -190,7 +132,16 @@ export function DealCard({
 
 
 
-          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+          <ArrowRight
+
+            className="
+              h-4
+              w-4
+              shrink-0
+              text-muted-foreground
+            "
+
+          />
 
 
         </div>
@@ -201,17 +152,24 @@ export function DealCard({
 
 
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+
+        <div className="
+          flex
+          flex-wrap
+          gap-2
+        ">
 
 
           <Badge>
 
-            {deal.stage.replace(
-              "_",
-              " "
-            )}
+            {
+              formatStage(
+                deal.stage
+              )
+            }
 
           </Badge>
+
 
 
 
@@ -238,15 +196,29 @@ export function DealCard({
 
 
 
-        <div className="mt-4">
+        <div className="
+          rounded-xl
+          bg-muted/40
+          p-3
+        ">
 
 
-          <p className="text-xs text-muted-foreground">
+          <p className="
+            text-xs
+            text-muted-foreground
+          ">
+
             Deal Value
+
           </p>
 
 
-          <p className="text-xl font-semibold">
+
+          <p className="
+            mt-1
+            text-xl
+            font-semibold
+          ">
 
             {
               formatCurrencyCr(
@@ -266,107 +238,163 @@ export function DealCard({
 
 
 
-        {
-          property && (
-
-            <div className="mt-4 rounded-xl bg-muted/40 p-3">
-
-
-              <p className="font-medium">
-
-                {property.name}
-
-              </p>
+        <div className="
+          grid
+          grid-cols-2
+          gap-3
+        ">
 
 
 
-              {
-                property.locality && (
-
-                  <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-
-
-                    <MapPin className="h-3 w-3"/>
+          <div className="
+            rounded-xl
+            border
+            p-3
+          ">
 
 
-                    {property.locality}
+            <div className="
+              flex
+              items-center
+              gap-2
+              text-xs
+              text-muted-foreground
+            ">
 
+              <TrendingUp className="h-4 w-4"/>
 
-                  </p>
-
-                )
-              }
-
+              Probability
 
             </div>
 
-          )
-
-        }
 
 
+            <p className="
+              mt-2
+              font-semibold
+            ">
+
+              {deal.probability}%
+
+            </p>
+
+
+          </div>
 
 
 
 
 
 
-        <div className="mt-4 flex items-center justify-between border-t pt-3 text-xs text-muted-foreground">
 
 
-          <div className="flex items-center gap-1">
+          <div className="
+            rounded-xl
+            border
+            p-3
+          ">
 
 
-            <Calendar className="h-4 w-4"/>
+            <div className="
+              flex
+              items-center
+              gap-2
+              text-xs
+              text-muted-foreground
+            ">
+
+              <Calendar className="h-4 w-4"/>
+
+              Close
+
+            </div>
 
 
-            {
-              deal.expectedCloseDate
-              ?
-              new Date(
+
+            <p className="
+              mt-2
+              text-sm
+              font-medium
+            ">
+
+
+              {
                 deal.expectedCloseDate
-              ).toLocaleDateString(
-                "en-IN"
-              )
-              :
-              "No close date"
-            }
+                ?
+                new Date(
+                  deal.expectedCloseDate
+                )
+                .toLocaleDateString(
+                  "en-IN",
+                  {
+                    day:"2-digit",
+                    month:"short",
+                  }
+                )
+                :
+                "-"
+              }
+
+
+            </p>
 
 
           </div>
 
-
-
-
-
-          <div className="flex items-center gap-3">
-
-
-            <span className="flex items-center gap-1">
-
-              <CheckSquare className="h-4 w-4"/>
-
-              {deal.tasks?.length ?? 0}
-
-            </span>
-
-
-
-
-
-            <span className="flex items-center gap-1">
-
-              <FileText className="h-4 w-4"/>
-
-              {deal.notes?.length ?? 0}
-
-            </span>
-
-
-          </div>
 
 
         </div>
+
+
+
+
+
+
+
+
+        <div className="
+          flex
+          items-center
+          justify-between
+          border-t
+          pt-3
+          text-xs
+          text-muted-foreground
+        ">
+
+
+          <span className="
+            flex
+            items-center
+            gap-1
+          ">
+
+            <CheckSquare className="h-4 w-4"/>
+
+            {deal.tasks?.length ?? 0}
+
+          </span>
+
+
+
+
+
+          <span className="
+            flex
+            items-center
+            gap-1
+          ">
+
+            <FileText className="h-4 w-4"/>
+
+            {deal.notes?.length ?? 0}
+
+          </span>
+
+
+        </div>
+
+
 
 
       </div>

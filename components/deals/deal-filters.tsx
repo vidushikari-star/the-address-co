@@ -19,6 +19,8 @@ import {
 
 
 
+
+
 type Props = {
   deals: Deal[]
 }
@@ -29,7 +31,7 @@ type Props = {
 
 export function DealFilters({
   deals,
-}: Props) {
+}:Props){
 
 
   const searchParams =
@@ -46,21 +48,25 @@ export function DealFilters({
   const [
     search,
     setSearch,
-  ] = useState("")
+  ] =
+  useState("")
 
 
 
   const [
     stage,
     setStage,
-  ] = useState("all")
+  ] =
+  useState("all")
 
 
 
   const [
     priority,
     setPriority,
-  ] = useState("all")
+  ] =
+  useState("all")
+
 
 
 
@@ -69,11 +75,11 @@ export function DealFilters({
 
   const filteredDeals =
     useMemo(
-      () => {
+      ()=>{
 
 
         return deals.filter(
-          deal => {
+          deal=>{
 
 
             const active =
@@ -114,7 +120,9 @@ export function DealFilters({
               ||
               deal.name
                 .toLowerCase()
-                .includes(searchText)
+                .includes(
+                  searchText
+                )
 
 
 
@@ -133,7 +141,9 @@ export function DealFilters({
 
 
 
+
             return (
+
               matchesHot
               &&
               matchesSearch
@@ -141,6 +151,7 @@ export function DealFilters({
               matchesStage
               &&
               matchesPriority
+
             )
 
           }
@@ -162,6 +173,7 @@ export function DealFilters({
 
 
 
+
   function clearFilters(){
 
     setSearch("")
@@ -174,15 +186,114 @@ export function DealFilters({
 
 
 
+
+
+
+  const stages = [
+
+    {
+      value:"all",
+      label:"All",
+    },
+
+    {
+      value:"lead",
+      label:"Lead",
+    },
+
+    {
+      value:"qualification",
+      label:"Qualification",
+    },
+
+    {
+      value:"property_shared",
+      label:"Shared",
+    },
+
+    {
+      value:"site_visit",
+      label:"Visit",
+    },
+
+    {
+      value:"negotiation",
+      label:"Negotiation",
+    },
+
+    {
+      value:"documentation",
+      label:"Docs",
+    },
+
+    {
+      value:"closed_won",
+      label:"Won",
+    },
+
+    {
+      value:"closed_lost",
+      label:"Lost",
+    },
+
+  ]
+
+
+
+
+
+
+
+  const priorities = [
+
+    {
+      value:"all",
+      label:"All",
+    },
+
+    {
+      value:"high",
+      label:"High",
+    },
+
+    {
+      value:"medium",
+      label:"Medium",
+    },
+
+    {
+      value:"low",
+      label:"Low",
+    },
+
+  ]
+
+
+
+
+
+
+
   return (
 
-    <div className="space-y-5">
+    <div className="
+      space-y-5
+    ">
+
+
+
 
 
       {
         isHotFilter && (
 
-          <div className="rounded-xl bg-muted px-4 py-3 text-sm">
+          <div className="
+            rounded-xl
+            bg-muted
+            px-4
+            py-3
+            text-sm
+          ">
 
             Showing hot opportunities requiring attention.
 
@@ -196,14 +307,24 @@ export function DealFilters({
 
 
 
-      <div className="flex items-center justify-between">
 
 
-        <p className="text-sm text-muted-foreground">
+      <div className="
+        flex
+        items-center
+        justify-between
+      ">
+
+
+        <p className="
+          text-sm
+          text-muted-foreground
+        ">
 
           {filteredDeals.length} deals
 
         </p>
+
 
 
 
@@ -219,13 +340,18 @@ export function DealFilters({
 
             <button
 
-              onClick={clearFilters}
+              onClick={
+                clearFilters
+              }
 
-              className="text-sm text-primary"
+              className="
+                text-sm
+                text-primary
+              "
 
             >
 
-              Clear filters
+              Clear
 
             </button>
 
@@ -240,153 +366,195 @@ export function DealFilters({
 
 
 
-      <div className="
-        grid
-        gap-3
-        sm:grid-cols-3
-      ">
 
 
-        <input
+      <input
 
-          className="
-            rounded-xl
-            border
-            px-3
-            py-3
-            text-sm
-          "
+        className="
+          w-full
+          rounded-xl
+          border
+          px-4
+          py-3
+          text-sm
+        "
 
-          placeholder="Search deals..."
+        placeholder="Search deals..."
 
-          value={search}
+        value={
+          search
+        }
 
-          onChange={
-            e =>
-              setSearch(
-                e.target.value
+        onChange={
+          e =>
+            setSearch(
+              e.target.value
+            )
+        }
+
+      />
+
+
+
+
+
+
+
+
+
+      <div>
+
+
+        <p className="
+          mb-2
+          text-xs
+          text-muted-foreground
+        ">
+
+          Stage
+
+        </p>
+
+
+        <div className="
+          flex
+          gap-2
+          overflow-x-auto
+          pb-2
+        ">
+
+
+          {
+            stages.map(
+              item => (
+
+                <button
+
+                  key={
+                    item.value
+                  }
+
+                  onClick={() =>
+                    setStage(
+                      item.value
+                    )
+                  }
+
+                  className={`
+                    shrink-0
+                    rounded-full
+                    border
+                    px-4
+                    py-2
+                    text-sm
+                    ${
+                      stage === item.value
+                      ?
+                      "bg-primary text-primary-foreground"
+                      :
+                      ""
+                    }
+                  `}
+
+                >
+
+                  {item.label}
+
+                </button>
+
               )
+
+            )
+
           }
 
-        />
 
-
-
-
-
-
-        <select
-
-          className="
-            rounded-xl
-            border
-            px-3
-            py-3
-            text-sm
-          "
-
-          value={stage}
-
-          onChange={
-            e =>
-              setStage(
-                e.target.value
-              )
-          }
-
-        >
-
-          <option value="all">
-            All Stages
-          </option>
-
-          <option value="lead">
-            Lead
-          </option>
-
-          <option value="qualification">
-            Qualification
-          </option>
-
-          <option value="property_shared">
-            Property Shared
-          </option>
-
-          <option value="site_visit">
-            Site Visit
-          </option>
-
-          <option value="negotiation">
-            Negotiation
-          </option>
-
-          <option value="documentation">
-            Documentation
-          </option>
-
-          <option value="closed_won">
-            Closed Won
-          </option>
-
-          <option value="closed_lost">
-            Closed Lost
-          </option>
-
-        </select>
-
-
-
-
-
-
-
-        <select
-
-          className="
-            rounded-xl
-            border
-            px-3
-            py-3
-            text-sm
-          "
-
-          value={priority}
-
-          onChange={
-            e =>
-              setPriority(
-                e.target.value
-              )
-          }
-
-        >
-
-
-          <option value="all">
-            All Priorities
-          </option>
-
-
-          <option value="high">
-            High
-          </option>
-
-
-          <option value="medium">
-            Medium
-          </option>
-
-
-          <option value="low">
-            Low
-          </option>
-
-
-        </select>
-
+        </div>
 
 
       </div>
+
+
+
+
+
+
+
+
+      <div>
+
+
+        <p className="
+          mb-2
+          text-xs
+          text-muted-foreground
+        ">
+
+          Priority
+
+        </p>
+
+
+        <div className="
+          flex
+          gap-2
+          overflow-x-auto
+          pb-2
+        ">
+
+
+          {
+            priorities.map(
+              item => (
+
+                <button
+
+                  key={
+                    item.value
+                  }
+
+                  onClick={() =>
+                    setPriority(
+                      item.value
+                    )
+                  }
+
+                  className={`
+                    shrink-0
+                    rounded-full
+                    border
+                    px-4
+                    py-2
+                    text-sm
+                    ${
+                      priority === item.value
+                      ?
+                      "bg-primary text-primary-foreground"
+                      :
+                      ""
+                    }
+                  `}
+
+                >
+
+                  {item.label}
+
+                </button>
+
+              )
+
+            )
+
+          }
+
+
+        </div>
+
+
+      </div>
+
+
+
 
 
 
@@ -400,6 +568,7 @@ export function DealFilters({
         }
 
       />
+
 
 
     </div>

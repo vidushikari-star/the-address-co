@@ -8,6 +8,12 @@ import {
 
 
 
+export const dynamic = "force-dynamic"
+
+
+
+
+
 export default async function DealsPage({
   searchParams,
 }:{
@@ -21,8 +27,11 @@ export default async function DealsPage({
     await searchParams
 
 
+
   let deals =
     await getDeals()
+
+
 
 
 
@@ -34,10 +43,12 @@ export default async function DealsPage({
       deals.filter(
         deal => {
 
+
           const active =
             deal.stage !== "closed_won"
             &&
             deal.stage !== "closed_lost"
+
 
 
           const hot =
@@ -50,6 +61,7 @@ export default async function DealsPage({
             deal.stage === "site_visit"
 
 
+
           return active && hot
 
         }
@@ -59,35 +71,69 @@ export default async function DealsPage({
 
 
 
+
+
+
+
   return (
 
-    <div className="space-y-6 p-8">
+    <div className="
+      space-y-6
+      p-4
+      md:p-8
+    ">
 
 
-      <div className="flex items-center justify-between">
+      <div className="
+        flex
+        flex-col
+        gap-4
+        sm:flex-row
+        sm:items-start
+        sm:justify-between
+      ">
+
 
 
         <div>
 
-          <h1 className="text-3xl font-semibold">
-  {
-    params.filter === "hot"
-      ? "Hot Deals"
-      : "Deals"
-  }
-</h1>
+
+          <h1 className="
+            text-2xl
+            font-semibold
+            md:text-3xl
+          ">
+
+            {
+              params.filter === "hot"
+              ? "Hot Deals"
+              : "Deals"
+            }
 
 
-<p className="text-muted-foreground">
-  {
-    params.filter === "hot"
-      ? "Priority opportunities requiring attention."
-      : "Manage your active opportunities."
-  }
-</p>
+          </h1>
+
+
+
+          <p className="
+            text-sm
+            text-muted-foreground
+            md:text-base
+          ">
+
+            {
+              params.filter === "hot"
+              ? "Priority opportunities requiring attention."
+              : "Manage your active opportunities."
+            }
+
+
+          </p>
 
 
         </div>
+
+
 
 
 
@@ -96,7 +142,19 @@ export default async function DealsPage({
 
           href="/deals/new"
 
-          className="rounded-lg bg-primary px-4 py-2 text-primary-foreground"
+          className="
+            flex
+            w-full
+            items-center
+            justify-center
+            rounded-xl
+            bg-primary
+            px-4
+            py-3
+            text-sm
+            text-primary-foreground
+            sm:w-auto
+          "
 
         >
 
@@ -105,7 +163,10 @@ export default async function DealsPage({
         </a>
 
 
+
       </div>
+
+
 
 
 
@@ -118,6 +179,7 @@ export default async function DealsPage({
         }
 
       />
+
 
 
     </div>
