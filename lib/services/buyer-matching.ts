@@ -59,53 +59,37 @@ export function getBuyerMatches(
 
 
     // Property Type
-    const propertyType =
-      (property as any).propertyType ??
-      (property as any).type ??
-      ""
+const propertyType = property.propertyType
 
-    if (
-      requirements.propertyTypes?.some(
-        (type) =>
-          type.toLowerCase() ===
-          propertyType.toLowerCase()
-      )
-    ) {
-      score += 20
-      reasons.push("Property type match")
-    }
+if (
+  requirements.propertyTypes?.some(
+    (type) =>
+      type.toLowerCase() ===
+      propertyType.toLowerCase()
+  )
+) {
+  score += 20
+  reasons.push("Property type match")
+}
 
+// Features
+const features = property.amenities ?? []
 
-    // Bedrooms
-    if (
-      requirements.bedrooms &&
-      property.specifications?.bedrooms >=
-        requirements.bedrooms
-    ) {
-      score += 10
-      reasons.push("Bedroom requirement met")
-    }
+if (
+  requirements.privatePool &&
+  features.includes("private_pool")
+) {
+  score += 5
+  reasons.push("Private pool")
+}
 
-
-    // Features (safe fallback)
-    const features =
-      (property as any).features ?? []
-
-    if (
-      requirements.privatePool &&
-      features.includes("private_pool")
-    ) {
-      score += 5
-      reasons.push("Private pool")
-    }
-
-    if (
-      requirements.staffQuarters &&
-      features.includes("staff_quarters")
-    ) {
-      score += 5
-      reasons.push("Staff quarters")
-    }
+if (
+  requirements.staffQuarters &&
+  features.includes("staff_quarters")
+) {
+  score += 5
+  reasons.push("Staff quarters")
+}
 
 
     return {

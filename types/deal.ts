@@ -1,5 +1,4 @@
-import type { Contact } from "./contact"
-import type { Property } from "./property"
+
 
 
 

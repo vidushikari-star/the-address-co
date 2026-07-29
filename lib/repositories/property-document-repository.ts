@@ -4,17 +4,20 @@ import type {
   PropertyDocument,
 } from "@/types/property-document"
 
-
-
-
+type PropertyDocumentRow = {
+  id: string
+  property_id: string
+  name: string
+  category: PropertyDocument["category"]
+  file_url: string
+  file_type: string
+  created_at: string
+}
 
 function mapPropertyDocumentRow(
-  row:any
-):PropertyDocument {
-
-
+  row: PropertyDocumentRow
+): PropertyDocument {
   return {
-
     id:
       row.id,
 
@@ -35,219 +38,146 @@ function mapPropertyDocumentRow(
 
     createdAt:
       row.created_at,
-
   }
-
 }
 
-
-
-
-
-
-
 export async function getPropertyDocuments(
-  propertyId:string
-):Promise<PropertyDocument[]> {
-
-
+  propertyId: string
+): Promise<PropertyDocument[]> {
   const {
     data,
     error,
   } =
-  await supabase
-    .from("property_documents")
-    .select("*")
-    .eq(
-      "property_id",
-      propertyId
-    )
-    .order(
-      "created_at",
-      {
-        ascending:false,
-      }
-    )
+    await supabase
+      .from("property_documents")
+      .select("*")
+      .eq(
+        "property_id",
+        propertyId
+      )
+      .order(
+        "created_at",
+        {
+          ascending: false,
+        }
+      )
 
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
 
-
-
   return (
-    data ?? []
-  )
-  .map(
+    (data as PropertyDocumentRow[] | null) ??
+    []
+  ).map(
     mapPropertyDocumentRow
   )
-
 }
 
-
-
-
-
-
-
 export async function uploadPropertyDocument(
-  propertyId:string,
-  file:File,
-  category:string
-):Promise<PropertyDocument>{
-
-
+  propertyId: string,
+  file: File,
+  category: string
+): Promise<PropertyDocument> {
   const fileExt =
     file.name
-    .split(".")
-    .pop()
-
-
+      .split(".")
+      .pop()
 
   const fileName =
     `${propertyId}-${Date.now()}.${fileExt}`
 
-
-
-
   const {
-    error:uploadError,
+    error: uploadError,
   } =
-  await supabase
-    .storage
-    .from("property-documents")
-    .upload(
-      fileName,
-      file
-    )
+    await supabase
+      .storage
+      .from("property-documents")
+      .upload(
+        fileName,
+        file
+      )
 
-
-
-  if(uploadError){
-
+  if (uploadError) {
     throw uploadError
-
   }
 
-
-
-
-
   const {
-    data:urlData,
+    data: urlData,
   } =
-  supabase
-    .storage
-    .from("property-documents")
-    .getPublicUrl(
-      fileName
-    )
-
-
+    supabase
+      .storage
+      .from("property-documents")
+      .getPublicUrl(
+        fileName
+      )
 
   const publicUrl =
     urlData.publicUrl
-
-
-
-
 
   const {
     data,
     error,
   } =
-  await supabase
-    .from("property_documents")
-    .insert({
+    await supabase
+      .from("property_documents")
+      .insert({
+        property_id:
+          propertyId,
 
-      property_id:
-        propertyId,
+        name:
+          file.name,
 
+        category,
 
-      name:
-        file.name,
+        file_url:
+          publicUrl,
 
+        file_type:
+          file.type,
+      })
+      .select()
+      .single()
 
-      category,
-
-
-      file_url:
-        publicUrl,
-
-
-      file_type:
-        file.type,
-
-
-    })
-    .select()
-    .single()
-
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
 
-
-
   return mapPropertyDocumentRow(
-    data
+    data as PropertyDocumentRow
   )
-
 }
 
 export async function deletePropertyDocument(
-  id:string,
-  fileUrl:string
-){
-
-
+  id: string,
+  fileUrl: string
+) {
   const fileName =
     fileUrl.split(
       "/property-documents/"
     )[1]
 
-
-
-  if(fileName){
-
+  if (fileName) {
     await supabase
       .storage
       .from("property-documents")
       .remove([
-        fileName
+        fileName,
       ])
-
   }
-
-
-
-
 
   const {
     error,
   } =
-  await supabase
-    .from("property_documents")
-    .delete()
-    .eq(
-      "id",
-      id
-    )
+    await supabase
+      .from("property_documents")
+      .delete()
+      .eq(
+        "id",
+        id
+      )
 
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
-
 }

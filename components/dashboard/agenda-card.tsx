@@ -48,8 +48,8 @@ export function AgendaCard({
           <div>
 
             <p className="text-sm text-muted-foreground">
-              Today's Agenda
-            </p>
+  Today&apos;s Agenda
+</p>
 
 
             <h3 className="mt-2 text-xl font-semibold sm:text-2xl">

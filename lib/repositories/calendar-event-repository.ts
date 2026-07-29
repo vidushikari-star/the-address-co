@@ -2,31 +2,38 @@ import {
   supabase,
 } from "@/lib/supabase/client"
 
-
 import type {
   UserProfile,
 } from "@/types/user"
-
 
 import type {
   CalendarEvent,
 } from "@/types/calendar-event"
 
-
-
-
+type CalendarEventRow = {
+  id: string
+  title: string
+  description: string | null
+  event_type: CalendarEvent["eventType"]
+  start_time: string
+  end_time: string | null
+  assigned_to: string | null
+  created_by: string
+  contact_id: string | null
+  property_id: string | null
+  deal_id: string | null
+  status: CalendarEvent["status"]
+  created_at: string
+  updated_at: string
+}
 
 function mapEvent(
-  row:any
-):CalendarEvent {
-
+  row: CalendarEventRow
+): CalendarEvent {
   return {
+    id: row.id,
 
-    id:
-      row.id,
-
-    title:
-      row.title,
+    title: row.title,
 
     description:
       row.description ?? undefined,
@@ -63,23 +70,12 @@ function mapEvent(
 
     updatedAt:
       row.updated_at,
-
   }
-
 }
 
-
-
-
-
-
-
-
 export async function createCalendarEvent(
-  event:Partial<CalendarEvent>
-):Promise<CalendarEvent>{
-
-
+  event: Partial<CalendarEvent>
+): Promise<CalendarEvent> {
   const {
     data,
     error,
@@ -87,7 +83,6 @@ export async function createCalendarEvent(
     await supabase
       .from("calendar_events")
       .insert({
-
         title:
           event.title,
 
@@ -120,39 +115,22 @@ export async function createCalendarEvent(
 
         status:
           "scheduled",
-
       })
       .select()
       .single()
 
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
 
-
   return mapEvent(
-    data
+    data as CalendarEventRow
   )
-
 }
 
-
-
-
-
-
-
-
-
 export async function getCalendarEvent(
-  id:string
-):Promise<CalendarEvent | null>{
-
-
+  id: string
+): Promise<CalendarEvent | null> {
   const {
     data,
     error,
@@ -166,34 +144,18 @@ export async function getCalendarEvent(
       )
       .single()
 
-
-
-  if(error){
-
+  if (error) {
     return null
-
   }
 
-
   return mapEvent(
-    data
+    data as CalendarEventRow
   )
-
 }
 
-
-
-
-
-
-
-
-
 export async function deleteCalendarEvent(
-  id:string
-){
-
-
+  id: string
+) {
   const {
     error,
   } =
@@ -205,28 +167,15 @@ export async function deleteCalendarEvent(
         id
       )
 
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
-
 }
 
-
-
-
-
-
-
-
 export async function updateCalendarEvent(
-  id:string,
-  event:Partial<CalendarEvent>
-):Promise<CalendarEvent>{
-
-
+  id: string,
+  event: Partial<CalendarEvent>
+): Promise<CalendarEvent> {
   const {
     data,
     error,
@@ -234,7 +183,6 @@ export async function updateCalendarEvent(
     await supabase
       .from("calendar_events")
       .update({
-
         title:
           event.title,
 
@@ -255,7 +203,6 @@ export async function updateCalendarEvent(
 
         status:
           event.status,
-
       })
       .eq(
         "id",
@@ -264,32 +211,16 @@ export async function updateCalendarEvent(
       .select()
       .single()
 
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
 
-
   return mapEvent(
-    data
+    data as CalendarEventRow
   )
-
 }
 
-
-
-
-
-
-
-
-export async function getCalendarUsers()
-:Promise<UserProfile[]> {
-
-
+export async function getCalendarUsers(): Promise<UserProfile[]> {
   const {
     data,
     error,
@@ -301,24 +232,12 @@ export async function getCalendarUsers()
         "name"
       )
 
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
 
-
-
-  return (
-
-    data ?? []
-
-  )
-  .map(
-    user => ({
-
+  return (data ?? []).map(
+    (user) => ({
       id:
         user.id,
 
@@ -336,9 +255,6 @@ export async function getCalendarUsers()
 
       updatedAt:
         user.updated_at,
-
     })
-
   )
-
 }

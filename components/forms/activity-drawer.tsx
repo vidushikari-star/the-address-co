@@ -24,6 +24,10 @@ import {
   createActivity,
 } from "@/lib/repositories/activity-repository"
 
+import type {
+  ActivityType,
+} from "@/types/activity"
+
 
 
 
@@ -64,25 +68,29 @@ export function ActivityDrawer({
 
 
   const [
-    form,
-    setForm,
-  ] = useState({
+  form,
+  setForm,
+] = useState<{
+  type: ActivityType
+  title: string
+  body: string
+}>({
 
-    type:"note",
+  type: "note",
 
-    title:"",
+  title: "",
 
-    body:"",
+  body: "",
 
-  })
+})
 
 
 
 
   function update(
-    key:string,
-    value:string
-  ){
+  key: "type" | "title" | "body",
+  value: string | ActivityType
+){
 
     setForm(
       current=>({
@@ -117,7 +125,7 @@ export function ActivityDrawer({
       await createActivity({
 
         type:
-          form.type as any,
+          form.type,
 
 
         title:
@@ -233,9 +241,9 @@ router.refresh()
 
           onChange={(e)=>
             update(
-              "type",
-              e.target.value
-            )
+  "type",
+  e.target.value as ActivityType
+)
           }
 
         >

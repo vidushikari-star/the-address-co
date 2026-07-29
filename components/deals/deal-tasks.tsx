@@ -105,26 +105,23 @@ export function DealTasks({
 
 
 
-  async function loadTasks(){
+  useEffect(() => {
+  let mounted = true
 
-    const data =
-      await getTasksByDealId(
-        deal.id
-      )
+  async function loadTasks() {
+    const data = await getTasksByDealId(deal.id)
 
-    setTasks(data)
-
+    if (mounted) {
+      setTasks(data)
+    }
   }
 
+  loadTasks()
 
-
-
-
-  useEffect(()=>{
-
-    loadTasks()
-
-  },[deal.id])
+  return () => {
+    mounted = false
+  }
+}, [deal.id])
 
 
 
@@ -324,10 +321,8 @@ export function DealTasks({
           }
 
           onClick={() =>
-            setShowForm(
-              !showForm
-            )
-          }
+  setShowForm((current) => !current)
+}
 
         >
 

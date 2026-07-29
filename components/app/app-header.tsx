@@ -93,19 +93,16 @@ export function AppHeader(){
 
 
 
-  const [
-    greeting,
-    setGreeting,
-  ] =
-  useState("")
+  const greeting = getGreeting()
 
-
-
-  const [
-    today,
-    setToday,
-  ] =
-  useState("")
+const today = new Intl.DateTimeFormat(
+  "en-IN",
+  {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }
+).format(new Date())
 
 
 
@@ -137,56 +134,23 @@ export function AppHeader(){
 
 
 
-  useEffect(()=>{
+  useEffect(() => {
+  let mounted = true
 
+  async function loadUser() {
+    const user = await getCurrentUserProfile()
 
-    setGreeting(
-      getGreeting()
-    )
-
-
-
-    setToday(
-
-      new Intl.DateTimeFormat(
-        "en-IN",
-        {
-          weekday:"long",
-          day:"numeric",
-          month:"long",
-        }
-      ).format(
-        new Date()
-      )
-
-    )
-
-
-
-
-
-    async function loadUser(){
-
-      const user =
-        await getCurrentUserProfile()
-
-
-      if(user){
-
-        setUserName(
-          user.name.split(" ")[0]
-        )
-
-      }
-
+    if (mounted && user) {
+      setUserName(user.name.split(" ")[0])
     }
+  }
 
+  loadUser()
 
-
-    loadUser()
-
-
-  },[])
+  return () => {
+    mounted = false
+  }
+}, [])
 
 
 

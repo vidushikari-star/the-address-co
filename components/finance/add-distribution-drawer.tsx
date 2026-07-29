@@ -119,11 +119,16 @@ export function AddDistributionDrawer({
 
 
 
-  const [
-    users,
-    setUsers,
-  ] =
-  useState<any[]>([])
+  type UserOption = {
+  id: string
+  name: string
+}
+
+const [
+  users,
+  setUsers,
+] =
+useState<UserOption[]>([])
 
 
 
@@ -647,9 +652,7 @@ export function AddDistributionDrawer({
 
               <div
 
-                key={
-                  index
-                }
+                key={`${index}-${split.userId}`}
 
                 className="space-y-3 rounded-xl border p-4"
 

@@ -31,16 +31,19 @@ import {
   createActivity,
 } from "@/lib/repositories/activity-repository"
 
+import type {
+  Deal,
+} from "@/types/deal"
 
+import type {
+  Contact,
+} from "@/types/contact"
 
 
 
 type Props = {
-
-  deal:any
-
-  contact:any
-
+  deal: Deal
+  contact: Contact
 }
 
 

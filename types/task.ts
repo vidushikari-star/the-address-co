@@ -1,3 +1,8 @@
+export type TaskPriority =
+  | "low"
+  | "medium"
+  | "high"
+
 export interface Task {
 
   id: string
@@ -12,10 +17,7 @@ export interface Task {
     | "pending"
     | "completed"
 
-  priority:
-    | "low"
-    | "medium"
-    | "high"
+  priority: TaskPriority
 
   dueDate?: Date
 

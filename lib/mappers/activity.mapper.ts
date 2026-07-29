@@ -2,59 +2,42 @@ import type { Activity } from "@/types/activity"
 
 
 export function mapActivityRow(
-  row: any
+  row: Record<string, unknown>
 ): Activity {
 
   return {
+  id: row.id as string,
 
-    id:
-      row.id,
+  type: row.type as Activity["type"],
 
-    type:
-      row.type,
+  title: (row.title as string | null) ?? "",
 
-    title:
-      row.title ?? "",
+  description: (row.description as string | null) ?? undefined,
 
+  body: (row.body as string | null) ?? undefined,
 
-    description:
-      row.description ?? undefined,
+  date:
+    ((row.activity_date as string | null) ??
+      (row.created_at as string)),
 
+  createdAt: new Date(
+    ((row.created_at as string | null) ??
+      (row.activity_date as string))
+  ),
 
-    body:
-      row.body ?? undefined,
+  createdBy:
+    (row.created_by as string | null) ?? undefined,
 
+  userId:
+    (row.user_id as string | null) ?? undefined,
 
-    date:
-      row.activity_date ??
-      row.created_at,
+  contactId:
+    (row.contact_id as string | null) ?? undefined,
 
+  propertyId:
+    (row.property_id as string | null) ?? undefined,
 
-    createdAt:
-      new Date(
-        row.created_at ??
-        row.activity_date
-      ),
-
-
-    createdBy:
-      row.created_by ?? undefined,
-
-
-    userId:
-      row.user_id ?? undefined,
-
-
-    contactId:
-      row.contact_id ?? undefined,
-
-
-    propertyId:
-      row.property_id ?? undefined,
-
-
-    dealId:
-      row.deal_id ?? undefined,
-
-  }
+  dealId:
+    (row.deal_id as string | null) ?? undefined,
+}
 }

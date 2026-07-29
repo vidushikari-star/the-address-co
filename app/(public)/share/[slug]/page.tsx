@@ -19,7 +19,7 @@ import {
 } from "@/components/public/property-enquiry-form"
 
 
-
+import type { ReactNode } from "react"
 
 
 type Props = {
@@ -547,42 +547,25 @@ Please share more details.`
 
 
 
+
+
 function Stat({
-
   label,
-
   value,
-
-}:{
-
-  label:string
-
-  value:any
-
-}){
-
-
+}: {
+  label: string
+  value: ReactNode
+}) {
   return (
-
     <div className="rounded-2xl border p-6">
-
-
       <p className="text-sm text-muted-foreground">
-
         {label}
-
       </p>
-
 
       <p className="mt-2 text-xl font-semibold">
-
-        {value}
-
+        {value ?? "-"}
       </p>
-
-
     </div>
-
   )
-
 }
+

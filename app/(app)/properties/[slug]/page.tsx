@@ -423,8 +423,8 @@ export default async function PropertyDetailPage({
           </h2>
 
           <p className="mt-2 text-sm text-muted-foreground">
-            Open the property's location in Google Maps.
-          </p>
+  Open the property&apos;s location in Google Maps.
+</p>
 
           <a
             href={property.googleMapLink}

@@ -15,25 +15,3 @@ export const supabase =
 
 
 
-if (
-  typeof window !== "undefined"
-) {
-
-
-  supabase.auth.getUser()
-
-    .then(
-      ({
-        data,
-        error,
-      }) => {
-
-
-    
-
-
-      }
-    )
-
-
-}

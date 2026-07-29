@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   Clock,
   User,
-  Building2,
   Handshake,
   AlertCircle,
 } from "lucide-react"

@@ -84,11 +84,7 @@ export function RelationshipTasks({
 
 
 
-  const [
-    loading,
-    setLoading,
-  ] =
-  useState(true)
+  const [loading] = useState(false)
 
 
 
@@ -131,48 +127,23 @@ export function RelationshipTasks({
 
 
 
-  async function loadTasks(){
+  useEffect(() => {
+  let mounted = true
 
+  async function loadTasks() {
+    const data = await getTasksByContactId(contact.id)
 
-    try{
-
-
-      const data =
-        await getTasksByContactId(
-          contact.id
-        )
-
-
-      setTasks(
-        data
-      )
-
-
+    if (mounted) {
+      setTasks(data)
     }
-    finally{
-
-      setLoading(false)
-
-    }
-
-
   }
 
+  loadTasks()
 
-
-
-
-
-
-  useEffect(()=>{
-
-
-    loadTasks()
-
-
-  },[
-    contact.id
-  ])
+  return () => {
+    mounted = false
+  }
+}, [contact.id])
 
 
 

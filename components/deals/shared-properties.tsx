@@ -14,6 +14,7 @@ import type {
 
 import {
   updatePropertyShareStatus,
+  type PropertyShareStatus,
 } from "@/lib/repositories/property-share-repository"
 
 import {
@@ -45,17 +46,17 @@ export function SharedProperties({
 
 
   const [
-    updates,
-    setUpdates,
-  ] = useState<
-    Record<
-      string,
-      {
-        status:string
-        feedback:string
-      }
-    >
-  >({})
+  updates,
+  setUpdates,
+] = useState<
+  Record<
+    string,
+    {
+      status: PropertyShareStatus
+      feedback: string
+    }
+  >
+>({})
 
 
 
@@ -88,10 +89,10 @@ export function SharedProperties({
 
 
   function updateField(
-    id:string,
-    field:"status"|"feedback",
-    value:string
-  ){
+  id: string,
+  field: "status" | "feedback",
+  value: string | PropertyShareStatus
+){
 
 
     const existing =
@@ -161,14 +162,10 @@ export function SharedProperties({
 
 
     await updatePropertyShareStatus(
-
-      share.id,
-
-      value.status as any,
-
-      value.feedback
-
-    )
+  share.id,
+  value.status,
+  value.feedback
+)
 
 
 
@@ -339,11 +336,11 @@ ${value.feedback || "No feedback added"}`,
 
                   onChange={
                     e =>
-                      updateField(
-                        share.id,
-                        "status",
-                        e.target.value
-                      )
+  updateField(
+    share.id,
+    "status",
+    e.target.value as PropertyShareStatus
+  )
                   }
 
                 >

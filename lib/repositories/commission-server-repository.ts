@@ -10,16 +10,53 @@ import {
   createActivity,
 } from "@/lib/repositories/activity-repository"
 
+type CommissionRow = {
+  id: string
+  deal_id: string
+  contact_id: string | null
+  property_id: string | null
+  advisor_id: string | null
+  advisor_name?: string | null
+  deal_name?: string | null
 
+  commission_type: Commission["type"]
+  commission_basis: Commission["commissionBasis"] | null
+  commission_percentage: number | string | null
+  amount: number | string | null
+  status: Commission["status"]
 
+  due_date: string | null
+  received_date: string | null
 
+  invoice_number: string | null
+  invoice_date: string | null
+  payment_reference: string | null
+  payment_mode: string | null
+  payment_date: string | null
+
+  notes: string | null
+
+  created_at: string
+  updated_at: string
+
+  deals?: {
+    name: string | null
+  } | null
+}
+
+type AdvisorRow = {
+  id: string
+  name: string
+}
+
+type UserProfileRole = {
+  role: string
+}
 
 function mapCommissionRow(
-  row:any
-):Commission {
-
+  row: CommissionRow
+): Commission {
   return {
-
     id:
       row.id,
 
@@ -44,20 +81,20 @@ function mapCommissionRow(
       "-",
 
     type:
-  row.commission_type,
+      row.commission_type,
 
-commissionBasis:
-  row.commission_basis ?? undefined,
+    commissionBasis:
+      row.commission_basis ?? undefined,
 
-commissionPercentage:
-  row.commission_percentage
-    ? Number(row.commission_percentage)
-    : undefined,
+    commissionPercentage:
+      row.commission_percentage != null
+        ? Number(row.commission_percentage)
+        : undefined,
 
-amount:
-  Number(
-    row.amount ?? 0
-  ),
+    amount:
+      Number(
+        row.amount ?? 0
+      ),
 
     status:
       row.status,
@@ -91,187 +128,120 @@ amount:
 
     updatedAt:
       row.updated_at,
-
   }
-
 }
 
-
-
-
-
-
-
-
-
 async function attachAdvisorNames(
-  supabase:any,
-  rows:any[]
-){
+  supabase: Awaited<
+    ReturnType<typeof createServerSupabaseClient>
+  >,
+  rows: CommissionRow[]
+): Promise<CommissionRow[]> {
+  const advisorIds = [
+    ...new Set(
+      rows
+        .map(
+          (row) => row.advisor_id
+        )
+        .filter(
+          (
+            id
+          ): id is string => !!id
+        )
+    ),
+  ]
 
-  const advisorIds =
-    [
-      ...new Set(
-        rows
-          .map(
-            row =>
-              row.advisor_id
-          )
-          .filter(Boolean)
-      )
-    ]
-
-
-
-  if(
+  if (
     advisorIds.length === 0
-  ){
-
+  ) {
     return rows
-
   }
 
-
-
-
-
   const {
-    data:advisors,
+    data: advisors,
     error,
   } =
-  await supabase
-    .from("user_profiles")
-    .select(
-      "id,name"
-    )
-    .in(
-      "id",
-      advisorIds
-    )
+    await supabase
+      .from("user_profiles")
+      .select(
+        "id,name"
+      )
+      .in(
+        "id",
+        advisorIds
+      )
 
-
-
-
-
-  if(error){
-
+  if (error) {
     console.error(
       "ADVISOR LOOKUP ERROR:",
       error
     )
-
   }
 
-
-
-
-
-  const advisorMap =
-    Object.fromEntries(
-
-      (advisors ?? [])
-        .map(
-          (advisor:any) => [
-            advisor.id,
-            advisor.name,
-          ]
-        )
-
-    )
-
-
-
-
+  const advisorMap = Object.fromEntries(
+    (
+      (advisors as AdvisorRow[] | null) ??
+      []
+    ).map((advisor) => [
+      advisor.id,
+      advisor.name,
+    ])
+  )
 
   return rows.map(
-    row => ({
-
+    (row) => ({
       ...row,
 
       advisor_name:
-        advisorMap[
-          row.advisor_id
-        ]
-        ??
-        "Unassigned",
-
+        row.advisor_id
+          ? advisorMap[
+              row.advisor_id
+            ] ?? "Unassigned"
+          : "Unassigned",
     })
   )
-
 }
 
-
-
-
-
-
-
-
-
 async function createCommissionActivity(
-  data:any,
-  title:string,
-  body:string
-){
-
-
+  data: CommissionRow,
+  title: string,
+  body: string
+) {
   await createActivity({
-
-    type:
-      "commission",
+    type: "commission",
 
     title,
 
-    description:
-      title,
+    description: title,
 
     body,
 
     dealId:
-      data.deal_id,
+      data.deal_id ?? undefined,
 
     contactId:
-      data.contact_id,
+      data.contact_id ?? undefined,
 
     propertyId:
-      data.property_id,
+      data.property_id ?? undefined,
 
     date:
-      new Date()
-      .toISOString(),
-
+      new Date().toISOString(),
   })
-
-
 }
 
-
-
-
-
-
-
-
-
-export async function getCommissions()
-:Promise<Commission[]> {
-
-
+export async function getCommissions(): Promise<
+  Commission[]
+> {
   const supabase =
     await createServerSupabaseClient()
 
-
-
   const {
-    data:{
+    data: {
       user,
     },
   } =
-  await supabase.auth.getUser()
-
-
-
-
+    await supabase.auth.getUser()
 
   let query =
     supabase
@@ -285,255 +255,167 @@ export async function getCommissions()
       .order(
         "created_at",
         {
-          ascending:false,
+          ascending: false,
         }
       )
 
-
-
-
-
-  if(user){
-
+  if (user) {
     const {
-      data:profile,
+      data: profile,
     } =
-    await supabase
-      .from("user_profiles")
-      .select(
-        "role"
-      )
-      .eq(
-        "id",
-        user.id
-      )
-      .single()
+      await supabase
+        .from("user_profiles")
+        .select(
+          "role"
+        )
+        .eq(
+          "id",
+          user.id
+        )
+        .single()
 
-
-
-
-
-    if(
-      profile?.role === "sales"
-    ){
-
+    if (
+      (
+        profile as UserProfileRole | null
+      )?.role === "sales"
+    ) {
       query =
         query.eq(
           "advisor_id",
           user.id
         )
-
     }
-
   }
-
-
-
-
 
   const {
     data,
     error,
-  }
-  =
-  await query
+  } =
+    await query
 
-
-
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
-
-
-
-
 
   const rows =
     await attachAdvisorNames(
       supabase,
-      data ?? []
+      (data as CommissionRow[] | null) ??
+        []
     )
 
-
-
-
-
-  return rows.map(
-    row =>
-      mapCommissionRow({
-
-        ...row,
-
-        deal_name:
-          row.deals?.name,
-
-      })
+  return rows.map((row) =>
+    mapCommissionRow({
+      ...row,
+      deal_name:
+        row.deals?.name ?? "-",
+    })
   )
-
 }
 
-
-
-
-
-
-
-
-
 export async function getCommissionsByDealId(
-  dealId:string
-)
-:Promise<Commission[]> {
-
-
+  dealId: string
+): Promise<Commission[]> {
   const supabase =
     await createServerSupabaseClient()
-
-
 
   const {
     data,
     error,
-  }
-  =
-  await supabase
-    .from("commissions")
-    .select(`
+  } =
+    await supabase
+      .from("commissions")
+      .select(`
       *,
       deals(
         name
       )
     `)
-    .eq(
-      "deal_id",
-      dealId
-    )
+      .eq(
+        "deal_id",
+        dealId
+      )
 
-
-
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
-
-
-
-
 
   const rows =
     await attachAdvisorNames(
       supabase,
-      data ?? []
+      (data as CommissionRow[] | null) ??
+        []
     )
 
-
-
-
-
-  return rows.map(
-    row =>
-      mapCommissionRow({
-
-        ...row,
-
-        deal_name:
-          row.deals?.name,
-
-      })
+  return rows.map((row) =>
+    mapCommissionRow({
+      ...row,
+      deal_name:
+        row.deals?.name ?? "-",
+    })
   )
-
 }
 
-
-
-
-
-
-
-
-
 export async function createCommission(
-  commission:Partial<Commission>
-)
-:Promise<Commission>{
-
-
+  commission: Partial<Commission>
+): Promise<Commission> {
   const supabase =
     await createServerSupabaseClient()
-
-
 
   const {
     data,
     error,
-  }
-  =
-  await supabase
-    .from("commissions")
-    .insert({
+  } =
+    await supabase
+      .from("commissions")
+      .insert({
+        deal_id:
+          commission.dealId,
 
-      deal_id:
-        commission.dealId,
+        contact_id:
+          commission.contactId ?? null,
 
-      contact_id:
-        commission.contactId ?? null,
+        property_id:
+          commission.propertyId ?? null,
 
-      property_id:
-        commission.propertyId ?? null,
+        advisor_id:
+          commission.advisorId ?? null,
 
-      advisor_id:
-        commission.advisorId ?? null,
+        commission_type:
+          commission.type ?? "sale",
 
-      commission_type:
-  commission.type ?? "sale",
+        commission_basis:
+          commission.commissionBasis ??
+          null,
 
-commission_basis:
-  commission.commissionBasis ?? null,
+        commission_percentage:
+          commission.commissionPercentage ??
+          null,
 
-commission_percentage:
-  commission.commissionPercentage ?? null,
+        amount:
+          commission.amount ?? 0,
 
-amount:
-  commission.amount ?? 0,
+        status:
+          commission.status ?? "pending",
 
-      status:
-        commission.status ?? "pending",
+        due_date:
+          commission.dueDate ?? null,
 
-      due_date:
-        commission.dueDate ?? null,
+        notes:
+          commission.notes ?? null,
 
-      notes:
-        commission.notes ?? null,
+        created_at:
+          new Date().toISOString(),
+      })
+      .select()
+      .single()
 
-      created_at:
-        new Date()
-        .toISOString(),
-
-    })
-    .select()
-    .single()
-
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
-
-
-
-
 
   await createCommissionActivity(
-    data,
+    data as CommissionRow,
     "Commission Created",
     `Commission created.
 
@@ -544,94 +426,53 @@ Basis:
 ${data.commission_basis ?? "-"}`
   )
 
-
-
-
   return mapCommissionRow(
-    data
+    data as CommissionRow
   )
-
 }
 
-
-
-
-
-
-
-
-
 export async function updateCommission(
-  id:string,
-  updates:Partial<Commission>
-)
-:Promise<Commission>{
-
-
+  id: string,
+  updates: Partial<Commission>
+): Promise<Commission> {
   return editCommission(
     id,
     updates
   )
-
 }
 
-
-
-
-
-
-
-
-
 export async function markCommissionInvoiced(
-  id:string
-)
-:Promise<Commission>{
-
-
+  id: string
+): Promise<Commission> {
   const supabase =
     await createServerSupabaseClient()
-
-
 
   const {
     data,
     error,
-  }
-  =
-  await supabase
-    .from("commissions")
-    .update({
+  } =
+    await supabase
+      .from("commissions")
+      .update({
+        status:
+          "invoiced",
 
-      status:
-        "invoiced",
+        updated_at:
+          new Date().toISOString(),
+      })
+      .eq(
+        "id",
+        id
+      )
+      .select()
+      .single()
 
-      updated_at:
-        new Date()
-        .toISOString(),
-
-    })
-    .eq(
-      "id",
-      id
-    )
-    .select()
-    .single()
-
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
-
-
-
-
 
   await createCommissionActivity(
-    data,
+    data as CommissionRow,
     "Commission Invoiced",
     `Commission marked as invoiced.
 
@@ -642,77 +483,46 @@ Basis:
 ${data.commission_basis ?? "-"}`
   )
 
-
-
-
-
   return mapCommissionRow(
-    data
+    data as CommissionRow
   )
-
 }
 
-
-
-
-
-
-
-
-
 export async function markCommissionReceived(
-  id:string
-)
-:Promise<Commission>{
-
-
+  id: string
+): Promise<Commission> {
   const supabase =
     await createServerSupabaseClient()
-
-
 
   const {
     data,
     error,
-  }
-  =
-  await supabase
-    .from("commissions")
-    .update({
+  } =
+    await supabase
+      .from("commissions")
+      .update({
+        status:
+          "received",
 
-      status:
-        "received",
+        received_date:
+          new Date().toISOString(),
 
-      received_date:
-        new Date()
-        .toISOString(),
+        updated_at:
+          new Date().toISOString(),
+      })
+      .eq(
+        "id",
+        id
+      )
+      .select()
+      .single()
 
-      updated_at:
-        new Date()
-        .toISOString(),
-
-    })
-    .eq(
-      "id",
-      id
-    )
-    .select()
-    .single()
-
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
-
-
-
-
 
   await createCommissionActivity(
-    data,
+    data as CommissionRow,
     "Commission Received",
     `Payment received.
 
@@ -723,107 +533,77 @@ Basis:
 ${data.commission_basis ?? "-"}`
   )
 
-
-
-
-
   return mapCommissionRow(
-    data
+    data as CommissionRow
   )
-
 }
 
-
-
-
-
-
-
-
-
 export async function editCommission(
-  id:string,
-  updates:Partial<Commission>
-)
-:Promise<Commission>{
-
-
+  id: string,
+  updates: Partial<Commission>
+): Promise<Commission> {
   const supabase =
     await createServerSupabaseClient()
-
-
 
   const {
     data,
     error,
-  }
-  =
-  await supabase
-    .from("commissions")
-    .update({
+  } =
+    await supabase
+      .from("commissions")
+      .update({
+        amount:
+          updates.amount ?? 0,
 
-      amount:
-  updates.amount ?? 0,
+        advisor_id:
+          updates.advisorId,
 
-advisor_id:
-  updates.advisorId,
+        commission_basis:
+          updates.commissionBasis,
 
-commission_basis:
-  updates.commissionBasis,
+        commission_percentage:
+          updates.commissionPercentage,
 
-commission_percentage:
-  updates.commissionPercentage,
+        status:
+          updates.status,
 
-      status:
-        updates.status,
+        due_date:
+          updates.dueDate || null,
 
-      due_date:
-  updates.dueDate || null,
+        notes:
+          updates.notes || null,
 
-notes:
-  updates.notes || null,
+        invoice_number:
+          updates.invoiceNumber || null,
 
-invoice_number:
-  updates.invoiceNumber || null,
+        invoice_date:
+          updates.invoiceDate || null,
 
-invoice_date:
-  updates.invoiceDate || null,
+        payment_reference:
+          updates.paymentReference || null,
 
-payment_reference:
-  updates.paymentReference || null,
+        payment_mode:
+          updates.paymentMode || null,
 
-payment_mode:
-  updates.paymentMode || null,
+        payment_date:
+          updates.paymentDate || null,
 
-payment_date:
-  updates.paymentDate || null,
+        updated_at:
+          new Date().toISOString(),
+      })
+      .eq(
+        "id",
+        id
+      )
+      .select()
+      .single()
 
-      updated_at:
-        new Date()
-        .toISOString(),
-
-    })
-    .eq(
-      "id",
-      id
-    )
-    .select()
-    .single()
-
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
-
-
-
-
 
   await createCommissionActivity(
-    data,
+    data as CommissionRow,
     "Commission Updated",
     `Commission details updated.
 
@@ -834,12 +614,7 @@ Status:
 ${data.status}`
   )
 
-
-
-
-
   return mapCommissionRow(
-    data
+    data as CommissionRow
   )
-
 }

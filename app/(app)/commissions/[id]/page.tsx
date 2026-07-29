@@ -9,6 +9,9 @@ import {
 
 import Link from "next/link"
 
+import type {
+  ReactNode,
+} from "react"
 
 
 
@@ -65,31 +68,22 @@ function DetailRow(
   {
     label,
     value,
-  }:{
-    label:string
-    value:any
+  }: {
+    label: string
+    value: ReactNode
   }
-){
-
+) {
   return (
-
     <div>
-
       <p className="text-sm text-muted-foreground">
         {label}
       </p>
 
-
       <p className="font-medium">
-        {
-          value || "-"
-        }
+        {value ?? "-"}
       </p>
-
     </div>
-
   )
-
 }
 
 
@@ -209,58 +203,6 @@ export default async function CommissionDetailPage(
   }
 
 
-
-
-
-
-
-  const distributions =
-
-    (
-      commission.commission_distributions ?? []
-    )
-    .map(
-      (item:any) => ({
-
-        id:
-          item.id,
-
-        commissionId:
-          item.commission_id,
-
-        userId:
-          item.user_id,
-
-        userName:
-          item.user?.name,
-
-        role:
-          item.role,
-
-        percentage:
-          item.percentage
-            ? Number(item.percentage)
-            : undefined,
-
-        amount:
-          Number(
-            item.amount
-          ),
-
-        status:
-          item.status,
-
-        paidDate:
-          item.paid_date,
-
-        notes:
-          item.notes,
-
-        createdAt:
-          item.created_at,
-
-      })
-    )
 
 
 

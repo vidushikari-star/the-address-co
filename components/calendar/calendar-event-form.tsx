@@ -29,6 +29,7 @@ import type {
 
 import type {
   CalendarEvent,
+  CalendarEventType,
 } from "@/types/calendar-event"
 
 
@@ -77,22 +78,21 @@ export function CalendarEventForm({
 
 
   const [
-    form,
-    setForm,
-  ] =
-  useState({
-
-    title:"",
-
-    eventType:"meeting",
-
-    date:"",
-
-    time:"",
-
-    assignedTo:"",
-
-  })
+  form,
+  setForm,
+] = useState<{
+  title: string
+  eventType: CalendarEventType
+  date: string
+  time: string
+  assignedTo: string
+}>({
+  title: "",
+  eventType: "meeting",
+  date: "",
+  time: "",
+  assignedTo: "",
+})
 
 
 
@@ -258,7 +258,7 @@ export function CalendarEventForm({
 
 
             eventType:
-              form.eventType as any,
+              form.eventType,
 
 
             startTime,
@@ -289,7 +289,7 @@ export function CalendarEventForm({
 
 
           eventType:
-            form.eventType as any,
+            form.eventType,
 
 
           startTime,
@@ -431,13 +431,22 @@ export function CalendarEventForm({
               form.eventType
             }
 
-            onChange={
-              e =>
-                setForm({
-                  ...form,
-                  eventType:e.target.value,
-                })
-            }
+            onChange={(e) => {
+  const value = e.target.value
+
+  if (
+    value === "meeting" ||
+    value === "site_visit" ||
+    value === "follow_up" ||
+    value === "task" ||
+    value === "other"
+  ) {
+    setForm({
+      ...form,
+      eventType: value,
+    })
+  }
+}}
 
             className="
               mt-1
@@ -469,6 +478,10 @@ export function CalendarEventForm({
             <option value="other">
               Other
             </option>
+
+            <option value="task">
+  Task
+</option>
 
 
           </select>

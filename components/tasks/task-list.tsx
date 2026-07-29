@@ -1,7 +1,6 @@
 "use client"
 
 import {
-  useEffect,
   useState,
 } from "react"
 
@@ -36,26 +35,9 @@ export function TaskList({
 
 
   const [
-    tasks,
-    setTasks,
-  ] =
-  useState<TaskWithContext[]>(
-    initialTasks
-  )
-
-
-
-
-
-  useEffect(() => {
-
-    setTasks(
-      initialTasks
-    )
-
-  },[
-    initialTasks
-  ])
+  tasks,
+  setTasks,
+] = useState(initialTasks)
 
 
 

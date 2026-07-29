@@ -6,6 +6,7 @@ import {
 
 import type {
   SiteVisit,
+  SiteVisitStatus,
 } from "@/types/site-visit"
 
 import type {
@@ -58,7 +59,7 @@ export function SiteVisits({
     Record<
       string,
       {
-        status:string
+        status: SiteVisitStatus
         feedback:string
       }
     >
@@ -95,10 +96,10 @@ export function SiteVisits({
 
 
   function updateField(
-    id:string,
-    field:"status"|"feedback",
-    value:string
-  ){
+  id: string,
+  field: "status" | "feedback",
+  value: string | SiteVisitStatus
+){
 
 
     const visit =
@@ -167,7 +168,7 @@ export function SiteVisits({
 
       visit.id,
 
-      value.status as any,
+      value.status,
 
       value.feedback
 
@@ -386,7 +387,7 @@ ${value.feedback || "No feedback added"}`,
                       updateField(
                         visit.id,
                         "status",
-                        e.target.value
+                        e.target.value as SiteVisitStatus
                       )
                   }
 

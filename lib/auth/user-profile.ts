@@ -10,9 +10,20 @@ import type {
 
 
 
+type UserProfileRow = {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  whatsapp: string | null
+  role: UserProfile["role"]
+  created_at: string
+  updated_at: string
+}
+
 function mapUserProfile(
-  row:any
-):UserProfile {
+  row: UserProfileRow
+): UserProfile {
 
   return {
 
@@ -111,7 +122,7 @@ export async function getCurrentUserProfile()
 
 
   return mapUserProfile(
-    data
-  )
+  data as UserProfileRow
+)
 
 }

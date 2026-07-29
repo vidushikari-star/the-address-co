@@ -34,14 +34,10 @@ export function DataManagement(){
 
 
 
-  if(route){
-
-    window.location.href =
-      route
-
-    return
-
-  }
+  if (route) {
+  window.location.assign(route)
+  return
+}
 
 
 }

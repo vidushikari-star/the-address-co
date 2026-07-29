@@ -29,7 +29,9 @@ import {
   createTask,
 } from "@/lib/repositories/task-repository"
 
-
+import type {
+  TaskPriority,
+} from "@/types/task"
 
 
 
@@ -62,20 +64,25 @@ export function CreateTaskDialog(){
 
 
   const [
-    form,
-    setForm,
-  ] =
-  useState({
+  form,
+  setForm,
+] =
+useState<{
+  title: string
+  description: string
+  priority: TaskPriority
+  dueDate: string
+}>({
 
-    title:"",
+  title: "",
 
-    description:"",
+  description: "",
 
-    priority:"medium",
+  priority: "medium",
 
-    dueDate:"",
+  dueDate: "",
 
-  })
+})
 
 
 
@@ -114,7 +121,7 @@ export function CreateTaskDialog(){
 
 
         priority:
-          form.priority as any,
+          form.priority,
 
 
         dueDate:
@@ -360,7 +367,7 @@ export function CreateTaskDialog(){
                       e =>
                         setForm({
                           ...form,
-                          priority:e.target.value,
+                          priority: e.target.value as TaskPriority,
                         })
                     }
 

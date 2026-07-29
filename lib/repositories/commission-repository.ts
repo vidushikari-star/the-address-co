@@ -10,16 +10,42 @@ import {
   createActivity,
 } from "@/lib/repositories/activity-repository"
 
+type CommissionRow = {
+  id: string
+  deal_id: string
+  contact_id: string | null
+  property_id: string | null
+  advisor_id: string | null
+  advisor_name?: string | null
 
+  commission_type: Commission["type"]
 
+  amount: number | string | null
 
+  status: Commission["status"]
+
+  due_date: string | null
+  received_date: string | null
+
+  notes: string | null
+
+  created_at: string
+  updated_at: string
+
+  deals?: {
+    name: string | null
+  } | null
+}
+
+type UserProfileRow = {
+  id: string
+  name: string
+}
 
 function mapCommissionRow(
-  row:any
-):Commission {
-
+  row: CommissionRow
+): Commission {
   return {
-
     id:
       row.id,
 
@@ -68,244 +94,150 @@ function mapCommissionRow(
     dealName:
       row.deals?.name ??
       "-",
-
   }
-
 }
 
-
-
-
-
-
-
-
-
 async function attachAdvisorNames(
-  rows:any[]
-){
+  rows: CommissionRow[]
+): Promise<CommissionRow[]> {
+  const advisorIds = [
+    ...new Set(
+      rows
+        .map(
+          (row) => row.advisor_id
+        )
+        .filter(
+          (
+            id
+          ): id is string => !!id
+        )
+    ),
+  ]
 
-  const advisorIds =
-    [
-      ...new Set(
-        rows
-          .map(
-            row =>
-              row.advisor_id
-          )
-          .filter(Boolean)
-      )
-    ]
-
-
-
-
-
-  if(
+  if (
     advisorIds.length === 0
-  ){
-
+  ) {
     return rows
-
   }
 
-
-
-
-
   const {
-    data:profiles,
+    data: profiles,
   } =
-  await supabase
-    .from("user_profiles")
-    .select(
-      "id,name"
-    )
-    .in(
-      "id",
-      advisorIds
-    )
-
-
-
-
+    await supabase
+      .from("user_profiles")
+      .select(
+        "id,name"
+      )
+      .in(
+        "id",
+        advisorIds
+      )
 
   const advisorMap =
-    new Map<string,string>()
+    new Map<string, string>()
 
-
-
-
-
-  ;(profiles ?? [])
-    .forEach(
-      profile => {
-
-        advisorMap.set(
-          profile.id,
-          profile.name
-        )
-
-      }
-    )
-
-
-
-
+  ;(
+    (profiles as UserProfileRow[] | null) ??
+    []
+  ).forEach(
+    (profile) => {
+      advisorMap.set(
+        profile.id,
+        profile.name
+      )
+    }
+  )
 
   return rows.map(
-    row => ({
-
+    (row) => ({
       ...row,
 
       advisor_name:
-        advisorMap.get(
-          row.advisor_id
-        )
-        ??
-        "Unassigned"
-
+        row.advisor_id
+          ? advisorMap.get(
+              row.advisor_id
+            ) ?? "Unassigned"
+          : "Unassigned",
     })
   )
-
 }
 
-
-
-
-
-
-
-
-
-export async function getCommissions()
-:Promise<Commission[]> {
-
-
+export async function getCommissions(): Promise<
+  Commission[]
+> {
   const {
     data,
     error,
   } =
-  await supabase
-    .from("commissions")
-    .select(`
-      *,
-      deals(
-        name
+    await supabase
+      .from("commissions")
+      .select(`
+        *,
+        deals(
+          name
+        )
+      `)
+      .order(
+        "created_at",
+        {
+          ascending: false,
+        }
       )
-    `)
-    .order(
-      "created_at",
-      {
-        ascending:false,
-      }
-    )
 
-
-
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
-
-
-
-
 
   const rows =
     await attachAdvisorNames(
-      data ?? []
+      (data as CommissionRow[] | null) ??
+        []
     )
-
-
-
-
 
   return rows.map(
     mapCommissionRow
   )
-
 }
-
-
-
-
-
-
-
-
 
 export async function getCommissionsByDealId(
-  dealId:string
-)
-:Promise<Commission[]> {
-
-
+  dealId: string
+): Promise<Commission[]> {
   const {
     data,
     error,
   } =
-  await supabase
-    .from("commissions")
-    .select(`
-      *,
-      deals(
-        name
+    await supabase
+      .from("commissions")
+      .select(`
+        *,
+        deals(
+          name
+        )
+      `)
+      .eq(
+        "deal_id",
+        dealId
       )
-    `)
-    .eq(
-      "deal_id",
-      dealId
-    )
 
-
-
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
-
-
-
-
 
   const rows =
     await attachAdvisorNames(
-      data ?? []
+      (data as CommissionRow[] | null) ??
+        []
     )
-
-
-
-
 
   return rows.map(
     mapCommissionRow
   )
-
 }
 
-
-
-
-
-
-
-
-
 export async function createCommission(
-  commission:Partial<Commission>
-)
-:Promise<Commission>{
-
-
+  commission: Partial<Commission>
+): Promise<Commission> {
   const payload = {
-
     deal_id:
       commission.dealId,
 
@@ -334,131 +266,78 @@ export async function createCommission(
       commission.notes ?? null,
 
     created_at:
-      new Date()
-      .toISOString(),
-
+      new Date().toISOString(),
   }
-
-
-
-
 
   const {
     data,
     error,
   } =
-  await supabase
-    .from("commissions")
-    .insert(
-      payload
-    )
-    .select()
-    .single()
+    await supabase
+      .from("commissions")
+      .insert(
+        payload
+      )
+      .select()
+      .single()
 
-
-
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
 
-
-
-
-
   return mapCommissionRow(
-    data
+    data as CommissionRow
   )
-
 }
-
-
-
-
-
-
-
-
 
 export async function updateCommission(
-  id:string,
-  updates:Partial<Commission>
-)
-:Promise<Commission>{
-
-
+  id: string,
+  updates: Partial<Commission>
+): Promise<Commission> {
   const {
     data,
     error,
   } =
-  await supabase
-    .from("commissions")
-    .update({
+    await supabase
+      .from("commissions")
+      .update({
+        amount:
+          updates.amount,
 
-      amount:
-        updates.amount,
+        status:
+          updates.status,
 
-      status:
-        updates.status,
+        due_date:
+          updates.dueDate,
 
-      due_date:
-        updates.dueDate,
+        received_date:
+          updates.receivedDate,
 
-      received_date:
-        updates.receivedDate,
+        notes:
+          updates.notes,
 
-      notes:
-        updates.notes,
+        updated_at:
+          new Date().toISOString(),
+      })
+      .eq(
+        "id",
+        id
+      )
+      .select()
+      .single()
 
-      updated_at:
-        new Date()
-        .toISOString(),
-
-    })
-    .eq(
-      "id",
-      id
-    )
-    .select()
-    .single()
-
-
-
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
 
-
-
-
-
   return mapCommissionRow(
-    data
+    data as CommissionRow
   )
-
 }
 
-
-
-
-
-
-
-
-
 export async function markCommissionReceived(
-  id:string
-)
-:Promise<Commission>{
-
-
+  id: string
+): Promise<Commission> {
   const commission =
     await updateCommission(
       id,
@@ -467,17 +346,11 @@ export async function markCommissionReceived(
           "received",
 
         receivedDate:
-          new Date()
-          .toISOString(),
+          new Date().toISOString(),
       }
     )
 
-
-
-
-
   await createActivity({
-
     type:
       "commission_received",
 
@@ -511,15 +384,8 @@ Received`,
       commission.propertyId,
 
     date:
-      new Date()
-      .toISOString(),
-
+      new Date().toISOString(),
   })
 
-
-
-
-
   return commission
-
 }

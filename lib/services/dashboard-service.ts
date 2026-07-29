@@ -6,8 +6,6 @@ import { getProperties } from "@/lib/repositories/property-repository"
 
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 
-import { getPropertyMatches } from "@/lib/services/property-matching"
-
 import { supabase } from "@/lib/supabase/client"
 
 import {

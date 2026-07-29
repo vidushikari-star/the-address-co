@@ -1,7 +1,5 @@
 import { supabase } from "@/lib/supabase/client"
 
-
-
 export type PropertyShareStatus =
   | "shared"
   | "viewed"
@@ -9,82 +7,62 @@ export type PropertyShareStatus =
   | "site_visit"
   | "rejected"
 
-
-
 export interface PropertyShare {
-
   id: string
-
   dealId: string
-
   contactId: string
-
   propertyId: string
-
   status: PropertyShareStatus
-
   buyerFeedback?: string
-
   notes?: string
-
   sharedAt: string
-
   createdAt: string
-
 }
 
-
-
-
+type PropertyShareRow = {
+  id: string
+  deal_id: string
+  contact_id: string
+  property_id: string
+  status: PropertyShareStatus
+  buyer_feedback: string | null
+  notes: string | null
+  shared_at: string
+  created_at: string
+}
 
 function mapPropertyShareRow(
-  row: any
+  row: PropertyShareRow
 ): PropertyShare {
-
   return {
-
     id:
       row.id,
-
 
     dealId:
       row.deal_id,
 
-
     contactId:
       row.contact_id,
-
 
     propertyId:
       row.property_id,
 
-
     status:
       row.status,
-
 
     buyerFeedback:
       row.buyer_feedback ?? undefined,
 
-
     notes:
       row.notes ?? undefined,
-
 
     sharedAt:
       row.shared_at,
 
-
     createdAt:
       row.created_at,
-
   }
-
 }
-
-
-
-
 
 export async function createPropertyShare(
   data: {
@@ -94,8 +72,6 @@ export async function createPropertyShare(
     notes?: string
   }
 ): Promise<PropertyShare> {
-
-
   const {
     data: row,
     error,
@@ -103,49 +79,33 @@ export async function createPropertyShare(
     await supabase
       .from("property_shares")
       .insert({
-
         deal_id:
           data.dealId,
-
 
         contact_id:
           data.contactId,
 
-
         property_id:
           data.propertyId,
 
-
         notes:
           data.notes ?? null,
-
       })
       .select()
       .single()
 
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
 
-
-
-  return mapPropertyShareRow(row)
-
+  return mapPropertyShareRow(
+    row as PropertyShareRow
+  )
 }
-
-
-
-
 
 export async function getPropertySharesByDealId(
   dealId: string
 ): Promise<PropertyShare[]> {
-
-
   const {
     data,
     error,
@@ -160,39 +120,27 @@ export async function getPropertySharesByDealId(
       .order(
         "created_at",
         {
-          ascending:false,
+          ascending: false,
         }
       )
 
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
 
-
-
   return (
-    data ?? []
+    (data as PropertyShareRow[] | null) ??
+    []
   ).map(
     mapPropertyShareRow
   )
-
 }
 
-
-
-
-
 export async function updatePropertyShareStatus(
-  id:string,
-  status:PropertyShareStatus,
-  buyerFeedback?:string
-): Promise<PropertyShare>{
-
-
+  id: string,
+  status: PropertyShareStatus,
+  buyerFeedback?: string
+): Promise<PropertyShare> {
   const {
     data,
     error,
@@ -200,12 +148,10 @@ export async function updatePropertyShareStatus(
     await supabase
       .from("property_shares")
       .update({
-
         status,
 
         buyer_feedback:
           buyerFeedback ?? null,
-
       })
       .eq(
         "id",
@@ -214,16 +160,11 @@ export async function updatePropertyShareStatus(
       .select()
       .single()
 
-
-
-  if(error){
-
+  if (error) {
     throw error
-
   }
 
-
-
-  return mapPropertyShareRow(data)
-
+  return mapPropertyShareRow(
+    data as PropertyShareRow
+  )
 }

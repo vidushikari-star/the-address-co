@@ -6,6 +6,8 @@ import {
   DealFilters,
 } from "@/components/deals/deal-filters"
 
+import Link from "next/link"
+
 
 
 export const dynamic = "force-dynamic"
@@ -138,29 +140,24 @@ export default async function DealsPage({
 
 
 
-        <a
-
-          href="/deals/new"
-
-          className="
-            flex
-            w-full
-            items-center
-            justify-center
-            rounded-xl
-            bg-primary
-            px-4
-            py-3
-            text-sm
-            text-primary-foreground
-            sm:w-auto
-          "
-
-        >
-
-          New Deal
-
-        </a>
+        <Link
+  href="/deals/new"
+  className="
+    flex
+    w-full
+    items-center
+    justify-center
+    rounded-xl
+    bg-primary
+    px-4
+    py-3
+    text-sm
+    text-primary-foreground
+    sm:w-auto
+  "
+>
+  New Deal
+</Link>
 
 
 

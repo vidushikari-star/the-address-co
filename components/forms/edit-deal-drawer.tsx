@@ -98,19 +98,15 @@ export function EditDealDrawer({
 
 
 
-  function update(
-    key:string,
-    value:string
-  ){
-
-    setForm(
-      current => ({
-        ...current,
-        [key]:value,
-      })
-    )
-
-  }
+  function update<K extends keyof typeof form>(
+  key: K,
+  value: typeof form[K]
+) {
+  setForm(current => ({
+    ...current,
+    [key]: value,
+  }))
+}
 
 
 
@@ -210,17 +206,13 @@ export function EditDealDrawer({
 
 
 
-    } catch(error:any) {
+    } catch (error: unknown) {
 
 
       console.error(
-        "FAILED UPDATING DEAL:",
-        JSON.stringify(
-          error,
-          null,
-          2
-        )
-      )
+  "FAILED UPDATING DEAL:",
+  error
+)
 
 
 

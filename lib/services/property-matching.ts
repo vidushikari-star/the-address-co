@@ -19,100 +19,92 @@ export function getPropertyMatches(
     return []
   }
 
-  return properties.map((property) => {
-    let score = 0
-    const reasons: string[] = []
+  return properties
+    .map((property) => {
+      let score = 0
+      const reasons: string[] = []
 
-    const minBudget =
-      requirements.budget?.min ?? 0
+      const minBudget =
+        requirements.budget?.min ?? 0
 
-    const maxBudget =
-      requirements.budget?.max ??
-      Number.MAX_SAFE_INTEGER
+      const maxBudget =
+        requirements.budget?.max ??
+        Number.MAX_SAFE_INTEGER
 
+      // Budget
+      if (
+        property.price.asking >= minBudget &&
+        property.price.asking <= maxBudget
+      ) {
+        score += 35
+        reasons.push("Within budget")
+      }
 
-    // Budget
-    if (
-      property.price.asking >= minBudget &&
-      property.price.asking <= maxBudget
-    ) {
-      score += 35
-      reasons.push("Within budget")
-    }
+      // Location
+      if (
+        requirements.preferredLocations?.some(
+          (location) =>
+            location.toLowerCase() ===
+            property.location.toLowerCase()
+        )
+      ) {
+        score += 25
+        reasons.push("Preferred location")
+      }
 
+      // Property type
+      if (
+        requirements.propertyTypes?.some(
+          (type) =>
+            type.toLowerCase() ===
+            property.propertyType.toLowerCase()
+        )
+      ) {
+        score += 20
+        reasons.push("Property type match")
+      }
 
-    // Location
-    if (
-      requirements.preferredLocations?.some(
-        (location) =>
-          location.toLowerCase() ===
-          property.location.toLowerCase()
-      )
-    ) {
-      score += 25
-      reasons.push("Preferred location")
-    }
+      // Bedrooms
+      if (
+        requirements.bedrooms &&
+        property.specifications.bedrooms >=
+          requirements.bedrooms
+      ) {
+        score += 10
+        reasons.push("Bedroom match")
+      }
 
+      // Features
+      // Features
+// Features
+const features = (property.amenities ?? []).map((feature) =>
+  feature.trim().toLowerCase()
+)
 
-    // Property type
-    const propertyType =
-      (property as any).propertyType ??
-      (property as any).type ??
-      ""
+if (
+  requirements.privatePool &&
+  features.includes("private pool")
+) {
+  score += 5
+  reasons.push("Private pool")
+}
 
-    if (
-      requirements.propertyTypes?.some(
-        (type) =>
-          type.toLowerCase() ===
-          propertyType.toLowerCase()
-      )
-    ) {
-      score += 20
-      reasons.push("Property type match")
-    }
+if (
+  requirements.staffQuarters &&
+  features.includes("staff quarters")
+) {
+  score += 5
+  reasons.push("Staff quarters")
+}
 
-
-    // Bedrooms
-    if (
-      requirements.bedrooms &&
-      property.specifications?.bedrooms >=
-        requirements.bedrooms
-    ) {
-      score += 10
-      reasons.push("Bedroom match")
-    }
-
-
-    // Features
-    const features =
-      (property as any).features ?? []
-
-    if (
-      requirements.privatePool &&
-      features.includes("private_pool")
-    ) {
-      score += 5
-      reasons.push("Private pool")
-    }
-
-    if (
-      requirements.staffQuarters &&
-      features.includes("staff_quarters")
-    ) {
-      score += 5
-      reasons.push("Staff quarters")
-    }
-
-
-    return {
-      property,
-      score,
-      reasons,
-    }
-  })
-  .filter((match) => match.score > 0)
-  .sort(
-    (a, b) =>
-      b.score - a.score
-  )
+      return {
+        property,
+        score,
+        reasons,
+      }
+    })
+    .filter((match) => match.score > 0)
+    .sort(
+      (a, b) => b.score - a.score
+    )
 }

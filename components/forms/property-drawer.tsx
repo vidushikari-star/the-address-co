@@ -330,7 +330,7 @@ propertyType:
           form.googleMapLink,
 
 
-      } as any)
+      })
 
 
 

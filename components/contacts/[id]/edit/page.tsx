@@ -14,7 +14,6 @@ import {
   ContactsRepository,
 } from "@/lib/supabase/repositories/contacts.repository"
 
-import type { Contact } from "@/types"
 
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -33,8 +32,7 @@ export default function EditContactPage() {
     params.id as string
 
 
-  const [contact, setContact] =
-    useState<Contact | null>(null)
+  
 
 
   const [loading, setLoading] =
@@ -89,7 +87,7 @@ export default function EditContactPage() {
         )
 
 
-      setContact(data)
+      
 
 
       setForm({
