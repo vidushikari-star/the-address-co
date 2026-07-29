@@ -1,6 +1,8 @@
 "use client"
 
-import type { Contact } from "@/types"
+import type {
+  Contact,
+} from "@/types"
 
 import {
   RelationshipHeader,
@@ -28,59 +30,84 @@ import {
 
 
 
+
+
 type RelationshipDetailProps = {
+
   contact: Contact
+
 }
+
+
+
+
+
 
 
 
 export function RelationshipDetail({
   contact,
-}: RelationshipDetailProps) {
+}:RelationshipDetailProps){
 
 
   return (
 
-    <div className="flex min-h-0 flex-col">
+    <div className="
+      flex
+      min-h-0
+      flex-col
+    ">
 
 
       <RelationshipHeader
-        contact={contact}
+
+        contact={
+          contact
+        }
+
       />
 
 
 
 
 
-      <div
-        className="
-          grid
-          gap-4
-          p-4
-          sm:gap-6
-          sm:p-6
-          xl:grid-cols-[280px_minmax(0,1fr)_360px]
-        "
-      >
+
+
+      <div className="
+        grid
+        gap-4
+        p-4
+        sm:gap-6
+        sm:p-6
+        xl:grid-cols-[320px_minmax(0,1fr)_360px]
+      ">
 
 
 
 
 
-        {/* CLIENT SNAPSHOT */}
 
-        <section
-          className="
-            order-1
-            min-w-0
-          "
-        >
+        {/* LEFT - CLIENT PROFILE */}
+
+
+        <aside className="
+          order-1
+          min-w-0
+          space-y-4
+          xl:row-span-2
+        ">
+
 
           <RelationshipSnapshot
-            contact={contact}
+
+            contact={
+              contact
+            }
+
           />
 
-        </section>
+
+        </aside>
 
 
 
@@ -88,59 +115,80 @@ export function RelationshipDetail({
 
 
 
-        {/* ACTIVITY TIMELINE */}
 
-        <section
-          className="
-            order-5
-            min-w-0
-            xl:order-2
-          "
-        >
-
-          <RelationshipTimeline
-            contact={contact}
-          />
-
-        </section>
+        {/* CENTER - SALES JOURNEY */}
 
 
-
-
-
-
-
-        {/* CRM ACTIONS */}
-
-        <section
-          className="
-            order-2
-            min-w-0
-            space-y-4
-            sm:space-y-6
-            xl:order-3
-          "
-        >
+        <main className="
+          order-2
+          min-w-0
+          space-y-4
+        ">
 
 
           <RelationshipDeals
-            contact={contact}
+
+            contact={
+              contact
+            }
+
           />
+
+
 
 
 
           <RelationshipProperties
-            contact={contact}
+
+            contact={
+              contact
+            }
+
           />
+
+
 
 
 
           <RelationshipTasks
-            contact={contact}
+
+            contact={
+              contact
+            }
+
           />
 
 
-        </section>
+        </main>
+
+
+
+
+
+
+
+
+        {/* RIGHT - TIMELINE */}
+
+
+        <aside className="
+          order-3
+          min-w-0
+        ">
+
+
+          <RelationshipTimeline
+
+            contact={
+              contact
+            }
+
+          />
+
+
+        </aside>
+
+
 
 
 

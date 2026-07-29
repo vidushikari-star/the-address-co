@@ -41,8 +41,13 @@ import {
 
 
 type Props = {
+
   contact: Contact
+
 }
+
+
+
 
 
 
@@ -50,7 +55,8 @@ type Props = {
 
 export function RelationshipProperties({
   contact,
-}: Props) {
+}:Props){
+
 
 
   const [
@@ -61,15 +67,25 @@ export function RelationshipProperties({
 
 
 
+  const [
+    loading,
+    setLoading,
+  ] =
+  useState(true)
 
 
-  useEffect(() => {
+
+
+
+
+
+  useEffect(()=>{
 
 
     async function loadMatches(){
 
 
-      try {
+      try{
 
 
         const properties =
@@ -100,14 +116,10 @@ export function RelationshipProperties({
         )
 
 
-      } catch(error){
+      }
+      finally{
 
-
-        console.error(
-          "Failed loading property matches",
-          error
-        )
-
+        setLoading(false)
 
       }
 
@@ -116,11 +128,13 @@ export function RelationshipProperties({
 
 
 
-
     loadMatches()
 
 
-  },[contact])
+  },[
+    contact
+  ])
+
 
 
 
@@ -131,18 +145,33 @@ export function RelationshipProperties({
 
   return (
 
-    <Card>
+    <Card className="
+      rounded-2xl
+    ">
 
 
-      <CardHeader className="px-4 py-3">
+
+      <CardHeader className="
+        px-4
+        py-3
+      ">
 
 
-        <CardTitle className="flex items-center justify-between text-base">
+        <CardTitle className="
+          flex
+          items-center
+          justify-between
+          text-base
+        ">
 
 
           <span>
+
             Recommended Properties
+
           </span>
+
+
 
 
 
@@ -151,6 +180,7 @@ export function RelationshipProperties({
             {matches.length}
 
           </Badge>
+
 
 
         </CardTitle>
@@ -163,46 +193,94 @@ export function RelationshipProperties({
 
 
 
-      <CardContent className="space-y-3 px-4 pb-4">
+
+
+
+      <CardContent className="
+        space-y-4
+        px-4
+        pb-5
+      ">
+
+
+
 
 
 
         {
-          matches.length === 0 ? (
+          loading ? (
 
-            <p className="text-sm text-muted-foreground">
+            <p className="
+              text-sm
+              text-muted-foreground
+            ">
 
-              No matching properties.
+              Finding matching properties...
 
             </p>
 
+          )
 
-          ) : (
+          :
 
 
-            matches.map(
+          matches.length === 0 ? (
 
-              property => (
+            <div className="
+              rounded-xl
+              border
+              border-dashed
+              p-5
+              text-center
+              text-sm
+              text-muted-foreground
+            ">
 
-                <PropertyCard
+              No matching properties found.
 
-                  key={
-                    property.id
-                  }
-
-                  property={
-                    property
-                  }
-
-                />
-
-              )
-
-            )
-
+            </div>
 
           )
+
+
+          :
+
+          (
+
+            <div className="
+              space-y-4
+            ">
+
+
+              {
+                matches.map(
+                  property => (
+
+                    <PropertyCard
+
+                      key={
+                        property.id
+                      }
+
+                      property={
+                        property
+                      }
+
+                    />
+
+                  )
+
+                )
+              }
+
+
+            </div>
+
+          )
+
         }
+
+
 
 
 

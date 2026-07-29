@@ -5,8 +5,13 @@ import {
   useState,
 } from "react"
 
-import type { Contact } from "@/types"
-import type { Task } from "@/types/task"
+import type {
+  Contact,
+} from "@/types"
+
+import type {
+  Task,
+} from "@/types/task"
 
 import {
   getTasksByContactId,
@@ -29,8 +34,13 @@ import {
   X,
 } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import {
+  Button,
+} from "@/components/ui/button"
+
+import {
+  Input,
+} from "@/components/ui/input"
 
 import {
   Card,
@@ -39,13 +49,22 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Checkbox,
+} from "@/components/ui/checkbox"
+
+
 
 
 
 type Props = {
+
   contact: Contact
+
 }
+
+
+
 
 
 
@@ -53,7 +72,8 @@ type Props = {
 
 export function RelationshipTasks({
   contact,
-}: Props) {
+}:Props){
+
 
 
   const [
@@ -63,11 +83,21 @@ export function RelationshipTasks({
   useState<Task[]>([])
 
 
+
+  const [
+    loading,
+    setLoading,
+  ] =
+  useState(true)
+
+
+
   const [
     showForm,
     setShowForm,
   ] =
   useState(false)
+
 
 
   const [
@@ -77,6 +107,7 @@ export function RelationshipTasks({
   useState("")
 
 
+
   const [
     dueDate,
     setDueDate,
@@ -84,11 +115,17 @@ export function RelationshipTasks({
   useState("")
 
 
+
   const [
     assignedTo,
     setAssignedTo,
   ] =
-  useState("Vidushi Kari")
+  useState(
+    "Vidushi Kari"
+  )
+
+
+
 
 
 
@@ -96,12 +133,28 @@ export function RelationshipTasks({
 
   async function loadTasks(){
 
-    const data =
-      await getTasksByContactId(
-        contact.id
+
+    try{
+
+
+      const data =
+        await getTasksByContactId(
+          contact.id
+        )
+
+
+      setTasks(
+        data
       )
 
-    setTasks(data)
+
+    }
+    finally{
+
+      setLoading(false)
+
+    }
+
 
   }
 
@@ -109,11 +162,18 @@ export function RelationshipTasks({
 
 
 
-  useEffect(() => {
+
+
+  useEffect(()=>{
+
 
     loadTasks()
 
-  }, [contact.id])
+
+  },[
+    contact.id
+  ])
+
 
 
 
@@ -122,17 +182,22 @@ export function RelationshipTasks({
 
 
   async function toggleTask(
-    task: Task
+    task:Task
   ){
+
 
     const updated =
       await updateTask(
+
         task.id,
+
         {
           completed:
             !task.completed,
         }
+
       )
+
 
 
     setTasks(
@@ -140,12 +205,14 @@ export function RelationshipTasks({
         current.map(
           item =>
             item.id === task.id
-              ? updated
-              : item
+            ? updated
+            : item
         )
     )
 
+
   }
+
 
 
 
@@ -156,15 +223,15 @@ export function RelationshipTasks({
   async function addTask(){
 
 
-    if(!title){
-
-      alert(
-        "Please enter task title"
-      )
+    if(
+      !title.trim()
+    ){
 
       return
 
     }
+
+
 
 
 
@@ -174,16 +241,22 @@ export function RelationshipTasks({
         contactId:
           contact.id,
 
-        title,
+        title:
+          title.trim(),
 
         dueDate:
           dueDate
-            ? new Date(dueDate)
-            : undefined,
+          ? new Date(dueDate)
+          : undefined,
 
         assignedTo,
 
       })
+
+
+
+
+
 
 
 
@@ -208,6 +281,9 @@ export function RelationshipTasks({
 
 
 
+
+
+
     setTasks(
       current => [
         task,
@@ -216,11 +292,16 @@ export function RelationshipTasks({
     )
 
 
+
     setTitle("")
+
     setDueDate("")
+
     setShowForm(false)
 
+
   }
+
 
 
 
@@ -233,6 +314,7 @@ export function RelationshipTasks({
       task =>
         !task.completed
     )
+
 
 
   const completed =
@@ -248,9 +330,13 @@ export function RelationshipTasks({
 
 
 
+
   return (
 
-    <Card>
+    <Card className="
+      rounded-2xl
+    ">
+
 
 
       <CardHeader className="
@@ -265,11 +351,15 @@ export function RelationshipTasks({
       ">
 
 
-        <CardTitle className="text-base">
+        <CardTitle className="
+          text-base
+        ">
 
           Tasks
 
         </CardTitle>
+
+
 
 
 
@@ -279,11 +369,14 @@ export function RelationshipTasks({
 
           variant={
             showForm
-              ? "outline"
-              : "default"
+            ? "outline"
+            : "default"
           }
 
-          className="w-full sm:w-auto"
+          className="
+            w-full
+            sm:w-auto
+          "
 
           onClick={() =>
             setShowForm(
@@ -293,21 +386,45 @@ export function RelationshipTasks({
 
         >
 
+
           {
             showForm
-              ? (
-                <>
-                  <X className="mr-1 h-4 w-4"/>
-                  Cancel
-                </>
-              )
-              : (
-                <>
-                  <Plus className="mr-1 h-4 w-4"/>
-                  Add
-                </>
-              )
+            ?
+
+            (
+              <>
+
+                <X className="
+                  mr-1
+                  h-4
+                  w-4
+                "/>
+
+                Cancel
+
+              </>
+            )
+
+            :
+
+            (
+
+              <>
+
+                <Plus className="
+                  mr-1
+                  h-4
+                  w-4
+                "/>
+
+                Add
+
+              </>
+
+            )
+
           }
+
 
         </Button>
 
@@ -320,11 +437,14 @@ export function RelationshipTasks({
 
 
 
+
+
       <CardContent className="
-        space-y-4
+        space-y-5
         px-4
-        pb-4
+        pb-5
       ">
+
 
 
 
@@ -337,17 +457,18 @@ export function RelationshipTasks({
               space-y-3
               rounded-xl
               border
-              p-3
+              p-4
             ">
+
 
 
               <Input
 
-                className="h-11"
-
                 placeholder="Follow-up task"
 
-                value={title}
+                value={
+                  title
+                }
 
                 onChange={
                   e =>
@@ -360,13 +481,15 @@ export function RelationshipTasks({
 
 
 
-              <Input
 
-                className="h-11"
+
+              <Input
 
                 type="date"
 
-                value={dueDate}
+                value={
+                  dueDate
+                }
 
                 onChange={
                   e =>
@@ -379,18 +502,14 @@ export function RelationshipTasks({
 
 
 
+
+
+
               <select
 
-                className="
-                  h-11
-                  w-full
-                  rounded-lg
-                  border
-                  px-3
-                  text-sm
-                "
-
-                value={assignedTo}
+                value={
+                  assignedTo
+                }
 
                 onChange={
                   e =>
@@ -399,17 +518,34 @@ export function RelationshipTasks({
                     )
                 }
 
+                className="
+                  h-11
+                  w-full
+                  rounded-xl
+                  border
+                  px-3
+                  text-sm
+                "
+
               >
 
                 {
                   Object.values(
                     ADVISORS
-                  ).map(
+                  )
+                  .map(
                     advisor => (
 
                       <option
-                        key={advisor.name}
-                        value={advisor.name}
+
+                        key={
+                          advisor.name
+                        }
+
+                        value={
+                          advisor.name
+                        }
+
                       >
 
                         {advisor.name}
@@ -420,14 +556,24 @@ export function RelationshipTasks({
                   )
                 }
 
+
               </select>
 
 
 
 
+
+
               <Button
-                className="w-full"
-                onClick={addTask}
+
+                className="
+                  w-full
+                "
+
+                onClick={
+                  addTask
+                }
+
               >
 
                 Create Follow-up
@@ -449,146 +595,61 @@ export function RelationshipTasks({
 
 
         {
-          pending.length === 0 ? (
+          loading ? (
 
-            <p className="text-sm text-muted-foreground">
+            <p className="
+              text-sm
+              text-muted-foreground
+            ">
 
-              No pending tasks.
+              Loading tasks...
 
             </p>
 
+          )
 
-          ) : (
+          :
 
+          pending.length === 0 ? (
 
-            <div>
+            <div className="
+              rounded-xl
+              border
+              border-dashed
+              p-5
+              text-center
+              text-sm
+              text-muted-foreground
+            ">
 
-
-              <p className="
-                mb-2
-                text-xs
-                font-semibold
-                uppercase
-                tracking-wide
-                text-muted-foreground
-              ">
-
-                Upcoming
-
-              </p>
-
-
-
-
-              <div className="space-y-2">
-
-
-                {
-                  pending.map(
-                    task => (
-
-                      <div
-
-                        key={task.id}
-
-                        className="
-                          rounded-xl
-                          border
-                          p-3
-                        "
-
-                      >
-
-
-                        <div className="
-                          flex
-                          items-start
-                          gap-3
-                        ">
-
-
-                          <Checkbox
-
-                            className="mt-1 h-5 w-5"
-
-                            checked={
-                              task.completed
-                            }
-
-                            onCheckedChange={() =>
-                              toggleTask(task)
-                            }
-
-                          />
-
-
-
-                          <div className="min-w-0 flex-1">
-
-
-                            <p className="
-                              break-words
-                              text-sm
-                              font-medium
-                            ">
-
-                              {task.title}
-
-                            </p>
-
-
-
-
-                            {
-                              task.dueDate && (
-
-                                <div className="
-                                  mt-1
-                                  flex
-                                  items-center
-                                  gap-1
-                                  text-xs
-                                  text-muted-foreground
-                                ">
-
-                                  <CalendarClock className="h-3.5 w-3.5"/>
-
-                                  {
-                                    new Date(
-                                      task.dueDate
-                                    ).toLocaleDateString(
-                                      "en-IN"
-                                    )
-                                  }
-
-                                </div>
-
-                              )
-                            }
-
-
-                          </div>
-
-
-                        </div>
-
-
-                      </div>
-
-                    )
-                  )
-                }
-
-
-              </div>
-
+              No pending tasks.
 
             </div>
 
+          )
+
+          :
+
+          (
+
+            <TaskGroup
+
+              title="Upcoming"
+
+              tasks={
+                pending
+              }
+
+              onToggle={
+                toggleTask
+              }
+
+            />
 
           )
 
         }
+
 
 
 
@@ -600,81 +661,235 @@ export function RelationshipTasks({
         {
           completed.length > 0 && (
 
-            <div>
+            <TaskGroup
 
+              title="Completed"
 
-              <p className="
-                mb-2
-                text-xs
-                font-semibold
-                uppercase
-                tracking-wide
-                text-muted-foreground
-              ">
+              tasks={
+                completed
+              }
 
-                Completed
+              completed
 
-              </p>
+              onToggle={
+                toggleTask
+              }
 
-
-
-              <div className="space-y-2">
-
-                {
-                  completed.map(
-                    task => (
-
-                      <div
-
-                        key={task.id}
-
-                        className="
-                          rounded-xl
-                          bg-muted/30
-                          p-3
-                        "
-
-                      >
-
-                        <div className="flex items-center gap-2">
-
-                          <CheckCircle2 className="h-4 w-4 shrink-0"/>
-
-                          <p className="
-                            break-words
-                            text-sm
-                            text-muted-foreground
-                            line-through
-                          ">
-
-                            {task.title}
-
-                          </p>
-
-
-                        </div>
-
-
-                      </div>
-
-                    )
-                  )
-                }
-
-              </div>
-
-
-            </div>
+            />
 
           )
-
         }
+
+
+
 
 
       </CardContent>
 
 
     </Card>
+
+  )
+
+}
+
+
+
+
+
+
+
+
+function TaskGroup({
+  title,
+  tasks,
+  completed = false,
+  onToggle,
+}:{
+  title:string
+  tasks:Task[]
+  completed?:boolean
+  onToggle:(task:Task)=>void
+}){
+
+
+  return (
+
+    <div>
+
+
+      <p className="
+        mb-3
+        text-xs
+        font-semibold
+        uppercase
+        tracking-wide
+        text-muted-foreground
+      ">
+
+        {title}
+
+      </p>
+
+
+
+
+
+      <div className="
+        space-y-3
+      ">
+
+
+        {
+          tasks.map(
+            task => (
+
+              <div
+
+                key={
+                  task.id
+                }
+
+                className={`
+                  rounded-xl
+                  border
+                  p-4
+                  ${
+                    completed
+                    ? "bg-muted/30"
+                    : ""
+                  }
+                `}
+
+              >
+
+
+                <div className="
+                  flex
+                  items-start
+                  gap-3
+                ">
+
+
+
+                  <Checkbox
+
+                    className="
+                      mt-1
+                      h-5
+                      w-5
+                    "
+
+                    checked={
+                      task.completed
+                    }
+
+                    onCheckedChange={() =>
+                      onToggle(
+                        task
+                      )
+                    }
+
+                  />
+
+
+
+
+
+                  <div className="
+                    min-w-0
+                    flex-1
+                  ">
+
+
+                    <p className={`
+                      text-sm
+                      font-medium
+                      ${
+                        completed
+                        ? "line-through text-muted-foreground"
+                        : ""
+                      }
+                    `}>
+
+                      {task.title}
+
+                    </p>
+
+
+
+
+
+                    {
+                      task.dueDate && (
+
+                        <div className="
+                          mt-2
+                          flex
+                          items-center
+                          gap-2
+                          text-xs
+                          text-muted-foreground
+                        ">
+
+
+                          <CalendarClock className="
+                            h-3.5
+                            w-3.5
+                          "/>
+
+
+                          {
+                            new Date(
+                              task.dueDate
+                            )
+                            .toLocaleDateString(
+                              "en-IN"
+                            )
+                          }
+
+
+                        </div>
+
+                      )
+                    }
+
+
+                  </div>
+
+
+
+
+
+                  {
+                    completed && (
+
+                      <CheckCircle2 className="
+                        h-4
+                        w-4
+                      "/>
+
+                    )
+                  }
+
+
+
+                </div>
+
+
+              </div>
+
+            )
+
+          )
+
+        }
+
+
+      </div>
+
+
+    </div>
 
   )
 

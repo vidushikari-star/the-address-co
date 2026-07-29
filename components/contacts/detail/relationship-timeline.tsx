@@ -19,18 +19,18 @@ import {
 
 import {
   Calendar,
+  CheckCircle2,
+  CircleDollarSign,
+  ClipboardList,
   FileText,
+  GitBranch,
+  HandCoins,
   Home,
   Mail,
   MapPin,
   MessageCircle,
   Phone,
-  CheckCircle2,
-  ClipboardList,
-  HandCoins,
   UserPlus,
-  CircleDollarSign,
-  GitBranch,
   XCircle,
 } from "lucide-react"
 
@@ -43,25 +43,45 @@ import {
 
 
 
+
+
+
 const activityIcons = {
 
   contact_created: UserPlus,
+
   call: Phone,
+
   meeting: Calendar,
+
   site_visit: MapPin,
+
   email: Mail,
+
   whatsapp: MessageCircle,
+
   note: FileText,
+
   task_created: ClipboardList,
+
   task_completed: CheckCircle2,
+
   task_removed: XCircle,
+
   property_shared: Home,
+
   property_viewed: Home,
+
   offer_made: HandCoins,
-  deal_stage_changed: HandCoins,
+
+  deal_stage_changed: GitBranch,
+
   lead_stage_changed: GitBranch,
+
   deal_closed: CheckCircle2,
+
   commission_received: CircleDollarSign,
+
   commission: CircleDollarSign,
 
 } satisfies Record<
@@ -71,9 +91,17 @@ const activityIcons = {
 
 
 
+
+
+
 type Props = {
+
   contact: Contact
+
 }
+
+
+
 
 
 
@@ -81,7 +109,8 @@ type Props = {
 
 export function RelationshipTimeline({
   contact,
-}: Props) {
+}:Props){
+
 
 
   const [
@@ -92,32 +121,48 @@ export function RelationshipTimeline({
 
 
 
+  const [
+    loading,
+    setLoading,
+  ] =
+  useState(true)
 
 
-  useEffect(() => {
+
+
+
+
+
+  useEffect(()=>{
+
 
     async function loadActivities(){
 
-      try {
+
+      try{
+
 
         const data =
           await getActivitiesByContactId(
             contact.id
           )
 
-        setActivities(data)
 
-
-      } catch(error){
-
-        console.error(
-          "Failed loading activities",
-          error
+        setActivities(
+          data
         )
+
+
+      }
+      finally{
+
+        setLoading(false)
 
       }
 
+
     }
+
 
 
     loadActivities()
@@ -133,20 +178,28 @@ export function RelationshipTimeline({
 
 
 
+
+
   const sortedActivities =
     activities
       .slice()
       .sort(
         (a,b)=>
+
           new Date(
             b.date ??
             b.createdAt
-          ).getTime()
+          )
+          .getTime()
+
           -
+
           new Date(
             a.date ??
             a.createdAt
-          ).getTime()
+          )
+          .getTime()
+
       )
       .slice(
         0,
@@ -159,9 +212,13 @@ export function RelationshipTimeline({
 
 
 
+
   return (
 
-    <Card>
+    <Card className="
+      rounded-2xl
+    ">
+
 
 
       <CardHeader className="
@@ -169,9 +226,15 @@ export function RelationshipTimeline({
         py-3
       ">
 
-        <CardTitle className="text-base">
+
+        <CardTitle className="
+          text-base
+        ">
+
           Activity Timeline
+
         </CardTitle>
+
 
       </CardHeader>
 
@@ -180,16 +243,42 @@ export function RelationshipTimeline({
 
 
 
+
+
       <CardContent className="
         px-4
-        pb-4
+        pb-5
       ">
 
 
+
+
+
+
         {
+          loading ? (
+
+            <p className="
+              py-6
+              text-center
+              text-sm
+              text-muted-foreground
+            ">
+
+              Loading activity...
+
+            </p>
+
+          )
+
+          :
+
           sortedActivities.length === 0 ? (
 
             <div className="
+              rounded-xl
+              border
+              border-dashed
               py-8
               text-center
               text-sm
@@ -200,32 +289,43 @@ export function RelationshipTimeline({
 
             </div>
 
+          )
 
-          ) : (
 
+          :
 
-            <div className="space-y-5">
+          (
+
+            <div className="
+              space-y-6
+            ">
 
 
               {
                 sortedActivities.map(
-
                   activity => {
 
 
                     const Icon =
                       activityIcons[
                         activity.type
-                      ] ?? FileText
+                      ]
+                      ??
+                      FileText
+
+
+
 
 
 
                     const text =
-                      (
-                        activity.body ??
-                        activity.description ??
-                        ""
-                      )
+                      activity.body
+                      ??
+                      activity.description
+                      ??
+                      ""
+
+
 
 
 
@@ -241,34 +341,50 @@ export function RelationshipTimeline({
 
                         className="
                           flex
-                          gap-3
+                          gap-4
                         "
 
                       >
 
 
 
+
+
                         <div className="
-                          mt-1
+                          relative
                           flex
-                          h-8
-                          w-8
                           shrink-0
+                          flex-col
                           items-center
-                          justify-center
-                          rounded-full
-                          border
-                          bg-background
                         ">
 
 
-                          <Icon className="
-                            h-3.5
-                            w-3.5
-                          "/>
+
+                          <div className="
+                            flex
+                            h-9
+                            w-9
+                            items-center
+                            justify-center
+                            rounded-full
+                            border
+                            bg-background
+                          ">
+
+
+                            <Icon className="
+                              h-4
+                              w-4
+                            "/>
+
+
+                          </div>
 
 
                         </div>
+
+
+
 
 
 
@@ -278,6 +394,7 @@ export function RelationshipTimeline({
                           min-w-0
                           flex-1
                         ">
+
 
 
                           <div className="
@@ -293,7 +410,7 @@ export function RelationshipTimeline({
                             <h4 className="
                               break-words
                               text-sm
-                              font-medium
+                              font-semibold
                             ">
 
                               {activity.title}
@@ -302,8 +419,10 @@ export function RelationshipTimeline({
 
 
 
+
+
+
                             <span className="
-                              shrink-0
                               text-xs
                               text-muted-foreground
                             ">
@@ -312,14 +431,17 @@ export function RelationshipTimeline({
                                 new Date(
                                   activity.date ??
                                   activity.createdAt
-                                ).toLocaleDateString(
+                                )
+                                .toLocaleDateString(
                                   "en-IN",
                                   {
                                     day:"numeric",
                                     month:"short",
+                                    year:"numeric",
                                   }
                                 )
                               }
+
 
                             </span>
 
@@ -330,13 +452,17 @@ export function RelationshipTimeline({
 
 
 
+
+
                           {
                             text && (
 
                               <p className="
-                                mt-1
-                                line-clamp-2
+                                mt-2
                                 break-words
+                                rounded-lg
+                                bg-muted/40
+                                p-2
                                 text-xs
                                 text-muted-foreground
                               ">
@@ -349,13 +475,14 @@ export function RelationshipTimeline({
                           }
 
 
+
+
                         </div>
 
 
                       </div>
 
                     )
-
 
                   }
 
@@ -366,10 +493,10 @@ export function RelationshipTimeline({
 
             </div>
 
-
           )
 
         }
+
 
 
       </CardContent>

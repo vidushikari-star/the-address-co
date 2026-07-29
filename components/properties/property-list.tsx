@@ -270,7 +270,7 @@ export function PropertyList() {
 
   return (
 
-    <div className="space-y-5">
+    <div className="space-y-6 px-1 pb-6">
 
 
 
@@ -287,14 +287,19 @@ export function PropertyList() {
       ">
 
 
-        <p className="
-          text-sm
-          text-muted-foreground
-        ">
-
-          {filteredProperties.length} properties
-
-        </p>
+        <p
+  className="
+    text-sm
+    font-medium
+    text-muted-foreground
+  "
+>
+  Showing{" "}
+  <span className="font-semibold text-foreground">
+    {filteredProperties.length}
+  </span>{" "}
+  properties
+</p>
 
 
 
@@ -330,12 +335,22 @@ export function PropertyList() {
 
 
 
-      <div className="
-  grid
-  gap-3
-  sm:grid-cols-2
-  lg:grid-cols-3
-">
+      <div
+  className="
+    sticky
+    top-0
+    z-20
+    grid
+    gap-3
+    rounded-2xl
+    border
+    bg-background/95
+    p-4
+    backdrop-blur
+    sm:grid-cols-2
+    lg:grid-cols-3
+  "
+>
 
 
 
@@ -346,7 +361,7 @@ export function PropertyList() {
             rounded-xl
           "
 
-          placeholder="Search property or locality..."
+          placeholder="Search property, locality or developer..."
 
           value={search}
 
@@ -478,7 +493,28 @@ export function PropertyList() {
             text-muted-foreground
           ">
 
-            No properties found.
+            <div className="space-y-3">
+
+  <p className="text-base font-medium">
+    No properties match your filters.
+  </p>
+
+  <p className="text-sm text-muted-foreground">
+    Try adjusting your search or clearing the filters.
+  </p>
+
+  {hasFilters && (
+
+    <Button
+      variant="outline"
+      onClick={clearFilters}
+    >
+      Clear Filters
+    </Button>
+
+  )}
+
+</div>
 
           </div>
 
@@ -488,7 +524,7 @@ export function PropertyList() {
 
 
 
-          <div className="space-y-4">
+          <div className="space-y-5">
 
 
             {

@@ -1,17 +1,20 @@
 "use client"
 
-import type { Contact } from "@/types"
+import type {
+  Contact,
+} from "@/types"
 
 import {
   BadgeIndianRupee,
-  CalendarClock,
   Mail,
   MapPin,
   Phone,
   User,
 } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
+import {
+  Badge,
+} from "@/components/ui/badge"
 
 import {
   Card,
@@ -22,9 +25,16 @@ import {
 
 
 
+
+
 type RelationshipSnapshotProps = {
+
   contact: Contact
+
 }
+
+
+
 
 
 
@@ -32,7 +42,8 @@ type RelationshipSnapshotProps = {
 
 export function RelationshipSnapshot({
   contact,
-}: RelationshipSnapshotProps) {
+}:RelationshipSnapshotProps){
+
 
 
   const locations =
@@ -40,9 +51,16 @@ export function RelationshipSnapshot({
 
 
 
+
+
+
+
   return (
 
-    <div className="space-y-4">
+    <div className="
+      space-y-4
+    ">
+
 
 
 
@@ -50,33 +68,74 @@ export function RelationshipSnapshot({
 
       {/* CONTACT */}
 
-      <Card>
+
+      <Card className="
+        rounded-2xl
+      ">
 
 
-        <CardHeader className="px-4 py-3">
+        <CardHeader className="
+          px-4
+          py-3
+        ">
 
-          <CardTitle className="text-base">
+          <CardTitle className="
+            text-base
+          ">
+
             Contact
+
           </CardTitle>
+
 
         </CardHeader>
 
 
 
-        <CardContent className="space-y-3 px-4 pb-4">
 
 
-          <div className="flex min-w-0 items-center gap-3 text-sm">
+        <CardContent className="
+          space-y-3
+          px-4
+          pb-5
+        ">
 
-            <Phone className="h-4 w-4 shrink-0 text-muted-foreground"/>
 
-            <span className="truncate">
 
-              {contact.phone || "Not provided"}
+
+
+          <div className="
+            flex
+            items-center
+            gap-3
+            text-sm
+          ">
+
+            <Phone className="
+              h-4
+              w-4
+              shrink-0
+              text-muted-foreground
+            "/>
+
+
+            <span className="
+              truncate
+            ">
+
+              {
+                contact.phone ||
+                "Not provided"
+              }
 
             </span>
 
+
           </div>
+
+
+
+
 
 
 
@@ -84,15 +143,30 @@ export function RelationshipSnapshot({
           {
             contact.email && (
 
-              <div className="flex min-w-0 items-center gap-3 text-sm">
+              <div className="
+                flex
+                items-center
+                gap-3
+                text-sm
+              ">
 
-                <Mail className="h-4 w-4 shrink-0 text-muted-foreground"/>
 
-                <span className="truncate">
+                <Mail className="
+                  h-4
+                  w-4
+                  shrink-0
+                  text-muted-foreground
+                "/>
+
+
+                <span className="
+                  truncate
+                ">
 
                   {contact.email}
 
                 </span>
+
 
               </div>
 
@@ -103,13 +177,39 @@ export function RelationshipSnapshot({
 
 
 
-          <div className="flex items-center gap-3 text-sm">
 
-            <User className="h-4 w-4 shrink-0 text-muted-foreground"/>
 
-            Buyer
+
+          <div className="
+            flex
+            items-center
+            gap-3
+            text-sm
+          ">
+
+
+            <User className="
+              h-4
+              w-4
+              shrink-0
+              text-muted-foreground
+            "/>
+
+
+            <Badge variant="secondary">
+
+              {
+                contact.type ??
+                "Buyer"
+              }
+
+            </Badge>
+
 
           </div>
+
+
+
 
 
 
@@ -118,16 +218,31 @@ export function RelationshipSnapshot({
           {
             contact.city && (
 
-              <div className="flex items-center gap-3 text-sm">
+              <div className="
+                flex
+                items-center
+                gap-3
+                text-sm
+              ">
 
-                <MapPin className="h-4 w-4 shrink-0 text-muted-foreground"/>
+
+                <MapPin className="
+                  h-4
+                  w-4
+                  shrink-0
+                  text-muted-foreground
+                "/>
+
 
                 {contact.city}
+
 
               </div>
 
             )
           }
+
+
 
 
         </CardContent>
@@ -142,101 +257,121 @@ export function RelationshipSnapshot({
 
 
 
+
       {/* REQUIREMENTS */}
 
-      <Card>
+
+      <Card className="
+        rounded-2xl
+      ">
 
 
-        <CardHeader className="px-4 py-3">
+        <CardHeader className="
+          px-4
+          py-3
+        ">
 
-          <CardTitle className="text-base">
+
+          <CardTitle className="
+            text-base
+          ">
+
             Requirements
+
           </CardTitle>
+
 
         </CardHeader>
 
 
 
 
+
+
+
         <CardContent className="
-          grid
-          grid-cols-1
-          gap-4
+          space-y-5
           px-4
-          pb-4
-          sm:grid-cols-2
+          pb-5
         ">
 
 
 
 
 
+
           {
-            (contact.budgetMin ||
-            contact.budgetMax) && (
+            (
+              contact.budgetMin
+              ||
+              contact.budgetMax
+            )
+            && (
 
-              <div className="sm:col-span-2">
+              <div>
 
-                <p className="flex items-center gap-2 text-xs text-muted-foreground">
 
-                  <BadgeIndianRupee className="h-3.5 w-3.5"/>
+                <p className="
+                  flex
+                  items-center
+                  gap-2
+                  text-xs
+                  text-muted-foreground
+                ">
+
+                  <BadgeIndianRupee className="
+                    h-4
+                    w-4
+                  "/>
+
 
                   Budget
 
+
                 </p>
 
 
-                <p className="mt-1 text-sm font-medium">
+
+
+                <p className="
+                  mt-2
+                  text-lg
+                  font-semibold
+                ">
+
 
                   ₹
                   {
-                    contact.budgetMin?.toLocaleString()
+                    contact.budgetMin
+                    ?.toLocaleString(
+                      "en-IN"
+                    )
                     ??
                     "—"
                   }
+
 
                   {" - "}
 
+
                   ₹
                   {
-                    contact.budgetMax?.toLocaleString()
+                    contact.budgetMax
+                    ?.toLocaleString(
+                      "en-IN"
+                    )
                     ??
                     "—"
                   }
 
+
                 </p>
 
 
               </div>
 
             )
-          }
 
-
-
-
-
-          {
-            contact.propertyType && (
-
-              <div>
-
-                <p className="text-xs text-muted-foreground">
-                  Type
-                </p>
-
-                <Badge
-                  className="mt-1"
-                  variant="secondary"
-                >
-
-                  {contact.propertyType}
-
-                </Badge>
-
-              </div>
-
-            )
           }
 
 
@@ -244,26 +379,102 @@ export function RelationshipSnapshot({
 
 
 
-          {
-            contact.bedrooms && (
-
-              <div>
-
-                <p className="text-xs text-muted-foreground">
-                  Size
-                </p>
 
 
-                <Badge className="mt-1">
 
-                  {contact.bedrooms} BHK
+          <div className="
+            grid
+            grid-cols-2
+            gap-4
+          ">
 
-                </Badge>
 
-              </div>
 
-            )
-          }
+            {
+              contact.propertyType && (
+
+                <div>
+
+
+                  <p className="
+                    text-xs
+                    text-muted-foreground
+                  ">
+
+                    Property
+
+                  </p>
+
+
+
+                  <Badge
+
+                    className="
+                      mt-2
+                    "
+
+                    variant="secondary"
+
+                  >
+
+                    {contact.propertyType}
+
+                  </Badge>
+
+
+                </div>
+
+              )
+            }
+
+
+
+
+
+
+
+
+            {
+              contact.bedrooms && (
+
+                <div>
+
+
+                  <p className="
+                    text-xs
+                    text-muted-foreground
+                  ">
+
+                    Size
+
+                  </p>
+
+
+
+                  <Badge
+
+                    className="
+                      mt-2
+                    "
+
+                  >
+
+                    {contact.bedrooms} BHK
+
+                  </Badge>
+
+
+                </div>
+
+              )
+            }
+
+
+          </div>
+
+
+
+
 
 
 
@@ -272,10 +483,14 @@ export function RelationshipSnapshot({
           {
             locations.length > 0 && (
 
-              <div className="sm:col-span-2">
+              <div>
 
 
-                <p className="mb-2 text-xs text-muted-foreground">
+                <p className="
+                  mb-2
+                  text-xs
+                  text-muted-foreground
+                ">
 
                   Preferred Locations
 
@@ -283,16 +498,25 @@ export function RelationshipSnapshot({
 
 
 
-                <div className="flex flex-wrap gap-2">
+                <div className="
+                  flex
+                  flex-wrap
+                  gap-2
+                ">
+
 
                   {
                     locations.map(
                       location => (
 
                         <Badge
-                          key={location}
+
+                          key={
+                            location
+                          }
+
                           variant="outline"
-                          className="break-words"
+
                         >
 
                           {location}
@@ -300,8 +524,11 @@ export function RelationshipSnapshot({
                         </Badge>
 
                       )
+
                     )
+
                   }
+
 
                 </div>
 
@@ -328,75 +555,81 @@ export function RelationshipSnapshot({
 
       {/* CRM */}
 
-      <Card>
+
+      <Card className="
+        rounded-2xl
+      ">
 
 
-        <CardHeader className="px-4 py-3">
+        <CardHeader className="
+          px-4
+          py-3
+        ">
 
-          <CardTitle className="text-base">
+
+          <CardTitle className="
+            text-base
+          ">
+
             CRM
+
           </CardTitle>
+
 
         </CardHeader>
 
 
 
 
-        <CardContent className="space-y-3 px-4 pb-4">
 
 
 
-          <div className="flex items-start justify-between gap-4 text-sm">
-
-            <span className="shrink-0 text-muted-foreground">
-              Advisor
-            </span>
-
-            <span className="truncate text-right font-medium">
-              {contact.assignedAdvisor ?? "Unassigned"}
-            </span>
-
-          </div>
+        <CardContent className="
+          space-y-4
+          px-4
+          pb-5
+        ">
 
 
 
+          <InfoRow
 
+            label="Advisor"
 
-          <div className="flex items-start justify-between gap-4 text-sm">
+            value={
+              contact.assignedAdvisor ??
+              "Unassigned"
+            }
 
-            <span className="shrink-0 text-muted-foreground">
-              Source
-            </span>
-
-            <span className="truncate text-right font-medium">
-              {contact.leadSource ?? "Unknown"}
-            </span>
-
-          </div>
+          />
 
 
 
 
+          <InfoRow
 
-          <div className="flex items-start justify-between gap-4 text-sm">
+            label="Source"
 
-            <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
+            value={
+              contact.leadSource ??
+              "Unknown"
+            }
 
-              <CalendarClock className="h-4 w-4"/>
-
-              Timeline
-
-            </span>
-
-
-            <span className="truncate text-right font-medium">
-
-              {contact.timeline ?? "Not specified"}
-
-            </span>
+          />
 
 
-          </div>
+
+
+          <InfoRow
+
+            label="Timeline"
+
+            value={
+              contact.timeline ??
+              "Not specified"
+            }
+
+          />
 
 
 
@@ -404,6 +637,60 @@ export function RelationshipSnapshot({
 
 
       </Card>
+
+
+
+    </div>
+
+  )
+
+}
+
+
+
+
+
+
+
+function InfoRow({
+  label,
+  value,
+}:{
+  label:string
+  value:string
+}){
+
+  return (
+
+    <div className="
+      flex
+      items-start
+      justify-between
+      gap-4
+      text-sm
+    ">
+
+
+      <span className="
+        text-muted-foreground
+      ">
+
+        {label}
+
+      </span>
+
+
+
+      <span className="
+        max-w-[60%]
+        truncate
+        text-right
+        font-medium
+      ">
+
+        {value}
+
+      </span>
 
 
     </div>

@@ -1,441 +1,539 @@
 import Link from "next/link"
 
 import {
+  Bath,
   BedDouble,
   Building2,
   CalendarDays,
   ChevronRight,
   MapPin,
+  Ruler,
   Users,
 } from "lucide-react"
 
-import {
-  StatusBadge,
-} from "@/components/shared/status-badge"
-
-import {
-  formatCurrencyCr,
-} from "@/lib/formatters/currency"
+import { StatusBadge } from "@/components/shared/status-badge"
+import { formatCurrencyCr } from "@/lib/formatters/currency"
 
 import type {
   Property,
 } from "@/types/property"
 
-
-
 type PropertyCardProps = {
   property: Property
 }
 
-
-
-
-
 export function PropertyCard({
   property,
 }: PropertyCardProps) {
-
-
   return (
-
     <Link
-
       href={`/properties/${property.slug}`}
-
       className="
         group
-        flex
-        w-full
-        flex-col
+        block
+        overflow-hidden
         rounded-3xl
         border
         border-border/60
         bg-card
-        p-4
         transition-all
-        duration-200
-        hover:-translate-y-0.5
-hover:border-primary/20
-hover:bg-background
-        sm:flex-row
-        sm:p-6
+        duration-300
+        hover:-translate-y-1
+        hover:border-primary/20
+        hover:bg-background
+        hover:shadow-lg
+        active:scale-[0.99]
       "
-
     >
 
+      {/* Mobile Layout */}
 
+      <div className="block lg:hidden">
 
+        <div className="relative aspect-[16/10] overflow-hidden bg-muted">
 
-      {/* IMAGE */}
-
-      <div className="
-        h-40
-sm:h-32
-        w-full
-        overflow-hidden
-        rounded-2xl
-        bg-muted
-        sm:h-32
-        sm:w-44
-        sm:shrink-0
-      ">
-
-
-        {
-          property.coverImage ? (
-
+          {property.coverImage ? (
             <img
-
               src={property.coverImage}
-
               alt={property.name}
-
               className="
                 h-full
                 w-full
                 object-cover
                 transition-transform
-                duration-300
+                duration-500
                 group-hover:scale-105
               "
+            />
+          ) : (
+            <div
+              className="
+                flex
+                h-full
+                items-center
+                justify-center
+                text-sm
+                text-muted-foreground
+              "
+            >
+              No Image
+            </div>
+          )}
 
+          <div className="absolute left-4 top-4">
+            <StatusBadge status={property.status} />
+          </div>
+
+        </div>
+
+        <div className="space-y-5 p-5">
+
+          <div className="space-y-2">
+
+            <div className="flex items-start justify-between gap-3">
+
+              <div className="min-w-0 flex-1">
+
+                <h3
+                  className="
+                    line-clamp-2
+                    text-xl
+                    font-semibold
+                    leading-tight
+                  "
+                >
+                  {property.name}
+                </h3>
+
+                <div
+                  className="
+                    mt-2
+                    flex
+                    items-center
+                    gap-1.5
+                    text-sm
+                    text-muted-foreground
+                  "
+                >
+                  <MapPin className="h-4 w-4 shrink-0" />
+
+                  <span className="truncate">
+                    {property.location}
+                  </span>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            <p
+              className="
+                text-3xl
+                font-bold
+                tracking-tight
+                text-primary
+              "
+            >
+              {formatCurrencyCr(property.price.asking)}
+            </p>
+
+          </div>
+
+          <div
+            className="
+              grid
+              grid-cols-3
+              gap-3
+              rounded-2xl
+              bg-muted/40
+              p-4
+            "
+          >
+
+            <div className="flex flex-col items-center gap-1">
+
+              <BedDouble className="h-5 w-5 text-muted-foreground" />
+
+              <span className="text-sm font-medium">
+                {property.specifications.bedrooms}
+              </span>
+
+              <span className="text-xs text-muted-foreground">
+                Beds
+              </span>
+
+            </div>
+
+            <div className="flex flex-col items-center gap-1">
+
+              <Bath className="h-5 w-5 text-muted-foreground" />
+
+              <span className="text-sm font-medium">
+                {property.specifications.bathrooms}
+              </span>
+
+              <span className="text-xs text-muted-foreground">
+                Baths
+              </span>
+
+            </div>
+
+            <div className="flex flex-col items-center gap-1">
+
+              <Ruler className="h-5 w-5 text-muted-foreground" />
+
+              <span className="text-sm font-medium">
+                {property.specifications.carpetArea.toLocaleString()}
+              </span>
+
+              <span className="text-xs text-muted-foreground">
+                Sqft
+              </span>
+
+            </div>
+
+          </div>
+                    <div className="space-y-4">
+
+            <div className="grid grid-cols-2 gap-4">
+
+              <div>
+
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Developer
+                </p>
+
+                <div className="mt-1 flex items-center gap-2">
+
+                  <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+
+                  <span className="truncate text-sm font-medium">
+                    {property.developer}
+                  </span>
+
+                </div>
+
+              </div>
+
+              <div>
+
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Buyer Matches
+                </p>
+
+                <div className="mt-1 flex items-center gap-2">
+
+                  <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
+
+                  <span className="font-medium">
+                    {property.buyerMatches}
+                  </span>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            <div>
+
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Last Shared
+              </p>
+
+              <div className="mt-1 flex items-center gap-2">
+
+                <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+
+                <span className="font-medium">
+                  {property.lastShared}
+                </span>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          <div
+            className="
+              flex
+              items-center
+              justify-between
+              border-t
+              pt-4
+            "
+          >
+
+            <span
+              className="
+                text-sm
+                font-medium
+                text-primary
+                transition-colors
+                group-hover:text-primary
+              "
+            >
+              View Property
+            </span>
+
+            <ChevronRight
+              className="
+                h-5
+                w-5
+                text-muted-foreground
+                transition-transform
+                duration-300
+                group-hover:translate-x-1
+              "
+            />
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* Desktop Layout */}
+
+      <div className="hidden lg:flex">
+
+        <div
+          className="
+            h-56
+            w-72
+            shrink-0
+            overflow-hidden
+            bg-muted
+          "
+        >
+
+          {property.coverImage ? (
+
+            <img
+              src={property.coverImage}
+              alt={property.name}
+              className="
+                h-full
+                w-full
+                object-cover
+                transition-transform
+                duration-500
+                group-hover:scale-105
+              "
             />
 
           ) : (
 
-            <div className="
-              flex
-              h-full
-              items-center
-              justify-center
-              text-sm
-              text-muted-foreground
-            ">
-
+            <div
+              className="
+                flex
+                h-full
+                items-center
+                justify-center
+                text-muted-foreground
+              "
+            >
               No Image
+            </div>
+
+          )}
+
+        </div>
+
+       <div
+  className="
+    flex
+    flex-1
+    flex-col
+    p-7
+  "
+>
+                  <div className="flex items-start justify-between gap-6">
+
+            <div className="min-w-0 flex-1">
+
+              <div className="flex items-center gap-3">
+
+                <h3 className="truncate text-2xl font-semibold tracking-tight">
+                  {property.name}
+                </h3>
+
+                <StatusBadge status={property.status} />
+
+              </div>
+
+              <div className="mt-2 flex items-center gap-2 text-muted-foreground">
+
+                <MapPin className="h-4 w-4 shrink-0" />
+
+                <span>{property.location}</span>
+
+              </div>
 
             </div>
 
-          )
+            <p className="shrink-0 text-4xl font-bold tracking-tight text-primary">
+              {formatCurrencyCr(property.price.asking)}
+            </p>
 
-        }
+          </div>
 
+          <div
+            className="
+              mt-8
+              grid
+              grid-cols-3
+              gap-5
+              rounded-2xl
+              bg-muted/40
+              p-5
+            "
+          >
+
+            <div className="flex items-center gap-3">
+
+              <BedDouble className="h-5 w-5 text-muted-foreground" />
+
+              <div>
+
+                <p className="text-lg font-semibold">
+                  {property.specifications.bedrooms}
+                </p>
+
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Bedrooms
+                </p>
+
+              </div>
+
+            </div>
+
+            <div className="flex items-center gap-3">
+
+              <Bath className="h-5 w-5 text-muted-foreground" />
+
+              <div>
+
+                <p className="text-lg font-semibold">
+                  {property.specifications.bathrooms}
+                </p>
+
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Bathrooms
+                </p>
+
+              </div>
+
+            </div>
+
+            <div className="flex items-center gap-3">
+
+              <Ruler className="h-5 w-5 text-muted-foreground" />
+
+              <div>
+
+                <p className="text-lg font-semibold">
+                  {property.specifications.carpetArea.toLocaleString()}
+                </p>
+
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Sqft
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          <div
+            className="
+              mt-8
+              grid
+              grid-cols-3
+              gap-6
+              border-t
+              pt-6
+            "
+          >
+
+            <div>
+
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Developer
+              </p>
+
+              <div className="mt-2 flex items-center gap-2">
+
+                <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+
+                <span className="truncate font-medium">
+                  {property.developer}
+                </span>
+
+              </div>
+
+            </div>
+
+            <div>
+
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Buyer Matches
+              </p>
+
+              <div className="mt-2 flex items-center gap-2">
+
+                <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
+
+                <span className="font-medium">
+                  {property.buyerMatches}
+                </span>
+
+              </div>
+
+            </div>
+
+            <div>
+
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Last Shared
+              </p>
+
+              <div className="mt-2 flex items-center gap-2">
+
+                <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+
+                <span className="font-medium">
+                  {property.lastShared}
+                </span>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          <div className="mt-auto flex justify-end pt-8">
+
+            <ChevronRight
+              className="
+                h-6
+                w-6
+                text-muted-foreground
+                transition-transform
+                duration-300
+                group-hover:translate-x-1
+              "
+            />
+
+          </div>
+
+        </div>
 
       </div>
-
-
-
-
-
-
-
-      {/* CONTENT */}
-
-      <div className="
-        mt-4
-        flex
-        min-w-0
-        flex-1
-        flex-col
-        sm:ml-6
-        sm:mt-0
-      ">
-
-
-
-        <div className="
-          flex
-          items-start
-          justify-between
-          gap-3
-        ">
-
-
-          <div className="min-w-0">
-
-
-            <h3 className="
-              truncate
-              text-lg
-              font-semibold
-              tracking-tight
-              sm:text-xl
-            ">
-
-              {property.name}
-
-            </h3>
-
-
-            <div className="
-              mt-1
-              flex
-              items-center
-              gap-1
-              text-sm
-              text-muted-foreground
-            ">
-
-              <MapPin className="h-4 w-4"/>
-
-              {property.location}
-
-            </div>
-
-
-          </div>
-
-
-
-
-          <StatusBadge
-            status={property.status}
-          />
-
-
-
-        </div>
-
-
-
-
-
-
-
-        <p className="
-          mt-4
-          text-2xl
-          font-semibold
-          text-primary
-        ">
-
-          {
-            formatCurrencyCr(
-              property.price.asking
-            )
-          }
-
-        </p>
-
-
-
-
-
-
-
-        <div className="
-          mt-3
-          flex
-          flex-wrap
-          gap-4
-          text-sm
-          text-muted-foreground
-        ">
-
-
-          <span className="
-            flex
-            items-center
-            gap-1
-          ">
-
-            <BedDouble className="h-4 w-4"/>
-
-            {property.specifications.bedrooms} Bed
-
-          </span>
-
-
-
-
-
-          <span>
-
-            {property.specifications.bathrooms} Bath
-
-          </span>
-
-
-
-
-
-          <span>
-
-            {
-              property.specifications.carpetArea.toLocaleString()
-            } sqft
-
-          </span>
-
-
-
-        </div>
-
-
-
-
-
-
-
-
-        <div className="
-          mt-5
-          grid
-          grid-cols-1
-          gap-3
-          border-t
-          pt-4
-          text-sm
-          sm:grid-cols-3
-        ">
-
-
-
-          <div>
-
-            <p className="
-              text-xs
-              uppercase
-              tracking-wide
-              text-muted-foreground
-            ">
-
-              Developer
-
-            </p>
-
-
-            <div className="
-              mt-1
-              flex
-              items-center
-              gap-2
-              font-medium
-            ">
-
-
-              <Building2 className="h-4 w-4"/>
-
-              <span className="truncate">
-  {property.developer}
-</span>
-
-
-            </div>
-
-
-          </div>
-
-
-
-
-
-
-
-          <div>
-
-            <p className="
-              text-xs
-              uppercase
-              tracking-wide
-              text-muted-foreground
-            ">
-
-              Buyer Matches
-
-            </p>
-
-
-            <div className="
-              mt-1
-              flex
-              items-center
-              gap-2
-              font-medium
-            ">
-
-
-              <Users className="h-4 w-4"/>
-
-              {property.buyerMatches}
-
-
-            </div>
-
-
-          </div>
-
-
-
-
-
-
-
-
-          <div>
-
-            <p className="
-              text-xs
-              uppercase
-              tracking-wide
-              text-muted-foreground
-            ">
-
-              Last Shared
-
-            </p>
-
-
-            <div className="
-              mt-1
-              flex
-              items-center
-              gap-2
-              font-medium
-            ">
-
-
-              <CalendarDays className="h-4 w-4"/>
-
-              {property.lastShared}
-
-
-            </div>
-
-
-          </div>
-
-
-
-
-        </div>
-
-
-
-      </div>
-
-
-
-
-
-
-
-      <ChevronRight className="
-        mt-4
-        h-5
-        w-5
-        shrink-0
-        text-muted-foreground
-        transition-transform
-        duration-200
-        group-hover:translate-x-1
-        sm:mt-2
-        sm:ml-4
-      "/>
-
 
     </Link>
-
   )
-
 }

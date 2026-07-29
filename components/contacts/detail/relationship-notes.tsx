@@ -5,9 +5,13 @@ import {
   useState,
 } from "react"
 
-import type { Contact } from "@/types"
+import type {
+  Contact,
+} from "@/types"
 
-import type { Note } from "@/types/note"
+import type {
+  Note,
+} from "@/types/note"
 
 import {
   getNotesByContactId,
@@ -19,6 +23,10 @@ import {
 } from "@/components/ui/button"
 
 import {
+  Textarea,
+} from "@/components/ui/textarea"
+
+import {
   DashboardCard,
   DashboardCardContent,
   DashboardCardHeader,
@@ -27,68 +35,133 @@ import {
 
 
 
+
+
 type Props = {
+
   contact: Contact
+
 }
+
+
+
+
+
 
 
 
 export function RelationshipNotes({
   contact,
-}: Props) {
+}:Props){
+
+
 
   const [
     notes,
     setNotes,
-  ] = useState<Note[]>([])
+  ] =
+  useState<Note[]>([])
+
 
 
   const [
     newNote,
     setNewNote,
-  ] = useState("")
+  ] =
+  useState("")
 
 
 
-  useEffect(() => {
+  const [
+    loading,
+    setLoading,
+  ] =
+  useState(true)
 
-    async function loadNotes() {
 
-      try {
+
+  const [
+    saving,
+    setSaving,
+  ] =
+  useState(false)
+
+
+
+
+
+
+
+
+  useEffect(()=>{
+
+
+    async function loadNotes(){
+
+
+      try{
+
 
         const data =
           await getNotesByContactId(
             contact.id
           )
 
-        setNotes(data)
 
-      } catch (error) {
-
-        console.error(
-          "Failed loading notes",
-          error
+        setNotes(
+          data
         )
+
+
+      }
+      finally{
+
+        setLoading(false)
 
       }
 
+
     }
+
 
 
     loadNotes()
 
-  }, [contact.id])
+
+  },[
+    contact.id
+  ])
 
 
 
-  async function addNote() {
 
-    if (!newNote.trim()) {
+
+
+
+
+  async function addNote(){
+
+
+    if(
+      !newNote.trim()
+      ||
+      saving
+    ){
+
       return
+
     }
 
 
-    try {
+
+
+
+    setSaving(true)
+
+
+
+    try{
+
 
       const note =
         await createNote({
@@ -97,113 +170,274 @@ export function RelationshipNotes({
             contact.id,
 
           content:
-            newNote,
+            newNote.trim(),
 
         })
 
 
+
       setNotes(
-        (current) => [
+        current => [
           note,
           ...current,
         ]
       )
 
 
+
       setNewNote("")
 
 
-    } catch (error) {
+    }
+    finally{
 
-      console.error(
-        "Failed creating note",
-        error
-      )
+      setSaving(false)
 
     }
+
 
   }
 
 
 
+
+
+
+
+
+
   return (
 
-    <DashboardCard>
+    <DashboardCard className="
+      rounded-2xl
+    ">
+
+
 
       <DashboardCardHeader>
 
+
         <DashboardCardTitle>
+
           Advisor Notes
+
         </DashboardCardTitle>
+
 
       </DashboardCardHeader>
 
 
 
-      <DashboardCardContent className="space-y-4">
-
-
-        <textarea
-          className="w-full rounded-xl border p-3 text-sm"
-          placeholder="Add advisor note..."
-          value={newNote}
-          onChange={(e) =>
-            setNewNote(
-              e.target.value
-            )
-          }
-        />
-
-
-        <Button
-          size="sm"
-          onClick={addNote}
-        >
-          Add Note
-        </Button>
 
 
 
-        {notes.length === 0 ? (
 
-          <p className="text-sm text-muted-foreground">
-            No notes yet.
-          </p>
-
-        ) : (
-
-          notes.map(
-            (note) => (
-
-              <div
-                key={note.id}
-                className="rounded-xl border p-5"
-              >
-
-                <p className="text-sm leading-7">
-                  {note.content}
-                </p>
+      <DashboardCardContent className="
+        space-y-5
+      ">
 
 
-                <p className="mt-2 text-xs text-muted-foreground">
 
-                  {new Date(
-                    note.createdAt
-                  ).toLocaleDateString()}
 
-                </p>
 
-              </div>
+        <div className="
+          space-y-3
+          rounded-xl
+          border
+          p-3
+        ">
 
-            )
+
+          <Textarea
+
+            placeholder="Add advisor note..."
+
+            value={
+              newNote
+            }
+
+            onChange={
+              e =>
+                setNewNote(
+                  e.target.value
+                )
+            }
+
+            className="
+              min-h-28
+              resize-none
+            "
+
+          />
+
+
+
+
+          <Button
+
+            size="sm"
+
+            disabled={
+              saving
+            }
+
+            onClick={
+              addNote
+            }
+
+            className="
+              w-full
+              sm:w-auto
+            "
+
+          >
+
+            {
+              saving
+              ?
+              "Saving..."
+              :
+              "Add Note"
+            }
+
+
+          </Button>
+
+
+        </div>
+
+
+
+
+
+
+
+
+        {
+          loading ? (
+
+            <p className="
+              text-sm
+              text-muted-foreground
+            ">
+
+              Loading notes...
+
+            </p>
+
           )
 
-        )}
+          :
+
+          notes.length === 0 ? (
+
+            <div className="
+              rounded-xl
+              border
+              border-dashed
+              p-6
+              text-center
+              text-sm
+              text-muted-foreground
+            ">
+
+              No notes yet.
+
+            </div>
+
+          )
+
+
+          :
+
+          (
+
+            <div className="
+              space-y-3
+            ">
+
+
+              {
+                notes.map(
+                  note => (
+
+                    <div
+
+                      key={
+                        note.id
+                      }
+
+                      className="
+                        rounded-xl
+                        border
+                        bg-card
+                        p-4
+                      "
+
+                    >
+
+
+
+                      <p className="
+                        whitespace-pre-wrap
+                        text-sm
+                        leading-6
+                      ">
+
+                        {note.content}
+
+                      </p>
+
+
+
+
+
+                      <p className="
+                        mt-3
+                        text-xs
+                        text-muted-foreground
+                      ">
+
+                        {
+                          new Date(
+                            note.createdAt
+                          )
+                          .toLocaleDateString(
+                            "en-IN",
+                            {
+                              day:"numeric",
+                              month:"short",
+                              year:"numeric",
+                            }
+                          )
+                        }
+
+                      </p>
+
+
+                    </div>
+
+                  )
+
+                )
+
+              }
+
+
+            </div>
+
+          )
+
+        }
+
+
 
 
       </DashboardCardContent>
 
+
     </DashboardCard>
 
   )
+
 }

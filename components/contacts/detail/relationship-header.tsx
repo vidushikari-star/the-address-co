@@ -34,9 +34,16 @@ import {
 
 
 
+
+
 type RelationshipHeaderProps = {
+
   contact: Contact
+
 }
+
+
+
 
 
 
@@ -44,7 +51,8 @@ type RelationshipHeaderProps = {
 
 export function RelationshipHeader({
   contact,
-}: RelationshipHeaderProps) {
+}:RelationshipHeaderProps){
+
 
 
   const phone =
@@ -62,6 +70,8 @@ export function RelationshipHeader({
 
 
 
+
+
   const whatsappMessage =
 `Hi ${contact.name},
 
@@ -73,13 +83,17 @@ Please let me know how I can assist you.`
 
 
 
+
+
   async function logActivity(
     type:"whatsapp"|"call",
     title:string,
     body:string
   ){
 
+
     try{
+
 
       await createActivity({
 
@@ -97,13 +111,14 @@ Please let me know how I can assist you.`
 
       })
 
-    }catch(error){
-
-      console.error(
-        error
-      )
 
     }
+    catch{
+
+      // Activity logging should not block user action
+
+    }
+
 
   }
 
@@ -111,7 +126,10 @@ Please let me know how I can assist you.`
 
 
 
+
+
   async function handleWhatsApp(){
+
 
     await logActivity(
       "whatsapp",
@@ -120,14 +138,21 @@ Please let me know how I can assist you.`
     )
 
 
+
     window.open(
+
       `https://wa.me/${phone}?text=${encodeURIComponent(
         whatsappMessage
       )}`,
+
       "_blank"
+
     )
 
+
   }
+
+
 
 
 
@@ -135,15 +160,22 @@ Please let me know how I can assist you.`
 
   async function handleCall(){
 
+
     await logActivity(
+
       "call",
+
       "Call initiated",
+
       `Outgoing call to ${contact.name}`
+
     )
+
 
 
     window.location.href =
       `tel:${phone}`
+
 
   }
 
@@ -151,65 +183,78 @@ Please let me know how I can assist you.`
 
 
 
+
+
+
+  const initials =
+    contact.name
+      .split(" ")
+      .map(
+        part =>
+          part[0]
+      )
+      .join("")
+      .slice(0,2)
+      .toUpperCase()
+
+
+
+
+
+
+
   return (
 
-    <header
-      className="
-        border-b
-        bg-background
-      "
-    >
+    <header className="
+      border-b
+      bg-background
+    ">
 
-      <div
-        className="
-          flex
-          flex-col
-          gap-5
-          p-4
-          sm:p-6
-          lg:flex-row
-          lg:items-center
-          lg:justify-between
-        "
-      >
+
+      <div className="
+        flex
+        flex-col
+        gap-6
+        p-4
+        sm:p-6
+        lg:flex-row
+        lg:items-center
+        lg:justify-between
+      ">
+
+
+
 
 
         {/* PROFILE */}
 
-        <div
-          className="
-            flex
-            min-w-0
-            items-start
-            gap-3
-          "
-        >
 
-          <Avatar
-            className="
-              h-12
-              w-12
-              shrink-0
-              sm:h-14
-              sm:w-14
-            "
-          >
+        <div className="
+          flex
+          min-w-0
+          items-start
+          gap-4
+        ">
 
-            <AvatarFallback>
 
-              {
-                contact.name
-                  .split(" ")
-                  .map(
-                    part =>
-                      part[0]
-                  )
-                  .join("")
-                  .slice(0,2)
-                  .toUpperCase()
-              }
+          <Avatar className="
+            h-14
+            w-14
+            shrink-0
+            sm:h-16
+            sm:w-16
+          ">
+
+
+            <AvatarFallback className="
+              text-lg
+              font-semibold
+            ">
+
+              {initials}
 
             </AvatarFallback>
+
 
           </Avatar>
 
@@ -217,32 +262,31 @@ Please let me know how I can assist you.`
 
 
 
-          <div
-            className="
-              min-w-0
-              space-y-2
-            "
-          >
 
-            <div
-              className="
-                flex
-                flex-wrap
-                items-center
-                gap-2
-              "
-            >
 
-              <h1
-                className="
-                  max-w-[220px]
-                  truncate
-                  text-xl
-                  font-semibold
-                  sm:max-w-none
-                  sm:text-2xl
-                "
-              >
+          <div className="
+            min-w-0
+            space-y-3
+          ">
+
+
+
+            <div className="
+              flex
+              flex-wrap
+              items-center
+              gap-2
+            ">
+
+
+              <h1 className="
+                max-w-[240px]
+                truncate
+                text-xl
+                font-semibold
+                sm:max-w-none
+                sm:text-2xl
+              ">
 
                 {contact.name}
 
@@ -250,9 +294,17 @@ Please let me know how I can assist you.`
 
 
 
+
+
               <StageSelector
-                contact={contact}
+
+                contact={
+                  contact
+                }
+
               />
+
+
 
             </div>
 
@@ -260,24 +312,29 @@ Please let me know how I can assist you.`
 
 
 
-            <div
-              className="
-                flex
-                flex-wrap
-                gap-x-4
-                gap-y-1
-                text-xs
-                text-muted-foreground
-                sm:text-sm
-              "
-            >
+
+
+
+            <div className="
+              flex
+              flex-wrap
+              gap-x-4
+              gap-y-2
+              text-sm
+              text-muted-foreground
+            ">
+
 
               {
                 contact.propertyType && (
 
-                  <span className="flex items-center gap-1">
+                  <span className="
+                    flex
+                    items-center
+                    gap-1
+                  ">
 
-                    <Building2 className="h-3 w-3"/>
+                    <Building2 className="h-4 w-4"/>
 
                     {contact.propertyType}
 
@@ -290,12 +347,18 @@ Please let me know how I can assist you.`
 
 
 
+
+
               {
                 contact.city && (
 
-                  <span className="flex items-center gap-1">
+                  <span className="
+                    flex
+                    items-center
+                    gap-1
+                  ">
 
-                    <MapPin className="h-3 w-3"/>
+                    <MapPin className="h-4 w-4"/>
 
                     {contact.city}
 
@@ -303,6 +366,9 @@ Please let me know how I can assist you.`
 
                 )
               }
+
+
+
 
 
 
@@ -320,9 +386,13 @@ Please let me know how I can assist you.`
                 )
               }
 
+
+
             </div>
 
+
           </div>
+
 
         </div>
 
@@ -333,39 +403,17 @@ Please let me know how I can assist you.`
 
 
 
+
         {/* ACTIONS */}
 
-        <div
-          className="
-            grid
-            grid-cols-2
-            gap-2
-            sm:flex
-            sm:flex-wrap
-          "
-        >
 
-
-          {
-            phone && (
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={handleCall}
-              >
-
-                <Phone className="mr-2 h-4 w-4"/>
-
-                Call
-
-              </Button>
-
-            )
-          }
-
-
+        <div className="
+          grid
+          grid-cols-2
+          gap-3
+          sm:flex
+          sm:flex-wrap
+        ">
 
 
 
@@ -375,10 +423,20 @@ Please let me know how I can assist you.`
             phone && (
 
               <Button
-                variant="outline"
+
+                variant="default"
+
                 size="sm"
-                className="w-full"
-                onClick={handleWhatsApp}
+
+                className="
+                  w-full
+                  sm:w-auto
+                "
+
+                onClick={
+                  handleWhatsApp
+                }
+
               >
 
                 <MessageCircle className="mr-2 h-4 w-4"/>
@@ -396,18 +454,59 @@ Please let me know how I can assist you.`
 
 
 
+
+          {
+            phone && (
+
+              <Button
+
+                variant="outline"
+
+                size="sm"
+
+                className="
+                  w-full
+                  sm:w-auto
+                "
+
+                onClick={
+                  handleCall
+                }
+
+              >
+
+                <Phone className="mr-2 h-4 w-4"/>
+
+                Call
+
+              </Button>
+
+            )
+          }
+
+
+
+
+
+
+
+
           {
             contact.email && (
 
               <a
                 href={`mailto:${contact.email}`}
-                className="w-full"
+                className="w-full sm:w-auto"
               >
 
                 <Button
+
                   variant="outline"
+
                   size="sm"
+
                   className="w-full"
+
                 >
 
                   <Mail className="mr-2 h-4 w-4"/>
@@ -415,6 +514,7 @@ Please let me know how I can assist you.`
                   Email
 
                 </Button>
+
 
               </a>
 
@@ -427,14 +527,21 @@ Please let me know how I can assist you.`
 
 
 
+
           <Link
+
             href={`/contacts/${contact.id}/edit`}
-            className="w-full"
+
+            className="w-full sm:w-auto"
+
           >
 
             <Button
+
               size="sm"
+
               className="w-full"
+
             >
 
               <Edit className="mr-2 h-4 w-4"/>
@@ -443,13 +550,14 @@ Please let me know how I can assist you.`
 
             </Button>
 
+
           </Link>
 
 
 
 
-
         </div>
+
 
 
       </div>

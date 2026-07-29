@@ -7,8 +7,13 @@ import {
 
 import Link from "next/link"
 
-import type { Contact } from "@/types"
-import type { Deal } from "@/types/deal"
+import type {
+  Contact,
+} from "@/types"
+
+import type {
+  Deal,
+} from "@/types/deal"
 
 import {
   getDealsByContactId,
@@ -34,8 +39,13 @@ import {
 
 
 type Props = {
+
   contact: Contact
+
 }
+
+
+
 
 
 
@@ -43,7 +53,8 @@ type Props = {
 
 export function RelationshipDeals({
   contact,
-}: Props) {
+}:Props){
+
 
 
   const [
@@ -54,30 +65,42 @@ export function RelationshipDeals({
 
 
 
+  const [
+    loading,
+    setLoading,
+  ] =
+  useState(true)
 
 
-  useEffect(() => {
+
+
+
+
+
+  useEffect(()=>{
 
 
     async function loadDeals(){
 
 
-      try {
+      try{
+
 
         const data =
           await getDealsByContactId(
             contact.id
           )
 
-        setDeals(data)
 
-
-      } catch(error){
-
-        console.error(
-          "Failed loading deals",
-          error
+        setDeals(
+          data
         )
+
+
+      }
+      finally{
+
+        setLoading(false)
 
       }
 
@@ -89,7 +112,10 @@ export function RelationshipDeals({
     loadDeals()
 
 
-  },[contact.id])
+  },[
+    contact.id
+  ])
+
 
 
 
@@ -99,22 +125,45 @@ export function RelationshipDeals({
 
   return (
 
-    <Card>
+    <Card className="
+      rounded-2xl
+    ">
 
 
-      <CardHeader className="px-4 py-3">
+
+      <CardHeader className="
+        px-4
+        py-3
+      ">
 
 
-        <CardTitle className="flex items-center justify-between text-base">
+        <CardTitle className="
+          flex
+          items-center
+          justify-between
+          text-base
+        ">
 
 
-          <span className="flex items-center gap-2">
+          <span className="
+            flex
+            items-center
+            gap-2
+          ">
 
-            <BriefcaseBusiness className="h-4 w-4"/>
+
+            <BriefcaseBusiness className="
+              h-4
+              w-4
+            "/>
+
 
             Deals
 
+
           </span>
+
+
 
 
 
@@ -123,6 +172,7 @@ export function RelationshipDeals({
             {deals.length}
 
           </Badge>
+
 
 
         </CardTitle>
@@ -135,58 +185,108 @@ export function RelationshipDeals({
 
 
 
-      <CardContent className="space-y-3 px-4 pb-4">
+
+
+      <CardContent className="
+        space-y-4
+        px-4
+        pb-5
+      ">
+
+
 
 
 
         {
-          deals.length === 0 ? (
+          loading ? (
 
-            <p className="text-sm text-muted-foreground">
+            <p className="
+              text-sm
+              text-muted-foreground
+            ">
 
-              No active deals.
+              Loading deals...
 
             </p>
 
-          ) : (
+          )
 
+          :
+
+
+          deals.length === 0 ? (
+
+            <div className="
+              rounded-xl
+              border
+              border-dashed
+              p-5
+              text-center
+              text-sm
+              text-muted-foreground
+            ">
+
+              No active deals.
+
+            </div>
+
+          )
+
+
+          :
+
+          (
 
             deals.map(
-
               deal => (
 
                 <Link
 
-                  key={deal.id}
+                  key={
+                    deal.id
+                  }
 
                   href={`/deals/${deal.id}`}
 
-                  className="block"
+                  className="
+                    block
+                  "
 
                 >
 
 
-                  <div
 
-                    className="
-                      rounded-xl
-                      border
-                      p-3
-                      transition
-                      hover:border-primary/30
-                    "
-
-                  >
+                  <div className="
+                    rounded-xl
+                    border
+                    p-4
+                    transition
+                    hover:border-primary/40
+                    active:bg-muted/30
+                  ">
 
 
 
-                    <div className="flex items-start justify-between gap-3">
 
 
-                      <div className="min-w-0">
+                    <div className="
+                      flex
+                      items-start
+                      justify-between
+                      gap-3
+                    ">
 
 
-                        <p className="truncate font-medium">
+
+                      <div className="
+                        min-w-0
+                      ">
+
+
+                        <p className="
+                          truncate
+                          font-semibold
+                        ">
 
                           {deal.name}
 
@@ -194,14 +294,24 @@ export function RelationshipDeals({
 
 
 
-                        <p className="mt-1 text-xs text-muted-foreground capitalize">
 
-                          {deal.stage.replace(
-                            /_/g,
-                            " "
-                          )}
+
+                        <p className="
+                          mt-1
+                          text-xs
+                          capitalize
+                          text-muted-foreground
+                        ">
+
+                          {
+                            deal.stage.replace(
+                              /_/g,
+                              " "
+                            )
+                          }
 
                         </p>
+
 
 
                       </div>
@@ -210,15 +320,14 @@ export function RelationshipDeals({
 
 
 
-                      <Badge
-                        variant="outline"
-                      >
 
-                        {
-                          deal.probability
-                        }%
+                      <Badge variant="outline">
+
+                        {deal.probability}%
+
 
                       </Badge>
+
 
 
                     </div>
@@ -228,17 +337,37 @@ export function RelationshipDeals({
 
 
 
-                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+
+
+
+                    <div className="
+                      mt-4
+                      grid
+                      grid-cols-2
+                      gap-4
+                    ">
+
 
 
                       <div>
 
-                        <p className="text-xs text-muted-foreground">
-                          Value
+
+                        <p className="
+                          text-xs
+                          text-muted-foreground
+                        ">
+
+                          Property Value
+
                         </p>
 
 
-                        <p className="font-semibold">
+
+                        <p className="
+                          mt-1
+                          font-semibold
+                        ">
+
 
                           ₹
                           {
@@ -246,15 +375,18 @@ export function RelationshipDeals({
                               deal.value?.propertyPrice
                               ??
                               0
-                            ).toLocaleString(
+                            )
+                            .toLocaleString(
                               "en-IN"
                             )
                           }
+
 
                         </p>
 
 
                       </div>
+
 
 
 
@@ -263,17 +395,30 @@ export function RelationshipDeals({
 
                       <div>
 
-                        <p className="text-xs text-muted-foreground">
+
+                        <p className="
+                          text-xs
+                          text-muted-foreground
+                        ">
+
                           Advisor
+
                         </p>
 
 
-                        <p className="truncate font-medium">
+
+                        <p className="
+                          mt-1
+                          truncate
+                          font-medium
+                        ">
 
                           {
-                            deal.advisor ??
+                            deal.advisor
+                            ??
                             "Unassigned"
                           }
+
 
                         </p>
 
@@ -281,15 +426,20 @@ export function RelationshipDeals({
                       </div>
 
 
+
+
                     </div>
+
+
+
 
 
 
                   </div>
 
 
-                </Link>
 
+                </Link>
 
               )
 
@@ -298,6 +448,7 @@ export function RelationshipDeals({
           )
 
         }
+
 
 
       </CardContent>

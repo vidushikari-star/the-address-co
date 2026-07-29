@@ -6,20 +6,10 @@ import {
 } from "lucide-react"
 
 import {
-  Button,
-} from "@/components/ui/button"
-
-import {
   Input,
 } from "@/components/ui/input"
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+
 
 
 
@@ -41,6 +31,8 @@ type ContactToolbarProps = {
 
 
 
+
+
 export function ContactToolbar({
 
   query,
@@ -57,6 +49,8 @@ export function ContactToolbar({
 
 
 
+
+
   const hasFilters =
     query !== ""
     ||
@@ -66,13 +60,18 @@ export function ContactToolbar({
 
 
 
+
+
   function clear(){
 
+
     onQueryChange("")
+
 
     onTypeFilterChange(
       "all"
     )
+
 
   }
 
@@ -80,28 +79,73 @@ export function ContactToolbar({
 
 
 
+
+
+  const types = [
+
+    {
+      value:"all",
+      label:"All",
+    },
+
+    {
+      value:"buyer",
+      label:"Buyers",
+    },
+
+    {
+      value:"seller",
+      label:"Sellers",
+    },
+
+    {
+      value:"investor",
+      label:"Investors",
+    },
+
+  ]
+
+
+
+
+
+
+
+
   return (
 
-    <div className="space-y-4">
+    <div className="
+      space-y-4
+    ">
 
 
 
 
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="
+        flex
+        items-center
+        justify-between
+      ">
 
 
         {
           count !== undefined && (
 
-            <p className="text-sm text-muted-foreground">
+            <p className="
+              text-sm
+              text-muted-foreground
+            ">
 
               {count} contacts
 
             </p>
 
           )
+
         }
+
+
 
 
 
@@ -110,21 +154,27 @@ export function ContactToolbar({
         {
           hasFilters && (
 
-            <Button
+            <button
 
-              variant="ghost"
+              onClick={
+                clear
+              }
 
-              size="sm"
-
-              onClick={clear}
+              className="
+                flex
+                items-center
+                gap-1
+                text-sm
+                text-primary
+              "
 
             >
 
-              <X className="mr-2 h-4 w-4"/>
+              <X className="h-4 w-4"/>
 
               Clear
 
-            </Button>
+            </button>
 
           )
 
@@ -141,134 +191,116 @@ export function ContactToolbar({
 
 
       <div className="
-        flex
-        flex-col
-        gap-3
-        md:flex-row
+        relative
+        w-full
       ">
 
 
+        <Search
+
+          className="
+            absolute
+            left-3
+            top-1/2
+            h-4
+            w-4
+            -translate-y-1/2
+            text-muted-foreground
+          "
+
+        />
 
 
 
-        <div className="
-          relative
-          w-full
-          md:max-w-md
-        ">
+        <Input
 
+          value={
+            query
+          }
 
-          <Search
-
-            className="
-              absolute
-              left-3
-              top-1/2
-              h-4
-              w-4
-              -translate-y-1/2
-              text-muted-foreground
-            "
-
-          />
-
-
-
-          <Input
-
-            value={query}
-
-            onChange={
-              e =>
-                onQueryChange(
-                  e.target.value
-                )
-            }
-
-            placeholder="Search contacts..."
-
-            className="
-              h-11
-              rounded-xl
-              pl-10
-            "
-
-          />
-
-
-        </div>
-
-
-
-
-
-
-
-
-        <Select
-
-          value={typeFilter}
-
-          onValueChange={
-            value =>
-              onTypeFilterChange(
-                value ?? "all"
+          onChange={
+            e =>
+              onQueryChange(
+                e.target.value
               )
           }
 
-        >
+          placeholder="Search contacts..."
 
+          className="
+            h-12
+            rounded-xl
+            pl-10
+          "
 
-          <SelectTrigger
-
-            className="
-              h-11
-              w-full
-              rounded-xl
-              md:w-[180px]
-            "
-
-          >
-
-            <SelectValue placeholder="Contact Type"/>
-
-
-          </SelectTrigger>
-
-
-
-          <SelectContent>
-
-
-            <SelectItem value="all">
-              All Contacts
-            </SelectItem>
-
-
-            <SelectItem value="buyer">
-              Buyers
-            </SelectItem>
-
-
-            <SelectItem value="seller">
-              Sellers
-            </SelectItem>
-
-
-            <SelectItem value="investor">
-              Investors
-            </SelectItem>
-
-
-          </SelectContent>
-
-
-        </Select>
-
-
+        />
 
 
       </div>
+
+
+
+
+
+
+
+
+      <div className="
+        flex
+        gap-2
+        overflow-x-auto
+        pb-2
+      ">
+
+
+        {
+          types.map(
+            item => (
+
+              <button
+
+                key={
+                  item.value
+                }
+
+                onClick={() =>
+                  onTypeFilterChange(
+                    item.value
+                  )
+                }
+
+                className={`
+                  shrink-0
+                  rounded-full
+                  border
+                  px-4
+                  py-2
+                  text-sm
+                  transition
+                  ${
+                    typeFilter === item.value
+                    ?
+                    "bg-primary text-primary-foreground"
+                    :
+                    "bg-background"
+                  }
+                `}
+
+              >
+
+                {item.label}
+
+              </button>
+
+            )
+
+          )
+
+        }
+
+
+      </div>
+
 
 
     </div>
