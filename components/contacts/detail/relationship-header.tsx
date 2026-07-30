@@ -2,16 +2,13 @@
 
 import Link from "next/link"
 
-import type {
-  Contact,
-} from "@/types"
+import type { Contact } from "@/types"
 
 import {
   Building2,
   Edit,
   Mail,
   MapPin,
-  MessageCircle,
   Phone,
 } from "lucide-react"
 
@@ -28,188 +25,81 @@ import {
   StageSelector,
 } from "@/components/contacts/detail/stage-selector"
 
-import {
-  createActivity,
-} from "@/lib/repositories/activity-repository"
+import { WhatsAppButton } from "@/components/communications/whatsapp-button"
 
-
-
+import { createActivity } from "@/lib/repositories/activity-repository"
 
 
 type RelationshipHeaderProps = {
-
   contact: Contact
-
 }
-
-
-
-
-
-
 
 
 export function RelationshipHeader({
   contact,
-}:RelationshipHeaderProps){
+}: RelationshipHeaderProps) {
+
+
+  const phone = (
+    contact.whatsapp ??
+    contact.phone ??
+    ""
+  ).replace(/\D/g, "")
 
 
 
-  const phone =
-    (
-      contact.whatsapp ??
-      contact.phone ??
-      ""
-    )
-    .replace(
-      /\D/g,
-      ""
-    )
+  async function logCallActivity() {
 
-
-
-
-
-
-
-  const whatsappMessage =
-`Hi ${contact.name},
-
-Following up regarding your property requirement.
-
-Please let me know how I can assist you.`
-
-
-
-
-
-
-
-  async function logActivity(
-    type:"whatsapp"|"call",
-    title:string,
-    body:string
-  ){
-
-
-    try{
-
+    try {
 
       await createActivity({
 
-        type,
+        type: "call",
 
-        title,
+        title: "Call initiated",
 
-        body,
+        body: `Outgoing call to ${contact.name}`,
 
-        contactId:
-          contact.id,
+        contactId: contact.id,
 
-        date:
-          new Date().toISOString(),
+        date: new Date().toISOString(),
 
       })
 
-
-    }
-    catch{
+    } catch {
 
       // Activity logging should not block user action
 
     }
 
-
   }
 
 
 
+  async function handleCall() {
 
-
-
-
-  async function handleWhatsApp(){
-
-
-    await logActivity(
-      "whatsapp",
-      "WhatsApp opened",
-      whatsappMessage
-    )
-
-
-
-    window.open(
-
-      `https://wa.me/${phone}?text=${encodeURIComponent(
-        whatsappMessage
-      )}`,
-
-      "_blank"
-
-    )
-
-
-  }
-
-
-
-
-
-
-
-  async function handleCall(){
-
-
-    await logActivity(
-
-      "call",
-
-      "Call initiated",
-
-      `Outgoing call to ${contact.name}`
-
-    )
-
-
+    await logCallActivity()
 
     window.location.href =
       `tel:${phone}`
 
-
   }
-
-
-
-
-
 
 
 
   const initials =
     contact.name
       .split(" ")
-      .map(
-        part =>
-          part[0]
-      )
+      .map((part) => part[0])
       .join("")
-      .slice(0,2)
+      .slice(0, 2)
       .toUpperCase()
-
-
-
-
 
 
 
   return (
 
-    <header className="
-      border-b
-      bg-background
-    ">
-
+    <header className="border-b bg-background">
 
       <div className="
         flex
@@ -221,12 +111,6 @@ Please let me know how I can assist you.`
         lg:items-center
         lg:justify-between
       ">
-
-
-
-
-
-        {/* PROFILE */}
 
 
         <div className="
@@ -245,7 +129,6 @@ Please let me know how I can assist you.`
             sm:w-16
           ">
 
-
             <AvatarFallback className="
               text-lg
               font-semibold
@@ -255,11 +138,7 @@ Please let me know how I can assist you.`
 
             </AvatarFallback>
 
-
           </Avatar>
-
-
-
 
 
 
@@ -268,7 +147,6 @@ Please let me know how I can assist you.`
             min-w-0
             space-y-3
           ">
-
 
 
             <div className="
@@ -293,24 +171,12 @@ Please let me know how I can assist you.`
               </h1>
 
 
-
-
-
               <StageSelector
-
-                contact={
-                  contact
-                }
-
+                contact={contact}
               />
 
 
-
             </div>
-
-
-
-
 
 
 
@@ -325,67 +191,53 @@ Please let me know how I can assist you.`
             ">
 
 
-              {
-                contact.propertyType && (
+              {contact.propertyType && (
 
-                  <span className="
-                    flex
-                    items-center
-                    gap-1
-                  ">
+                <span className="
+                  flex
+                  items-center
+                  gap-1
+                ">
 
-                    <Building2 className="h-4 w-4"/>
+                  <Building2 className="h-4 w-4" />
 
-                    {contact.propertyType}
+                  {contact.propertyType}
 
-                  </span>
+                </span>
 
-                )
-              }
+              )}
 
 
 
 
+              {contact.city && (
 
+                <span className="
+                  flex
+                  items-center
+                  gap-1
+                ">
 
+                  <MapPin className="h-4 w-4" />
 
-              {
-                contact.city && (
+                  {contact.city}
 
-                  <span className="
-                    flex
-                    items-center
-                    gap-1
-                  ">
+                </span>
 
-                    <MapPin className="h-4 w-4"/>
-
-                    {contact.city}
-
-                  </span>
-
-                )
-              }
+              )}
 
 
 
 
+              {contact.assignedAdvisor && (
 
+                <span>
 
+                  {contact.assignedAdvisor}
 
+                </span>
 
-              {
-                contact.assignedAdvisor && (
-
-                  <span>
-
-                    {contact.assignedAdvisor}
-
-                  </span>
-
-                )
-              }
-
+              )}
 
 
             </div>
@@ -401,12 +253,6 @@ Please let me know how I can assist you.`
 
 
 
-
-
-
-        {/* ACTIONS */}
-
-
         <div className="
           grid
           grid-cols-2
@@ -416,112 +262,55 @@ Please let me know how I can assist you.`
         ">
 
 
+          <WhatsAppButton
+            contact={contact}
+          />
 
 
 
-          {
-            phone && (
+          {phone && (
 
-              <Button
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
+              onClick={handleCall}
+            >
 
-                variant="default"
+              <Phone className="mr-2 h-4 w-4" />
 
-                size="sm"
+              Call
 
-                className="
-                  w-full
-                  sm:w-auto
-                "
+            </Button>
 
-                onClick={
-                  handleWhatsApp
-                }
-
-              >
-
-                <MessageCircle className="mr-2 h-4 w-4"/>
-
-                WhatsApp
-
-              </Button>
-
-            )
-          }
+          )}
 
 
 
 
 
+          {contact.email && (
 
-
-
-          {
-            phone && (
+            <a
+              href={`mailto:${contact.email}`}
+              className="w-full sm:w-auto"
+            >
 
               <Button
-
                 variant="outline"
-
                 size="sm"
-
-                className="
-                  w-full
-                  sm:w-auto
-                "
-
-                onClick={
-                  handleCall
-                }
-
+                className="w-full"
               >
 
-                <Phone className="mr-2 h-4 w-4"/>
+                <Mail className="mr-2 h-4 w-4" />
 
-                Call
+                Email
 
               </Button>
 
-            )
-          }
+            </a>
 
-
-
-
-
-
-
-
-          {
-            contact.email && (
-
-              <a
-                href={`mailto:${contact.email}`}
-                className="w-full sm:w-auto"
-              >
-
-                <Button
-
-                  variant="outline"
-
-                  size="sm"
-
-                  className="w-full"
-
-                >
-
-                  <Mail className="mr-2 h-4 w-4"/>
-
-                  Email
-
-                </Button>
-
-
-              </a>
-
-            )
-          }
-
-
+          )}
 
 
 
@@ -529,35 +318,26 @@ Please let me know how I can assist you.`
 
 
           <Link
-
             href={`/contacts/${contact.id}/edit`}
-
             className="w-full sm:w-auto"
-
           >
 
             <Button
-
               size="sm"
-
               className="w-full"
-
             >
 
-              <Edit className="mr-2 h-4 w-4"/>
+              <Edit className="mr-2 h-4 w-4" />
 
               Edit
 
             </Button>
 
-
           </Link>
 
 
 
-
         </div>
-
 
 
       </div>
