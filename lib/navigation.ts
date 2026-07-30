@@ -8,13 +8,16 @@ import {
   FolderKanban,
   LayoutDashboard,
   MessageSquareText,
+  MessagesSquare,
   Settings,
   TrendingUp,
 } from "lucide-react"
 
+
 export type UserRole =
   | "admin"
   | "sales"
+
 
 export interface NavigationItem {
   title: string
@@ -23,12 +26,15 @@ export interface NavigationItem {
   roles: readonly UserRole[]
 }
 
+
 export interface NavigationGroup {
   title: string
   items: readonly NavigationItem[]
 }
 
+
 export const navigation: readonly NavigationGroup[] = [
+
   {
     title: "Workspace",
 
@@ -45,10 +51,13 @@ export const navigation: readonly NavigationGroup[] = [
     ],
   },
 
+
+
   {
     title: "Relationships",
 
     items: [
+
       {
         title: "Contacts",
         href: "/contacts",
@@ -58,6 +67,7 @@ export const navigation: readonly NavigationGroup[] = [
           "sales",
         ],
       },
+
 
       {
         title: "Properties",
@@ -69,6 +79,7 @@ export const navigation: readonly NavigationGroup[] = [
         ],
       },
 
+
       {
         title: "Deals",
         href: "/deals",
@@ -79,6 +90,7 @@ export const navigation: readonly NavigationGroup[] = [
         ],
       },
 
+
       {
         title: "Commissions",
         href: "/commissions",
@@ -88,13 +100,28 @@ export const navigation: readonly NavigationGroup[] = [
           "sales",
         ],
       },
+
     ],
   },
+
+
 
   {
     title: "Communications",
 
     items: [
+
+      {
+        title: "WhatsApp Inbox",
+        href: "/communications/whatsapp",
+        icon: MessagesSquare,
+        roles: [
+          "admin",
+          "sales",
+        ],
+      },
+
+
       {
         title: "Templates",
         href: "/templates",
@@ -104,13 +131,17 @@ export const navigation: readonly NavigationGroup[] = [
           "sales",
         ],
       },
+
     ],
   },
+
+
 
   {
     title: "Operations",
 
     items: [
+
       {
         title: "Calendar",
         href: "/calendar",
@@ -121,6 +152,7 @@ export const navigation: readonly NavigationGroup[] = [
         ],
       },
 
+
       {
         title: "Tasks",
         href: "/tasks",
@@ -130,13 +162,17 @@ export const navigation: readonly NavigationGroup[] = [
           "sales",
         ],
       },
+
     ],
   },
+
+
 
   {
     title: "Insights",
 
     items: [
+
       {
         title: "Finance",
         href: "/finance",
@@ -145,6 +181,7 @@ export const navigation: readonly NavigationGroup[] = [
           "admin",
         ],
       },
+
 
       {
         title: "Reports",
@@ -155,6 +192,7 @@ export const navigation: readonly NavigationGroup[] = [
         ],
       },
 
+
       {
         title: "Settings",
         href: "/settings",
@@ -163,6 +201,8 @@ export const navigation: readonly NavigationGroup[] = [
           "admin",
         ],
       },
+
     ],
   },
+
 ]

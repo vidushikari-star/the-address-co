@@ -102,9 +102,9 @@ export const ContactsRepository = {
       .from("contacts")
       .select(`
         *,
-        advisor:profiles(
-          full_name
-        )
+        advisor:profiles!contacts_advisor_id_fkey(
+  full_name
+)
       `)
       .eq(
         "id",
@@ -153,9 +153,9 @@ export const ContactsRepository = {
       .from("contacts")
       .select(`
         *,
-        advisor:profiles(
-          full_name
-        )
+        advisor:profiles!contacts_advisor_id_fkey(
+  full_name
+)
       `)
       .eq(
         "id",
@@ -206,212 +206,189 @@ export const ContactsRepository = {
 
 
   async create(
-    contact:CreateContactDto
-  ):Promise<Contact>{
+  contact: CreateContactDto
+): Promise<Contact> {
+
+  const {
+    firstName,
+    lastName,
+  } = splitFullName(
+    contact.fullName
+  )
 
 
-    const {
+  const {
+    data: {
+      user,
+    },
+  } = await supabase.auth.getUser()
+
+
+
+  const payload = {
+
+    first_name:
       firstName,
+
+    last_name:
       lastName,
-    } =
-      splitFullName(
-        contact.fullName
-      )
 
 
+    phone:
+      contact.phone,
 
 
+    email:
+      contact.email ?? null,
 
-    const payload = {
 
+    city:
+      contact.city ?? null,
 
-      first_name:
-        firstName,
 
+    country:
+      contact.country ?? null,
 
-      last_name:
-        lastName,
 
+    whatsapp:
+      contact.whatsapp ?? null,
 
 
-      phone:
-        contact.phone,
+    preferred_language:
+      contact.preferredLanguage ?? null,
 
 
+    lead_source:
+      contact.leadSource ?? null,
 
-      email:
-        contact.email ?? null,
 
+    advisor_id:
+      contact.advisorId ?? user?.id ?? null,
 
 
-      city:
-        contact.city ?? null,
+    created_by:
+      user?.id ?? null,
 
 
+    owner_id:
+      user?.id ?? null,
 
-      country:
-        contact.country ?? null,
 
+    is_private:
+      false,
 
 
-      whatsapp:
-        contact.whatsapp ?? null,
+    budget_min:
+      contact.budgetMin ?? null,
 
 
+    budget_max:
+      contact.budgetMax ?? null,
 
-      preferred_language:
-        contact.preferredLanguage ?? null,
 
+    currency:
+      contact.currency ?? null,
 
 
-      lead_source:
-        contact.leadSource ?? null,
+    purpose:
+      contact.purpose ?? null,
 
 
+    timeline:
+      contact.timeline ?? null,
 
-      advisor_id:
-  contact.advisorId ?? null,
 
+    financing:
+      contact.financing ?? null,
 
 
-      budget_min:
-        contact.budgetMin ?? null,
+    resident:
+      contact.resident ?? null,
 
 
+    property_type:
+      contact.propertyType ?? null,
 
-      budget_max:
-        contact.budgetMax ?? null,
 
+    bedrooms:
+      contact.bedrooms ?? null,
 
 
-      currency:
-        contact.currency ?? null,
+    bathrooms:
+      contact.bathrooms ?? null,
 
 
+    locations:
+      contact.locations ?? null,
 
-      purpose:
-        contact.purpose ?? null,
 
+    min_area:
+      contact.minArea ?? null,
 
 
-      timeline:
-        contact.timeline ?? null,
+    max_area:
+      contact.maxArea ?? null,
 
 
+    plot_size:
+      contact.plotSize ?? null,
 
-      financing:
-        contact.financing ?? null,
 
+    must_have:
+      contact.mustHave ?? null,
 
 
-      resident:
-        contact.resident ?? null,
+    nice_to_have:
+      contact.niceToHave ?? null,
 
 
+    spouse_name:
+      contact.spouseName ?? null,
 
-      property_type:
-        contact.propertyType ?? null,
 
+    co_buyer:
+      contact.coBuyer ?? null,
 
 
-      bedrooms:
-        contact.bedrooms ?? null,
+    referral_source:
+      contact.referralSource ?? null,
 
 
+    notes:
+      typeof contact.notes === "string"
+        ? contact.notes
+        : null,
 
-      bathrooms:
-        contact.bathrooms ?? null,
 
+    private_notes:
+      contact.privateNotes ?? null,
 
+  }
 
-      locations:
-        contact.locations ?? null,
 
 
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("contacts")
+      .insert(payload)
+      .select()
+      .single()
 
-      min_area:
-        contact.minArea ?? null,
 
 
+  if(error)
+    throw error
 
-      max_area:
-        contact.maxArea ?? null,
 
 
+  return mapContactRow(
+    data as ContactRow
+  )
 
-      plot_size:
-        contact.plotSize ?? null,
-
-
-
-      must_have:
-        contact.mustHave ?? null,
-
-
-
-      nice_to_have:
-        contact.niceToHave ?? null,
-
-
-
-      spouse_name:
-        contact.spouseName ?? null,
-
-
-
-      co_buyer:
-        contact.coBuyer ?? null,
-
-
-
-      referral_source:
-        contact.referralSource ?? null,
-
-
-
-      notes:
-
-        typeof contact.notes === "string"
-
-          ? contact.notes
-
-          : null,
-
-
-
-      private_notes:
-        contact.privateNotes ?? null,
-
-
-    }
-
-
-
-
-
-    const {
-      data,
-      error,
-    } =
-      await supabase
-        .from("contacts")
-        .insert(payload)
-        .select()
-        .single()
-
-
-
-    if(error)
-      throw error
-
-
-
-    return mapContactRow(
-      data as ContactRow
-    )
-
-
-  },
+},
 
 
 
