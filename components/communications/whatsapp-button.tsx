@@ -47,7 +47,7 @@ export function WhatsAppButton({
       <Button
         variant="default"
         size="sm"
-        className="w-full sm:w-auto"
+        className="h-9 w-full"
         onClick={() => setOpen(true)}
       >
 
