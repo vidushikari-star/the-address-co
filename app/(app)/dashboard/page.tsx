@@ -34,6 +34,9 @@ import { PipelineCard } from "@/components/dashboard/pipeline-card"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { UpcomingCommissions } from "@/components/dashboard/upcoming-commissions"
 
+import {
+  formatCurrency,
+} from "@/lib/utils/format-currency"
 
 export const dynamic = "force-dynamic"
 
@@ -101,18 +104,18 @@ export default async function DashboardPage() {
         <StatCard
           title="Open Deals"
           value={String(stats.openDealsCount)}
-          subtitle={`₹${(
-            stats.pipelineValue / 10000000
-          ).toFixed(1)} Cr pipeline`}
+          subtitle={`${formatCurrency(
+  stats.pipelineValue
+)} pipeline`}
           icon={BriefcaseBusiness}
         />
 
 
         <StatCard
           title="Portfolio Value"
-          value={`₹${(
-            stats.portfolioValue / 10000000
-          ).toFixed(1)} Cr`}
+          value={formatCurrency(
+  stats.portfolioValue
+)}
           subtitle={`${stats.propertiesCount} listings`}
           icon={Home}
         />
@@ -120,12 +123,13 @@ export default async function DashboardPage() {
 
         <StatCard
           title="Commission Pipeline"
-          value={`₹${(
-            commissionStats.pending / 10000000
-          ).toFixed(2)} Cr`}
-          subtitle={`₹${(
-            commissionStats.received / 10000000
-          ).toFixed(2)} Cr received`}
+          value={formatCurrency(
+  commissionStats.pending
+)}
+
+subtitle={`${formatCurrency(
+  commissionStats.received
+)} received`}
           trend="up"
           icon={CircleDollarSign}
         />

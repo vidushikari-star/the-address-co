@@ -1,6 +1,8 @@
 "use client"
 
 import {
+  useEffect,
+  useRef,
   useState,
 } from "react"
 
@@ -23,6 +25,14 @@ import {
 import {
   createProperty,
 } from "@/lib/repositories/property-repository"
+
+import {
+  uploadPropertyImage,
+} from "@/lib/repositories/property-image-repository"
+
+import {
+  ImagePlus,
+} from "lucide-react"
 
 
 
@@ -51,8 +61,7 @@ function createSlug(
     )
     .replace(
       /(^-|-$)/g,
-      ""
-    )
+      "")
 
 }
 
@@ -84,6 +93,37 @@ export function PropertyDrawer({
 
 
 
+  const imageInputRef =
+    useRef<HTMLInputElement>(null)
+
+
+
+
+
+  const [
+    images,
+    setImages,
+  ] =
+  useState<File[]>([])
+
+
+
+
+
+  const [
+    previews,
+    setPreviews,
+  ] =
+  useState<string[]>([])
+
+
+
+
+
+
+
+
+
   const [
     form,
     setForm,
@@ -97,9 +137,10 @@ export function PropertyDrawer({
 
     developer:"",
 
+
     transactionType:"Sale",
 
-propertyType:"Villa",
+    propertyType:"Villa",
 
 
     location:"",
@@ -107,13 +148,21 @@ propertyType:"Villa",
     locality:"",
 
 
-listingType:"Primary",
+    listingType:"Primary",
 
     developmentStage:"ready_to_move",
 
 
 
+
     price:"",
+
+    rent:"",
+
+    securityDeposit:"",
+
+
+
 
 
     bedrooms:"",
@@ -128,6 +177,8 @@ listingType:"Primary",
 
 
 
+
+
     furnishing:"unfurnished",
 
 
@@ -138,6 +189,7 @@ listingType:"Primary",
 
 
     description:"",
+
 
 
 
@@ -188,10 +240,171 @@ listingType:"Primary",
 
 
 
-  async function submit(
-    e:React.FormEvent
+
+  function selectImages(
+    files:FileList | null
   ){
 
+    if(!files){
+
+      return
+
+    }
+
+
+
+    const selected =
+      Array.from(files)
+
+
+
+    setImages(
+      current => [
+        ...current,
+        ...selected,
+      ]
+    )
+
+
+
+    setPreviews(
+      current => [
+
+        ...current,
+
+        ...selected.map(
+          file =>
+            URL.createObjectURL(file)
+        ),
+
+      ]
+    )
+
+  }
+
+
+
+
+
+
+
+
+  function removeImage(
+    index:number
+  ){
+
+    setImages(
+      current =>
+        current.filter(
+          (_,i)=>
+            i !== index
+        )
+    )
+
+
+    setPreviews(
+      current =>
+        current.filter(
+          (_,i)=>
+            i !== index
+        )
+    )
+
+  }
+
+
+
+
+
+
+
+  function resetForm(){
+
+    setForm({
+
+      name:"",
+
+      slug:"",
+
+      developer:"",
+
+      transactionType:"Sale",
+
+      propertyType:"Villa",
+
+      location:"",
+
+      locality:"",
+
+      listingType:"Primary",
+
+      developmentStage:"ready_to_move",
+
+
+      price:"",
+
+      rent:"",
+
+      securityDeposit:"",
+
+
+      bedrooms:"",
+
+      bathrooms:"",
+
+      carpetArea:"",
+
+      plotArea:"",
+
+      builtUpArea:"",
+
+
+      furnishing:"unfurnished",
+
+      amenities:"",
+
+      googleMapLink:"",
+
+      description:"",
+
+      advisor:"",
+
+      note:"",
+
+    })
+
+
+    setImages([])
+
+    setPreviews([])
+
+
+    if(imageInputRef.current){
+
+      imageInputRef.current.value=""
+
+    }
+
+  }
+
+
+
+
+
+
+  useEffect(()=>{
+
+    if(open){
+
+      resetForm()
+
+    }
+
+  },[open])
+
+    async function submit(
+    e:React.FormEvent
+  ){
 
     e.preventDefault()
 
@@ -203,135 +416,181 @@ listingType:"Primary",
     try{
 
 
-      await createProperty({
-
-        name:
-          form.name,
+      const property =
+        await createProperty({
 
 
-        slug:
-          form.slug,
+          name:
+            form.name,
 
 
-        developer:
-          form.developer,
+          slug:
+            form.slug,
+
+
+          developer:
+            form.developer,
+
+
 
           transactionType:
-  form.transactionType,
-
-
-propertyType:
-  form.propertyType,
-
-
-        listingType:
-          form.listingType,
-
-          
-
-
-        developmentStage:
-          form.developmentStage,
-
-
-    
+            form.transactionType,
 
 
 
-        status:
-          "available",
+          propertyType:
+            form.propertyType,
 
 
 
-        location:
-          form.location,
+          listingType:
+            form.listingType,
 
 
 
-        locality:
-          form.locality,
+          developmentStage:
+            form.developmentStage,
 
 
 
-        price:
-          Number(
-            form.price
-          ),
+          status:
+            "available",
 
 
 
-        bedrooms:
-          Number(
-            form.bedrooms
-          ),
+          location:
+            form.location,
 
 
 
-        bathrooms:
-          Number(
-            form.bathrooms
-          ),
+          locality:
+            form.locality,
 
 
 
-        carpetArea:
-          Number(
-            form.carpetArea
-          ),
+
+
+          price:
+            form.transactionType === "Sale"
+              ? Number(form.price)
+              : undefined,
 
 
 
-        plotArea:
-          Number(
-            form.plotArea
-          ),
+          rent:
+            form.transactionType === "Rental"
+              ? Number(form.rent)
+              : undefined,
 
 
 
-        builtUpArea:
-          Number(
-            form.builtUpArea
-          ),
+          securityDeposit:
+            form.transactionType === "Rental"
+              ? Number(form.securityDeposit)
+              : undefined,
 
 
 
-        advisor:
-          form.advisor,
+
+          bedrooms:
+            Number(
+              form.bedrooms
+            ),
 
 
 
-        note:
-          form.note,
+          bathrooms:
+            Number(
+              form.bathrooms
+            ),
 
 
 
-        description:
-          form.description,
+          carpetArea:
+            Number(
+              form.carpetArea
+            ),
 
 
 
-        amenities:
-          form.amenities
-            .split(",")
-            .map(
-              item =>
-                item.trim()
+          plotArea:
+            Number(
+              form.plotArea
+            ),
+
+
+
+          builtUpArea:
+            Number(
+              form.builtUpArea
+            ),
+
+
+
+          advisor:
+            form.advisor,
+
+
+
+          note:
+            form.note,
+
+
+
+          description:
+            form.description,
+
+
+
+          amenities:
+            form.amenities
+              .split(",")
+              .map(
+                item =>
+                  item.trim()
+              )
+              .filter(Boolean),
+
+
+
+          furnishing:
+            form.furnishing,
+
+
+
+          googleMapLink:
+            form.googleMapLink,
+
+
+        })
+
+
+
+
+
+
+
+      await Promise.all(
+
+        images.map(
+
+          image =>
+
+            uploadPropertyImage(
+              property.id,
+              image
             )
-            .filter(Boolean),
+
+        )
+
+      )
 
 
 
-        furnishing:
-          form.furnishing,
 
 
 
-        googleMapLink:
-          form.googleMapLink,
-
-
-      })
-
+      resetForm()
 
 
       onOpenChange(false)
@@ -365,20 +624,23 @@ propertyType:
 
   }
 
-
-
-
-
-
-
-
-  return (
+    return (
 
     <FormDrawer
 
       open={open}
 
-      onOpenChange={onOpenChange}
+      onOpenChange={(value)=>{
+
+        if(!value){
+
+          resetForm()
+
+        }
+
+        onOpenChange(value)
+
+      }}
 
       title="New Property"
 
@@ -396,14 +658,11 @@ propertyType:
       >
 
 
-
         <Input
 
           placeholder="Property Name"
 
-          value={
-            form.name
-          }
+          value={form.name}
 
           onChange={
             e =>
@@ -417,15 +676,11 @@ propertyType:
 
 
 
-
-
         <Input
 
           placeholder="Developer"
 
-          value={
-            form.developer
-          }
+          value={form.developer}
 
           onChange={
             e =>
@@ -437,97 +692,85 @@ propertyType:
 
         />
 
+
+
         <select
 
-  className="w-full rounded-lg border p-3"
+          className="w-full rounded-lg border p-3"
 
-  value={
-    form.transactionType
-  }
+          value={form.transactionType}
 
-  onChange={
-    e =>
-      update(
-        "transactionType",
-        e.target.value
-      )
-  }
+          onChange={
+            e =>
+              update(
+                "transactionType",
+                e.target.value
+              )
+          }
 
->
+        >
 
-  <option value="Sale">
-    Sale
-  </option>
+          <option value="Sale">
+            Sale
+          </option>
 
+          <option value="Rental">
+            Rental
+          </option>
 
-  <option value="Rental">
-    Rental
-  </option>
-
-</select>
+        </select>
 
 
 
 
+        <select
 
-<select
+          className="w-full rounded-lg border p-3"
 
-  className="w-full rounded-lg border p-3"
+          value={form.propertyType}
 
-  value={
-    form.propertyType
-  }
+          onChange={
+            e =>
+              update(
+                "propertyType",
+                e.target.value
+              )
+          }
 
-  onChange={
-    e =>
-      update(
-        "propertyType",
-        e.target.value
-      )
-  }
+        >
 
->
+          <option value="Villa">
+            Villa
+          </option>
 
-  <option value="Villa">
-    Villa
-  </option>
+          <option value="Apartment">
+            Apartment
+          </option>
 
+          <option value="Plot">
+            Plot
+          </option>
 
-  <option value="Apartment">
-    Apartment
-  </option>
+          <option value="Penthouse">
+            Penthouse
+          </option>
 
+          <option value="Commercial">
+            Commercial
+          </option>
 
-  <option value="Plot">
-    Plot
-  </option>
-
-
-  <option value="Penthouse">
-    Penthouse
-  </option>
-
-
-  <option value="Commercial">
-    Commercial
-  </option>
-
-</select>
-
+        </select>
 
 
 
 
         <div className="grid grid-cols-2 gap-3">
 
-
           <Input
 
             placeholder="Location"
 
-            value={
-              form.location
-            }
+            value={form.location}
 
             onChange={
               e =>
@@ -539,15 +782,11 @@ propertyType:
 
           />
 
-
-
           <Input
 
             placeholder="Locality"
 
-            value={
-              form.locality
-            }
+            value={form.locality}
 
             onChange={
               e =>
@@ -559,10 +798,7 @@ propertyType:
 
           />
 
-
         </div>
-
-
 
 
 
@@ -571,9 +807,7 @@ propertyType:
 
           placeholder="Google Map Link"
 
-          value={
-            form.googleMapLink
-          }
+          value={form.googleMapLink}
 
           onChange={
             e =>
@@ -589,28 +823,76 @@ propertyType:
 
 
 
+        {
+          form.transactionType === "Rental"
+
+          ? (
+
+            <>
+
+              <Input
+
+                placeholder="Monthly Rent"
+
+                type="number"
+
+                value={form.rent}
+
+                onChange={
+                  e =>
+                    update(
+                      "rent",
+                      e.target.value
+                    )
+                }
+
+              />
 
 
-        <Input
+              <Input
 
-          placeholder="Price"
+                placeholder="Security Deposit"
 
-          type="number"
+                type="number"
 
-          value={
-            form.price
-          }
+                value={form.securityDeposit}
 
-          onChange={
-            e =>
-              update(
-                "price",
-                e.target.value
-              )
-          }
+                onChange={
+                  e =>
+                    update(
+                      "securityDeposit",
+                      e.target.value
+                    )
+                }
 
-        />
+              />
 
+            </>
+
+          )
+
+          : (
+
+            <Input
+
+              placeholder="Sale Price"
+
+              type="number"
+
+              value={form.price}
+
+              onChange={
+                e =>
+                  update(
+                    "price",
+                    e.target.value
+                  )
+              }
+
+            />
+
+          )
+        }
 
 
 
@@ -619,15 +901,9 @@ propertyType:
 
         <div className="grid grid-cols-3 gap-3">
 
-
           <Input
-
             placeholder="Bedrooms"
-
-            value={
-              form.bedrooms
-            }
-
+            value={form.bedrooms}
             onChange={
               e =>
                 update(
@@ -635,19 +911,12 @@ propertyType:
                   e.target.value
                 )
             }
-
           />
 
 
-
           <Input
-
             placeholder="Bathrooms"
-
-            value={
-              form.bathrooms
-            }
-
+            value={form.bathrooms}
             onChange={
               e =>
                 update(
@@ -655,19 +924,12 @@ propertyType:
                   e.target.value
                 )
             }
-
           />
 
 
-
           <Input
-
             placeholder="Carpet Area"
-
-            value={
-              form.carpetArea
-            }
-
+            value={form.carpetArea}
             onChange={
               e =>
                 update(
@@ -675,12 +937,9 @@ propertyType:
                   e.target.value
                 )
             }
-
           />
 
-
         </div>
-
 
 
 
@@ -688,15 +947,9 @@ propertyType:
 
         <div className="grid grid-cols-2 gap-3">
 
-
           <Input
-
             placeholder="Plot Area"
-
-            value={
-              form.plotArea
-            }
-
+            value={form.plotArea}
             onChange={
               e =>
                 update(
@@ -704,19 +957,12 @@ propertyType:
                   e.target.value
                 )
             }
-
           />
 
 
-
           <Input
-
             placeholder="Built Up Area"
-
-            value={
-              form.builtUpArea
-            }
-
+            value={form.builtUpArea}
             onChange={
               e =>
                 update(
@@ -724,13 +970,9 @@ propertyType:
                   e.target.value
                 )
             }
-
           />
 
-
         </div>
-
-
 
 
 
@@ -740,9 +982,7 @@ propertyType:
 
           className="w-full rounded-lg border p-3"
 
-          value={
-            form.furnishing
-          }
+          value={form.furnishing}
 
           onChange={
             e =>
@@ -773,14 +1013,11 @@ propertyType:
 
 
 
-
         <Input
 
           placeholder="Amenities (comma separated)"
 
-          value={
-            form.amenities
-          }
+          value={form.amenities}
 
           onChange={
             e =>
@@ -796,16 +1033,11 @@ propertyType:
 
 
 
-
-
-
         <Textarea
 
           placeholder="Property Description"
 
-          value={
-            form.description
-          }
+          value={form.description}
 
           onChange={
             e =>
@@ -821,15 +1053,149 @@ propertyType:
 
 
 
+        {/* IMAGE SELECTOR */}
+
+        <div className="
+          space-y-3
+          rounded-lg
+          border
+          p-4
+        ">
+
+          <p className="text-sm font-medium">
+            Property Images
+          </p>
+
+
+          <input
+
+            ref={imageInputRef}
+
+            type="file"
+
+            accept="image/*"
+
+            multiple
+
+            hidden
+
+            onChange={
+              e =>
+                selectImages(
+                  e.target.files
+                )
+            }
+
+          />
+
+
+
+          <Button
+
+            type="button"
+
+            variant="outline"
+
+            onClick={() =>
+              imageInputRef.current?.click()
+            }
+
+          >
+
+            <ImagePlus className="mr-2 h-4 w-4"/>
+
+            Choose Images
+
+          </Button>
+
+
+
+
+
+          {
+            previews.length > 0 && (
+
+              <div className="
+                grid
+                grid-cols-3
+                gap-3
+              ">
+
+
+                {
+                  previews.map(
+                    (preview,index)=>(
+
+                      <div
+                        key={preview}
+                        className="relative"
+                      >
+
+                        <img
+
+                          src={preview}
+
+                          className="
+                            h-20
+                            w-full
+                            rounded-lg
+                            object-cover
+                          "
+
+                        />
+
+
+                        <button
+
+                          type="button"
+
+                          onClick={() =>
+                            removeImage(index)
+                          }
+
+                          className="
+                            absolute
+                            right-1
+                            top-1
+                            rounded-full
+                            bg-black
+                            px-2
+                            text-xs
+                            text-white
+                          "
+
+                        >
+
+                          ×
+
+                        </button>
+
+
+                      </div>
+
+                    )
+                  )
+
+                }
+
+
+              </div>
+
+            )
+          }
+
+
+        </div>
+
+
+
 
 
         <Input
 
           placeholder="Advisor"
 
-          value={
-            form.advisor
-          }
+          value={form.advisor}
 
           onChange={
             e =>
@@ -845,16 +1211,11 @@ propertyType:
 
 
 
-
-
-
         <Textarea
 
           placeholder="Internal Notes"
 
-          value={
-            form.note
-          }
+          value={form.note}
 
           onChange={
             e =>
@@ -870,26 +1231,49 @@ propertyType:
 
 
 
+        <div className="
+          flex
+          justify-end
+          gap-3
+        ">
 
 
-        <Button
+          <Button
 
-          type="submit"
+            type="button"
 
-          disabled={
-            loading
-          }
+            variant="outline"
 
-        >
+            onClick={() =>
+              onOpenChange(false)
+            }
 
-          {
-            loading
-              ? "Saving..."
-              : "Create Property"
-          }
+          >
+
+            Cancel
+
+          </Button>
 
 
-        </Button>
+
+          <Button
+
+            type="submit"
+
+            disabled={loading}
+
+          >
+
+            {
+              loading
+                ? "Saving..."
+                : "Create Property"
+            }
+
+          </Button>
+
+
+        </div>
 
 
       </form>

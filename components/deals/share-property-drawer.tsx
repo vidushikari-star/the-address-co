@@ -247,11 +247,33 @@ Sharing details of this luxury property:
 📍 Location:
 ${property.location || "-"}
 
-💰 Asking Price:
 ${
-  property.price.asking
-    ? `₹${property.price.asking.toLocaleString("en-IN")}`
-    : "-"
+  property.transactionType === "Rental"
+    ? "💰 Monthly Rent:"
+    : "💰 Asking Price:"
+}
+
+${
+  property.transactionType === "Rental"
+    ? (
+        property.price.rent
+          ? `₹${property.price.rent.toLocaleString("en-IN")}/month`
+          : "-"
+      )
+    : (
+        property.price.asking
+          ? `₹${property.price.asking.toLocaleString("en-IN")}`
+          : "-"
+      )
+}
+
+
+${
+  property.transactionType === "Rental" &&
+  property.price.securityDeposit
+    ? `🔐 Security Deposit:
+₹${property.price.securityDeposit.toLocaleString("en-IN")}`
+    : ""
 }
 
 

@@ -7,8 +7,8 @@ import type {
 } from "@/types/deal"
 
 import {
-  formatCurrencyCr,
-} from "@/lib/formatters/currency"
+  formatCurrency,
+} from "@/lib/utils/format-currency"
 
 import {
   Calendar,
@@ -23,14 +23,9 @@ import {
 } from "@/components/ui/badge"
 
 
-
-
-
 type Props = {
   deal: Deal
 }
-
-
 
 
 
@@ -221,7 +216,7 @@ export function DealCard({
           ">
 
             {
-              formatCurrencyCr(
+              formatCurrency(
                 deal.value.propertyPrice
               )
             }

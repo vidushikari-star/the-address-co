@@ -11,6 +11,11 @@ import {
   DashboardCardHeader,
 } from "@/components/ui/dashboard-card"
 
+import {
+  formatCurrency,
+} from "@/lib/utils/format-currency"
+
+
 
 type Props = {
   total: number
@@ -18,21 +23,6 @@ type Props = {
   received: number
   receivedThisMonth: number
 }
-
-
-
-
-
-function formatCr(
-  value:number
-) {
-
-  return `₹${(
-    value / 10000000
-  ).toFixed(2)} Cr`
-
-}
-
 
 
 
@@ -69,7 +59,7 @@ export function CommissionStats({
         "Total Commission",
 
       value:
-        formatCr(total),
+        formatCurrency(total),
 
       icon:
         CircleDollarSign,
@@ -82,7 +72,7 @@ export function CommissionStats({
         "Outstanding Collection",
 
       value:
-        formatCr(outstanding),
+        formatCurrency(outstanding),
 
       icon:
         Clock,
@@ -95,7 +85,7 @@ export function CommissionStats({
         "Received",
 
       value:
-        formatCr(received),
+        formatCurrency(received),
 
       icon:
         CheckCircle2,
@@ -108,7 +98,7 @@ export function CommissionStats({
         "Received This Month",
 
       value:
-        formatCr(receivedThisMonth),
+        formatCurrency(receivedThisMonth),
 
       icon:
         CalendarCheck,

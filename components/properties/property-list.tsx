@@ -173,12 +173,20 @@ export function PropertyList() {
 
 
 
-            const matchesPrice =
-              !maxPrice
-              ||
-              property.price.asking
-              <=
-              Number(maxPrice)
+            const propertyPrice =
+  property.transactionType === "Rental"
+    ? property.price.rent
+    : property.price.asking
+
+
+const matchesPrice =
+  !maxPrice
+  ||
+  (
+    propertyPrice !== undefined
+    &&
+    propertyPrice <= Number(maxPrice)
+  )
 
 
 

@@ -180,6 +180,10 @@ export default function EditPropertyPage(){
 
     price:"",
 
+    
+    
+    securityDeposit:"",
+
 
 
     bedrooms:"",
@@ -334,10 +338,18 @@ export default function EditPropertyPage(){
 
 
           price:
-            String(
-              property.price?.asking
-              ?? ""
-            ),
+  String(
+    property.transactionType === "Rental"
+      ? property.price?.rent
+      : property.price?.asking
+    ?? ""
+  ),
+
+  securityDeposit:
+  String(
+    property.price?.securityDeposit
+    ?? ""
+  ),
 
 
 
@@ -558,9 +570,25 @@ export default function EditPropertyPage(){
 
 
           price:
-            Number(
-              form.price
-            ),
+  form.transactionType === "Rental"
+    ? undefined
+    : Number(
+        form.price
+      ),
+
+rent:
+  form.transactionType === "Rental"
+    ? Number(
+        form.price
+      )
+    : undefined,
+
+    securityDeposit:
+  form.transactionType === "Rental"
+    ? Number(
+        form.securityDeposit
+      )
+    : undefined,
 
 
 
@@ -1151,6 +1179,32 @@ export default function EditPropertyPage(){
           }
 
         />
+
+        {
+  form.transactionType === "Rental" && (
+
+    <Input
+
+      placeholder="Security Deposit"
+
+      type="number"
+
+      value={
+        form.securityDeposit
+      }
+
+      onChange={
+        e =>
+          update(
+            "securityDeposit",
+            e.target.value
+          )
+      }
+
+    />
+
+  )
+}
 
 
 

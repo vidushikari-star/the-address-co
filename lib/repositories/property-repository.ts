@@ -9,7 +9,48 @@ import type {
 } from "@/types/property"
 
 
+async function generateUniqueSlug(
+  slug:string
+){
 
+  let finalSlug = slug
+
+  let counter = 1
+
+
+  while(true){
+
+    const {
+      data,
+    } =
+      await supabase
+        .from("properties")
+        .select("id")
+        .eq(
+          "slug",
+          finalSlug
+        )
+        .maybeSingle()
+
+
+
+    if(!data){
+
+      return finalSlug
+
+    }
+
+
+
+    counter++
+
+
+    finalSlug =
+      `${slug}-${counter}`
+
+  }
+
+}
 
 
 export interface CreatePropertyDto {
@@ -39,7 +80,17 @@ export interface CreatePropertyDto {
   locality?:string
 
 
-  price:number
+
+
+
+  price?:number
+
+  rent?:number
+
+  securityDeposit?:number
+
+
+
 
 
   bedrooms:number
@@ -276,6 +327,11 @@ export async function createProperty(
 ):Promise<Property>{
 
 
+  const uniqueSlug =
+    await generateUniqueSlug(
+      property.slug
+    )
+
 
   const payload = {
 
@@ -285,7 +341,7 @@ export async function createProperty(
 
 
     slug:
-      property.slug,
+  uniqueSlug,
 
 
     developer:
@@ -321,12 +377,25 @@ export async function createProperty(
 
 
 
-    price:{
+    price:
+      property.transactionType === "Rental"
 
-      asking:
-        property.price,
+        ? {
 
-    },
+            rent:
+              property.rent ?? 0,
+
+            securityDeposit:
+              property.securityDeposit ?? 0,
+
+          }
+
+        : {
+
+            asking:
+              property.price ?? 0,
+
+          },
 
 
 
@@ -355,9 +424,7 @@ export async function createProperty(
 
     },
 
-
-
-    description:
+        description:
       property.description ?? null,
 
 
@@ -583,14 +650,36 @@ export async function updateProperty(
 
 
 
-  if(property.price !== undefined)
+  if(
+    property.price !== undefined ||
+    property.rent !== undefined ||
+    property.securityDeposit !== undefined
+  ){
 
     payload.price = {
 
-      asking:
-        property.price,
+      ...(property.transactionType === "Rental"
+
+        ? {
+
+            rent:
+              property.rent ?? 0,
+
+            securityDeposit:
+              property.securityDeposit ?? 0,
+
+          }
+
+        : {
+
+            asking:
+              property.price ?? 0,
+
+          })
 
     }
+
+  }
 
 
 

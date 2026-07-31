@@ -8,15 +8,19 @@ import {
   TrendingUp,
 } from "lucide-react"
 
-import { formatCurrencyCr } from "@/lib/formatters/currency"
+import {
+  formatPropertyPrice,
+} from "@/lib/utils/format-currency"
 
 import type {
   Property,
 } from "@/types/property"
 
+
 type PropertyOverviewProps = {
   property: Property
 }
+
 
 type DetailItemProps = {
   icon: React.ReactNode
@@ -24,12 +28,16 @@ type DetailItemProps = {
   value?: string | number | null
 }
 
+
+
 function DetailItem({
   icon,
   label,
   value,
 }: DetailItemProps) {
+
   return (
+
     <div
       className="
         flex
@@ -41,6 +49,7 @@ function DetailItem({
         p-4
       "
     >
+
       <div
         className="
           flex
@@ -54,8 +63,12 @@ function DetailItem({
           text-primary
         "
       >
+
         {icon}
+
       </div>
+
+
 
       <div className="min-w-0">
 
@@ -63,21 +76,39 @@ function DetailItem({
           {label}
         </p>
 
+
         <p className="mt-1 font-semibold break-words">
           {value || "—"}
         </p>
 
       </div>
 
+
     </div>
+
   )
+
 }
+
+
+
 
 export function PropertyOverview({
   property,
 }: PropertyOverviewProps) {
+
+
+  const displayPrice =
+    property.transactionType === "Rental"
+      ? property.price.rent
+      : property.price.asking
+
+
+
   return (
+
     <section className="space-y-5">
+
 
       <div>
 
@@ -85,11 +116,16 @@ export function PropertyOverview({
           Property Overview
         </h2>
 
+
         <p className="mt-1 text-sm text-muted-foreground">
           Essential information about this listing.
         </p>
 
       </div>
+
+
+
+
 
       <div
         className="
@@ -99,11 +135,14 @@ export function PropertyOverview({
         "
       >
 
+
         <DetailItem
           icon={<Building2 className="h-5 w-5" />}
           label="Developer"
           value={property.developer}
         />
+
+
 
         <DetailItem
           icon={<Home className="h-5 w-5" />}
@@ -111,11 +150,15 @@ export function PropertyOverview({
           value={property.propertyType}
         />
 
+
+
         <DetailItem
           icon={<TrendingUp className="h-5 w-5" />}
           label="Development Stage"
           value={property.developmentStage}
         />
+
+
 
         <DetailItem
           icon={<Briefcase className="h-5 w-5" />}
@@ -123,11 +166,15 @@ export function PropertyOverview({
           value={property.transactionType}
         />
 
+
+
         <DetailItem
           icon={<Tag className="h-5 w-5" />}
           label="Listing Type"
           value={property.listingType}
         />
+
+
 
         <DetailItem
           icon={<MapPin className="h-5 w-5" />}
@@ -135,19 +182,37 @@ export function PropertyOverview({
           value={property.locality}
         />
 
+
+
         <DetailItem
           icon={<Sofa className="h-5 w-5" />}
           label="Furnishing"
           value={property.furnishing}
         />
 
+
+
         <DetailItem
           icon={<TrendingUp className="h-5 w-5" />}
-          label="Asking Price"
-          value={formatCurrencyCr(property.price.asking)}
+          label={
+            property.transactionType === "Rental"
+              ? "Monthly Rent"
+              : "Asking Price"
+          }
+          value={
+            formatPropertyPrice(
+              displayPrice,
+              property.transactionType
+            )
+          }
         />
 
+
       </div>
+
+
+
+
 
       <div
         className="
@@ -162,6 +227,7 @@ export function PropertyOverview({
           About this Property
         </h3>
 
+
         <p
           className="
             mt-4
@@ -170,12 +236,20 @@ export function PropertyOverview({
             text-muted-foreground
           "
         >
-          {property.description ||
-            "No description has been added yet."}
+
+          {
+            property.description ||
+            "No description has been added yet."
+          }
+
         </p>
+
 
       </div>
 
+
     </section>
+
   )
+
 }

@@ -12,6 +12,10 @@ import {
   calculateDealHealth,
 } from "@/lib/services/deal-health-service"
 
+import {
+  formatCurrency,
+} from "@/lib/utils/format-currency"
+
 export async function getDashboardStats() {
 
   const [
@@ -71,6 +75,22 @@ export async function getDashboardStats() {
 
 
 
+  const portfolioValue =
+    properties.reduce(
+      (sum, property) =>
+        sum +
+        (
+          property.transactionType === "Sale"
+            ? property.price.asking ?? 0
+            : 0
+        ),
+      0
+    )
+
+
+
+
+
   return {
 
     contactsCount:
@@ -82,13 +102,7 @@ export async function getDashboardStats() {
     propertiesCount:
       properties.length,
 
-    portfolioValue:
-      properties.reduce(
-        (sum, property) =>
-          sum +
-          property.price.asking,
-        0
-      ),
+    portfolioValue,
 
     pipelineValue,
 
@@ -500,10 +514,9 @@ export async function getHotLeads(){
 
 
             budget:
-              `₹${(
-                deal.value.propertyPrice /
-                10000000
-              ).toFixed(1)} Cr`,
+  formatCurrency(
+    deal.value.propertyPrice
+  ),
 
 
             advisor:

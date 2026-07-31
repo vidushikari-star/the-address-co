@@ -6,6 +6,10 @@ import {
   DashboardCardHeader,
 } from "@/components/ui/dashboard-card"
 
+import {
+  formatCurrency,
+} from "@/lib/utils/format-currency"
+
 
 type PipelineStage = {
   title: string
@@ -109,36 +113,22 @@ export function PipelineCard({
 
 
           <SummaryCard
-
-            title="Live Inventory"
-
-            value={
-              `₹${(
-                summary.inventoryValue / 10000000
-              ).toFixed(1)} Cr`
-            }
-
-            subtitle={
-              `Across ${summary.inventoryCount} listings`
-            }
-
-          />
+  title="Live Inventory"
+  value={formatCurrency(
+    summary.inventoryValue
+  )}
+  subtitle={`Across ${summary.inventoryCount} listings`}
+/>
 
 
 
           <SummaryCard
-
-            title="Commission Potential"
-
-            value={
-              `₹${(
-                summary.commissionPotential / 10000000
-              ).toFixed(2)} Cr`
-            }
-
-            subtitle="From active deals"
-
-          />
+  title="Commission Potential"
+  value={formatCurrency(
+    summary.commissionPotential
+  )}
+  subtitle="From active deals"
+/>
 
 
         </div>

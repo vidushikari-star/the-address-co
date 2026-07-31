@@ -39,13 +39,41 @@ export type FurnishingType =
 
 
 
+
+
 export interface PropertyPrice {
 
-  asking:number
+  /**
+   * Sale asking price
+   * Example:
+   * ₹8.5 Cr = 85000000
+   */
+  asking?: number
 
-  commission?:number
+
+  /**
+   * Monthly rental amount
+   * Example:
+   * ₹70,000/month
+   */
+  rent?: number
+
+
+  /**
+   * Rental security deposit
+   */
+  securityDeposit?: number
+
+
+  /**
+   * Commission amount
+   */
+  commission?: number
 
 }
+
+
+
 
 
 
@@ -69,6 +97,10 @@ export interface PropertySpecifications {
 
 
 
+
+
+
+
 export interface Property {
 
 
@@ -83,27 +115,31 @@ export interface Property {
 
 
 
+
+
   // Project / Developer
 
   developer:string
 
 
-
   listingType:ListingType
 
-  transactionType: TransactionType
+  transactionType:TransactionType
 
   developmentStage:DevelopmentStage
-
 
 
   propertyType:PropertyType
 
 
 
+
+
   // CRM Status
 
   status:PropertyStatus
+
+
 
 
 
@@ -114,8 +150,9 @@ export interface Property {
   location:string
 
 
-
   googleMapLink?:string
+
+
 
 
 
@@ -123,9 +160,9 @@ export interface Property {
 
   coverImage?:string
 
-
-
   publicLink?:string
+
+
 
 
 
@@ -135,9 +172,13 @@ export interface Property {
 
 
 
+
+
   // Specifications
 
   specifications:PropertySpecifications
+
+
 
 
 
@@ -153,9 +194,13 @@ export interface Property {
 
 
 
+
+
   // Features
 
   tags?:string[]
+
+
 
 
 
@@ -168,7 +213,6 @@ export interface Property {
 
 
   lastShared:string
-
 
 
   note?:string

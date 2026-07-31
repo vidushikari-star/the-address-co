@@ -8,6 +8,7 @@ export interface PropertyImage {
   createdAt: string
 }
 
+
 type PropertyImageRow = {
   id: string
   property_id: string
@@ -16,18 +17,25 @@ type PropertyImageRow = {
   created_at: string
 }
 
+
 type PropertyCoverRow = {
   cover_image: string | null
 }
+
 
 type PropertyImageUrlRow = {
   url: string
 }
 
+
+
+
 function mapPropertyImageRow(
   row: PropertyImageRow
 ): PropertyImage {
+
   return {
+
     id:
       row.id,
 
@@ -42,12 +50,22 @@ function mapPropertyImageRow(
 
     createdAt:
       row.created_at,
+
   }
+
 }
+
+
+
+
+
+
 
 export async function getPropertyImages(
   propertyId: string
 ): Promise<PropertyImage[]> {
+
+
   const {
     data,
     error,
@@ -66,29 +84,53 @@ export async function getPropertyImages(
         }
       )
 
-  if (error) {
+
+  if(error){
+
     throw error
+
   }
+
 
   return (
     (data as PropertyImageRow[] | null) ??
     []
-  ).map(
+  )
+  .map(
     mapPropertyImageRow
   )
+
 }
+
+
+
+
+
+
+
 
 export async function uploadPropertyImage(
   propertyId: string,
   file: File
 ): Promise<PropertyImage> {
+
+
   const fileExt =
     file.name
       .split(".")
       .pop()
+      ?.toLowerCase() || "jpg"
+
+
+
+
 
   const fileName =
-    `${propertyId}-${Date.now()}.${fileExt}`
+    `${propertyId}/${crypto.randomUUID()}.${fileExt}`
+
+
+
+
 
   const {
     error: uploadError,
@@ -98,12 +140,24 @@ export async function uploadPropertyImage(
       .from("property-images")
       .upload(
         fileName,
-        file
+        file,
+        {
+          upsert: false,
+        }
       )
 
-  if (uploadError) {
+
+
+  if(uploadError){
+
     throw uploadError
+
   }
+
+
+
+
+
 
   const {
     data: urlData,
@@ -115,8 +169,14 @@ export async function uploadPropertyImage(
         fileName
       )
 
+
+
   const publicUrl =
     urlData.publicUrl
+
+
+
+
 
   const {
     data,
@@ -125,6 +185,7 @@ export async function uploadPropertyImage(
     await supabase
       .from("property_images")
       .insert({
+
         property_id:
           propertyId,
 
@@ -133,13 +194,24 @@ export async function uploadPropertyImage(
 
         is_cover:
           false,
+
       })
       .select()
       .single()
 
-  if (error) {
+
+
+  if(error){
+
     throw error
+
   }
+
+
+
+
+
+
 
   const {
     data: property,
@@ -155,46 +227,80 @@ export async function uploadPropertyImage(
       )
       .single()
 
+
+
   const propertyRow =
     property as PropertyCoverRow | null
 
-  if (
+
+
+
+
+
+  if(
     !propertyRow?.cover_image
-  ) {
+  ){
+
     await supabase
       .from("properties")
       .update({
+
         cover_image:
           publicUrl,
+
       })
       .eq(
         "id",
         propertyId
       )
+
   }
+
+
+
+
+
 
   return mapPropertyImageRow(
     data as PropertyImageRow
   )
+
 }
+
+
+
+
+
+
+
 
 export async function deletePropertyImage(
   id: string,
   url: string
 ) {
+
+
   const fileName =
     url.split(
       "/property-images/"
     )[1]
 
-  if (fileName) {
+
+
+  if(fileName){
+
     await supabase
       .storage
       .from("property-images")
       .remove([
         fileName,
       ])
+
   }
+
+
+
+
 
   const {
     error,
@@ -207,15 +313,29 @@ export async function deletePropertyImage(
         id
       )
 
-  if (error) {
+
+
+  if(error){
+
     throw error
+
   }
+
 }
+
+
+
+
+
+
+
 
 export async function setCoverImage(
   id: string,
   propertyId: string
 ) {
+
+
   const {
     data: image,
   } =
@@ -230,14 +350,27 @@ export async function setCoverImage(
       )
       .single()
 
+
+
   const imageRow =
     image as PropertyImageUrlRow | null
 
-  if (!imageRow) {
+
+
+
+
+  if(!imageRow){
+
     throw new Error(
       "Image not found"
     )
+
   }
+
+
+
+
+
 
   await supabase
     .from("property_images")
@@ -249,6 +382,11 @@ export async function setCoverImage(
       propertyId
     )
 
+
+
+
+
+
   const {
     data,
     error,
@@ -256,7 +394,9 @@ export async function setCoverImage(
     await supabase
       .from("property_images")
       .update({
+
         is_cover: true,
+
       })
       .eq(
         "id",
@@ -265,22 +405,37 @@ export async function setCoverImage(
       .select()
       .single()
 
-  if (error) {
+
+
+  if(error){
+
     throw error
+
   }
+
+
+
+
 
   await supabase
     .from("properties")
     .update({
+
       cover_image:
         imageRow.url,
+
     })
     .eq(
       "id",
       propertyId
     )
 
+
+
+
+
   return mapPropertyImageRow(
     data as PropertyImageRow
   )
+
 }

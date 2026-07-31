@@ -7,18 +7,31 @@ import {
 } from "lucide-react"
 
 import { StatusBadge } from "@/components/shared/status-badge"
+
 import { SharePropertyButton } from "@/components/properties/share-property-button"
-import { formatCurrencyCr } from "@/lib/formatters/currency"
+
+import {
+  formatPropertyPrice,
+} from "@/lib/utils/format-currency"
 
 import type { Property } from "@/types/property"
+
 
 type PropertyHeroProps = {
   property: Property
 }
 
+
 export function PropertyHero({
   property,
 }: PropertyHeroProps) {
+
+  const displayPrice =
+    property.transactionType === "Rental"
+      ? property.price.rent
+      : property.price.asking
+
+
   return (
     <section
       className="
@@ -28,6 +41,7 @@ export function PropertyHero({
         bg-card
       "
     >
+
       <div
         className="
           bg-gradient-to-r
@@ -38,6 +52,7 @@ export function PropertyHero({
           sm:p-8
         "
       >
+
         <div
           className="
             flex
@@ -48,13 +63,16 @@ export function PropertyHero({
             lg:justify-between
           "
         >
+
           <div className="min-w-0 flex-1">
+
 
             <div className="mb-4 flex flex-wrap items-center gap-3">
 
               <StatusBadge
                 status={property.status}
               />
+
 
               <span
                 className="
@@ -67,10 +85,16 @@ export function PropertyHero({
                   text-primary
                 "
               >
+
                 {property.propertyType}
+
               </span>
 
             </div>
+
+
+
+
 
             <h1
               className="
@@ -80,8 +104,14 @@ export function PropertyHero({
                 sm:text-4xl
               "
             >
+
               {property.name}
+
             </h1>
+
+
+
+
 
             <p
               className="
@@ -92,8 +122,19 @@ export function PropertyHero({
                 sm:text-5xl
               "
             >
-              {formatCurrencyCr(property.price.asking)}
+
+              {
+                formatPropertyPrice(
+                  displayPrice,
+                  property.transactionType
+                )
+              }
+
             </p>
+
+
+
+
 
             <div
               className="
@@ -107,29 +148,46 @@ export function PropertyHero({
                 sm:items-center
               "
             >
+
               <div className="flex items-center gap-2">
 
                 <MapPin className="h-4 w-4 shrink-0" />
 
-                <span>{property.location}</span>
+                <span>
+                  {property.location}
+                </span>
 
               </div>
+
+
+
 
               <div className="hidden sm:block">
                 •
               </div>
 
+
+
+
               <div className="flex items-center gap-2">
 
                 <Building2 className="h-4 w-4 shrink-0" />
 
-                <span>{property.developer}</span>
+                <span>
+                  {property.developer}
+                </span>
 
               </div>
 
+
             </div>
 
+
           </div>
+
+
+
+
 
           <div
             className="
@@ -144,6 +202,8 @@ export function PropertyHero({
             <SharePropertyButton
               property={property}
             />
+
+
 
             <Link
               href={`/properties/${property.slug}/edit`}
@@ -163,16 +223,21 @@ export function PropertyHero({
                 hover:bg-primary/90
               "
             >
+
               <Pencil className="h-4 w-4" />
 
               Edit Property
 
             </Link>
 
+
           </div>
 
+
         </div>
+
       </div>
+
     </section>
   )
 }

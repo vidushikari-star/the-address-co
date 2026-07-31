@@ -12,7 +12,10 @@ import {
 } from "lucide-react"
 
 import { StatusBadge } from "@/components/shared/status-badge"
-import { formatCurrencyCr } from "@/lib/formatters/currency"
+
+import {
+  formatPropertyPrice,
+} from "@/lib/utils/format-currency"
 
 import type {
   Property,
@@ -128,15 +131,20 @@ export function PropertyCard({
             </div>
 
             <p
-              className="
-                text-3xl
-                font-bold
-                tracking-tight
-                text-primary
-              "
-            >
-              {formatCurrencyCr(property.price.asking)}
-            </p>
+  className="
+    text-3xl
+    font-bold
+    tracking-tight
+    text-primary
+  "
+>
+  {formatPropertyPrice(
+    property.transactionType === "Rental"
+      ? property.price.rent
+      : property.price.asking,
+    property.transactionType
+  )}
+</p>
 
           </div>
 
@@ -375,8 +383,13 @@ export function PropertyCard({
             </div>
 
             <p className="shrink-0 text-4xl font-bold tracking-tight text-primary">
-              {formatCurrencyCr(property.price.asking)}
-            </p>
+  {formatPropertyPrice(
+    property.transactionType === "Rental"
+      ? property.price.rent
+      : property.price.asking,
+    property.transactionType
+  )}
+</p>
 
           </div>
 

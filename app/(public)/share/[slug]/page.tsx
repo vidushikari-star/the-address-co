@@ -18,8 +18,11 @@ import {
   PropertyEnquiryForm,
 } from "@/components/public/property-enquiry-form"
 
-
 import type { ReactNode } from "react"
+
+import {
+  formatPropertyPrice,
+} from "@/lib/utils/format-currency"
 
 
 type Props = {
@@ -57,8 +60,6 @@ export default async function PublicPropertySharePage({
 
 
 
-
-
   if(!property){
 
     notFound()
@@ -84,12 +85,18 @@ export default async function PublicPropertySharePage({
 
 
 
+  const displayPrice =
+    property.transactionType === "Rental"
+      ? property.price.rent
+      : property.price.asking
+
+
+
+
+
   const advisor =
-
     ADVISORS[property.advisor]
-
     ||
-
     ADVISORS["Vidushi Kari"]
 
 
@@ -97,15 +104,10 @@ export default async function PublicPropertySharePage({
 
 
   const advisorName =
-
     advisor?.name
-
     ||
-
     property.advisor
-
     ||
-
     "Advisor"
 
 
@@ -149,12 +151,6 @@ Please share more details.`
     <main className="min-h-screen bg-background">
 
 
-
-
-
-      {/* HERO */}
-
-
       <section className="relative h-[75vh] w-full">
 
 
@@ -191,52 +187,87 @@ Please share more details.`
 
 
             <p className="mb-3 text-sm uppercase tracking-[0.3em]">
-
               Luxury Property
-
             </p>
 
 
 
 
             <h1 className="text-5xl font-semibold">
-
               {property.name}
-
             </h1>
 
 
 
 
             <p className="mt-3 text-xl">
-
               {property.location}
-
             </p>
 
 
 
-            <div className="mt-6 inline-block rounded-xl bg-white/20 px-6 py-3 backdrop-blur">
+
+            <div className="mt-6 inline-block rounded-xl bg-white/20 px-6 py-4 backdrop-blur">
 
 
-              <p className="text-sm">
-                Asking Price
-              </p>
+  <p className="text-sm">
+
+    {
+      property.transactionType === "Rental"
+        ? "Monthly Rent"
+        : "Asking Price"
+    }
+
+  </p>
 
 
-              <p className="text-3xl font-semibold">
+  <p className="text-3xl font-semibold">
 
-                ₹
-                {
-                  property.price.asking.toLocaleString(
-                    "en-IN"
-                  )
-                }
+    {
+      formatPropertyPrice(
+        displayPrice,
+        property.transactionType
+      )
+    }
 
-              </p>
+  </p>
 
 
-            </div>
+
+
+
+  {
+    property.transactionType === "Rental" &&
+    property.price.securityDeposit &&
+    property.price.securityDeposit > 0 && (
+
+      <div className="mt-3 border-t border-white/30 pt-3">
+
+
+        <p className="text-sm">
+          Security Deposit
+        </p>
+
+
+        <p className="text-xl font-semibold">
+
+          {
+            formatPropertyPrice(
+              property.price.securityDeposit,
+              "Sale"
+            )
+          }
+
+        </p>
+
+
+      </div>
+
+    )
+  }
+
+
+</div>
 
 
           </div>
@@ -253,9 +284,6 @@ Please share more details.`
 
 
 
-
-
-      {/* PROPERTY STATS */}
 
 
       <section className="mx-auto grid max-w-6xl gap-5 px-6 py-10 md:grid-cols-4">
@@ -300,9 +328,6 @@ Please share more details.`
 
 
 
-
-
-      {/* GALLERY */}
 
 
       {
@@ -361,9 +386,6 @@ Please share more details.`
 
 
 
-      {/* DESCRIPTION */}
-
-
       <section className="mx-auto max-w-6xl px-6 py-12">
 
 
@@ -371,9 +393,7 @@ Please share more details.`
 
 
           <h2 className="mb-4 text-3xl font-semibold">
-
             About the Property
-
           </h2>
 
 
@@ -401,9 +421,6 @@ Please share more details.`
 
 
 
-      {/* AMENITIES */}
-
-
       <section className="mx-auto max-w-6xl px-6 pb-12">
 
 
@@ -411,9 +428,7 @@ Please share more details.`
 
 
           <h2 className="mb-5 text-3xl font-semibold">
-
             Amenities
-
           </h2>
 
 
@@ -427,11 +442,8 @@ Please share more details.`
                 item => (
 
                   <span
-
                     key={item}
-
                     className="rounded-full border px-5 py-2"
-
                   >
 
                     {item}
@@ -461,18 +473,11 @@ Please share more details.`
 
 
 
-      {/* ENQUIRY FORM */}
-
-
       <section className="mx-auto max-w-6xl px-6 pb-12">
 
 
         <PropertyEnquiryForm
-
-          property={
-            property
-          }
-
+          property={property}
         />
 
 
@@ -486,9 +491,6 @@ Please share more details.`
 
 
 
-      {/* WHATSAPP CTA */}
-
-
       <section className="bg-muted py-12">
 
 
@@ -496,17 +498,13 @@ Please share more details.`
 
 
           <h2 className="text-3xl font-semibold">
-
             Interested in this property?
-
           </h2>
 
 
 
           <p className="mt-3 text-muted-foreground">
-
             Contact {advisorName} for a private viewing.
-
           </p>
 
 
@@ -514,13 +512,9 @@ Please share more details.`
 
 
           <a
-
             href={whatsappUrl}
-
             target="_blank"
-
             className="mt-6 inline-block rounded-xl bg-primary px-8 py-3 text-white"
-
           >
 
             WhatsApp {advisorName}
@@ -553,19 +547,26 @@ function Stat({
   label,
   value,
 }: {
-  label: string
-  value: ReactNode
+  label:string
+  value:ReactNode
 }) {
+
   return (
+
     <div className="rounded-2xl border p-6">
+
       <p className="text-sm text-muted-foreground">
         {label}
       </p>
 
+
       <p className="mt-2 text-xl font-semibold">
         {value ?? "-"}
       </p>
-    </div>
-  )
-}
 
+
+    </div>
+
+  )
+
+}

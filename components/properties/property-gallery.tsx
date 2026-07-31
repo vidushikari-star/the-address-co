@@ -18,6 +18,10 @@ import {
 
 import { useRouter } from "next/navigation"
 
+import {
+  PropertyImageUpload,
+} from "@/components/properties/property-image-upload"
+
 type Props = {
   propertyId: string
   images: PropertyImage[]
@@ -66,35 +70,60 @@ export function PropertyGallery({
   }
 
   async function removeImage(
-    id: string,
-    url: string
-  ) {
+  id: string,
+  url: string
+) {
 
-    setLoadingImageId(id)
 
-    try {
+  const confirmed =
+    window.confirm(
+      "Delete this property image?"
+    )
 
-      await deletePropertyImage(
-        id,
-        url
-      )
 
-      router.refresh()
+  if(!confirmed){
 
-    } catch (error) {
-
-      console.error(
-        "Failed deleting image",
-        error
-      )
-
-    } finally {
-
-      setLoadingImageId(null)
-
-    }
+    return
 
   }
+
+
+
+  setLoadingImageId(id)
+
+
+  try {
+
+
+    await deletePropertyImage(
+      id,
+      url
+    )
+
+
+    router.refresh()
+
+
+  }
+  catch(error){
+
+
+    console.error(
+      "Failed deleting image",
+      error
+    )
+
+
+  }
+  finally {
+
+
+    setLoadingImageId(null)
+
+
+  }
+
+}
 
   if (images.length === 0) {
 
@@ -152,24 +181,37 @@ export function PropertyGallery({
 
       <div className="flex items-center justify-between">
 
-        <div>
 
-          <h3 className="font-semibold">
+  <div>
 
-            Gallery
+    <h3 className="font-semibold">
+      Gallery
+    </h3>
 
-          </h3>
 
-          <p className="text-sm text-muted-foreground">
+    <p className="text-sm text-muted-foreground">
 
-            {images.length} image
-            {images.length !== 1 ? "s" : ""}
+      {images.length} image
+      {images.length !== 1 ? "s" : ""}
 
-          </p>
+    </p>
 
-        </div>
 
-      </div>
+  </div>
+
+
+
+
+  <PropertyImageUpload
+
+    propertyId={
+      propertyId
+    }
+
+  />
+
+
+</div>
 
       <div
         className="
@@ -329,12 +371,31 @@ export function PropertyGallery({
                 disabled={
                   loadingImageId === image.id
                 }
-                onClick={() =>
-                  removeImage(
-                    image.id,
-                    image.url
-                  )
-                }
+                onClick={() => {
+
+  if(image.isCover){
+
+    const confirmed =
+      window.confirm(
+        "This is the cover image. Delete it anyway?"
+      )
+
+
+    if(!confirmed){
+
+      return
+
+    }
+
+  }
+
+
+  removeImage(
+    image.id,
+    image.url
+  )
+
+}}
                 className="w-full"
               >
 

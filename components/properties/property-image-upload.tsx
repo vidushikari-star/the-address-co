@@ -23,8 +23,6 @@ import {
 
 
 
-
-
 type Props = {
 
   propertyId:string
@@ -53,20 +51,20 @@ export function PropertyImageUpload({
 
 
   const [
-    file,
-    setFile,
+    files,
+    setFiles,
   ] =
-  useState<File | null>(null)
+  useState<File[]>([])
 
 
 
 
 
   const [
-    preview,
-    setPreview,
+    previews,
+    setPreviews,
   ] =
-  useState<string | null>(null)
+  useState<string[]>([])
 
 
 
@@ -84,27 +82,102 @@ export function PropertyImageUpload({
 
 
 
-  function selectFile(
-    selected:File | undefined
+  function selectFiles(
+    selectedFiles: FileList | null
   ){
 
-    if(!selected){
+    if(!selectedFiles){
 
       return
 
     }
 
 
-    setFile(
-      selected
-    )
 
-
-    setPreview(
-      URL.createObjectURL(
-        selected
+    const selected =
+      Array.from(
+        selectedFiles
       )
+
+
+
+    setFiles(
+      current => [
+        ...current,
+        ...selected,
+      ]
     )
+
+
+
+    setPreviews(
+      current => [
+
+        ...current,
+
+        ...selected.map(
+          file =>
+            URL.createObjectURL(
+              file
+            )
+        ),
+
+      ]
+    )
+
+  }
+
+
+
+
+
+
+
+  function removeImage(
+    index:number
+  ){
+
+
+    setFiles(
+      current =>
+        current.filter(
+          (_,i) =>
+            i !== index
+        )
+    )
+
+
+    setPreviews(
+      current =>
+        current.filter(
+          (_,i) =>
+            i !== index
+        )
+    )
+
+  }
+
+
+
+
+
+
+
+  function clearSelection(){
+
+
+    setFiles([])
+
+    setPreviews([])
+
+
+
+    if(fileRef.current){
+
+      fileRef.current.value = ""
+
+    }
+
 
   }
 
@@ -117,10 +190,10 @@ export function PropertyImageUpload({
   async function upload(){
 
 
-    if(!file){
+    if(!files.length){
 
       alert(
-        "Please choose an image first"
+        "Please choose images first"
       )
 
       return
@@ -135,31 +208,32 @@ export function PropertyImageUpload({
     try {
 
 
-      await uploadPropertyImage(
-        propertyId,
-        file
+      await Promise.all(
+
+        files.map(
+
+          file =>
+            uploadPropertyImage(
+              propertyId,
+              file
+            )
+
+        )
+
       )
 
 
 
-      setFile(null)
-
-      setPreview(null)
-
-
-
-      if(fileRef.current){
-
-        fileRef.current.value = ""
-
-      }
+      clearSelection()
 
 
 
       router.refresh()
 
 
-    } catch(error){
+
+    }
+    catch(error){
 
 
       console.error(
@@ -173,15 +247,16 @@ export function PropertyImageUpload({
       )
 
 
-    } finally {
+    }
+    finally {
 
 
       setLoading(false)
 
     }
 
-  }
 
+  }
 
 
 
@@ -194,11 +269,8 @@ export function PropertyImageUpload({
     <div className="
       flex
       flex-col
-      gap-3
-      sm:flex-row
-      sm:items-center
+      gap-4
     ">
-
 
 
       <input
@@ -209,14 +281,14 @@ export function PropertyImageUpload({
 
         accept="image/*"
 
-        capture="environment"
+        multiple
 
         hidden
 
         onChange={
           e =>
-            selectFile(
-              e.target.files?.[0]
+            selectFiles(
+              e.target.files
             )
         }
 
@@ -229,81 +301,89 @@ export function PropertyImageUpload({
 
 
       {
-  preview && (
+        previews.length > 0 && (
 
-    <div className="flex items-center gap-3">
-
-      <img
-
-        src={preview}
-
-        alt="Preview"
-
-        className="
-          h-16
-          w-16
-          rounded-xl
-          border
-          object-cover
-        "
-
-      />
-
-    </div>
-
-  )
-}
-
-
-
-
-
-
-
-      <Button
-
-        type="button"
-
-        variant="outline"
-
-        className="
-          w-full
-          sm:w-auto
-        "
-
-        onClick={() =>
-          fileRef.current?.click()
-        }
-
-      >
-
-        <ImagePlus className="mr-2 h-4 w-4"/>
-
-        Choose Image
-
-      </Button>
-
-
-
-
-
-
-
-      {
-        file && (
-
-          <p className="
-            max-w-full
-            truncate
-            text-sm
-            text-muted-foreground
+          <div className="
+            grid
+            grid-cols-3
+            gap-3
+            sm:grid-cols-5
           ">
 
-            {file.name}
 
-          </p>
+            {
+              previews.map(
+
+                (preview,index)=>(
+
+                  <div
+
+                    key={preview}
+
+                    className="
+                      relative
+                    "
+
+                  >
+
+
+                    <img
+
+                      src={preview}
+
+                      alt={`Preview ${index + 1}`}
+
+                      className="
+                        h-20
+                        w-20
+                        rounded-xl
+                        border
+                        object-cover
+                      "
+
+                    />
+
+
+
+                    <button
+
+                      type="button"
+
+                      onClick={() =>
+                        removeImage(index)
+                      }
+
+                      className="
+                        absolute
+                        right-1
+                        top-1
+                        rounded-full
+                        bg-black/70
+                        px-2
+                        text-xs
+                        text-white
+                      "
+
+                    >
+
+                      ×
+
+                    </button>
+
+
+                  </div>
+
+                )
+
+              )
+
+            }
+
+
+          </div>
 
         )
+
       }
 
 
@@ -312,31 +392,122 @@ export function PropertyImageUpload({
 
 
 
-      <Button
+      <div className="
+        flex
+        flex-col
+        gap-3
+        sm:flex-row
+        sm:items-center
+      ">
 
-        type="button"
 
-        className="
-          w-full
-          sm:w-auto
-        "
 
-        onClick={upload}
+        <Button
 
-        disabled={
-          loading ||
-          !file
-        }
+          type="button"
 
-      >
+          variant="outline"
+
+          className="
+            w-full
+            sm:w-auto
+          "
+
+          onClick={() =>
+            fileRef.current?.click()
+          }
+
+        >
+
+          <ImagePlus className="mr-2 h-4 w-4"/>
+
+          Upload More Images
+
+        </Button>
+
+
+
+
+
+
 
         {
-          loading
-            ? "Uploading..."
-            : "Upload"
+          files.length > 0 && (
+
+            <p className="
+              text-sm
+              text-muted-foreground
+            ">
+
+              {files.length} image
+              {files.length > 1 ? "s" : ""}
+              {" "}selected
+
+            </p>
+
+          )
         }
 
-      </Button>
+
+
+
+
+
+
+        {
+          files.length > 0 && (
+
+            <Button
+
+              type="button"
+
+              variant="ghost"
+
+              onClick={clearSelection}
+
+            >
+
+              Clear
+
+            </Button>
+
+          )
+        }
+
+
+
+
+
+
+
+        <Button
+
+          type="button"
+
+          className="
+            w-full
+            sm:w-auto
+          "
+
+          onClick={upload}
+
+          disabled={
+            loading ||
+            files.length === 0
+          }
+
+        >
+
+          {
+            loading
+              ? "Uploading..."
+              : "Upload Images"
+          }
+
+        </Button>
+
+
+      </div>
 
 
     </div>

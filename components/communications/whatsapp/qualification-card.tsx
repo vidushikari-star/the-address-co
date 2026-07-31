@@ -28,6 +28,10 @@ import {
   generatePropertyShareMessage,
 } from "@/lib/communications/property-message"
 
+import {
+  formatCurrency,
+} from "@/lib/utils/format-currency"
+
 import type { Contact } from "@/types"
 
 
@@ -42,43 +46,6 @@ type QualificationCardProps = {
 
 
 
-
-
-function formatBudget(
-  value?: string | number
-) {
-
-  if (!value) return null
-
-
-  const amount =
-    Number(value)
-
-
-
-  if (amount >= 10000000) {
-
-    return `${(
-      amount / 10000000
-    ).toFixed(1)} Cr`
-
-  }
-
-
-
-  if (amount >= 100000) {
-
-    return `${(
-      amount / 100000
-    ).toFixed(1)} L`
-
-  }
-
-
-
-  return value.toString()
-
-}
 
 
 
@@ -97,7 +64,7 @@ export function QualificationCard({
     selectorOpen,
     setSelectorOpen,
   ] =
-    useState(false)
+  useState(false)
 
 
 
@@ -105,7 +72,7 @@ export function QualificationCard({
     composerOpen,
     setComposerOpen,
   ] =
-    useState(false)
+  useState(false)
 
 
 
@@ -113,7 +80,7 @@ export function QualificationCard({
     propertyMessage,
     setPropertyMessage,
   ] =
-    useState("")
+  useState("")
 
 
 
@@ -305,10 +272,11 @@ export function QualificationCard({
               </span>
 
               <strong>
-                ₹
                 {
-                  formatBudget(
-                    qualification.budget
+                  formatCurrency(
+                    Number(
+                      qualification.budget
+                    )
                   )
                 }
               </strong>
