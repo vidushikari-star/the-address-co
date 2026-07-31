@@ -13,14 +13,24 @@ type PipelineStage = {
 }
 
 
+type PipelineSummary = {
+  activeClients: number
+  inventoryValue: number
+  inventoryCount: number
+  commissionPotential: number
+}
+
+
 type PipelineCardProps = {
   stages: PipelineStage[]
+  summary: PipelineSummary
 }
 
 
 
 export function PipelineCard({
   stages,
+  summary,
 }: PipelineCardProps) {
 
 
@@ -83,25 +93,51 @@ export function PipelineCard({
 
 
           <SummaryCard
+
             title="Active Clients"
-            value="42"
-            subtitle="6 added this month"
+
+            value={
+              String(
+                summary.activeClients
+              )
+            }
+
+            subtitle="Total contacts"
+
           />
 
 
 
           <SummaryCard
+
             title="Live Inventory"
-            value="₹52 Cr"
-            subtitle="Across 31 listings"
+
+            value={
+              `₹${(
+                summary.inventoryValue / 10000000
+              ).toFixed(1)} Cr`
+            }
+
+            subtitle={
+              `Across ${summary.inventoryCount} listings`
+            }
+
           />
 
 
 
           <SummaryCard
+
             title="Commission Potential"
-            value="₹1.84 Cr"
+
+            value={
+              `₹${(
+                summary.commissionPotential / 10000000
+              ).toFixed(2)} Cr`
+            }
+
             subtitle="From active deals"
+
           />
 
 
@@ -216,7 +252,7 @@ function SummaryCard({
         border-border/60
         bg-muted/30
         p-3
-sm:p-5
+        sm:p-5
         transition-all
         duration-200
         hover:-translate-y-0.5

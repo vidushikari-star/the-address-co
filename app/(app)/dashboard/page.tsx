@@ -214,7 +214,14 @@ export default async function DashboardPage() {
 
           <PipelineCard
 
-            stages={[
+  summary={{
+    activeClients: stats.contactsCount,
+    inventoryValue: stats.portfolioValue,
+    inventoryCount: stats.propertiesCount,
+    commissionPotential: commissionStats.pending,
+  }}
+
+  stages={[
 
               {
                 title:"Lead",
