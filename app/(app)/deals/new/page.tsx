@@ -341,31 +341,32 @@ export default function NewDealPage() {
 
           value:{
 
-            propertyPrice:
-              Number(
-                form.propertyPrice
-              ),
+  propertyPrice:
+    Number(
+      form.propertyPrice || 0
+    ),
 
 
-            commissionPercentage:
-              Number(
-                form.commissionPercentage
-              ),
+  commissionType:
+    "sale",
 
 
-            commissionAmount:
-              Number(
+  commissionBasis:
+    "percentage",
 
-                form.commissionAmount
-                ||
-                calculateCommission(
-                  form.propertyPrice,
-                  form.commissionPercentage
-                )
 
-              ),
+  commissionPercentage:
+    Number(
+      form.commissionPercentage || 2
+    ),
 
-          },
+
+  commissionAmount:
+    Number(
+      form.commissionAmount || 0
+    ),
+
+},
 
 
           probability:

@@ -457,6 +457,8 @@ deal={deal}
 
 <DealCommission
 
+deal={deal}
+
 commissions={commissions}
 
 role={user?.role}
@@ -488,6 +490,61 @@ paidDistributionAmount
 Shared Properties
 </h2>
 
+<div className="
+rounded-xl
+bg-muted/40
+p-4
+space-y-3
+">
+
+<div className="flex justify-between">
+
+<span className="text-sm text-muted-foreground">
+Property Value
+</span>
+
+<span className="font-semibold">
+
+₹
+{deal.value.propertyPrice.toLocaleString("en-IN")}
+
+</span>
+
+</div>
+
+
+<div className="flex justify-between">
+
+<span className="text-sm text-muted-foreground">
+Commission %
+</span>
+
+<span className="font-semibold">
+
+{deal.value.commissionPercentage || 0}%
+
+</span>
+
+</div>
+
+
+<div className="flex justify-between">
+
+<span className="text-sm text-muted-foreground">
+Expected Commission
+</span>
+
+<span className="font-semibold text-primary">
+
+₹
+{deal.value.commissionAmount.toLocaleString("en-IN")}
+
+</span>
+
+</div>
+
+
+</div>
 
 <SharedProperties
 

@@ -50,6 +50,14 @@ import {
   DeletePropertyButton,
 } from "@/components/properties/delete-property-button"
 
+import {
+  getDealsByPropertyId,
+} from "@/lib/repositories/deal-repository"
+
+import {
+  PropertyDeals,
+} from "@/components/properties/property-deals"
+
 
 
 type Props = {
@@ -120,25 +128,30 @@ export default async function PropertyDetailPage({
 
 
   const [
-    activities,
-    images,
-    documents,
-  ] =
-  await Promise.all([
+  activities,
+  images,
+  documents,
+  deals,
+] =
+await Promise.all([
 
-    getActivitiesByPropertyId(
-      property.id
-    ),
+  getActivitiesByPropertyId(
+    property.id
+  ),
 
-    getPropertyImages(
-      property.id
-    ),
+  getPropertyImages(
+    property.id
+  ),
 
-    getPropertyDocuments(
-      property.id
-    ),
+  getPropertyDocuments(
+    property.id
+  ),
 
-  ])
+  getDealsByPropertyId(
+    property.id
+  ),
+
+])
 
 
 
@@ -334,6 +347,13 @@ export default async function PropertyDetailPage({
         documents={documents}
         propertyId={property.id}
       />
+
+      <PropertyDeals
+  deals={deals}
+  transactionType={
+    property.transactionType
+  }
+/>
 
 
 

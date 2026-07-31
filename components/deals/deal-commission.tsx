@@ -10,6 +10,10 @@ import type {
   Commission,
 } from "@/types/commission"
 
+import type {
+  Deal,
+} from "@/types/deal"
+
 import {
   Button,
 } from "@/components/ui/button"
@@ -24,7 +28,10 @@ import {
 
 
 
+
 type Props = {
+
+  deal: Deal
 
   commissions: Commission[]
 

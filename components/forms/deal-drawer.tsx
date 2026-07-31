@@ -135,6 +135,21 @@ export function DealDrawer({
 
 
 
+  const selectedProperty =
+    properties.find(
+      property =>
+        property.id === form.propertyId
+    )
+
+
+
+  const isRental =
+    selectedProperty?.transactionType === "Rental"
+
+
+
+
+
 
 
   useEffect(()=>{
@@ -168,17 +183,14 @@ export function DealDrawer({
 
 
 
-        
-
-
         if(error){
 
-  console.error(
-    "Failed loading sales users:",
-    error
-  )
+          console.error(
+            "Failed loading sales users:",
+            error
+          )
 
-}
+        }
 
 
 
@@ -193,8 +205,8 @@ export function DealDrawer({
 
 
         setUsers(
-  salesUsers ?? []
-)
+          salesUsers ?? []
+        )
 
 
 
@@ -328,6 +340,28 @@ export function DealDrawer({
 
 
 
+      const commissionAmount =
+
+        isRental
+
+          ?
+
+            Number(
+              selectedProperty?.price?.rent ?? 0
+            )
+
+          :
+
+            (
+              price *
+              2 /
+              100
+            )
+
+
+
+
+
       await createDeal({
 
         name:
@@ -367,12 +401,26 @@ export function DealDrawer({
             price,
 
 
+          commissionType:
+            isRental
+              ? "rental"
+              : "sale",
+
+
+          commissionBasis:
+            isRental
+              ? "fixed"
+              : "percentage",
+
+
           commissionPercentage:
-            2,
+            isRental
+              ? undefined
+              : 2,
 
 
           commissionAmount:
-            price * 0.02,
+            commissionAmount,
 
         },
 
@@ -657,7 +705,11 @@ export function DealDrawer({
 
         <Input
 
-          placeholder="Property Price"
+          placeholder={
+            isRental
+              ? "Monthly Rent"
+              : "Property Price"
+          }
 
           type="number"
 

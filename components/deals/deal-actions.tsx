@@ -9,6 +9,7 @@ import {
   CalendarPlus,
   CheckCircle,
   MessageCircle,
+  Pencil,
 } from "lucide-react"
 
 import {
@@ -18,6 +19,10 @@ import {
 import {
   ActivityDrawer,
 } from "@/components/forms/activity-drawer"
+
+import {
+  EditDealDrawer,
+} from "@/components/forms/edit-deal-drawer"
 
 import {
   SiteVisitDrawer,
@@ -73,6 +78,13 @@ export function DealActions({
   const [
     closeDealOpen,
     setCloseDealOpen,
+  ] = useState(false)
+
+
+
+  const [
+    editDealOpen,
+    setEditDealOpen,
   ] = useState(false)
 
 
@@ -232,6 +244,33 @@ Please let me know if you would like to discuss the next steps.`
 
 
 
+        <Button
+
+          variant="outline"
+
+          onClick={() =>
+            setEditDealOpen(true)
+          }
+
+          className="
+            h-12
+            w-full
+            md:w-auto
+          "
+
+        >
+
+          <Pencil className="mr-2 h-4 w-4"/>
+
+          Edit Deal
+
+        </Button>
+
+
+
+
+
+
 
         <Button
 
@@ -312,6 +351,26 @@ Please let me know if you would like to discuss the next steps.`
 
       </div>
 
+
+
+
+
+
+      <EditDealDrawer
+
+        open={
+          editDealOpen
+        }
+
+        onOpenChange={
+          setEditDealOpen
+        }
+
+        deal={
+          deal
+        }
+
+      />
 
 
 

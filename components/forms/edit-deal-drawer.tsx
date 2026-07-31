@@ -54,6 +54,12 @@ export function EditDealDrawer({
 
 
 
+  const isRental =
+    deal.value?.commissionType === "rental"
+
+
+
+
   const [
     form,
     setForm,
@@ -77,9 +83,15 @@ export function EditDealDrawer({
       ),
 
 
-    commission:
+    commissionPercentage:
       String(
-        deal.value?.commissionAmount ?? ""
+        deal.value?.commissionPercentage ?? 2
+      ),
+
+
+    commissionAmount:
+      String(
+        deal.value?.commissionAmount ?? 0
       ),
 
 
@@ -99,14 +111,49 @@ export function EditDealDrawer({
 
 
   function update<K extends keyof typeof form>(
-  key: K,
-  value: typeof form[K]
-) {
-  setForm(current => ({
-    ...current,
-    [key]: value,
-  }))
-}
+    key:K,
+    value:typeof form[K]
+  ){
+
+    setForm(
+      current => ({
+        ...current,
+        [key]:
+          value,
+      })
+    )
+
+  }
+
+
+
+
+
+  const commissionAmount =
+
+    isRental
+
+      ?
+
+        Number(
+          form.commissionAmount || 0
+        )
+
+      :
+
+        (
+          Number(
+            form.price || 0
+          )
+          *
+          Number(
+            form.commissionPercentage || 0
+          )
+          /
+          100
+        )
+
+
 
 
 
@@ -123,12 +170,6 @@ export function EditDealDrawer({
 
 
     try {
-
-
-      
-
-
-
 
 
       await updateDeal(
@@ -173,16 +214,30 @@ export function EditDealDrawer({
 
 
 
+            commissionType:
+              deal.value?.commissionType ??
+              "sale",
+
+
+
+            commissionBasis:
+              deal.value?.commissionBasis ??
+              "percentage",
+
+
+
             commissionPercentage:
-              deal.value
-                ?.commissionPercentage ?? 2,
+              isRental
+                ? undefined
+                :
+                  Number(
+                    form.commissionPercentage || 2
+                  ),
 
 
 
             commissionAmount:
-              Number(
-                form.commission || 0
-              ),
+              commissionAmount,
 
           },
 
@@ -192,28 +247,20 @@ export function EditDealDrawer({
 
 
 
-
-
-      
-
-
-
       onOpenChange(false)
-
 
 
       window.location.reload()
 
 
 
-    } catch (error: unknown) {
+    } catch(error){
 
 
       console.error(
-  "FAILED UPDATING DEAL:",
-  error
-)
-
+        "FAILED UPDATING DEAL:",
+        error
+      )
 
 
       alert(
@@ -221,12 +268,10 @@ export function EditDealDrawer({
       )
 
 
-
     } finally {
 
 
       setLoading(false)
-
 
     }
 
@@ -259,7 +304,6 @@ export function EditDealDrawer({
       >
 
 
-
         <Input
 
           placeholder="Deal Name"
@@ -276,8 +320,6 @@ export function EditDealDrawer({
           }
 
         />
-
-
 
 
 
@@ -300,8 +342,6 @@ export function EditDealDrawer({
 
 
 
-
-
         <Input
 
           placeholder="Advisor ID"
@@ -321,11 +361,13 @@ export function EditDealDrawer({
 
 
 
-
-
         <Input
 
-          placeholder="Property Price"
+          placeholder={
+            isRental
+              ? "Monthly Rent"
+              : "Property Price"
+          }
 
           type="number"
 
@@ -345,25 +387,51 @@ export function EditDealDrawer({
 
 
 
+        {
+          !isRental && (
 
-        <Input
+            <Input
 
-          placeholder="Commission Amount"
+              placeholder="Commission Percentage"
 
-          type="number"
+              type="number"
 
-          value={
-            form.commission
-          }
+              value={
+                form.commissionPercentage
+              }
 
-          onChange={(e)=>
-            update(
-              "commission",
-              e.target.value
-            )
-          }
+              onChange={(e)=>
+                update(
+                  "commissionPercentage",
+                  e.target.value
+                )
+              }
 
-        />
+            />
+
+          )
+        }
+
+
+
+
+        <div className="
+          rounded-xl
+          bg-muted
+          p-3
+          text-sm
+        ">
+
+          Commission Amount:
+
+          {" "}
+
+          ₹
+          {commissionAmount.toLocaleString(
+            "en-IN"
+          )}
+
+        </div>
 
 
 
@@ -390,8 +458,6 @@ export function EditDealDrawer({
 
 
 
-
-
         <Input
 
           type="date"
@@ -411,8 +477,6 @@ export function EditDealDrawer({
 
 
 
-
-
         <Button
 
           type="submit"
@@ -420,6 +484,8 @@ export function EditDealDrawer({
           disabled={
             loading
           }
+
+          className="w-full"
 
         >
 
@@ -432,9 +498,7 @@ export function EditDealDrawer({
         </Button>
 
 
-
       </form>
-
 
     </FormDrawer>
 

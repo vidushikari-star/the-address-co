@@ -16,11 +16,20 @@ export type DealStage =
 
 export interface DealValue {
 
-  propertyPrice: number
+  propertyPrice:number
 
-  commissionPercentage: number
+  commissionType:
+    | "sale"
+    | "rental"
 
-  commissionAmount: number
+  commissionBasis:
+    | "percentage"
+    | "fixed"
+
+
+  commissionPercentage?:number
+
+  commissionAmount:number
 
 }
 

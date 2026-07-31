@@ -10,10 +10,18 @@ export const deals: Deal[] = [
     advisor: "Vidushi Kari",
 
     value: {
-      propertyPrice: 82500000,
-      commissionPercentage: 2,
-      commissionAmount: 1650000,
-    },
+  propertyPrice: 82500000,
+
+  commissionType:
+    "sale",
+
+  commissionBasis:
+    "percentage",
+
+  commissionPercentage: 2,
+
+  commissionAmount: 1650000,
+},
 
     probability: 80,
     expectedCloseDate: "2026-08-15",
@@ -47,10 +55,18 @@ export const deals: Deal[] = [
     advisor: "Vidushi Kari",
 
     value: {
-      propertyPrice: 82500000,
-      commissionPercentage: 2,
-      commissionAmount: 1650000,
-    },
+  propertyPrice: 82500000,
+
+  commissionType:
+    "sale",
+
+  commissionBasis:
+    "percentage",
+
+  commissionPercentage: 2,
+
+  commissionAmount: 1650000,
+},
 
     probability: 55,
     expectedCloseDate: "2026-09-05",
@@ -83,10 +99,18 @@ export const deals: Deal[] = [
     advisor: "Vidushi Kari",
 
     value: {
-      propertyPrice: 42000000,
-      commissionPercentage: 2,
-      commissionAmount: 840000,
-    },
+  propertyPrice: 82500000,
+
+  commissionType:
+    "sale",
+
+  commissionBasis:
+    "percentage",
+
+  commissionPercentage: 2,
+
+  commissionAmount: 1650000,
+},
 
     probability: 40,
     expectedCloseDate: "2026-09-20",
@@ -117,10 +141,18 @@ export const deals: Deal[] = [
     advisor: "Vidushi Kari",
 
     value: {
-      propertyPrice: 57500000,
-      commissionPercentage: 2,
-      commissionAmount: 1150000,
-    },
+  propertyPrice: 82500000,
+
+  commissionType:
+    "sale",
+
+  commissionBasis:
+    "percentage",
+
+  commissionPercentage: 2,
+
+  commissionAmount: 1650000,
+},
 
     probability: 25,
     expectedCloseDate: "2026-10-05",
@@ -151,10 +183,18 @@ export const deals: Deal[] = [
     advisor: "Vidushi Kari",
 
     value: {
-      propertyPrice: 95000000,
-      commissionPercentage: 2,
-      commissionAmount: 1900000,
-    },
+  propertyPrice: 82500000,
+
+  commissionType:
+    "sale",
+
+  commissionBasis:
+    "percentage",
+
+  commissionPercentage: 2,
+
+  commissionAmount: 1650000,
+},
 
     probability: 95,
     expectedCloseDate: "2026-07-30",
@@ -187,10 +227,18 @@ export const deals: Deal[] = [
     advisor: "Vidushi Kari",
 
     value: {
-      propertyPrice: 120000000,
-      commissionPercentage: 2,
-      commissionAmount: 2400000,
-    },
+  propertyPrice: 82500000,
+
+  commissionType:
+    "sale",
+
+  commissionBasis:
+    "percentage",
+
+  commissionPercentage: 2,
+
+  commissionAmount: 1650000,
+},
 
     probability: 10,
     expectedCloseDate: "2026-11-15",
