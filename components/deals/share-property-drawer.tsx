@@ -229,7 +229,7 @@ export function SharePropertyDrawer({
 
 
       const propertyUrl =
-        `${window.location.origin}/share/${property.slug}`
+  `${window.location.origin}/share/${property.slug}?advisor=${currentUser?.id}`
 
 
 

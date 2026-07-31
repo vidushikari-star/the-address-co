@@ -11,10 +11,6 @@ import {
 } from "@/lib/repositories/property-image-repository"
 
 import {
-  ADVISORS,
-} from "@/lib/config/advisors"
-
-import {
   PropertyEnquiryForm,
 } from "@/components/public/property-enquiry-form"
 
@@ -24,11 +20,19 @@ import {
   formatPropertyPrice,
 } from "@/lib/utils/format-currency"
 
+import {
+  supabase,
+} from "@/lib/supabase/client"
+
 
 type Props = {
 
   params: Promise<{
     slug:string
+  }>
+
+  searchParams: Promise<{
+    advisor?: string
   }>
 
 }
@@ -41,6 +45,8 @@ export default async function PublicPropertySharePage({
 
   params,
 
+  searchParams,
+
 }:Props){
 
 
@@ -48,6 +54,11 @@ export default async function PublicPropertySharePage({
     slug,
   } =
   await params
+
+  const {
+  advisor: advisorId,
+} =
+await searchParams
 
 
 
@@ -94,21 +105,39 @@ export default async function PublicPropertySharePage({
 
 
 
-  const advisor =
-    ADVISORS[property.advisor]
-    ||
-    ADVISORS["Vidushi Kari"]
+  const {
+  data: sharedAdvisor,
+} =
+  advisorId
+    ? await supabase
+        .from("user_profiles")
+        .select(
+          "id,name,phone,whatsapp"
+        )
+        .eq(
+          "id",
+          advisorId
+        )
+        .single()
+    : {
+        data: null,
+      }
 
 
 
+const advisorName =
+  sharedAdvisor?.name
+  ||
+  "Vidushi Kari"
 
 
-  const advisorName =
-    advisor?.name
-    ||
-    property.advisor
-    ||
-    "Advisor"
+
+const advisorWhatsapp =
+  (
+    sharedAdvisor?.whatsapp ??
+    sharedAdvisor?.phone ??
+    ""
+  )
 
 
 
@@ -128,11 +157,11 @@ Please share more details.`
 
 
 
-  const whatsappUrl =
+ const whatsappUrl =
 
-    advisor?.whatsapp
+    advisorWhatsapp
 
-      ? `https://wa.me/${advisor.whatsapp}?text=${encodeURIComponent(
+      ? `https://wa.me/${advisorWhatsapp}?text=${encodeURIComponent(
           whatsappMessage
         )}`
 
@@ -477,8 +506,12 @@ Please share more details.`
 
 
         <PropertyEnquiryForm
-          property={property}
-        />
+
+  property={property}
+
+  advisorId={advisorId}
+
+/>
 
 
       </section>

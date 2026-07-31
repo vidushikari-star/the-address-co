@@ -20,15 +20,13 @@ import type {
   Property,
 } from "@/types/property"
 
-import { supabase } from "@/lib/supabase/client"
-
-
-
 
 
 type Props = {
 
   property: Property
+
+  advisorId?: string
 
 }
 
@@ -40,7 +38,9 @@ export function PropertyEnquiryForm({
 
   property,
 
-}:Props){
+  advisorId,
+
+}: Props){
 
 
 
@@ -122,17 +122,6 @@ export function PropertyEnquiryForm({
 
     try {
 
-        const {
-  data: advisorProfile,
-} =
-  await supabase
-    .from("profiles")
-    .select("id")
-    .eq(
-      "full_name",
-      property.advisor
-    )
-    .single()
 
       const contact =
 
@@ -155,15 +144,18 @@ export function PropertyEnquiryForm({
 
 
           leadSource:
-            "website",
+            advisorId
+              ? "property_share"
+              : "website",
 
-            advisorId:
-  advisorProfile?.id ?? null,
+
+          advisorId:
+  advisorId || undefined,
 
 
 
           propertyType:
-  property.propertyType?.toLowerCase(),
+            property.propertyType?.toLowerCase(),
 
 
 
@@ -195,7 +187,7 @@ ${message}`
       await createActivity({
 
         type:
-          "site_visit",
+          "contact_created",
 
 
         title:
@@ -212,6 +204,9 @@ ${message}`
 
 Property:
 ${property.name}
+
+Shared by Advisor:
+${advisorId ?? "Direct Website"}
 
 Message:
 ${message}`,
