@@ -515,7 +515,43 @@ export function CloseDealDrawer({
 
           })
 
+await createActivity({
 
+  type:
+    "commission",
+
+
+  title:
+    "Commission Created",
+
+
+  description:
+    deal.name,
+
+
+  body:
+`
+Expected Commission:
+₹${finalCommission.toLocaleString("en-IN")}
+`,
+
+
+  dealId:
+    deal.id,
+
+
+  contactId:
+    deal.contactId,
+
+
+  propertyId:
+    deal.propertyId,
+
+
+  date:
+    new Date().toISOString(),
+
+})
 
 
 

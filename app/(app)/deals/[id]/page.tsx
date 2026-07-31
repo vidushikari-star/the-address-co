@@ -286,8 +286,38 @@ export default async function DealPage({
 
 
 <DealStageSelect
-deal={deal}
+  deal={deal}
 />
+
+
+
+
+
+<Badge variant="outline">
+
+{
+  property?.transactionType === "Rental"
+    ? "Rental"
+    : "Sale"
+}
+
+</Badge>
+
+
+
+
+
+<Badge variant="outline">
+
+{
+  property?.propertyType ??
+  "Property"
+}
+
+</Badge>
+
+
+
 
 
 <Badge variant="outline">
@@ -400,16 +430,96 @@ Financials
 </h2>
 
 
-<p className="mt-2 font-semibold">
+<div className="mt-3 space-y-3">
+
+
+<div>
+
+<p className="text-xs text-muted-foreground">
+Property Value
+</p>
+
+<p className="font-semibold">
+₹
+{(
+  deal.value?.propertyPrice ?? 0
+).toLocaleString(
+  "en-IN"
+)}
+</p>
+
+</div>
+
+
+
+
+
+<div>
+
+<p className="text-xs text-muted-foreground">
+Commission
+</p>
+
+<p className="font-semibold">
+
+{
+  deal.value?.commissionPercentage
+    ? `${deal.value.commissionPercentage}%`
+    : "Fixed"
+}
+
+</p>
+
+</div>
+
+
+
+
+
+<div>
+
+<p className="text-xs text-muted-foreground">
+Expected Commission
+</p>
+
+<p className="font-semibold text-primary">
 
 ₹
 {(
-deal.value?.propertyPrice ?? 0
+  deal.value?.commissionAmount ?? 0
 ).toLocaleString(
-"en-IN"
+  "en-IN"
 )}
 
 </p>
+
+</div>
+
+
+
+
+
+<div>
+
+<p className="text-xs text-muted-foreground">
+Commission Status
+</p>
+
+<p className="font-semibold">
+
+{
+  commissions.length
+    ? commissions[0].status
+    : "Not created"
+}
+
+</p>
+
+</div>
+
+
+</div>
+
 
 </div>
 
