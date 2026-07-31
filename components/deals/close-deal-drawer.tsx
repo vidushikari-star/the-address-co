@@ -162,56 +162,34 @@ export function CloseDealDrawer({
 
 
   const [
-    form,
-    setForm,
-  ] =
-  useState({
+  form,
+  setForm,
+] = useState({
 
-    closingPrice:
-      String(
-        deal.value?.propertyPrice ?? ""
-      ),
-
+  closingPrice:
+    String(
+      deal.value?.propertyPrice ?? ""
+    ),
 
 
-    commissionType:
-      isRental
-        ? "rental"
-        : "sale",
+  commissionType:
+    deal.value?.commissionType ?? "sale",
 
 
-
-    commissionBasis:
-      isRental
-        ? "fixed"
-        : "percentage",
+  commissionBasis:
+    deal.value?.commissionBasis ?? "percentage",
 
 
-
-    commissionPercentage:
-      isRental
-        ? ""
-        : "2",
-
+  commissionPercentage:
+    String(
+      deal.value?.commissionPercentage ?? 2
+    ),
 
 
-    commissionAmount:
-      isRental
-        ? String(
-            property?.price?.rent ?? ""
-          )
-        :
-          String(
-            (
-              Number(
-                deal.value?.propertyPrice ?? 0
-              )
-              *
-              2
-              /
-              100
-            )
-          ),
+  commissionAmount:
+    String(
+      deal.value?.commissionAmount ?? 0
+    ),
 
 
 
@@ -232,66 +210,74 @@ export function CloseDealDrawer({
 
   useEffect(()=>{
 
+  if(!property){
 
-    if(!property){
+    return
 
-      return
-
-    }
-
+  }
 
 
-    setForm(
-      current => ({
+  setForm(
+    current => ({
 
-        ...current,
-
-
-        commissionType:
-          property.transactionType === "Rental"
-            ? "rental"
-            : "sale",
+      ...current,
 
 
+      commissionType:
+        property.transactionType === "Rental"
+          ? "rental"
+          : "sale",
 
-        commissionBasis:
+
+      commissionBasis:
+        deal.value?.commissionBasis ??
+        (
           property.transactionType === "Rental"
             ? "fixed"
-            : "percentage",
+            : "percentage"
+        ),
 
 
+      commissionPercentage:
+        String(
+          deal.value?.commissionPercentage ??
+          (
+            property.transactionType === "Rental"
+              ? 0
+              : 2
+          )
+        ),
 
-        commissionPercentage:
-          property.transactionType === "Rental"
-            ? ""
-            : "2",
 
-
-
-        commissionAmount:
-          property.transactionType === "Rental"
-            ?
-              String(
-                property.price?.rent ?? ""
-              )
-            :
-              String(
-                (
-                  Number(
-                    current.closingPrice || 0
-                  )
-                  *
-                  2
-                  /
-                  100
+      commissionAmount:
+        String(
+          deal.value?.commissionAmount ??
+          (
+            property.transactionType === "Rental"
+              ? property.price?.rent ?? 0
+              :
+              (
+                Number(
+                  current.closingPrice || 0
                 )
-              ),
+                *
+                2
+                /
+                100
+              )
+          )
+        ),
 
-      })
-    )
+    })
+  )
 
 
-  },[property])
+},[
+  property,
+  deal.value?.commissionBasis,
+  deal.value?.commissionPercentage,
+  deal.value?.commissionAmount
+])
 
 
 
@@ -333,35 +319,37 @@ export function CloseDealDrawer({
 
   function calculateCommission(){
 
-
-    if(
-      form.commissionBasis === "percentage"
-    ){
-
-      return (
-
-        Number(
+  const baseAmount =
+    property?.transactionType === "Rental"
+      ? Number(
+          property?.price?.rent ?? 0
+        )
+      : Number(
           form.closingPrice || 0
         )
-        *
-        Number(
-          form.commissionPercentage || 0
-        )
-        /
-        100
 
+
+  if(
+    form.commissionBasis === "percentage"
+  ){
+
+    return (
+      baseAmount *
+      Number(
+        form.commissionPercentage || 0
       )
-
-    }
-
-
-
-    return Number(
-      form.commissionAmount || 0
+      /
+      100
     )
 
-
   }
+
+
+  return Number(
+    form.commissionAmount || 0
+  )
+
+}
     async function submit(){
 
 

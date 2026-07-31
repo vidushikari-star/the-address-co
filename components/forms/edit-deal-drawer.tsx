@@ -205,39 +205,38 @@ export function EditDealDrawer({
 
 
 
-          value:{
+                    value:{
 
             propertyPrice:
               Number(
                 form.price || 0
               ),
 
-
-
             commissionType:
               deal.value?.commissionType ??
               "sale",
-
-
 
             commissionBasis:
               deal.value?.commissionBasis ??
               "percentage",
 
-
-
             commissionPercentage:
-              isRental
-                ? undefined
-                :
-                  Number(
-                    form.commissionPercentage || 2
-                  ),
-
-
+              Number(
+                form.commissionPercentage || 0
+              ),
 
             commissionAmount:
-              commissionAmount,
+              (
+                Number(
+                  form.price || 0
+                )
+                *
+                Number(
+                  form.commissionPercentage || 0
+                )
+                /
+                100
+              ),
 
           },
 

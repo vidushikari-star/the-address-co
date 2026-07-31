@@ -143,12 +143,12 @@ export function ActivityFeed({
                 activities
                   .slice(0,8)
                   .map(
-                    (activity) => (
+  (activity, index) => (
 
 
                       <div
 
-                        key={`${activity.title}-${activity.time}`}
+                        key={`${activity.title}-${activity.time}-${index}`}
 
                         className="
                           flex
