@@ -5,6 +5,7 @@ export interface PropertyImage {
   propertyId: string
   url: string
   isCover: boolean
+  mediaType: "image" | "video"
   createdAt: string
 }
 
@@ -14,6 +15,7 @@ type PropertyImageRow = {
   property_id: string
   url: string
   is_cover: boolean
+  media_type: "image" | "video" | null
   created_at: string
 }
 
@@ -47,6 +49,9 @@ function mapPropertyImageRow(
 
     isCover:
       row.is_cover,
+
+    mediaType:
+      row.media_type ?? "image",
 
     createdAt:
       row.created_at,
@@ -186,16 +191,21 @@ export async function uploadPropertyImage(
       .from("property_images")
       .insert({
 
-        property_id:
-          propertyId,
+  property_id:
+    propertyId,
 
-        url:
-          publicUrl,
+  url:
+    publicUrl,
 
-        is_cover:
-          false,
+  is_cover:
+    false,
 
-      })
+  media_type:
+    file.type.startsWith("video/")
+      ? "video"
+      : "image",
+
+})
       .select()
       .single()
 
@@ -238,23 +248,24 @@ export async function uploadPropertyImage(
 
 
   if(
-    !propertyRow?.cover_image
-  ){
+  !propertyRow?.cover_image &&
+  !file.type.startsWith("video/")
+){
 
-    await supabase
-      .from("properties")
-      .update({
+  await supabase
+    .from("properties")
+    .update({
 
-        cover_image:
-          publicUrl,
+      cover_image:
+        publicUrl,
 
-      })
-      .eq(
-        "id",
-        propertyId
-      )
+    })
+    .eq(
+      "id",
+      propertyId
+    )
 
-  }
+}
 
 
 

@@ -55,10 +55,11 @@ export default async function PublicPropertySharePage({
   } =
   await params
 
+
   const {
-  advisor: advisorId,
-} =
-await searchParams
+    advisor: advisorId,
+  } =
+  await searchParams
 
 
 
@@ -88,10 +89,26 @@ await searchParams
 
 
 
-  const coverImage =
-    images[0]?.url ||
-    property.coverImage
 
+
+  const coverMedia =
+  images.find(
+    image => image.isCover
+  )
+  ||
+  images[0]
+  ||
+  null
+
+
+const coverUrl =
+  coverMedia?.url ||
+  property.coverImage
+
+
+const coverType =
+  coverMedia?.mediaType ||
+  "image"
 
 
 
@@ -106,8 +123,8 @@ await searchParams
 
 
   const {
-  data: sharedAdvisor,
-} =
+    data: sharedAdvisor,
+  } =
   advisorId
     ? await supabase
         .from("user_profiles")
@@ -125,19 +142,27 @@ await searchParams
 
 
 
-const advisorName =
-  sharedAdvisor?.name
-  ||
-  "Vidushi Kari"
+
+
+  const advisorName =
+    sharedAdvisor?.name
+    ||
+    "Vidushi Kari"
 
 
 
-const advisorWhatsapp =
-  (
-    sharedAdvisor?.whatsapp ??
-    sharedAdvisor?.phone ??
-    ""
-  )
+
+
+  const advisorWhatsapp =
+    (
+      sharedAdvisor?.whatsapp ??
+      sharedAdvisor?.phone ??
+      ""
+    )
+    .replace(
+      /\D/g,
+      ""
+    )
 
 
 
@@ -157,7 +182,7 @@ Please share more details.`
 
 
 
- const whatsappUrl =
+  const whatsappUrl =
 
     advisorWhatsapp
 
@@ -180,132 +205,213 @@ Please share more details.`
     <main className="min-h-screen bg-background">
 
 
-      <section className="relative h-[75vh] w-full">
+      <section
+  className="
+    relative
+    min-h-[75vh]
+    w-full
+    overflow-hidden
+    bg-black
+  "
+>
+
+  <div
+    className="
+      mx-auto
+      grid
+      min-h-[75vh]
+      max-w-7xl
+      items-center
+      gap-10
+      px-6
+      py-12
+      lg:grid-cols-2
+    "
+  >
+
+    {/* Media */}
+    <div
+      className="
+        order-1
+        flex
+        justify-center
+        lg:order-2
+      "
+    >
+
+      {
+        coverUrl && coverType === "video" ? (
+
+          <video
+
+            src={coverUrl}
+
+            autoPlay
+
+            muted
+
+            loop
+
+            playsInline
+
+            className="
+              max-h-[70vh]
+              w-auto
+              max-w-full
+              rounded-3xl
+              object-contain
+              shadow-2xl
+            "
+
+          />
+
+        ) : coverUrl && (
+
+          <img
+
+            src={coverUrl}
+
+            alt={property.name}
+
+            className="
+              max-h-[70vh]
+              w-auto
+              max-w-full
+              rounded-3xl
+              object-contain
+              shadow-2xl
+            "
+
+          />
+
+        )
+
+      }
+
+    </div>
 
 
-        {
-          coverImage && (
 
-            <img
+    {/* Text */}
+    <div
+      className="
+        order-2
+        text-white
+        lg:order-1
+      "
+    >
 
-              src={coverImage}
-
-              alt={property.name}
-
-              className="absolute inset-0 h-full w-full object-cover"
-
-            />
-
-          )
-        }
-
-
-
-
-
-        <div className="absolute inset-0 bg-black/40" />
-
-
+      <p
+        className="
+          mb-5
+          text-sm
+          uppercase
+          tracking-[0.3em]
+          text-white/70
+        "
+      >
+        Luxury Property
+      </p>
 
 
-
-        <div className="relative z-10 flex h-full items-end">
-
-
-          <div className="mx-auto w-full max-w-6xl px-6 pb-12 text-white">
-
-
-            <p className="mb-3 text-sm uppercase tracking-[0.3em]">
-              Luxury Property
-            </p>
-
-
+      <h1
+        className="
+          text-5xl
+          font-semibold
+          leading-tight
+          md:text-6xl
+        "
+      >
+        {property.name}
+      </h1>
 
 
-            <h1 className="text-5xl font-semibold">
-              {property.name}
-            </h1>
+      <p className="mt-4 text-xl text-white/80">
+        {property.location}
+      </p>
 
 
 
+      <div
+        className="
+          mt-8
+          inline-block
+          rounded-2xl
+          bg-white/10
+          px-8
+          py-6
+          backdrop-blur
+        "
+      >
 
-            <p className="mt-3 text-xl">
-              {property.location}
-            </p>
+        <p className="text-sm text-white/70">
 
+          {
+            property.transactionType === "Rental"
+              ? "Monthly Rent"
+              : "Asking Price"
+          }
 
-
-
-            <div className="mt-6 inline-block rounded-xl bg-white/20 px-6 py-4 backdrop-blur">
-
-
-  <p className="text-sm">
-
-    {
-      property.transactionType === "Rental"
-        ? "Monthly Rent"
-        : "Asking Price"
-    }
-
-  </p>
-
-
-  <p className="text-3xl font-semibold">
-
-    {
-      formatPropertyPrice(
-        displayPrice,
-        property.transactionType
-      )
-    }
-
-  </p>
-
-
-
-
-
-  {
-    property.transactionType === "Rental" &&
-    property.price.securityDeposit &&
-    property.price.securityDeposit > 0 && (
-
-      <div className="mt-3 border-t border-white/30 pt-3">
-
-
-        <p className="text-sm">
-          Security Deposit
         </p>
 
 
-        <p className="text-xl font-semibold">
+        <p className="mt-2 text-4xl font-semibold">
 
           {
             formatPropertyPrice(
-              property.price.securityDeposit,
-              "Sale"
+              displayPrice,
+              property.transactionType
             )
           }
 
         </p>
 
 
+
+        {
+          property.transactionType === "Rental" &&
+          property.price.securityDeposit &&
+          property.price.securityDeposit > 0 && (
+
+            <div
+              className="
+                mt-4
+                border-t
+                border-white/20
+                pt-4
+              "
+            >
+
+              <p className="text-sm text-white/70">
+                Security Deposit
+              </p>
+
+              <p className="text-xl font-semibold">
+
+                {
+                  formatPropertyPrice(
+                    property.price.securityDeposit,
+                    "Sale"
+                  )
+                }
+
+              </p>
+
+            </div>
+
+          )
+        }
+
+
       </div>
 
-    )
-  }
+
+    </div>
 
 
-</div>
+  </div>
 
-
-          </div>
-
-
-        </div>
-
-
-      </section>
+</section>
 
 
 
@@ -315,7 +421,15 @@ Please share more details.`
 
 
 
-      <section className="mx-auto grid max-w-6xl gap-5 px-6 py-10 md:grid-cols-4">
+      <section className="
+        mx-auto
+        grid
+        max-w-6xl
+        gap-5
+        px-6
+        py-10
+        md:grid-cols-4
+      ">
 
 
         <Stat
@@ -338,7 +452,6 @@ Please share more details.`
             `${property.specifications.builtUpArea || "-"} sqft`
           }
         />
-
 
 
         <Stat
@@ -371,41 +484,79 @@ Please share more details.`
 
 
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="
+              grid
+              gap-4
+              md:grid-cols-3
+            ">
 
 
               {
-                images.map(
+  images.map(
+    image => (
 
-                  image => (
+      <div
+        key={image.id}
+      >
 
-                    <img
+        {
+  image.mediaType === "video" ? (
 
-                      key={image.id}
+    <div
+      className="
+        flex
+        h-72
+        w-full
+        items-center
+        justify-center
+        overflow-hidden
+        rounded-2xl
+        bg-black
+      "
+    >
 
-                      src={image.url}
+      <video
+        src={image.url}
+        controls
+        className="
+          h-full
+          w-auto
+          object-contain
+        "
+      />
 
-                      alt={property.name}
+    </div>
 
-                      className="h-72 w-full rounded-2xl object-cover"
+  ) : (
 
-                    />
+    <img
+      src={image.url}
+      alt={property.name}
+      className="
+        h-72
+        w-full
+        rounded-2xl
+        object-cover
+      "
+    />
 
-                  )
+  )
+}
 
-                )
+      </div>
 
-              }
+    )
+  )
+}
+
+</div>
 
 
-            </div>
+        </section>
 
+      )
 
-          </section>
-
-        )
-
-      }
+    }
 
 
 
@@ -427,7 +578,11 @@ Please share more details.`
 
 
 
-          <p className="whitespace-pre-line text-lg text-muted-foreground">
+          <p className="
+            whitespace-pre-line
+            text-lg
+            text-muted-foreground
+          ">
 
             {
               property.description ||
@@ -471,8 +626,16 @@ Please share more details.`
                 item => (
 
                   <span
+
                     key={item}
-                    className="rounded-full border px-5 py-2"
+
+                    className="
+                      rounded-full
+                      border
+                      px-5
+                      py-2
+                    "
+
                   >
 
                     {item}
@@ -507,11 +670,11 @@ Please share more details.`
 
         <PropertyEnquiryForm
 
-  property={property}
+          property={property}
 
-  advisorId={advisorId}
+          advisorId={advisorId}
 
-/>
+        />
 
 
       </section>
@@ -545,9 +708,21 @@ Please share more details.`
 
 
           <a
+
             href={whatsappUrl}
+
             target="_blank"
-            className="mt-6 inline-block rounded-xl bg-primary px-8 py-3 text-white"
+
+            className="
+              mt-6
+              inline-block
+              rounded-xl
+              bg-primary
+              px-8
+              py-3
+              text-white
+            "
+
           >
 
             WhatsApp {advisorName}

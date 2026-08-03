@@ -56,19 +56,43 @@ export function PropertyCard({
         <div className="relative aspect-[16/10] overflow-hidden bg-muted">
 
           {property.coverImage ? (
-            <img
-              src={property.coverImage}
-              alt={property.name}
-              className="
-                h-full
-                w-full
-                object-cover
-                transition-transform
-                duration-500
-                group-hover:scale-105
-              "
-            />
-          ) : (
+
+  property.coverImage.includes(".mp4") ? (
+
+    <video
+      src={property.coverImage}
+      muted
+      autoPlay
+      loop
+      playsInline
+      className="
+        h-full
+        w-full
+        object-cover
+        transition-transform
+        duration-500
+        group-hover:scale-105
+      "
+    />
+
+  ) : (
+
+    <img
+      src={property.coverImage}
+      alt={property.name}
+      className="
+        h-full
+        w-full
+        object-cover
+        transition-transform
+        duration-500
+        group-hover:scale-105
+      "
+    />
+
+  )
+
+) : (
             <div
               className="
                 flex
@@ -319,20 +343,42 @@ export function PropertyCard({
 
           {property.coverImage ? (
 
-            <img
-              src={property.coverImage}
-              alt={property.name}
-              className="
-                h-full
-                w-full
-                object-cover
-                transition-transform
-                duration-500
-                group-hover:scale-105
-              "
-            />
+  property.coverImage.includes(".mp4") ? (
 
-          ) : (
+    <video
+      src={property.coverImage}
+      muted
+      autoPlay
+      loop
+      playsInline
+      className="
+        h-full
+        w-full
+        object-cover
+        transition-transform
+        duration-500
+        group-hover:scale-105
+      "
+    />
+
+  ) : (
+
+    <img
+      src={property.coverImage}
+      alt={property.name}
+      className="
+        h-full
+        w-full
+        object-cover
+        transition-transform
+        duration-500
+        group-hover:scale-105
+      "
+    />
+
+  )
+
+) : (
 
             <div
               className="

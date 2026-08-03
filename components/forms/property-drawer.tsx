@@ -111,10 +111,15 @@ export function PropertyDrawer({
 
 
   const [
-    previews,
-    setPreviews,
-  ] =
-  useState<string[]>([])
+  previews,
+  setPreviews,
+] =
+useState<
+  {
+    url:string
+    type:"image" | "video"
+  }[]
+>([])
 
 
 
@@ -268,17 +273,26 @@ export function PropertyDrawer({
 
 
     setPreviews(
-      current => [
+  current => [
 
-        ...current,
+    ...current,
 
-        ...selected.map(
-          file =>
-            URL.createObjectURL(file)
-        ),
+    ...selected.map(
+      file => ({
+        url:
+          URL.createObjectURL(
+            file
+          ),
 
-      ]
-    )
+        type:
+  file.type.startsWith("video/")
+    ? ("video" as const)
+    : ("image" as const),
+      })
+    ),
+
+  ]
+)
 
   }
 
@@ -1069,13 +1083,13 @@ export function PropertyDrawer({
 
           <input
 
-            ref={imageInputRef}
+  ref={imageInputRef}
 
-            type="file"
+  type="file"
 
-            accept="image/*"
+  accept="image/*,video/*"
 
-            multiple
+  multiple
 
             hidden
 
@@ -1104,7 +1118,7 @@ export function PropertyDrawer({
 
             <ImagePlus className="mr-2 h-4 w-4"/>
 
-            Choose Images
+            Choose Media
 
           </Button>
 
@@ -1127,22 +1141,45 @@ export function PropertyDrawer({
                     (preview,index)=>(
 
                       <div
-                        key={preview}
+                        key={preview.url}
                         className="relative"
                       >
 
-                        <img
+                        {
+  preview.type === "video" ? (
 
-                          src={preview}
+    <video
 
-                          className="
-                            h-20
-                            w-full
-                            rounded-lg
-                            object-cover
-                          "
+      src={preview.url}
 
-                        />
+      controls
+
+      className="
+        h-20
+        w-full
+        rounded-lg
+        object-cover
+      "
+
+    />
+
+  ) : (
+
+    <img
+
+      src={preview.url}
+
+      className="
+        h-20
+        w-full
+        rounded-lg
+        object-cover
+      "
+
+    />
+
+  )
+}
 
 
                         <button

@@ -91,6 +91,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "activities_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "activities_deal_id_fkey"
             columns: ["deal_id"]
             isOneToOne: false
@@ -424,6 +431,7 @@ export type Database = {
           co_buyer: string | null
           country: string | null
           created_at: string
+          created_by: string | null
           currency: string | null
           email: string | null
           financing: Database["public"]["Enums"]["financing_type"] | null
@@ -431,6 +439,7 @@ export type Database = {
           full_name: string | null
           housing_lead_id: string | null
           id: string
+          is_private: boolean | null
           last_contacted_at: string | null
           last_name: string | null
           lead_source: string | null
@@ -443,6 +452,7 @@ export type Database = {
           next_follow_up_at: string | null
           nice_to_have: string[] | null
           notes: string | null
+          owner_id: string | null
           phone: string
           plot_size: number | null
           preferred_language: string | null
@@ -467,6 +477,7 @@ export type Database = {
           co_buyer?: string | null
           country?: string | null
           created_at?: string
+          created_by?: string | null
           currency?: string | null
           email?: string | null
           financing?: Database["public"]["Enums"]["financing_type"] | null
@@ -474,6 +485,7 @@ export type Database = {
           full_name?: string | null
           housing_lead_id?: string | null
           id?: string
+          is_private?: boolean | null
           last_contacted_at?: string | null
           last_name?: string | null
           lead_source?: string | null
@@ -486,6 +498,7 @@ export type Database = {
           next_follow_up_at?: string | null
           nice_to_have?: string[] | null
           notes?: string | null
+          owner_id?: string | null
           phone: string
           plot_size?: number | null
           preferred_language?: string | null
@@ -510,6 +523,7 @@ export type Database = {
           co_buyer?: string | null
           country?: string | null
           created_at?: string
+          created_by?: string | null
           currency?: string | null
           email?: string | null
           financing?: Database["public"]["Enums"]["financing_type"] | null
@@ -517,6 +531,7 @@ export type Database = {
           full_name?: string | null
           housing_lead_id?: string | null
           id?: string
+          is_private?: boolean | null
           last_contacted_at?: string | null
           last_name?: string | null
           lead_source?: string | null
@@ -529,6 +544,7 @@ export type Database = {
           next_follow_up_at?: string | null
           nice_to_have?: string[] | null
           notes?: string | null
+          owner_id?: string | null
           phone?: string
           plot_size?: number | null
           preferred_language?: string | null
@@ -551,6 +567,20 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "contacts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       deals: {
@@ -560,6 +590,7 @@ export type Database = {
           closed_at: string | null
           closing_price: number | null
           commission_amount: number | null
+          commission_percentage: number | null
           contact_id: string | null
           created_at: string | null
           expected_close_date: string | null
@@ -577,6 +608,7 @@ export type Database = {
           stage: string | null
           tasks: Json | null
           updated_at: string | null
+          whatsapp_conversation_id: string | null
         }
         Insert: {
           advisor?: string | null
@@ -584,6 +616,7 @@ export type Database = {
           closed_at?: string | null
           closing_price?: number | null
           commission_amount?: number | null
+          commission_percentage?: number | null
           contact_id?: string | null
           created_at?: string | null
           expected_close_date?: string | null
@@ -601,6 +634,7 @@ export type Database = {
           stage?: string | null
           tasks?: Json | null
           updated_at?: string | null
+          whatsapp_conversation_id?: string | null
         }
         Update: {
           advisor?: string | null
@@ -608,6 +642,7 @@ export type Database = {
           closed_at?: string | null
           closing_price?: number | null
           commission_amount?: number | null
+          commission_percentage?: number | null
           contact_id?: string | null
           created_at?: string | null
           expected_close_date?: string | null
@@ -625,6 +660,7 @@ export type Database = {
           stage?: string | null
           tasks?: Json | null
           updated_at?: string | null
+          whatsapp_conversation_id?: string | null
         }
         Relationships: [
           {
@@ -639,6 +675,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_whatsapp_conversation_id_fkey"
+            columns: ["whatsapp_conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
             referencedColumns: ["id"]
           },
         ]
@@ -687,6 +730,7 @@ export type Database = {
           contact_id: string | null
           content: string
           created_at: string | null
+          created_by: string | null
           deal_id: string | null
           id: string
           updated_at: string | null
@@ -695,6 +739,7 @@ export type Database = {
           contact_id?: string | null
           content: string
           created_at?: string | null
+          created_by?: string | null
           deal_id?: string | null
           id?: string
           updated_at?: string | null
@@ -703,6 +748,7 @@ export type Database = {
           contact_id?: string | null
           content?: string
           created_at?: string | null
+          created_by?: string | null
           deal_id?: string | null
           id?: string
           updated_at?: string | null
@@ -713,6 +759,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -731,6 +784,8 @@ export type Database = {
           full_name: string
           id: string
           updated_at: string
+          whatsapp: string | null
+          whatsapp_connected: boolean | null
         }
         Insert: {
           created_at?: string
@@ -738,6 +793,8 @@ export type Database = {
           full_name: string
           id: string
           updated_at?: string
+          whatsapp?: string | null
+          whatsapp_connected?: boolean | null
         }
         Update: {
           created_at?: string
@@ -745,6 +802,8 @@ export type Database = {
           full_name?: string
           id?: string
           updated_at?: string
+          whatsapp?: string | null
+          whatsapp_connected?: boolean | null
         }
         Relationships: []
       }
@@ -893,6 +952,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_cover: boolean | null
+          media_type: "image" | "video" | null
           property_id: string | null
           url: string
         }
@@ -900,6 +960,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_cover?: boolean | null
+          media_type?: string | null
           property_id?: string | null
           url: string
         }
@@ -907,6 +968,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_cover?: boolean | null
+          media_type?: string | null
           property_id?: string | null
           url?: string
         }
@@ -932,6 +994,7 @@ export type Database = {
           property_id: string | null
           shared_at: string | null
           status: string | null
+          whatsapp_conversation_id: string | null
         }
         Insert: {
           buyer_feedback?: string | null
@@ -944,6 +1007,7 @@ export type Database = {
           property_id?: string | null
           shared_at?: string | null
           status?: string | null
+          whatsapp_conversation_id?: string | null
         }
         Update: {
           buyer_feedback?: string | null
@@ -956,6 +1020,7 @@ export type Database = {
           property_id?: string | null
           shared_at?: string | null
           status?: string | null
+          whatsapp_conversation_id?: string | null
         }
         Relationships: [
           {
@@ -1053,6 +1118,7 @@ export type Database = {
           assigned_to: string | null
           contact_id: string | null
           created_at: string | null
+          created_by: string | null
           deal_id: string | null
           description: string | null
           due_date: string | null
@@ -1066,6 +1132,7 @@ export type Database = {
           assigned_to?: string | null
           contact_id?: string | null
           created_at?: string | null
+          created_by?: string | null
           deal_id?: string | null
           description?: string | null
           due_date?: string | null
@@ -1079,6 +1146,7 @@ export type Database = {
           assigned_to?: string | null
           contact_id?: string | null
           created_at?: string | null
+          created_by?: string | null
           deal_id?: string | null
           description?: string | null
           due_date?: string | null
@@ -1094,6 +1162,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1137,6 +1212,123 @@ export type Database = {
           whatsapp?: string | null
         }
         Relationships: []
+      }
+      whatsapp_conversations: {
+        Row: {
+          bedrooms: number | null
+          budget: string | null
+          contact_id: string | null
+          contact_name: string | null
+          created_at: string | null
+          id: string
+          last_message: string | null
+          last_message_at: string | null
+          lead_type: string | null
+          location: string | null
+          owner_id: string
+          phone_number: string
+          property_type: string | null
+          qualification: Json | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          bedrooms?: number | null
+          budget?: string | null
+          contact_id?: string | null
+          contact_name?: string | null
+          created_at?: string | null
+          id?: string
+          last_message?: string | null
+          last_message_at?: string | null
+          lead_type?: string | null
+          location?: string | null
+          owner_id: string
+          phone_number: string
+          property_type?: string | null
+          qualification?: Json | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          bedrooms?: number | null
+          budget?: string | null
+          contact_id?: string | null
+          contact_name?: string | null
+          created_at?: string | null
+          id?: string
+          last_message?: string | null
+          last_message_at?: string | null
+          lead_type?: string | null
+          location?: string | null
+          owner_id?: string
+          phone_number?: string
+          property_type?: string | null
+          qualification?: Json | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_messages: {
+        Row: {
+          conversation_id: string
+          created_at: string | null
+          direction: string
+          id: string
+          message: string
+          message_type: string | null
+          sent_by: string | null
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string | null
+          direction: string
+          id?: string
+          message: string
+          message_type?: string | null
+          sent_by?: string | null
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string | null
+          direction?: string
+          id?: string
+          message?: string
+          message_type?: string | null
+          sent_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

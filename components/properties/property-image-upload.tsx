@@ -64,7 +64,12 @@ export function PropertyImageUpload({
     previews,
     setPreviews,
   ] =
-  useState<string[]>([])
+  useState<
+    {
+      url:string
+      type:"image" | "video"
+    }[]
+  >([])
 
 
 
@@ -116,11 +121,20 @@ export function PropertyImageUpload({
         ...current,
 
         ...selected.map(
-          file =>
-            URL.createObjectURL(
-              file
-            )
-        ),
+  file => ({
+
+    url:
+      URL.createObjectURL(
+        file
+      ),
+
+    type:
+      file.type.startsWith("video/")
+        ? ("video" as const)
+        : ("image" as const),
+
+  })
+),
 
       ]
     )
@@ -193,7 +207,7 @@ export function PropertyImageUpload({
     if(!files.length){
 
       alert(
-        "Please choose images first"
+        "Please choose photos or videos first"
       )
 
       return
@@ -237,13 +251,13 @@ export function PropertyImageUpload({
 
 
       console.error(
-        "Image upload failed",
+        "Media upload failed",
         error
       )
 
 
       alert(
-        "Image upload failed"
+        "Media upload failed"
       )
 
 
@@ -279,7 +293,7 @@ export function PropertyImageUpload({
 
         type="file"
 
-        accept="image/*"
+        accept="image/*,video/*"
 
         multiple
 
@@ -318,7 +332,7 @@ export function PropertyImageUpload({
 
                   <div
 
-                    key={preview}
+                    key={preview.url}
 
                     className="
                       relative
@@ -327,21 +341,45 @@ export function PropertyImageUpload({
                   >
 
 
-                    <img
+                    {
+                      preview.type === "video"
 
-                      src={preview}
+                      ?
 
-                      alt={`Preview ${index + 1}`}
+                      <video
 
-                      className="
-                        h-20
-                        w-20
-                        rounded-xl
-                        border
-                        object-cover
-                      "
+                        src={preview.url}
 
-                    />
+                        className="
+                          h-20
+                          w-20
+                          rounded-xl
+                          border
+                          object-cover
+                        "
+
+                      />
+
+                      :
+
+                      <img
+
+                        src={preview.url}
+
+                        alt={`Preview ${index + 1}`}
+
+                        className="
+                          h-20
+                          w-20
+                          rounded-xl
+                          border
+                          object-cover
+                        "
+
+                      />
+
+                    }
+
 
 
 
@@ -421,7 +459,7 @@ export function PropertyImageUpload({
 
           <ImagePlus className="mr-2 h-4 w-4"/>
 
-          Upload More Images
+          Upload Photos / Videos
 
         </Button>
 
@@ -439,7 +477,7 @@ export function PropertyImageUpload({
               text-muted-foreground
             ">
 
-              {files.length} image
+              {files.length} file
               {files.length > 1 ? "s" : ""}
               {" "}selected
 
@@ -501,7 +539,7 @@ export function PropertyImageUpload({
           {
             loading
               ? "Uploading..."
-              : "Upload Images"
+              : "Upload Media"
           }
 
         </Button>
