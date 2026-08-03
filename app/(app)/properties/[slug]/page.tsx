@@ -51,6 +51,10 @@ import {
 } from "@/components/properties/delete-property-button"
 
 import {
+  ArchivePropertyButton,
+} from "@/components/properties/archive-property-button"
+
+import {
   getDealsByPropertyId,
 } from "@/lib/repositories/deal-repository"
 
@@ -263,6 +267,12 @@ await Promise.all([
                 Edit Property
 
               </Link>
+
+              <ArchivePropertyButton
+  propertyId={
+    property.id
+  }
+/>
 
 
 

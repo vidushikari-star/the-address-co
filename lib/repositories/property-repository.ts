@@ -803,3 +803,29 @@ export async function deleteProperty(
   }
 
 }
+
+export async function archiveProperty(
+  id: string
+) {
+
+  const {
+    error,
+  } =
+    await supabase
+      .from("properties")
+      .update({
+        status: "archived",
+      })
+      .eq(
+        "id",
+        id
+      )
+
+
+  if(error){
+
+    throw error
+
+  }
+
+}

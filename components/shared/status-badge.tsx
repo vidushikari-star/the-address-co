@@ -10,10 +10,13 @@ type Status =
   | "Active"
   | "Pending"
   | "Completed"
+  | "Archived"
+
 
 type StatusBadgeProps = {
   status: Status | string
 }
+
 
 const variants: Record<string, "default" | "success" | "warning" | "danger" | "outline"> = {
   New: "outline",
@@ -33,14 +36,39 @@ const variants: Record<string, "default" | "success" | "warning" | "danger" | "o
   Pending: "warning",
 
   Lost: "danger",
+
+  Archived: "outline",
+
+  archived: "outline",
+
+  available: "success",
+
+  viewed: "default",
+
+  shortlisted: "warning",
+
+  offer: "warning",
+
+  purchased: "success",
 }
+
 
 export function StatusBadge({
   status,
 }: StatusBadgeProps) {
+
   return (
-    <Badge variant={variants[status] ?? "default"}>
+
+    <Badge
+      variant={
+        variants[status] ?? "default"
+      }
+    >
+
       {status}
+
     </Badge>
+
   )
+
 }

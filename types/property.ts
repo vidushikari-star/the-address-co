@@ -5,6 +5,7 @@ export type PropertyStatus =
   | "rejected"
   | "offer"
   | "purchased"
+  | "archived"
 
 
 export type ListingType =

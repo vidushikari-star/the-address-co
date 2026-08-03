@@ -166,9 +166,9 @@ export function PropertyList() {
 
 
             const matchesStatus =
-              status === "all"
-              ||
-              property.status === status
+  status === "all"
+    ? property.status !== "archived"
+    : property.status === status
 
 
 
@@ -440,6 +440,10 @@ const matchesPrice =
             <SelectItem value="rejected">
               Rejected
             </SelectItem>
+
+            <SelectItem value="archived">
+  Archived
+</SelectItem>
 
 
           </SelectContent>
