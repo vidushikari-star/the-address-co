@@ -572,10 +572,13 @@ export async function getNewLeads(){
         property_id
         `
       )
-      .eq(
-        "type",
-        "site_visit"
-      )
+      .in(
+  "type",
+  [
+    "contact_created",
+    "site_visit",
+  ]
+)
       .order(
         "created_at",
         {

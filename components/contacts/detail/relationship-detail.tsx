@@ -28,6 +28,10 @@ import {
   RelationshipDeals,
 } from "./relationship-deals"
 
+import {
+  RelationshipNotes,
+} from "./relationship-notes"
+
 
 type RelationshipDetailProps = {
   contact: Contact
@@ -117,16 +121,22 @@ export function RelationshipDetail({
 
 
 
-        {/* RIGHT - TIMELINE */}
+        {/* RIGHT - TIMELINE + NOTES */}
 
         <aside
           className="
             order-3
             min-w-0
+            space-y-4
           "
         >
 
           <RelationshipTimeline
+            contact={contact}
+          />
+
+
+          <RelationshipNotes
             contact={contact}
           />
 

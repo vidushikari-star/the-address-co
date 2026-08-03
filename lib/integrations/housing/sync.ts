@@ -3,6 +3,10 @@ import { fetchHousingLeads } from "./client"
 import { ContactsServerRepository } from "@/lib/supabase/repositories/contacts-server.repository"
 import { normalizePhone } from "@/lib/utils/phone"
 
+import {
+  createActivity,
+} from "@/lib/repositories/activity-repository"
+
 export interface HousingSyncResult {
   imported: number
   updated: number
@@ -107,7 +111,7 @@ export async function syncHousingLeads(): Promise<HousingSyncResult> {
         city: lead.city_name,
         country: "India",
 
-        leadSource: "Housing.com",
+        leadSource: "housing",
 
         budgetMin: lead.min_price,
         budgetMax: lead.max_price,
@@ -122,15 +126,42 @@ export async function syncHousingLeads(): Promise<HousingSyncResult> {
       }
 
       if (!existing) {
-        await contactsRepository.create(payload)
-        imported++
-      } else {
-        await contactsRepository.update(
-          existing.id,
-          payload
-        )
-        updated++
-      }
+
+  const contact =
+    await contactsRepository.create(
+      payload
+    )
+
+
+  await createActivity({
+
+    contactId:
+      contact.id,
+
+    type:
+      "contact_created",
+
+    title:
+      "New enquiry from Housing.com",
+
+    description:
+      `New lead received from Housing.com. Interested in ${lead.property_field?.[0] ?? "property"} in ${lead.locality_name ?? "Goa"}.`
+
+  })
+
+
+  imported++
+
+} else {
+
+  await contactsRepository.update(
+    existing.id,
+    payload
+  )
+
+  updated++
+
+}
     } catch (error) {
       skipped++
 

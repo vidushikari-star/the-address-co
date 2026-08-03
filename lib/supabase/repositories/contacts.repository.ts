@@ -291,7 +291,7 @@ export const ContactsRepository = {
 
 
     purpose:
-      contact.purpose ?? null,
+      contact.purpose || null,
 
 
     timeline:
@@ -299,7 +299,7 @@ export const ContactsRepository = {
 
 
     financing:
-      contact.financing ?? null,
+      contact.financing || null,
 
 
     resident:
@@ -406,6 +406,8 @@ export const ContactsRepository = {
 
     const payload:Record<string,unknown> = {}
 
+    
+
 
 
 
@@ -485,21 +487,82 @@ export const ContactsRepository = {
       payload.assigned_advisor =
         contact.assignedAdvisor ?? null
 
+        if(contact.leadSource !== undefined)
+
+  payload.lead_source =
+    contact.leadSource ?? null
 
 
 
 
-    if(contact.leadSource !== undefined)
 
-      payload.lead_source =
-        contact.leadSource ?? null
+    if(contact.budgetMin !== undefined)
 
-        if(contact.relationshipTypes !== undefined)
-
-  payload.relationship_types =
-    contact.relationshipTypes
+  payload.budget_min =
+    contact.budgetMin ?? null
 
 
+
+if(contact.budgetMax !== undefined)
+
+  payload.budget_max =
+    contact.budgetMax ?? null
+
+
+
+if(contact.propertyType !== undefined)
+
+  payload.property_type =
+    contact.propertyType ?? null
+
+
+
+if(contact.bedrooms !== undefined)
+
+  payload.bedrooms =
+    contact.bedrooms ?? null
+
+
+
+if(contact.locations !== undefined)
+
+  payload.locations =
+    contact.locations ?? null
+
+
+
+if(contact.purpose !== undefined)
+
+  payload.purpose =
+    contact.purpose || null
+
+
+
+if(contact.financing !== undefined)
+
+  payload.financing =
+    contact.financing || null
+
+
+
+if(contact.timeline !== undefined)
+
+  payload.timeline =
+    contact.timeline ?? null
+
+
+
+if(contact.mustHave !== undefined)
+
+  payload.must_have =
+    contact.mustHave ?? null
+
+
+
+if(contact.leadSource !== undefined)
+
+  payload.lead_source =
+    contact.leadSource ?? null
 
 
 
