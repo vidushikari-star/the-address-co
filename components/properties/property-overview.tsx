@@ -9,7 +9,7 @@ import {
 } from "lucide-react"
 
 import {
-  formatPropertyPrice,
+  formatExactPropertyPrice,
 } from "@/lib/utils/format-currency"
 
 import type {
@@ -200,7 +200,7 @@ export function PropertyOverview({
               : "Asking Price"
           }
           value={
-            formatPropertyPrice(
+            formatExactPropertyPrice(
               displayPrice,
               property.transactionType
             )

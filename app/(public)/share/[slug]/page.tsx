@@ -17,7 +17,7 @@ import {
 import type { ReactNode } from "react"
 
 import {
-  formatPropertyPrice,
+  formatExactPropertyPrice
 } from "@/lib/utils/format-currency"
 
 import {
@@ -358,7 +358,7 @@ Please share more details.`
         <p className="mt-2 text-4xl font-semibold">
 
           {
-            formatPropertyPrice(
+            formatExactPropertyPrice(
               displayPrice,
               property.transactionType
             )
@@ -389,7 +389,7 @@ Please share more details.`
               <p className="text-xl font-semibold">
 
                 {
-                  formatPropertyPrice(
+                  formatExactPropertyPrice(
                     property.price.securityDeposit,
                     "Sale"
                   )

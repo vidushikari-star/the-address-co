@@ -19,7 +19,7 @@ import {
 } from "@/lib/repositories/activity-repository"
 
 import {
-  formatPropertyPrice,
+  formatExactPropertyPrice
 } from "@/lib/utils/format-currency"
 
 import {
@@ -210,7 +210,7 @@ await Promise.all([
               <p className="mt-3 text-4xl font-bold text-primary">
 
                 {
-                  formatPropertyPrice(
+                  formatExactPropertyPrice(
   property.transactionType === "Rental"
     ? property.price.rent
     : property.price.asking,
@@ -420,7 +420,7 @@ await Promise.all([
               }
 
               value={
-                formatPropertyPrice(
+                formatExactPropertyPrice(
   property.transactionType === "Rental"
     ? property.price.rent
     : property.price.asking,

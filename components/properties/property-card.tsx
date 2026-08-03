@@ -14,7 +14,7 @@ import {
 import { StatusBadge } from "@/components/shared/status-badge"
 
 import {
-  formatPropertyPrice,
+  formatExactPropertyPrice,
 } from "@/lib/utils/format-currency"
 
 import type {
@@ -162,7 +162,7 @@ export function PropertyCard({
     text-primary
   "
 >
-  {formatPropertyPrice(
+  {formatExactPropertyPrice(
     property.transactionType === "Rental"
       ? property.price.rent
       : property.price.asking,
@@ -429,12 +429,12 @@ export function PropertyCard({
             </div>
 
             <p className="shrink-0 text-4xl font-bold tracking-tight text-primary">
-  {formatPropertyPrice(
-    property.transactionType === "Rental"
-      ? property.price.rent
-      : property.price.asking,
-    property.transactionType
-  )}
+  {formatExactPropertyPrice(
+  property.transactionType === "Rental"
+    ? property.price.rent
+    : property.price.asking,
+  property.transactionType
+)}
 </p>
 
           </div>

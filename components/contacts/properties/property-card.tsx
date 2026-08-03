@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
 import {
-  formatPropertyPrice,
+  formatExactPropertyPrice,
 } from "@/lib/utils/format-currency"
 
 
@@ -96,7 +96,7 @@ export function PropertyCard({
 
 
           {
-            formatPropertyPrice(
+            formatExactPropertyPrice(
               displayPrice,
               property.transactionType
             )

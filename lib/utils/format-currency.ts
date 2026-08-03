@@ -13,12 +13,11 @@ export function formatCurrency(
   }
 
 
-
   if(value >= 10000000){
 
     return `₹${(
       value / 10000000
-    ).toFixed(1)} Cr`
+    ).toFixed(2)} Cr`
 
   }
 
@@ -28,7 +27,7 @@ export function formatCurrency(
 
     return `₹${(
       value / 100000
-    ).toFixed(1)} L`
+    ).toFixed(2)} L`
 
   }
 
@@ -77,5 +76,60 @@ export function formatPropertyPrice(
   return formatCurrency(
     value
   )
+
+}
+
+export function formatExactPropertyPrice(
+  value?: number | null,
+  transactionType?: string
+){
+
+  if(
+    value === null ||
+    value === undefined ||
+    isNaN(value)
+  ){
+
+    return "₹0"
+
+  }
+
+
+  let price = ""
+
+
+  if(value >= 10000000){
+
+    price =
+      `₹${(
+        value / 10000000
+      )
+        .toFixed(2)
+        .replace(/\.?0+$/, "")
+      } Cr`
+
+  }
+  else if(value >= 100000){
+
+    price =
+      `₹${(
+        value / 100000
+      )
+        .toFixed(2)
+        .replace(/\.?0+$/, "")
+      } L`
+
+  }
+  else {
+
+    price =
+      `₹${value.toLocaleString("en-IN")}`
+
+  }
+
+
+  return transactionType?.toLowerCase() === "rental"
+    ? `${price}/month`
+    : price
 
 }

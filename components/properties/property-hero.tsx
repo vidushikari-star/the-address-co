@@ -11,7 +11,7 @@ import { StatusBadge } from "@/components/shared/status-badge"
 import { SharePropertyButton } from "@/components/properties/share-property-button"
 
 import {
-  formatPropertyPrice,
+  formatExactPropertyPrice,
 } from "@/lib/utils/format-currency"
 
 import type { Property } from "@/types/property"
@@ -124,7 +124,7 @@ export function PropertyHero({
             >
 
               {
-                formatPropertyPrice(
+                formatExactPropertyPrice(
                   displayPrice,
                   property.transactionType
                 )
