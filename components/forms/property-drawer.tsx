@@ -34,6 +34,10 @@ import {
   ImagePlus,
 } from "lucide-react"
 
+import {
+  uploadPropertyDocument,
+} from "@/lib/repositories/property-document-repository"
+
 
 
 type PropertyDrawerProps = {
@@ -96,6 +100,9 @@ export function PropertyDrawer({
   const imageInputRef =
     useRef<HTMLInputElement>(null)
 
+    const documentInputRef =
+  useRef<HTMLInputElement>(null)
+
 
 
 
@@ -105,6 +112,12 @@ export function PropertyDrawer({
     setImages,
   ] =
   useState<File[]>([])
+
+  const [
+  documents,
+  setDocuments,
+] =
+useState<File[]>([])
 
 
 
@@ -328,7 +341,16 @@ useState<
 
 
 
+function removeDocument(index:number){
 
+  setDocuments(
+    current =>
+      current.filter(
+        (_,i)=>i !== index
+      )
+  )
+
+}
 
 
 
@@ -392,12 +414,21 @@ useState<
 
     setPreviews([])
 
+    setDocuments([])
+
 
     if(imageInputRef.current){
 
-      imageInputRef.current.value=""
+  imageInputRef.current.value = ""
 
-    }
+}
+
+
+if(documentInputRef.current){
+
+  documentInputRef.current.value = ""
+
+}
 
   }
 
@@ -598,6 +629,22 @@ useState<
         )
 
       )
+
+      await Promise.all(
+
+  documents.map(
+
+    document =>
+
+      uploadPropertyDocument(
+        property.id,
+        document,
+        "brochure"
+      )
+
+  )
+
+)
 
 
 
@@ -1223,6 +1270,111 @@ useState<
 
 
         </div>
+
+        {/* DOCUMENT SELECTOR */}
+
+<div className="
+  space-y-3
+  rounded-lg
+  border
+  p-4
+">
+
+  <p className="text-sm font-medium">
+    Brochures & Documents
+  </p>
+
+
+  <input
+
+    ref={documentInputRef}
+
+    type="file"
+
+    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+
+    multiple
+
+    hidden
+
+    onChange={
+  e =>
+    setDocuments(
+      current => [
+        ...current,
+        ...Array.from(
+          e.target.files ?? []
+        ),
+      ]
+    )
+}
+
+  />
+
+
+
+  <Button
+
+    type="button"
+
+    variant="outline"
+
+    onClick={() =>
+      documentInputRef.current?.click()
+    }
+
+  >
+
+    Upload Brochure / Documents
+
+  </Button>
+
+
+
+
+  {
+    documents.length > 0 && (
+
+      <div className="
+        space-y-1
+        text-sm
+        text-muted-foreground
+      ">
+
+        {
+  documents.map(
+    (document, index) => (
+
+      <div
+        key={document.name}
+        className="flex items-center justify-between"
+      >
+
+        <p>
+          📄 {document.name}
+        </p>
+
+        <button
+          type="button"
+          onClick={() => removeDocument(index)}
+          className="text-sm text-destructive"
+        >
+          Remove
+        </button>
+
+      </div>
+
+    )
+  )
+}
+
+      </div>
+
+    )
+  }
+
+
+</div>
 
 
 

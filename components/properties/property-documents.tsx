@@ -26,10 +26,45 @@ import {
 
 
 
+const categoryLabels: Record<string,string> = {
+
+  brochure:
+    "Brochure",
+
+  floor_plan:
+    "Floor Plan",
+
+  price_sheet:
+    "Price Sheet",
+
+  payment_plan:
+    "Payment Plan",
+
+  legal:
+    "Legal Documents",
+
+  approvals:
+    "Approvals",
+
+  marketing:
+    "Marketing",
+
+  transaction:
+    "Transaction",
+
+  other:
+    "Other",
+
+}
+
+
+
 type Props = {
+
   documents: PropertyDocument[]
 
   propertyId:string
+
 }
 
 
@@ -52,8 +87,6 @@ export function PropertyDocuments({
     setDeleting,
   ] =
   useState<string | null>(null)
-
-
 
 
 
@@ -99,7 +132,8 @@ export function PropertyDocuments({
       router.refresh()
 
 
-    } catch(error){
+    }
+    catch(error){
 
 
       console.error(
@@ -113,7 +147,8 @@ export function PropertyDocuments({
       )
 
 
-    } finally {
+    }
+    finally {
 
 
       setDeleting(null)
@@ -132,23 +167,27 @@ export function PropertyDocuments({
 
   return (
 
-    <section className="
-      rounded-2xl
-      border
-      p-4
-      space-y-4
-      sm:p-6
-    ">
+    <section
+      className="
+        rounded-2xl
+        border
+        p-4
+        space-y-4
+        sm:p-6
+      "
+    >
 
 
-      <div className="
-        flex
-        flex-col
-        gap-3
-        sm:flex-row
-        sm:items-center
-        sm:justify-between
-      ">
+      <div
+        className="
+          flex
+          flex-col
+          gap-3
+          sm:flex-row
+          sm:items-center
+          sm:justify-between
+        "
+      >
 
 
         <h2 className="text-xl font-semibold">
@@ -212,10 +251,12 @@ export function PropertyDocuments({
                     <div className="min-w-0">
 
 
-                      <p className="
-                        truncate
-                        font-medium
-                      ">
+                      <p
+                        className="
+                          truncate
+                          font-medium
+                        "
+                      >
 
                         {document.name}
 
@@ -223,14 +264,41 @@ export function PropertyDocuments({
 
 
 
-                      <p className="
-                        mt-1
-                        text-sm
-                        capitalize
-                        text-muted-foreground
-                      ">
+                      <p
+                        className="
+                          mt-1
+                          text-sm
+                          text-muted-foreground
+                        "
+                      >
 
-                        {document.category}
+                        {
+                          categoryLabels[
+                            document.category
+                          ]
+                          ??
+                          document.category
+                        }
+
+
+                        {
+                          document.fileType && (
+
+                            <>
+                              {" • "}
+
+                              {
+                                document.fileType.includes(
+                                  "pdf"
+                                )
+                                  ? "PDF"
+                                  : "File"
+                              }
+
+                            </>
+
+                          )
+                        }
 
                       </p>
 
@@ -243,13 +311,15 @@ export function PropertyDocuments({
 
 
 
-                    <div className="
-  flex
-  w-full
-  gap-3
-  sm:w-auto
-  sm:shrink-0
-">
+                    <div
+                      className="
+                        flex
+                        w-full
+                        gap-3
+                        sm:w-auto
+                        sm:shrink-0
+                      "
+                    >
 
 
 
@@ -264,18 +334,18 @@ export function PropertyDocuments({
                         rel="noopener noreferrer"
 
                         className="
-  flex
-  flex-1
-  items-center
-  justify-center
-  rounded-md
-  border
-  px-3
-  py-2
-  text-sm
-  text-primary
-  sm:flex-none
-"
+                          flex
+                          flex-1
+                          items-center
+                          justify-center
+                          rounded-md
+                          border
+                          px-3
+                          py-2
+                          text-sm
+                          text-primary
+                          sm:flex-none
+                        "
 
                       >
 
@@ -336,7 +406,7 @@ export function PropertyDocuments({
 
           <p className="text-muted-foreground">
 
-            No documents uploaded.
+            No brochures or documents uploaded.
 
           </p>
 

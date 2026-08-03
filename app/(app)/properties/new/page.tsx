@@ -359,9 +359,8 @@ export default function NewPropertyPage(){
 
 
       router.push(
-        `/properties/${property.slug}`
-      )
-
+  `/properties/${property.slug}?created=true`
+)
 
 
     }

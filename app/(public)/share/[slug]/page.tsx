@@ -11,6 +11,10 @@ import {
 } from "@/lib/repositories/property-image-repository"
 
 import {
+  getPropertyDocuments,
+} from "@/lib/repositories/property-document-repository"
+
+import {
   PropertyEnquiryForm,
 } from "@/components/public/property-enquiry-form"
 
@@ -23,6 +27,24 @@ import {
 import {
   supabase,
 } from "@/lib/supabase/client"
+
+const documentCategoryLabels: Record<string,string> = {
+
+  brochure:
+    "Brochure",
+
+  floor_plan:
+    "Floor Plan",
+
+  price_sheet:
+    "Price Sheet",
+
+  payment_plan:
+    "Payment Plan",
+
+}
+
+
 
 
 type Props = {
@@ -87,7 +109,23 @@ export default async function PublicPropertySharePage({
       property.id
     )
 
+const documents =
+  await getPropertyDocuments(
+    property.id
+  )
 
+  const publicDocuments =
+  documents.filter(
+    document =>
+      [
+        "brochure",
+        "floor_plan",
+        "price_sheet",
+        "payment_plan",
+      ].includes(
+        document.category
+      )
+  )
 
 
 
@@ -666,6 +704,83 @@ Please share more details.`
 
 
       <section className="mx-auto max-w-6xl px-6 pb-12">
+
+        {
+  publicDocuments.length > 0 && (
+
+    <section
+      className="
+        mx-auto
+        max-w-6xl
+        px-6
+        py-10
+      "
+    >
+
+      <h2 className="mb-5 text-2xl font-semibold">
+        Documents
+      </h2>
+
+
+      <div className="grid gap-4 md:grid-cols-3">
+
+        {
+          publicDocuments.map(
+            document => (
+
+              <a
+                key={document.id}
+                href={document.fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="
+                  rounded-xl
+                  border
+                  p-5
+                  transition
+                  hover:bg-muted
+                "
+              >
+
+                <p className="font-medium">
+                  {document.name}
+                </p>
+
+
+                <p className="
+                  mt-2
+                  text-sm
+                  text-muted-foreground
+                ">
+                  {
+  documentCategoryLabels[
+    document.category
+  ]
+  ??
+  document.category
+}
+{" • "}
+{
+  document.fileType?.includes("pdf")
+    ? "PDF"
+    : "File"
+}
+                </p>
+
+
+              </a>
+
+            )
+          )
+
+        }
+
+      </div>
+
+    </section>
+
+  )
+}
 
 
         <PropertyEnquiryForm

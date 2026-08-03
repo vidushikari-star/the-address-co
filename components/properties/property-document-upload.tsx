@@ -19,6 +19,8 @@ import {
 
 
 
+
+
 type Props = {
 
   propertyId:string
@@ -55,7 +57,7 @@ export function PropertyDocumentUpload({
     category,
     setCategory,
   ] =
-  useState("legal")
+  useState("brochure")
 
 
 
@@ -84,6 +86,20 @@ export function PropertyDocumentUpload({
 
 
 
+    if(
+      file.size > 20 * 1024 * 1024
+    ){
+
+      alert(
+        "File size should be less than 20MB"
+      )
+
+      return
+
+    }
+
+
+
     setLoading(true)
 
 
@@ -99,9 +115,11 @@ export function PropertyDocumentUpload({
 
       setFile(null)
 
+
+
       if(fileRef.current){
 
-        fileRef.current.value=""
+        fileRef.current.value = ""
 
       }
 
@@ -112,19 +130,24 @@ export function PropertyDocumentUpload({
     }
     catch(error){
 
+
       console.error(
         "Document upload failed",
         error
       )
 
+
       alert(
         "Document upload failed"
       )
 
+
     }
     finally{
 
+
       setLoading(false)
+
 
     }
 
@@ -136,12 +159,23 @@ export function PropertyDocumentUpload({
 
   return (
 
-    <div className="flex items-center gap-3">
+    <div className="
+      flex
+      flex-wrap
+      items-center
+      gap-3
+    ">
 
 
       <select
 
-        className="rounded-md border px-3 py-2 text-sm"
+        className="
+          rounded-md
+          border
+          px-3
+          py-2
+          text-sm
+        "
 
         value={category}
 
@@ -154,16 +188,28 @@ export function PropertyDocumentUpload({
 
       >
 
+        <option value="brochure">
+          Brochure
+        </option>
+
+        <option value="floor_plan">
+          Floor Plan
+        </option>
+
+        <option value="price_sheet">
+          Price Sheet
+        </option>
+
+        <option value="payment_plan">
+          Payment Plan
+        </option>
+
         <option value="legal">
-          Legal
+          Legal Documents
         </option>
 
-        <option value="marketing">
-          Marketing
-        </option>
-
-        <option value="transaction">
-          Transaction
+        <option value="approvals">
+          Approvals
         </option>
 
         <option value="other">
@@ -209,7 +255,7 @@ export function PropertyDocumentUpload({
 
       >
 
-        Choose File
+        Upload Brochure / Document
 
       </Button>
 
@@ -220,7 +266,14 @@ export function PropertyDocumentUpload({
       {
         file && (
 
-          <span className="text-sm text-muted-foreground">
+          <span
+            className="
+              max-w-[250px]
+              truncate
+              text-sm
+              text-muted-foreground
+            "
+          >
 
             {file.name}
 
@@ -246,8 +299,8 @@ export function PropertyDocumentUpload({
 
         {
           loading
-          ? "Uploading..."
-          : "Upload"
+            ? "Uploading..."
+            : "Upload"
         }
 
       </Button>

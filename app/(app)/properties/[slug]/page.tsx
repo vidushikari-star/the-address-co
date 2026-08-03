@@ -62,12 +62,22 @@ import {
   PropertyDeals,
 } from "@/components/properties/property-deals"
 
+import {
+  PropertyCreatedBanner,
+} from "@/components/properties/property-created-banner"
+
 
 
 type Props = {
+
   params: Promise<{
     slug:string
   }>
+
+  searchParams: Promise<{
+    created?: string
+  }>
+
 }
 
 
@@ -110,11 +120,17 @@ function DetailRow({
 
 export default async function PropertyDetailPage({
   params,
+  searchParams,
 }:Props){
 
   const {
-    slug
-  } = await params
+  slug
+} = await params
+
+
+const {
+  created,
+} = await searchParams
 
 
 
@@ -163,7 +179,16 @@ await Promise.all([
 
   return (
 
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 p-4 sm:p-6 lg:p-8">
+  <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 p-4 sm:p-6 lg:p-8">
+
+
+  
+      {
+  created === "true" && (
+    <PropertyCreatedBanner />
+  )
+}
+
 
 
       <section className="overflow-hidden rounded-3xl border bg-card">
@@ -338,10 +363,14 @@ await Promise.all([
         <div className="p-6">
 
 
-          <PropertyGallery
-            propertyId={property.id}
-            images={images}
-          />
+          <section id="gallery">
+
+  <PropertyGallery
+    propertyId={property.id}
+    images={images}
+  />
+
+</section>
 
 
         </div>
@@ -353,10 +382,14 @@ await Promise.all([
 
 
 
-      <PropertyDocuments
-        documents={documents}
-        propertyId={property.id}
-      />
+      <section id="documents">
+
+  <PropertyDocuments
+    documents={documents}
+    propertyId={property.id}
+  />
+
+</section>
 
       <PropertyDeals
   deals={deals}
