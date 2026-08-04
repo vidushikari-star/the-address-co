@@ -136,6 +136,47 @@ export async function getPropertySharesByDealId(
   )
 }
 
+export async function getPropertySharesByContactId(
+  contactId: string
+): Promise<PropertyShare[]> {
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("property_shares")
+      .select("*")
+      .eq(
+        "contact_id",
+        contactId
+      )
+      .order(
+        "created_at",
+        {
+          ascending:false,
+        }
+      )
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+  return (
+    (data as PropertyShareRow[] | null)
+    ??
+    []
+  )
+  .map(
+    mapPropertyShareRow
+  )
+
+}
+
 export async function updatePropertyShareStatus(
   id: string,
   status: PropertyShareStatus,

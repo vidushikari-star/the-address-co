@@ -18,6 +18,10 @@ import {
 } from "@/lib/repositories/property-repository"
 
 import {
+  getPropertySharesByContactId,
+} from "@/lib/repositories/property-share-repository"
+
+import {
   getPropertyMatches,
 } from "@/lib/services/property-matching"
 
@@ -60,10 +64,17 @@ export function RelationshipProperties({
 
 
   const [
-    matches,
-    setMatches,
-  ] =
-  useState<Property[]>([])
+  matches,
+  setMatches,
+] =
+useState<Property[]>([])
+
+
+const [
+  sharedPropertyIds,
+  setSharedPropertyIds,
+] =
+useState<string[]>([])
 
 
 
@@ -82,36 +93,117 @@ export function RelationshipProperties({
   useEffect(()=>{
 
 
-    async function loadMatches(){
+    async function loadProperties(){
 
 
       try{
 
 
-        const properties =
-          await getProperties()
+        const [
+
+          properties,
+
+          sharedProperties,
+
+        ] =
+        await Promise.all([
+
+          getProperties(),
+
+          getPropertySharesByContactId(
+            contact.id
+          ),
+
+        ])
 
 
 
-        const matched =
+
+
+        const sharedIds =
+          new Set(
+            sharedProperties.map(
+              item =>
+                item.propertyId
+            )
+          )
+
+
+
+
+
+        const manuallyShared =
+          properties.filter(
+            property =>
+              sharedIds.has(
+                property.id
+              )
+          )
+
+          setSharedPropertyIds(
+  Array.from(sharedIds)
+)
+
+
+
+
+
+        const recommended =
           getPropertyMatches(
             contact,
             properties
           )
+          .map(
+            item =>
+              item.property
+          )
+
+
+
+
+
+        const combined = [
+
+          ...manuallyShared,
+
+          ...recommended,
+
+        ]
+
+
+
+
+
+        const unique =
+          Array.from(
+
+            new Map(
+
+              combined.map(
+                property => [
+
+                  property.id,
+
+                  property
+
+                ]
+              )
+
+            )
+            .values()
+
+          )
+
+
 
 
 
         setMatches(
 
-          matched
-            .map(
-              item =>
-                item.property
-            )
-            .slice(
-              0,
-              5
-            )
+          unique.slice(
+            0,
+            5
+          )
 
         )
 
@@ -128,7 +220,7 @@ export function RelationshipProperties({
 
 
 
-    loadMatches()
+    loadProperties()
 
 
   },[
@@ -253,25 +345,69 @@ export function RelationshipProperties({
 
 
               {
-                matches.map(
-                  property => (
+  matches.map(
+    property => (
 
-                    <PropertyCard
+      <div
+        key={
+          property.id
+        }
+        className="
+          space-y-2
+        "
+      >
 
-                      key={
-                        property.id
-                      }
+        {
+          sharedPropertyIds.includes(
+            property.id
+          ) && (
 
-                      property={
-                        property
-                      }
+            <Badge
+              variant="secondary"
+            >
 
-                    />
+              ⭐ Shared with Client
 
-                  )
+            </Badge>
 
-                )
-              }
+          )
+        }
+
+
+        {
+          !sharedPropertyIds.includes(
+            property.id
+          ) && (
+
+            <Badge
+              variant="outline"
+            >
+
+              🔎 Recommended Match
+
+            </Badge>
+
+          )
+        }
+
+
+
+        <PropertyCard
+
+          property={
+            property
+          }
+
+        />
+
+
+      </div>
+
+    )
+
+  )
+
+}
 
 
             </div>
@@ -279,8 +415,6 @@ export function RelationshipProperties({
           )
 
         }
-
-
 
 
 
