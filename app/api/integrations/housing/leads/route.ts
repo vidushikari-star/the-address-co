@@ -7,10 +7,6 @@ import {
 } from "@/lib/supabase/repositories/contacts-server.repository"
 
 import {
-  createDeal,
-} from "@/lib/repositories/deal-repository"
-
-import {
   createActivity,
 } from "@/lib/repositories/activity-repository"
 
@@ -192,35 +188,7 @@ export async function POST(
 
 
 
-    await createDeal({
-
-      housingLeadId:
-        String(
-          body.flat_id
-        ),
-
-
-      name:
-        `${firstName} - Housing Enquiry`,
-
-
-      contactId:
-        contact.id,
-
-
-      stage:
-        "lead",
-
-
-      notes:[
-
-        "Source: Housing.com",
-
-        `Housing Listing ID: ${body.flat_id}`,
-
-      ],
-
-    })
+    
 
 
 
