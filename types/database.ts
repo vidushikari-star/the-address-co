@@ -595,6 +595,7 @@ export type Database = {
           created_at: string | null
           expected_close_date: string | null
           final_commission: number | null
+          housing_lead_id: string | null
           id: string
           last_activity: string | null
           lost_notes: string | null
@@ -621,6 +622,7 @@ export type Database = {
           created_at?: string | null
           expected_close_date?: string | null
           final_commission?: number | null
+          housing_lead_id?: string | null
           id?: string
           last_activity?: string | null
           lost_notes?: string | null
@@ -647,6 +649,7 @@ export type Database = {
           created_at?: string | null
           expected_close_date?: string | null
           final_commission?: number | null
+          housing_lead_id?: string | null
           id?: string
           last_activity?: string | null
           lost_notes?: string | null
@@ -823,6 +826,10 @@ export type Database = {
           development_stage: string | null
           furnishing: string | null
           google_map_link: string | null
+          housing_last_synced_at: string | null
+          housing_listing_id: string | null
+          housing_sync_error: string | null
+          housing_sync_status: string | null
           id: string
           last_shared: string | null
           listing_type: string | null
@@ -856,6 +863,10 @@ export type Database = {
           development_stage?: string | null
           furnishing?: string | null
           google_map_link?: string | null
+          housing_last_synced_at?: string | null
+          housing_listing_id?: string | null
+          housing_sync_error?: string | null
+          housing_sync_status?: string | null
           id?: string
           last_shared?: string | null
           listing_type?: string | null
@@ -889,6 +900,10 @@ export type Database = {
           development_stage?: string | null
           furnishing?: string | null
           google_map_link?: string | null
+          housing_last_synced_at?: string | null
+          housing_listing_id?: string | null
+          housing_sync_error?: string | null
+          housing_sync_status?: string | null
           id?: string
           last_shared?: string | null
           listing_type?: string | null
@@ -952,7 +967,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_cover: boolean | null
-          media_type: "image" | "video" | null
+          media_type: string | null
           property_id: string | null
           url: string
         }

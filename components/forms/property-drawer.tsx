@@ -46,6 +46,18 @@ type PropertyDrawerProps = {
 
   onOpenChange:(open:boolean)=>void
 
+  housingLead?: {
+
+    projectName?: string
+
+    locality?: string
+
+    propertyType?: string
+
+    housingId?: string
+
+  }
+
 }
 
 
@@ -80,6 +92,8 @@ export function PropertyDrawer({
   open,
 
   onOpenChange,
+
+  housingLead,
 
 }:PropertyDrawerProps){
 
@@ -214,6 +228,11 @@ useState<
     advisor:"",
 
     note:"",
+
+    housingListingId:
+  housingLead?.housingId
+  ??
+  "",
 
 
   })
@@ -356,81 +375,124 @@ function removeDocument(index:number){
 
   function resetForm(){
 
-    setForm({
+  setForm({
 
-      name:"",
+    name:
+      housingLead?.projectName
+      ??
+      "",
 
-      slug:"",
+    slug:"",
 
-      developer:"",
+    developer:"",
 
-      transactionType:"Sale",
-
-      propertyType:"Villa",
-
-      location:"",
-
-      locality:"",
-
-      listingType:"Primary",
-
-      developmentStage:"ready_to_move",
+    transactionType:"Sale",
 
 
-      price:"",
-
-      rent:"",
-
-      securityDeposit:"",
-
-
-      bedrooms:"",
-
-      bathrooms:"",
-
-      carpetArea:"",
-
-      plotArea:"",
-
-      builtUpArea:"",
-
-
-      furnishing:"unfurnished",
-
-      amenities:"",
-
-      googleMapLink:"",
-
-      description:"",
-
-      advisor:"",
-
-      note:"",
-
-    })
+    propertyType:
+      housingLead?.propertyType
+        ?.toLowerCase()
+        .includes("apartment")
+        ? "Apartment"
+        :
+      housingLead?.propertyType
+        ?.toLowerCase()
+        .includes("plot")
+        ? "Plot"
+        :
+      housingLead?.propertyType
+        ?.toLowerCase()
+        .includes("commercial")
+        ? "Commercial"
+        :
+      housingLead?.propertyType
+        ?.toLowerCase()
+        .includes("penthouse")
+        ? "Penthouse"
+        :
+      "Villa",
 
 
-    setImages([])
 
-    setPreviews([])
-
-    setDocuments([])
+    location:"",
 
 
-    if(imageInputRef.current){
+    locality:
+      housingLead?.locality
+      ??
+      "",
 
-  imageInputRef.current.value = ""
-
-}
 
 
-if(documentInputRef.current){
+    listingType:"Primary",
 
-  documentInputRef.current.value = ""
 
-}
+    developmentStage:"ready_to_move",
+
+
+
+    price:"",
+
+    rent:"",
+
+    securityDeposit:"",
+
+
+
+    bedrooms:"",
+
+    bathrooms:"",
+
+    carpetArea:"",
+
+    plotArea:"",
+
+    builtUpArea:"",
+
+
+
+    furnishing:"unfurnished",
+
+    amenities:"",
+
+    googleMapLink:"",
+
+    description:"",
+
+    advisor:"",
+
+    note:"",
+
+    housingListingId:"",
+
+
+  })
+
+
+
+  setImages([])
+
+  setPreviews([])
+
+  setDocuments([])
+
+
+
+  if(imageInputRef.current){
+
+    imageInputRef.current.value = ""
 
   }
+
+
+
+  if(documentInputRef.current){
+
+    documentInputRef.current.value = ""
+
+  }
+
+}
 
 
 
@@ -439,13 +501,13 @@ if(documentInputRef.current){
 
   useEffect(()=>{
 
-    if(open){
+  if(open){
 
-      resetForm()
+    resetForm()
 
-    }
+  }
 
-  },[open])
+},[open, housingLead])
 
     async function submit(
     e:React.FormEvent
@@ -579,6 +641,9 @@ if(documentInputRef.current){
 
           note:
             form.note,
+
+            housingListingId:
+  form.housingListingId,
 
 
 

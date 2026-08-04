@@ -47,6 +47,8 @@ export interface Deal {
 
   propertyId: string
 
+  housingLeadId?: string
+
 
   advisor: string
 

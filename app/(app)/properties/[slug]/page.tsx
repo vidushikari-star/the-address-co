@@ -55,6 +55,10 @@ import {
 } from "@/components/properties/archive-property-button"
 
 import {
+  PushHousingButton,
+} from "@/components/properties/push-housing-button"
+
+import {
   getDealsByPropertyId,
 } from "@/lib/repositories/deal-repository"
 
@@ -65,6 +69,10 @@ import {
 import {
   PropertyCreatedBanner,
 } from "@/components/properties/property-created-banner"
+
+import {
+  HousingSyncStatus,
+} from "@/components/properties/housing-sync-status"
 
 
 
@@ -282,6 +290,10 @@ await Promise.all([
                 property={property}
               />
 
+              <PushHousingButton
+  property={property}
+/>
+
 
 
               <Link
@@ -307,6 +319,10 @@ await Promise.all([
                   property.id
                 }
               />
+
+              <HousingSyncStatus
+  property={property}
+/>
 
 
             </div>

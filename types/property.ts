@@ -108,6 +108,21 @@ export interface Property {
   id:string
 
 
+  // External Integrations
+
+  housingListingId?: string
+
+  housingSyncStatus?:
+  | "synced"
+  | "needs_update"
+  | "failed"
+
+  housingLastSyncedAt?: string
+
+  housingSyncError?: string
+
+
+
   // Identity
 
   name:string

@@ -11,6 +11,7 @@ import {
   MessagesSquare,
   Settings,
   TrendingUp,
+  Inbox,
 } from "lucide-react"
 
 
@@ -89,6 +90,16 @@ export const navigation: readonly NavigationGroup[] = [
           "sales",
         ],
       },
+
+      {
+  title: "Housing Leads",
+  href: "/housing-leads",
+  icon: Inbox,
+  roles: [
+    "admin",
+    "sales",
+  ],
+},
 
 
       {

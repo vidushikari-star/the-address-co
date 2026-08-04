@@ -1,11 +1,26 @@
 import { fetchHousingLeads } from "./client"
 
-import { ContactsServerRepository } from "@/lib/supabase/repositories/contacts-server.repository"
-import { normalizePhone } from "@/lib/utils/phone"
+import {
+  ContactsServerRepository,
+} from "@/lib/supabase/repositories/contacts-server.repository"
+
+import {
+  normalizePhone,
+} from "@/lib/utils/phone"
 
 import {
   createActivity,
 } from "@/lib/repositories/activity-repository"
+
+import {
+  createDeal,
+} from "@/lib/repositories/deal-repository"
+
+import {
+  supabase,
+} from "@/lib/supabase/client"
+
+
 
 export interface HousingSyncResult {
   imported: number
@@ -13,168 +28,517 @@ export interface HousingSyncResult {
   skipped: number
 }
 
-const contactsRepository = ContactsServerRepository
+
+
+const contactsRepository =
+  ContactsServerRepository
+
+
+
+
 
 function mapPropertyType(
   value?: string
-): "apartment" | "villa" | "plot" | "penthouse" | "commercial" | undefined {
+):
+"apartment" |
+"villa" |
+"plot" |
+"penthouse" |
+"commercial" |
+undefined {
+
   if (!value) return undefined
 
-  const normalized = value.trim().toLowerCase()
+
+  const normalized =
+    value
+      .trim()
+      .toLowerCase()
+
+
 
   if (
-  normalized.includes("apartment") ||
-  normalized.includes("flat") ||
-  normalized.includes("independent floor")
-) {
-  return "apartment"
-}
+    normalized.includes("apartment") ||
+    normalized.includes("flat") ||
+    normalized.includes("independent floor")
+  ){
+
+    return "apartment"
+
+  }
+
+
 
   if (
     normalized.includes("villa") ||
     normalized.includes("independent house") ||
     normalized.includes("bungalow")
-  ) {
+  ){
+
     return "villa"
+
   }
 
-  if (normalized.includes("penthouse")) {
+
+
+  if(
+    normalized.includes("penthouse")
+  ){
+
     return "penthouse"
+
   }
 
-  if (
+
+
+  if(
     normalized.includes("plot") ||
     normalized.includes("land")
-  ) {
+  ){
+
     return "plot"
+
   }
 
-  if (
+
+
+  if(
     normalized.includes("commercial") ||
     normalized.includes("office") ||
     normalized.includes("shop") ||
     normalized.includes("retail")
-  ) {
+  ){
+
     return "commercial"
+
   }
 
-  console.warn(`[Housing] Unknown property type: "${value}"`)
+
+
+  console.warn(
+    `[Housing] Unknown property type: "${value}"`
+  )
+
 
   return undefined
+
 }
 
-export async function syncHousingLeads(): Promise<HousingSyncResult> {
-  console.log("1️⃣ Starting Housing sync")
 
-  console.log("2️⃣ Fetching Housing leads...")
-  const leads = await fetchHousingLeads()
 
-  console.log(`3️⃣ Found ${leads.length} leads`)
+
+
+
+
+export async function syncHousingLeads()
+:Promise<HousingSyncResult>{
+
+
+  console.log(
+    "1️⃣ Starting Housing sync"
+  )
+
+
+
+  console.log(
+    "2️⃣ Fetching Housing leads..."
+  )
+
+
+
+  const leads =
+    await fetchHousingLeads()
+
+
+
+  console.log(
+    `3️⃣ Found ${leads.length} leads`
+  )
+
+
 
   let imported = 0
+
   let updated = 0
+
   let skipped = 0
 
-  for (const lead of leads) {
-    console.log("4️⃣ Processing", lead.lead_name)
+
+
+
+
+  for(
+    const lead of leads
+  ){
+
+
+    console.log(
+      "4️⃣ Processing",
+      lead.lead_name
+    )
+
+
 
     try {
-      if (!lead.lead_phone) {
+
+
+      if(
+        !lead.lead_phone
+      ){
+
         skipped++
+
         continue
+
       }
 
-      const phone = normalizePhone(
-        `${lead.country_code}${lead.lead_phone}`
-      )
+
+
+
+
+      const phone =
+        normalizePhone(
+          `${lead.country_code}${lead.lead_phone}`
+        )
+
+
+
+
 
       const existing =
-  await contactsRepository.findByPhone(phone)
+        await contactsRepository.findByPhone(
+          phone
+        )
 
-      const name = (lead.lead_name ?? "").trim()
 
-      const parts = name.split(" ")
 
-      const firstName = parts.shift() || "Unknown"
+
+
+      const name =
+        (
+          lead.lead_name ?? ""
+        )
+        .trim()
+
+
+
+
+
+      const parts =
+        name.split(" ")
+
+
+
+
+
+      const firstName =
+        parts.shift() || "Unknown"
+
+
+
+
 
       const lastName =
         parts.length > 0
           ? parts.join(" ")
           : undefined
 
+
+
+
+
       const payload = {
+
         firstName,
+
         lastName,
+
         phone,
-        email: lead.lead_email || undefined,
 
-        city: lead.city_name,
-        country: "India",
+        email:
+          lead.lead_email || undefined,
 
-        leadSource: "housing",
 
-        budgetMin: lead.min_price,
-        budgetMax: lead.max_price,
+        city:
+          lead.city_name,
 
-        propertyType: mapPropertyType(
-          lead.property_field?.[0]
-        ),
 
-        locations: lead.locality_name
-          ? [lead.locality_name]
-          : [],
+        country:
+          "India",
+
+
+        leadSource:
+          "housing",
+
+
+        housingLeadId:
+          String(lead.flat_id),
+
+
+        budgetMin:
+          lead.min_price,
+
+
+        budgetMax:
+          lead.max_price,
+
+
+        propertyType:
+          mapPropertyType(
+            lead.property_field?.[0]
+          ),
+
+
+        locations:
+          lead.locality_name
+            ? [lead.locality_name]
+            : [],
+
       }
 
-      if (!existing) {
-
-  const contact =
-    await contactsRepository.create(
-      payload
-    )
 
 
-  await createActivity({
-
-    contactId:
-      contact.id,
-
-    type:
-      "contact_created",
-
-    title:
-      "New enquiry from Housing.com",
-
-    description:
-      `New lead received from Housing.com. Interested in ${lead.property_field?.[0] ?? "property"} in ${lead.locality_name ?? "Goa"}.`
-
-  })
 
 
-  imported++
+      let contact
 
-} else {
 
-  await contactsRepository.update(
-    existing.id,
-    payload
+
+
+
+      if(!existing){
+
+
+        contact =
+          await contactsRepository.create(
+            payload
+          )
+
+
+
+        imported++
+
+
+
+      }
+      else {
+
+
+        contact =
+          await contactsRepository.update(
+            existing.id,
+            payload
+          )
+
+
+
+        updated++
+
+
+      }
+
+
+
+
+
+
+
+      /*
+        Match Housing listing with CRM property
+      */
+
+      let matchedProperty = null
+
+
+
+const {
+  data: housingMatchedProperty,
+} =
+await supabase
+  .from("properties")
+  .select(
+    "id,name"
   )
+  .eq(
+    "housing_listing_id",
+    String(
+      lead.flat_id
+    )
+  )
+  .maybeSingle()
 
-  updated++
+
+
+matchedProperty =
+  housingMatchedProperty
+
+
+
+
+
+if(!matchedProperty && lead.project_name){
+
+  const {
+    data: nameMatchedProperty,
+  } =
+  await supabase
+    .from("properties")
+    .select(
+      "id,name"
+    )
+    .ilike(
+      "name",
+      `%${lead.project_name}%`
+    )
+    .ilike(
+      "locality",
+      `%${lead.locality_name}%`
+    )
+    .maybeSingle()
+
+
+
+  matchedProperty =
+    nameMatchedProperty
 
 }
-    } catch (error) {
+
+
+
+
+const {
+  data: existingHousingDeal,
+} =
+await supabase
+  .from("deals")
+  .select("id")
+  .eq(
+    "housing_lead_id",
+    String(
+      lead.flat_id
+    )
+  )
+  .maybeSingle()
+
+
+      /*
+        Create enquiry/deal
+      */
+
+      if(!existingHousingDeal){
+
+  await createDeal({
+
+    housingLeadId:
+      String(
+        lead.flat_id
+      ),
+
+        name:
+          `${firstName} - ${
+            lead.project_name ??
+            lead.apartment_names ??
+            "Housing Property"
+          }`,
+
+
+
+        contactId:
+          contact.id,
+
+
+
+        propertyId:
+          matchedProperty?.id
+          ??
+          undefined,
+
+
+
+        stage:
+          "lead",
+
+
+
+        notes:[
+  "Source: Housing.com",
+  `Housing Listing ID: ${lead.flat_id}`,
+  matchedProperty
+    ? `Matched Property: ${matchedProperty.name}`
+    : "UNMATCHED_HOUSING_PROPERTY",
+],
+
+
+            })
+
+}
+
+
+
+
+
+
+
+      await createActivity({
+
+        contactId:
+          contact.id,
+
+
+        type:
+          "contact_created",
+
+
+        title:
+          existing
+            ? "Updated enquiry from Housing.com"
+            : "New enquiry from Housing.com",
+
+
+        description:
+          `Housing lead interested in ${
+            lead.property_field?.[0]
+            ??
+            "property"
+          } in ${
+            lead.locality_name
+            ??
+            "Goa"
+          }.`
+
+      })
+
+
+
+    }
+    catch(error){
+
+
       skipped++
+
 
       console.error(
         "Housing Sync Error:",
         error
       )
+
+
     }
+
   }
 
+
+
+
+
   return {
+
     imported,
+
     updated,
+
     skipped,
+
   }
+
 }

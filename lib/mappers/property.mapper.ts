@@ -59,6 +59,14 @@ type PropertyRow = {
 
   public_link:string | null
 
+    housing_listing_id:string | null
+
+  housing_sync_status:string | null
+
+  housing_last_synced_at:string | null
+
+  housing_sync_error:string | null
+
 
 
   price:
@@ -208,6 +216,25 @@ function toDevelopmentStage(
 
 }
 
+function toHousingSyncStatus(
+  value:string | null | undefined
+):Property["housingSyncStatus"] {
+
+  switch(value){
+
+    case "synced":
+    case "needs_update":
+    case "failed":
+
+      return value
+
+    default:
+
+      return undefined
+
+  }
+
+}
 
 
 
@@ -326,6 +353,23 @@ export function mapPropertyRow(
 
     publicLink:
       row.public_link ?? "",
+
+          housingListingId:
+      row.housing_listing_id ?? undefined,
+
+
+    housingSyncStatus:
+  toHousingSyncStatus(
+    row.housing_sync_status
+  ),
+
+
+    housingLastSyncedAt:
+      row.housing_last_synced_at ?? undefined,
+
+
+    housingSyncError:
+      row.housing_sync_error ?? undefined,
 
 
 

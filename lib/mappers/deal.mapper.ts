@@ -8,6 +8,8 @@ type DealRow = {
   contact_id: string | null
   property_id: string | null
 
+  housing_lead_id: string | null
+
   advisor: {
     name: string | null
   } | null
@@ -77,13 +79,18 @@ export function mapDealRow(
 
 
     contactId:
-      row.contact_id ??
-      "",
+  row.contact_id ??
+  "",
 
 
-    propertyId:
-      row.property_id ??
-      "",
+propertyId:
+  row.property_id ??
+  "",
+
+
+housingLeadId:
+  row.housing_lead_id ??
+  undefined,
 
 
     advisor:

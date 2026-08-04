@@ -122,6 +122,14 @@ export interface CreatePropertyDto {
 
   note?:string
 
+  housingListingId?: string
+
+housingSyncStatus?: string
+
+housingLastSyncedAt?: string
+
+housingSyncError?: string
+
 }
 
 
@@ -455,6 +463,14 @@ export async function createProperty(
     note:
       property.note ?? null,
 
+      housing_listing_id:
+  property.housingListingId ?? null,
+
+  housing_sync_status:
+  property.housingListingId
+    ? "needs_update"
+    : null,
+
   }
 
 
@@ -501,6 +517,21 @@ export async function updateProperty(
 
 
   const payload:Record<string,unknown> = {}
+
+
+const {
+  data: existingProperty,
+} =
+await supabase
+  .from("properties")
+  .select(
+    "housing_listing_id"
+  )
+  .eq(
+    "id",
+    id
+  )
+  .single()
 
 
 
@@ -739,7 +770,42 @@ export async function updateProperty(
       property.note
 
 
+if(property.housingListingId !== undefined)
 
+  payload.housing_listing_id =
+    property.housingListingId
+
+
+
+if(property.housingSyncStatus !== undefined)
+
+  payload.housing_sync_status =
+    property.housingSyncStatus
+
+
+
+if(property.housingLastSyncedAt !== undefined)
+
+  payload.housing_last_synced_at =
+    property.housingLastSyncedAt
+
+
+
+if(property.housingSyncError !== undefined)
+
+  payload.housing_sync_error =
+    property.housingSyncError
+
+
+  if(
+  existingProperty?.housing_listing_id &&
+  property.housingSyncStatus === undefined
+){
+
+  payload.housing_sync_status =
+    "needs_update"
+
+}
 
 
   const {

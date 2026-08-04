@@ -230,6 +230,9 @@ export async function createDeal(
         property_id:
           deal.propertyId,
 
+          housing_lead_id:
+  deal.housingLeadId ?? null,
+
 
         stage:
           deal.stage ??
@@ -514,5 +517,43 @@ export async function updateDeal(
 
 
   return mapDealRow(data)
+
+}
+
+export async function attachPropertyToDeal(
+  dealId:string,
+  propertyId:string
+){
+
+  const {
+    data,
+    error,
+  } =
+  await supabase
+    .from("deals")
+    .update({
+
+      property_id:
+        propertyId,
+
+    })
+    .eq(
+      "id",
+      dealId
+    )
+    .select()
+    .single()
+
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+
+  return data
 
 }
