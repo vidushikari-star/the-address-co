@@ -8,37 +8,27 @@ export async function getHousingLeads(){
 
 
   const {
-    data,
+    data: contacts,
     error,
   } =
   await supabase
-    .from("deals")
+    .from("contacts")
     .select(`
       id,
-      name,
-      stage,
-      property_id,
+      first_name,
+      last_name,
+      phone,
+      email,
       housing_lead_id,
-
-      contact:contacts(
-  id,
-  first_name,
-  last_name,
-  phone,
-  email,
-  housing_lead_id,
-  lead_source,
-  locations,
-  property_type,
-  budget_min,
-  budget_max
-)
-
+      lead_source,
+      locations,
+      property_type,
+      budget_min,
+      budget_max
     `)
-    .not(
-      "housing_lead_id",
-      "is",
-      null
+    .eq(
+      "lead_source",
+      "housing"
     )
     .order(
       "created_at",
@@ -57,13 +47,55 @@ export async function getHousingLeads(){
 
 
 
+
+
+  const contactIds =
+    (contacts ?? [])
+      .map(
+        contact =>
+          contact.id
+      )
+
+
+
+
+
+  const {
+    data: deals,
+  } =
+  contactIds.length
+
+    ? await supabase
+        .from("deals")
+        .select(`
+          id,
+          contact_id,
+          name,
+          stage,
+          property_id
+        `)
+        .in(
+          "contact_id",
+          contactIds
+        )
+
+    : {
+        data:[]
+      }
+
+
+
+
+
   const propertyIds =
-    (data ?? [])
+    (deals ?? [])
       .map(
         deal =>
           deal.property_id
       )
       .filter(Boolean)
+
+
 
 
 
@@ -90,46 +122,143 @@ export async function getHousingLeads(){
 
 
 
+  const dealIds =
+    (deals ?? [])
+      .map(
+        deal =>
+          deal.id
+      )
+
+
+
+
+
+  const {
+    data: commissions,
+  } =
+  dealIds.length
+
+    ? await supabase
+        .from("commissions")
+        .select(`
+          id,
+          deal_id,
+          amount,
+          status
+        `)
+        .in(
+          "deal_id",
+          dealIds
+        )
+
+    : {
+        data:[]
+      }
+
+
+
+
+
   return (
-    data ?? []
+
+    contacts ?? []
+
   )
   .map(
-    deal => ({
 
-      id:
-        deal.id,
+    contact => {
 
 
-      contact:
-  Array.isArray(deal.contact)
-    ? deal.contact
-    : deal.contact
-      ? [deal.contact]
-      : [],
+      const deal =
+        deals?.find(
+          item =>
+            item.contact_id === contact.id
+        )
 
 
-      property:
+
+      const property =
         properties?.find(
-          property =>
-            property.id === deal.property_id
+          item =>
+            item.id === deal?.property_id
         )
         ??
-        null,
+        null
 
 
-      housingLeadId:
-        deal.housing_lead_id,
+
+      const commission =
+        commissions?.find(
+          item =>
+            item.deal_id === deal?.id
+        )
 
 
-      name:
-        deal.name,
+
+      return {
+
+        id:
+          contact.id,
 
 
-      stage:
-        deal.stage,
+        contact:[
+          contact,
+        ],
 
 
-    })
+        housingLeadId:
+          contact.housing_lead_id,
+
+
+        name:
+          `${contact.first_name ?? ""} ${
+            contact.last_name ?? ""
+          }`,
+
+
+        stage:
+          deal?.stage
+          ??
+          "new",
+
+
+        dealId:
+          deal?.id
+          ??
+          null,
+
+
+        property,
+
+
+        converted:
+          Boolean(
+            deal?.property_id
+          ),
+
+
+        commission:
+          commission
+            ? {
+
+                id:
+                  commission.id,
+
+                amount:
+                  commission.amount,
+
+                status:
+                  commission.status,
+
+              }
+
+            : null,
+
+
+      }
+
+    }
+
   )
 
 }

@@ -18,7 +18,7 @@ type Props = {
 
   contactId:string
 
-  dealId:string
+  dealId?:string
 
 }
 
@@ -33,10 +33,14 @@ export function WhatsAppButton({
 
   async function handleClick(){
 
-    await logWhatsAppActivity(
-      contactId,
-      dealId
-    )
+    if(dealId){
+
+  await logWhatsAppActivity(
+    contactId,
+    dealId
+  )
+
+}
 
   }
 

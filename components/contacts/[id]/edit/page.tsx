@@ -337,7 +337,7 @@ export default function EditContactPage() {
             form.propertyType,
 
           bedrooms:
-            form.bedrooms,
+  form.bedrooms || undefined,
 
           purpose:
   form.purpose || undefined,

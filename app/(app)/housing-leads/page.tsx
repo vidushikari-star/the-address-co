@@ -55,6 +55,8 @@ export default async function HousingLeadsPage(){
 
 
 
+
+
       <div
         className="
           rounded-2xl
@@ -86,6 +88,7 @@ export default async function HousingLeadsPage(){
                       lead.contact?.[0]
 
 
+
                     return (
 
                       <div
@@ -97,6 +100,7 @@ export default async function HousingLeadsPage(){
                       >
 
 
+
                         <div
                           className="
                             flex
@@ -104,6 +108,7 @@ export default async function HousingLeadsPage(){
                             justify-between
                           "
                         >
+
 
                           <div>
 
@@ -132,7 +137,10 @@ export default async function HousingLeadsPage(){
 
                             </p>
 
+
                           </div>
+
+
 
 
                           {
@@ -148,17 +156,16 @@ export default async function HousingLeadsPage(){
                                   contact.id
                                 }
 
-                                dealId={
-                                  lead.id
-                                }
-
                               />
 
                             )
                           }
 
 
+
                         </div>
+
+
 
 
 
@@ -178,16 +185,27 @@ export default async function HousingLeadsPage(){
                             <span className="font-medium">
                               Phone:
                             </span>{" "}
-                            {contact?.phone ?? "-"}
+                            {
+                              contact?.phone
+                              ??
+                              "-"
+                            }
                           </div>
+
 
 
                           <div>
                             <span className="font-medium">
                               Email:
                             </span>{" "}
-                            {contact?.email ?? "-"}
+                            {
+                              contact?.email
+                              ??
+                              "-"
+                            }
                           </div>
+
+
 
 
                           <div>
@@ -202,6 +220,8 @@ export default async function HousingLeadsPage(){
                           </div>
 
 
+
+
                           <div>
                             <span className="font-medium">
                               Budget:
@@ -211,13 +231,17 @@ export default async function HousingLeadsPage(){
                               ??
                               "-"
                             }
+
                             {" - "}
+
                             {
                               contact?.budget_max
                               ??
                               "-"
                             }
                           </div>
+
+
 
 
                           <div>
@@ -232,19 +256,104 @@ export default async function HousingLeadsPage(){
                           </div>
 
 
+
+
                           <div>
                             <span className="font-medium">
                               Housing ID:
                             </span>{" "}
                             {
-                              lead.housingLeadId
+                              contact?.housing_lead_id
                               ??
                               "-"
                             }
                           </div>
 
 
+
                         </div>
+
+
+
+
+
+
+
+
+                        <div
+                          className="
+                            grid
+                            gap-3
+                            md:grid-cols-3
+                            text-sm
+                          "
+                        >
+
+
+                          <div>
+                            <span className="font-medium">
+                              Status:
+                            </span>{" "}
+
+                            {
+                              lead.converted
+                                ? "Converted"
+                                : "New Lead"
+                            }
+
+                          </div>
+
+
+
+
+
+                          {
+                            lead.commission && (
+
+                              <>
+
+                                <div>
+
+                                  <span className="font-medium">
+                                    Commission:
+                                  </span>{" "}
+
+                                  ₹
+                                  {
+                                    Number(
+                                      lead.commission.amount
+                                    )
+                                    .toLocaleString("en-IN")
+                                  }
+
+                                </div>
+
+
+
+
+                                <div>
+
+                                  <span className="font-medium">
+                                    Commission Status:
+                                  </span>{" "}
+
+                                  {
+                                    lead.commission.status
+                                  }
+
+                                </div>
+
+                              </>
+
+                            )
+                          }
+
+
+
+                        </div>
+
+
+
 
 
 
@@ -264,7 +373,7 @@ export default async function HousingLeadsPage(){
                           {
                             lead.property?.name
                             ??
-                            "⚠ Property not matched"
+                            "Not matched yet"
                           }
 
                         </div>
@@ -273,48 +382,66 @@ export default async function HousingLeadsPage(){
 
 
 
-                        <HousingLeadActions
-
-                          dealId={
-                            lead.id
-                          }
 
 
-                          propertyMatched={
-                            Boolean(
-                              lead.property?.id
-                            )
-                          }
+
+                        {
+                          contact && (
+
+                            <HousingLeadActions
+
+                              contactId={
+                                contact.id
+                              }
+
+                              dealId={
+    lead.dealId
+    ??
+    undefined
+  }
 
 
-                          housingLead={{
-
-                            projectName:
-                              lead.property?.name
-                              ??
-                              undefined,
-
-
-                            locality:
-                              contact?.locations?.[0]
-                              ??
-                              undefined,
+                              propertyMatched={
+                                Boolean(
+                                  lead.property?.id
+                                )
+                              }
 
 
-                            propertyType:
-                              contact?.property_type
-                              ??
-                              undefined,
+                              housingLead={{
+
+                                projectName:
+                                  lead.property?.name
+                                  ??
+                                  undefined,
 
 
-                            housingId:
-                              contact?.housing_lead_id
-                              ??
-                              undefined,
+                                locality:
+                                  contact.locations?.[0]
+                                  ??
+                                  undefined,
 
-                          }}
 
-                        />
+                                propertyType:
+                                  contact.property_type
+                                  ??
+                                  undefined,
+
+
+                                housingId:
+                                  contact.housing_lead_id
+                                  ??
+                                  undefined,
+
+                              }}
+
+                            />
+
+                          )
+                        }
+
+
+
 
 
                       </div>

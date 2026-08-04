@@ -14,8 +14,13 @@ import {
 } from "@/lib/repositories/property-repository"
 
 import {
-  attachPropertyToDeal,
+  createDeal,
+  getDealsByContactId,
 } from "@/lib/repositories/deal-repository"
+
+import {
+  createCommission,
+} from "@/lib/repositories/commission-repository"
 
 import type {
   Property,
@@ -30,19 +35,32 @@ import {
   PropertyDrawer,
 } from "@/components/forms/property-drawer"
 
+import {
+  useRouter,
+} from "next/navigation"
+
+
+
 
 
 type Props = {
 
-  dealId:string
+  contactId:string
+
+  dealId?:string
 
   propertyMatched:boolean
 
   housingLead?: {
+
     projectName?: string
+
     locality?: string
+
     propertyType?: string
+
     housingId?: string
+
   }
 
 }
@@ -52,10 +70,14 @@ type Props = {
 
 
 export function HousingLeadActions({
+  contactId,
   dealId,
   propertyMatched,
   housingLead,
 }:Props){
+
+   const router =
+    useRouter()
 
 
   const [
@@ -64,10 +86,13 @@ export function HousingLeadActions({
   ] =
   useState(false)
 
+
+
   const [
-  createOpen,
-  setCreateOpen,
-] = useState(false)
+    createOpen,
+    setCreateOpen,
+  ] =
+  useState(false)
 
 
 
@@ -124,6 +149,8 @@ export function HousingLeadActions({
 
 
 
+
+
   async function matchProperty(){
 
 
@@ -140,10 +167,151 @@ export function HousingLeadActions({
     try{
 
 
-      await attachPropertyToDeal(
-        dealId,
-        selected
-      )
+      const property =
+        properties.find(
+          item =>
+            item.id === selected
+        )
+
+        const existingDeals =
+  await getDealsByContactId(
+    contactId
+  )
+
+
+const duplicateDeal =
+  existingDeals.find(
+    deal =>
+      deal.propertyId === selected
+  )
+
+
+if(duplicateDeal){
+
+  alert(
+    "A deal already exists for this property."
+  )
+
+  return
+
+}
+
+
+
+      const commissionPercentage =
+  property?.price?.commission &&
+  property.price.commission > 0
+    ? property.price.commission
+    : 2
+
+
+
+      const commissionAmount =
+        (
+          (property?.price?.asking ?? 0)
+          *
+          commissionPercentage
+          /
+          100
+        )
+
+
+
+      const deal =
+        await createDeal({
+
+          name:
+            `${housingLead?.projectName ?? "Housing Lead"} - ${
+              property?.name ?? "Property"
+            }`,
+
+
+
+          contactId,
+
+
+
+          propertyId:
+            selected,
+
+
+
+          stage:
+            "lead",
+
+
+
+          value: {
+
+            propertyPrice:
+              property?.price?.asking
+              ??
+              0,
+
+
+            commissionType:
+              "sale",
+
+
+            commissionBasis:
+              "percentage",
+
+
+            commissionPercentage,
+
+
+            commissionAmount,
+
+          },
+
+
+
+          notes:[
+
+            "Source: Housing.com",
+
+            `Housing Lead ID: ${
+              housingLead?.housingId ?? ""
+            }`,
+
+            `Property matched: ${
+              property?.name ?? ""
+            }`,
+
+          ],
+
+        })
+
+
+
+
+
+      await createCommission({
+
+  dealId:
+    deal.id,
+
+  contactId,
+
+  propertyId:
+    selected,
+
+  type:
+    "sale",
+
+  commissionBasis:
+    "percentage",
+
+  commissionPercentage,
+
+  amount:
+    commissionAmount,
+
+  status:
+    "pending",
+
+})
+
 
 
       window.location.reload()
@@ -156,7 +324,10 @@ export function HousingLeadActions({
 
     }
 
+
   }
+
+
 
 
 
@@ -164,22 +335,39 @@ export function HousingLeadActions({
 
   if(propertyMatched){
 
-    return (
+  return (
 
-      <Button
-        size="sm"
-        variant="outline"
-      >
+    <Button
 
-        <Link2 className="mr-2 h-4 w-4"/>
+      size="sm"
 
-        View Property
+      variant="outline"
 
-      </Button>
+      onClick={() => {
 
-    )
+        if(dealId){
 
-  }
+          router.push(
+            `/deals/${dealId}`
+          )
+
+        }
+
+      }}
+
+    >
+
+      <Link2 className="mr-2 h-4 w-4"/>
+
+      View Deal
+
+    </Button>
+
+  )
+
+}
+
+
 
 
 
@@ -196,7 +384,9 @@ export function HousingLeadActions({
 
         variant="outline"
 
-        onClick={()=>setOpen(!open)}
+        onClick={
+          ()=>setOpen(!open)
+        }
 
       >
 
@@ -210,13 +400,17 @@ export function HousingLeadActions({
 
 
 
+
+
       {
         open && (
 
-          <div className="
-            flex
-            gap-2
-          ">
+          <div
+            className="
+              flex
+              gap-2
+            "
+          >
 
 
             <select
@@ -245,6 +439,7 @@ export function HousingLeadActions({
               </option>
 
 
+
               {
                 properties.map(
                   property => (
@@ -262,7 +457,10 @@ export function HousingLeadActions({
                 )
               }
 
+
             </select>
+
+
 
 
 
@@ -270,7 +468,9 @@ export function HousingLeadActions({
 
               size="sm"
 
-              onClick={matchProperty}
+              onClick={
+                matchProperty
+              }
 
               disabled={
                 saving ||
@@ -281,8 +481,8 @@ export function HousingLeadActions({
 
               {
                 saving
-                  ? "Saving..."
-                  : "Save"
+                ? "Saving..."
+                : "Create Deal"
               }
 
             </Button>
@@ -296,36 +496,45 @@ export function HousingLeadActions({
 
 
 
+
+
+
+
       <Button
 
-  size="sm"
+        size="sm"
 
-  onClick={() =>
-    setCreateOpen(true)
-  }
+        onClick={
+          ()=>setCreateOpen(true)
+        }
 
->
+      >
 
-  <Plus className="mr-2 h-4 w-4"/>
+        <Plus className="mr-2 h-4 w-4"/>
 
-  Create Property
+        Create Property
 
-</Button>
+      </Button>
 
 
-<PropertyDrawer
 
-  open={createOpen}
 
-  onOpenChange={
-    setCreateOpen
-  }
 
-  housingLead={
-    housingLead
-  }
+      <PropertyDrawer
 
-/>
+        open={
+          createOpen
+        }
+
+        onOpenChange={
+          setCreateOpen
+        }
+
+        housingLead={
+          housingLead
+        }
+
+      />
 
 
     </div>

@@ -12,13 +12,7 @@ import {
   createActivity,
 } from "@/lib/repositories/activity-repository"
 
-import {
-  createDeal,
-} from "@/lib/repositories/deal-repository"
 
-import {
-  supabase,
-} from "@/lib/supabase/client"
 
 
 
@@ -339,139 +333,7 @@ export async function syncHousingLeads()
 
 
 
-
-
-
-
-      /*
-        Match Housing listing with CRM property
-      */
-
-      let matchedProperty = null
-
-
-
-const {
-  data: housingMatchedProperty,
-} =
-await supabase
-  .from("properties")
-  .select(
-    "id,name"
-  )
-  .eq(
-    "housing_listing_id",
-    String(
-      lead.flat_id
-    )
-  )
-  .maybeSingle()
-
-
-
-matchedProperty =
-  housingMatchedProperty
-
-
-
-
-
-if(!matchedProperty && lead.project_name){
-
-  const {
-    data: nameMatchedProperty,
-  } =
-  await supabase
-    .from("properties")
-    .select(
-      "id,name"
-    )
-    .ilike(
-      "name",
-      `%${lead.project_name}%`
-    )
-    .ilike(
-      "locality",
-      `%${lead.locality_name}%`
-    )
-    .maybeSingle()
-
-
-
-  matchedProperty =
-    nameMatchedProperty
-
-}
-
-
-
-
-const {
-  data: existingHousingDeal,
-} =
-await supabase
-  .from("deals")
-  .select("id")
-  .eq(
-    "housing_lead_id",
-    String(
-      lead.flat_id
-    )
-  )
-  .maybeSingle()
-
-
-      /*
-        Create enquiry/deal
-      */
-
-      if(!existingHousingDeal){
-
-  await createDeal({
-
-    housingLeadId:
-      String(
-        lead.flat_id
-      ),
-
-        name:
-          `${firstName} - ${
-            lead.project_name ??
-            lead.apartment_names ??
-            "Housing Property"
-          }`,
-
-
-
-        contactId:
-          contact.id,
-
-
-
-        propertyId:
-          matchedProperty?.id
-          ??
-          undefined,
-
-
-
-        stage:
-          "lead",
-
-
-
-        notes:[
-  "Source: Housing.com",
-  `Housing Listing ID: ${lead.flat_id}`,
-  matchedProperty
-    ? `Matched Property: ${matchedProperty.name}`
-    : "UNMATCHED_HOUSING_PROPERTY",
-],
-
-
-            })
-
-}
+      
 
 
 
@@ -481,33 +343,34 @@ await supabase
 
       await createActivity({
 
-        contactId:
-          contact.id,
+  contactId:
+    contact.id,
 
 
-        type:
-          "contact_created",
+  type:
+    existing
+      ? "note"
+      : "contact_created",
 
 
-        title:
-          existing
-            ? "Updated enquiry from Housing.com"
-            : "New enquiry from Housing.com",
+  title:
+    existing
+      ? "Updated enquiry from Housing.com"
+      : "New enquiry from Housing.com",
 
 
-        description:
-          `Housing lead interested in ${
-            lead.property_field?.[0]
-            ??
-            "property"
-          } in ${
-            lead.locality_name
-            ??
-            "Goa"
-          }.`
+  description:
+    `Housing lead interested in ${
+      lead.property_field?.[0]
+      ??
+      "property"
+    } in ${
+      lead.locality_name
+      ??
+      "Goa"
+    }.`
 
-      })
-
+})
 
 
     }

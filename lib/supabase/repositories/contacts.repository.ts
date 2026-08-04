@@ -520,7 +520,7 @@ if(contact.propertyType !== undefined)
 if(contact.bedrooms !== undefined)
 
   payload.bedrooms =
-    contact.bedrooms ?? null
+    contact.bedrooms || null
 
 
 

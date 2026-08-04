@@ -256,6 +256,12 @@ export async function createCommission(
     amount:
       commission.amount ?? 0,
 
+      commission_basis:
+  commission.commissionBasis ?? "percentage",
+
+commission_percentage:
+  commission.commissionPercentage ?? null,
+
     status:
       commission.status ?? "pending",
 
