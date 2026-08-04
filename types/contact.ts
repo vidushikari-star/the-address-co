@@ -216,6 +216,10 @@ export interface Contact {
 
   leadSource?: LeadSource
 
+  nextFollowUpAt?: string
+
+    housingLeadId?: string
+
 
   // legacy/mock compatibility
 

@@ -159,6 +159,42 @@ export async function getHousingLeads(){
 
 
 
+
+  const {
+    data: activities,
+  } =
+  contactIds.length
+
+    ? await supabase
+        .from("activities")
+        .select(`
+          id,
+          contact_id,
+          title,
+          type,
+          created_at
+        `)
+        .in(
+          "contact_id",
+          contactIds
+        )
+        .order(
+          "created_at",
+          {
+            ascending:false,
+          }
+        )
+
+    : {
+        data:[]
+      }
+
+
+
+
+
+
+
   return (
 
     contacts ?? []
@@ -187,11 +223,25 @@ export async function getHousingLeads(){
 
 
 
+
+
       const commission =
         commissions?.find(
           item =>
             item.deal_id === deal?.id
         )
+
+
+
+
+
+      const lastActivity =
+        activities?.find(
+          item =>
+            item.contact_id === contact.id
+        )
+
+
 
 
 
@@ -201,13 +251,16 @@ export async function getHousingLeads(){
           contact.id,
 
 
+
         contact:[
           contact,
         ],
 
 
+
         housingLeadId:
           contact.housing_lead_id,
+
 
 
         name:
@@ -216,10 +269,12 @@ export async function getHousingLeads(){
           }`,
 
 
+
         stage:
           deal?.stage
           ??
           "new",
+
 
 
         dealId:
@@ -228,13 +283,44 @@ export async function getHousingLeads(){
           null,
 
 
+
         property,
+
 
 
         converted:
           Boolean(
             deal?.property_id
           ),
+
+
+
+
+        lastActivity:
+          lastActivity
+            ? {
+
+                id:
+                  lastActivity.id,
+
+
+                title:
+                  lastActivity.title,
+
+
+                type:
+                  lastActivity.type,
+
+
+                createdAt:
+                  lastActivity.created_at,
+
+              }
+
+            : null,
+
+
+
 
 
         commission:
@@ -244,8 +330,10 @@ export async function getHousingLeads(){
                 id:
                   commission.id,
 
+
                 amount:
                   commission.amount,
+
 
                 status:
                   commission.status,

@@ -32,6 +32,10 @@ import {
   RelationshipNotes,
 } from "./relationship-notes"
 
+import {
+  NextFollowUpCard,
+} from "./next-follow-up-card"
+
 
 type RelationshipDetailProps = {
   contact: Contact
@@ -101,6 +105,10 @@ export function RelationshipDetail({
           "
         >
 
+          <NextFollowUpCard
+  contact={contact}
+/>
+          
           <RelationshipDeals
             contact={contact}
           />

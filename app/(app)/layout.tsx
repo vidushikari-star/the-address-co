@@ -31,6 +31,10 @@ import {
   DrawerProvider,
 } from "@/components/providers/drawer-provider"
 
+import {
+  GlobalSearch,
+} from "@/components/layout/global-search"
+
 
 
 
@@ -100,15 +104,36 @@ export default async function AppLayout({
           <AppHeader />
 
 
+          <div
+            className="
+              border-b
+              bg-background
+              px-4
+              py-3
+              md:px-6
+            "
+          >
 
-          <main className="flex-1 bg-stone-50 pb-16 md:pb-0">
+            <GlobalSearch />
 
-  {children}
-
-</main>
+          </div>
 
 
-<MobileBottomNav />
+
+          <main className="
+            flex-1
+            bg-stone-50
+            pb-16
+            md:pb-0
+          ">
+
+            {children}
+
+          </main>
+
+
+
+          <MobileBottomNav />
 
 
         </SidebarInset>

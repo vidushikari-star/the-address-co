@@ -21,6 +21,8 @@ export interface ContactRow {
 
   lead_source: string | null
 
+  housing_lead_id: string | null
+
   relationship_types: string[] | null
   
   lead_stage: string

@@ -54,6 +54,12 @@ export function mapContactRow(
     leadSource:
       row.lead_source as Contact["leadSource"],
 
+      nextFollowUpAt:
+  row.next_follow_up_at ?? undefined,
+
+      housingLeadId:
+  row.housing_lead_id ?? undefined,
+
       relationshipTypes:
   row.relationship_types ?? [],
 

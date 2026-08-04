@@ -129,6 +129,14 @@ export function RelationshipTimeline({
 
 
 
+  const [
+    showAll,
+    setShowAll,
+  ] =
+  useState(false)
+
+
+
 
 
 
@@ -201,10 +209,15 @@ export function RelationshipTimeline({
           .getTime()
 
       )
-      .slice(
-        0,
-        20
-      )
+
+
+
+
+
+  const visibleActivities =
+    showAll
+      ? sortedActivities
+      : sortedActivities.slice(0,5)
 
 
 
@@ -296,154 +309,84 @@ export function RelationshipTimeline({
 
           (
 
-            <div className="
-              space-y-6
-            ">
+            <>
+
+              <div className="
+                space-y-6
+              ">
 
 
-              {
-                sortedActivities.map(
-                  activity => {
+                {
+                  visibleActivities.map(
+                    activity => {
 
 
-                    const Icon =
-                      activityIcons[
-                        activity.type
-                      ]
-                      ??
-                      FileText
-
-
-
-
-
-
-                    const text =
-                      activity.body
-                      ??
-                      activity.description
-                      ??
-                      ""
+                      const Icon =
+                        activityIcons[
+                          activity.type
+                        ]
+                        ??
+                        FileText
 
 
 
 
 
-
-
-                    return (
-
-                      <div
-
-                        key={
-                          activity.id
-                        }
-
-                        className="
-                          flex
-                          gap-4
-                        "
-
-                      >
+                      const text =
+                        activity.body
+                        ??
+                        activity.description
+                        ??
+                        ""
 
 
 
 
 
-                        <div className="
-                          relative
-                          flex
-                          shrink-0
-                          flex-col
-                          items-center
-                        ">
+                      return (
 
+                        <div
+
+                          key={
+                            activity.id
+                          }
+
+                          className="
+                            flex
+                            gap-4
+                          "
+
+                        >
 
 
                           <div className="
+                            relative
                             flex
-                            h-9
-                            w-9
-                            items-center
-                            justify-center
-                            rounded-full
-                            border
-                            bg-background
-                          ">
-
-
-                            <Icon className="
-                              h-4
-                              w-4
-                            "/>
-
-
-                          </div>
-
-
-                        </div>
-
-
-
-
-
-
-
-
-                        <div className="
-                          min-w-0
-                          flex-1
-                        ">
-
-
-
-                          <div className="
-                            flex
+                            shrink-0
                             flex-col
-                            gap-1
-                            sm:flex-row
-                            sm:items-start
-                            sm:justify-between
+                            items-center
                           ">
 
 
-                            <h4 className="
-                              break-words
-                              text-sm
-                              font-semibold
+                            <div className="
+                              flex
+                              h-9
+                              w-9
+                              items-center
+                              justify-center
+                              rounded-full
+                              border
+                              bg-background
                             ">
 
-                              {activity.title}
 
-                            </h4>
-
-
-
-
+                              <Icon className="
+                                h-4
+                                w-4
+                              "/>
 
 
-                            <span className="
-                              text-xs
-                              text-muted-foreground
-                            ">
-
-                              {
-                                new Date(
-                                  activity.date ??
-                                  activity.createdAt
-                                )
-                                .toLocaleDateString(
-                                  "en-IN",
-                                  {
-                                    day:"numeric",
-                                    month:"short",
-                                    year:"numeric",
-                                  }
-                                )
-                              }
-
-
-                            </span>
+                            </div>
 
 
                           </div>
@@ -452,46 +395,144 @@ export function RelationshipTimeline({
 
 
 
+                          <div className="
+                            min-w-0
+                            flex-1
+                          ">
 
 
-                          {
-                            text && (
+                            <div className="
+                              flex
+                              flex-col
+                              gap-1
+                              sm:flex-row
+                              sm:items-start
+                              sm:justify-between
+                            ">
 
-                              <p className="
-                                mt-2
+
+                              <h4 className="
                                 break-words
-                                rounded-lg
-                                bg-muted/40
-                                p-2
+                                text-sm
+                                font-semibold
+                              ">
+
+                                {activity.title}
+
+                              </h4>
+
+
+
+
+
+                              <span className="
                                 text-xs
                                 text-muted-foreground
                               ">
 
-                                {text}
+                                {
+                                  new Date(
+                                    activity.date ??
+                                    activity.createdAt
+                                  )
+                                  .toLocaleDateString(
+                                    "en-IN",
+                                    {
+                                      day:"numeric",
+                                      month:"short",
+                                      year:"numeric",
+                                    }
+                                  )
+                                }
 
-                              </p>
-
-                            )
-                          }
+                              </span>
 
 
+                            </div>
+
+
+
+
+
+
+                            {
+                              text && (
+
+                                <p className="
+                                  mt-2
+                                  break-words
+                                  rounded-lg
+                                  bg-muted/40
+                                  p-2
+                                  text-xs
+                                  text-muted-foreground
+                                ">
+
+                                  {text}
+
+                                </p>
+
+                              )
+                            }
+
+
+
+                          </div>
 
 
                         </div>
 
+                      )
 
-                      </div>
+                    }
 
-                    )
+                  )
 
-                  }
+                }
+
+
+              </div>
+
+
+
+
+
+              {
+                sortedActivities.length > 5 && (
+
+                  <button
+
+                    className="
+                      mt-5
+                      text-sm
+                      font-medium
+                      text-muted-foreground
+                      hover:underline
+                    "
+
+                    onClick={() =>
+                      setShowAll(
+                        current =>
+                          !current
+                      )
+                    }
+
+                  >
+
+                    {
+                      showAll
+                        ? "Show less"
+                        : `View all ${sortedActivities.length} activities`
+                    }
+
+
+                  </button>
 
                 )
-
               }
 
 
-            </div>
+            </>
 
           )
 

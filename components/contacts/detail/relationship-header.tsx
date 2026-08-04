@@ -1,5 +1,9 @@
 "use client"
 
+import {
+  useState,
+} from "react"
+
 import Link from "next/link"
 
 import type { Contact } from "@/types"
@@ -22,12 +26,20 @@ import {
 } from "@/components/ui/button"
 
 import {
+  Badge,
+} from "@/components/ui/badge"
+
+import {
   StageSelector,
 } from "@/components/contacts/detail/stage-selector"
 
 import { WhatsAppButton } from "@/components/communications/whatsapp-button"
 
 import { createActivity } from "@/lib/repositories/activity-repository"
+
+import {
+  ContactActivityDrawer,
+} from "./contact-activity-drawer"
 
 
 type RelationshipHeaderProps = {
@@ -38,6 +50,12 @@ type RelationshipHeaderProps = {
 export function RelationshipHeader({
   contact,
 }: RelationshipHeaderProps) {
+
+    const [
+    activityOpen,
+    setActivityOpen,
+  ] =
+  useState(false)
 
 
   const phone = (
@@ -158,23 +176,39 @@ export function RelationshipHeader({
 
 
               <h1 className="
-                max-w-[240px]
-                truncate
-                text-xl
-                font-semibold
-                sm:max-w-none
-                sm:text-2xl
-              ">
+  max-w-[240px]
+  truncate
+  text-xl
+  font-semibold
+  sm:max-w-none
+  sm:text-2xl
+">
 
-                {contact.name}
+  {contact.name}
 
-              </h1>
+</h1>
 
 
-              <StageSelector
-                contact={contact}
-              />
+{
+  (
+    contact.leadSource?.toLowerCase() === "housing" ||
+    contact.leadSource?.toLowerCase() === "housing.com"
+  )
+  && (
 
+    <Badge variant="secondary">
+
+      🏠 Housing.com Lead
+
+    </Badge>
+
+  )
+}
+
+
+<StageSelector
+  contact={contact}
+/>
 
             </div>
 
@@ -238,6 +272,9 @@ export function RelationshipHeader({
                 </span>
 
               )}
+
+              
+              
 
 
             </div>
@@ -317,23 +354,43 @@ export function RelationshipHeader({
 
 
 
-          <Link
-            href={`/contacts/${contact.id}/edit`}
-            className="w-full sm:w-auto"
-          >
+          <Button
 
-            <Button
-              size="sm"
-              className="w-full"
-            >
+  variant="outline"
 
-              <Edit className="mr-2 h-4 w-4" />
+  size="sm"
 
-              Edit
+  className="w-full sm:w-auto"
 
-            </Button>
+  onClick={() =>
+    setActivityOpen(true)
+  }
 
-          </Link>
+>
+
+  Add Activity
+
+</Button>
+
+
+
+<Link
+  href={`/contacts/${contact.id}/edit`}
+  className="w-full sm:w-auto"
+>
+
+  <Button
+    size="sm"
+    className="w-full"
+  >
+
+    <Edit className="mr-2 h-4 w-4" />
+
+    Edit
+
+  </Button>
+
+</Link>
 
 
 
@@ -341,6 +398,22 @@ export function RelationshipHeader({
 
 
       </div>
+
+      <ContactActivityDrawer
+
+  open={
+    activityOpen
+  }
+
+  onOpenChange={
+    setActivityOpen
+  }
+
+  contactId={
+    contact.id
+  }
+
+/>
 
 
     </header>
