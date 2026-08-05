@@ -13,6 +13,10 @@ import type {
   Property,
 } from "@/types/property"
 
+import type {
+  PropertyShare,
+} from "@/lib/repositories/property-share-repository"
+
 import {
   getProperties,
 } from "@/lib/repositories/property-repository"
@@ -26,8 +30,8 @@ import {
 } from "@/lib/services/property-matching"
 
 import {
-  PropertyCard,
-} from "@/components/properties/property-card"
+  RecommendedPropertyCard,
+} from "./recommended-property-card"
 
 import {
   Card,
@@ -64,17 +68,18 @@ export function RelationshipProperties({
 
 
   const [
-  matches,
-  setMatches,
-] =
-useState<Property[]>([])
+    matches,
+    setMatches,
+  ] =
+  useState<Property[]>([])
 
 
-const [
-  sharedPropertyIds,
-  setSharedPropertyIds,
-] =
-useState<string[]>([])
+
+  const [
+    sharedProperties,
+    setSharedProperties,
+  ] =
+  useState<PropertyShare[]>([])
 
 
 
@@ -103,7 +108,7 @@ useState<string[]>([])
 
           properties,
 
-          sharedProperties,
+          propertyShares,
 
         ] =
         await Promise.all([
@@ -120,9 +125,17 @@ useState<string[]>([])
 
 
 
+        setSharedProperties(
+          propertyShares
+        )
+
+
+
+
+
         const sharedIds =
           new Set(
-            sharedProperties.map(
+            propertyShares.map(
               item =>
                 item.propertyId
             )
@@ -139,10 +152,6 @@ useState<string[]>([])
                 property.id
               )
           )
-
-          setSharedPropertyIds(
-  Array.from(sharedIds)
-)
 
 
 
@@ -207,6 +216,14 @@ useState<string[]>([])
 
         )
 
+
+      }
+      catch(error){
+
+        console.error(
+          "Loading recommended properties failed",
+          error
+        )
 
       }
       finally{
@@ -315,7 +332,6 @@ useState<string[]>([])
 
           :
 
-
           matches.length === 0 ? (
 
             <div className="
@@ -340,74 +356,58 @@ useState<string[]>([])
           (
 
             <div className="
-              space-y-4
+              space-y-3
             ">
 
 
               {
-  matches.map(
-    property => (
-
-      <div
-        key={
-          property.id
-        }
-        className="
-          space-y-2
-        "
-      >
-
-        {
-          sharedPropertyIds.includes(
-            property.id
-          ) && (
-
-            <Badge
-              variant="secondary"
-            >
-
-              ⭐ Shared with Client
-
-            </Badge>
-
-          )
-        }
+                matches.map(
+                  property => {
 
 
-        {
-          !sharedPropertyIds.includes(
-            property.id
-          ) && (
-
-            <Badge
-              variant="outline"
-            >
-
-              🔎 Recommended Match
-
-            </Badge>
-
-          )
-        }
+                    const share =
+                      sharedProperties.find(
+                        item =>
+                          item.propertyId === property.id
+                      )
 
 
 
-        <PropertyCard
+                    return (
 
-          property={
-            property
-          }
+                      <RecommendedPropertyCard
 
-        />
+                        key={
+                          property.id
+                        }
 
+                        property={
+                          property
+                        }
 
-      </div>
+                        label={
+                          share
+                            ? "shared"
+                            : "recommended"
+                        }
 
-    )
+                        status={
+                          share?.status
+                        }
 
-  )
+                        sharedAt={
+                          share?.sharedAt
+                        }
 
-}
+                      />
+
+                    )
+
+                  }
+
+                )
+
+              }
 
 
             </div>
