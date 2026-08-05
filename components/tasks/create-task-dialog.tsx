@@ -34,10 +34,25 @@ import type {
 } from "@/types/task"
 
 
+type Props = {
+
+  contactId?: string
+
+  dealId?: string
+
+  onCreated?: () => void
+
+}
 
 
 
-export function CreateTaskDialog(){
+
+
+export function CreateTaskDialog({
+  contactId,
+  dealId,
+  onCreated,
+}: Props){
 
 
   const router =
@@ -64,25 +79,25 @@ export function CreateTaskDialog(){
 
 
   const [
-  form,
-  setForm,
-] =
-useState<{
-  title: string
-  description: string
-  priority: TaskPriority
-  dueDate: string
-}>({
+    form,
+    setForm,
+  ] =
+  useState<{
+    title: string
+    description: string
+    priority: TaskPriority
+    dueDate: string
+  }>({
 
-  title: "",
+    title: "",
 
-  description: "",
+    description: "",
 
-  priority: "medium",
+    priority: "medium",
 
-  dueDate: "",
+    dueDate: "",
 
-})
+  })
 
 
 
@@ -132,6 +147,10 @@ useState<{
             : undefined,
 
 
+        contactId,
+
+        dealId,
+
       })
 
 
@@ -152,6 +171,10 @@ useState<{
         dueDate:"",
 
       })
+
+
+
+      onCreated?.()
 
 
 
@@ -367,7 +390,8 @@ useState<{
                       e =>
                         setForm({
                           ...form,
-                          priority: e.target.value as TaskPriority,
+                          priority:
+                            e.target.value as TaskPriority,
                         })
                     }
 
