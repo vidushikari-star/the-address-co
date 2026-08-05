@@ -26,6 +26,10 @@ import {
 } from "@/lib/repositories/activity-repository"
 
 import {
+  createPropertyShare,
+} from "@/lib/repositories/property-share-repository"
+
+import {
   getCurrentUser,
 } from "@/lib/auth/current-user"
 
@@ -355,39 +359,51 @@ ${currentUser?.name || "The Address Co."}
 
 
 
+await createPropertyShare({
+
+  contactId:
+    buyer.id,
+
+  propertyId:
+    property.id,
+
+})
 
 
 
-      await createActivity({
-
-        type:
-          "property_shared",
 
 
-        title:
-          "Property Shared on WhatsApp",
+await createActivity({
+
+  type:
+    "property_shared",
 
 
-        description:
-          `${property.name} shared with ${buyer.name}`,
+  title:
+    "Property Shared on WhatsApp",
 
 
-        body:
-          message,
+  description:
+    `${property.name} shared with ${buyer.name}`,
 
 
-        contactId:
-          buyer.id,
+  body:
+    message,
 
 
-        propertyId:
-          property.id,
+  contactId:
+    buyer.id,
 
 
-        date:
-          new Date().toISOString(),
+  propertyId:
+    property.id,
 
-      })
+
+  date:
+    new Date().toISOString(),
+
+})
+
 
 
 

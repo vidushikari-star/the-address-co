@@ -66,11 +66,11 @@ function mapPropertyShareRow(
 
 export async function createPropertyShare(
   data: {
-    dealId: string
-    contactId: string
-    propertyId: string
-    notes?: string
-  }
+  dealId?: string
+  contactId?: string
+  propertyId?: string
+  notes?: string
+}
 ): Promise<PropertyShare> {
   const {
     data: row,
@@ -80,13 +80,13 @@ export async function createPropertyShare(
       .from("property_shares")
       .insert({
         deal_id:
-          data.dealId,
+  data.dealId ?? null,
 
         contact_id:
-          data.contactId,
+  data.contactId ?? null,
 
-        property_id:
-          data.propertyId,
+property_id:
+  data.propertyId ?? null,
 
         notes:
           data.notes ?? null,
