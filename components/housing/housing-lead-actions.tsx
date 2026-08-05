@@ -18,10 +18,6 @@ import {
   getDealsByContactId,
 } from "@/lib/repositories/deal-repository"
 
-import {
-  createCommission,
-} from "@/lib/repositories/commission-repository"
-
 import type {
   Property,
 } from "@/types/property"
@@ -286,31 +282,7 @@ if(duplicateDeal){
 
 
 
-      await createCommission({
-
-  dealId:
-    deal.id,
-
-  contactId,
-
-  propertyId:
-    selected,
-
-  type:
-    "sale",
-
-  commissionBasis:
-    "percentage",
-
-  commissionPercentage,
-
-  amount:
-    commissionAmount,
-
-  status:
-    "pending",
-
-})
+      
 
 
 
