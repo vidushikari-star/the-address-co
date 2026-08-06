@@ -30,12 +30,22 @@ import {
 } from "@/lib/repositories/property-repository"
 
 import {
+  getPropertySources,
+} from "@/lib/repositories/property-contact-repository"
+
+import {
+  calculateDealCommissions,
+} from "@/lib/utils/calculate-deal-commissions"
+
+import {
   useRouter,
 } from "next/navigation"
 
 import type {
   Deal,
 } from "@/types/deal"
+
+
 
 
 
@@ -48,6 +58,8 @@ type Props = {
   deal:Deal
 
 }
+
+
 
 
 
@@ -73,11 +85,24 @@ export function CloseDealDrawer({
 
 
 
+
   const [
     property,
     setProperty,
   ] =
   useState<any>(null)
+
+
+
+
+
+  const [
+    propertySources,
+    setPropertySources,
+  ] =
+  useState<any[]>([])
+
+
 
 
 
@@ -96,6 +121,7 @@ export function CloseDealDrawer({
       }
 
 
+
       const data =
         await getPropertyById(
           deal.propertyId
@@ -107,7 +133,20 @@ export function CloseDealDrawer({
       )
 
 
+
+      const sources =
+        await getPropertySources(
+          deal.propertyId
+        )
+
+
+      setPropertySources(
+        sources
+      )
+
+
     }
+
 
 
     if(open){
@@ -127,8 +166,13 @@ export function CloseDealDrawer({
 
 
 
+
+
   const isRental =
     property?.transactionType === "Rental"
+
+
+
 
 
 
@@ -150,6 +194,7 @@ export function CloseDealDrawer({
 
 
 
+
   const [
     loading,
     setLoading,
@@ -161,35 +206,43 @@ export function CloseDealDrawer({
 
 
 
+
+
   const [
-  form,
-  setForm,
-] = useState({
-
-  closingPrice:
-    String(
-      deal.value?.propertyPrice ?? ""
-    ),
+    form,
+    setForm,
+  ] =
+  useState({
 
 
-  commissionType:
-    deal.value?.commissionType ?? "sale",
+    closingPrice:
+      String(
+        deal.value?.propertyPrice ?? ""
+      ),
 
 
-  commissionBasis:
-    deal.value?.commissionBasis ?? "percentage",
+
+    commissionType:
+      deal.value?.commissionType ?? "sale",
 
 
-  commissionPercentage:
-    String(
-      deal.value?.commissionPercentage ?? 2
-    ),
+
+    commissionBasis:
+      deal.value?.commissionBasis ?? "percentage",
 
 
-  commissionAmount:
-    String(
-      deal.value?.commissionAmount ?? 0
-    ),
+
+    commissionPercentage:
+      String(
+        deal.value?.commissionPercentage ?? 2
+      ),
+
+
+
+    commissionAmount:
+      String(
+        deal.value?.commissionAmount ?? 0
+      ),
 
 
 
@@ -201,7 +254,11 @@ export function CloseDealDrawer({
     notes:
       "",
 
+
   })
+
+
+
 
 
 
@@ -210,76 +267,85 @@ export function CloseDealDrawer({
 
   useEffect(()=>{
 
-  if(!property){
 
-    return
+    if(!property){
 
-  }
+      return
 
-
-  setForm(
-    current => ({
-
-      ...current,
+    }
 
 
-      commissionType:
-        property.transactionType === "Rental"
-          ? "rental"
-          : "sale",
+
+    setForm(
+      current => ({
+
+        ...current,
 
 
-      commissionBasis:
-        deal.value?.commissionBasis ??
-        (
+        commissionType:
           property.transactionType === "Rental"
-            ? "fixed"
-            : "percentage"
-        ),
+            ? "rental"
+            : "sale",
 
 
-      commissionPercentage:
-  String(
-    deal.value?.commissionPercentage ??
-    (
-      property.transactionType === "Rental"
-        ? 0
-        : property.price?.commission ?? 2
-    )
-  ),
 
-
-commissionAmount:
-  String(
-    deal.value?.commissionAmount ??
-    (
-      property.transactionType === "Rental"
-        ? property.price?.rent ?? 0
-        :
-        (
-          Number(
-            current.closingPrice || 0
-          )
-          *
+        commissionBasis:
+          deal.value?.commissionBasis
+          ??
           (
-            property.price?.commission ?? 2
-          )
-          /
-          100
-        )
+            property.transactionType === "Rental"
+              ? "fixed"
+              : "percentage"
+          ),
+
+
+
+        commissionPercentage:
+          String(
+            deal.value?.commissionPercentage
+            ??
+            (
+              property.transactionType === "Rental"
+                ? 0
+                : property.price?.commission ?? 2
+            )
+          ),
+
+
+
+        commissionAmount:
+          String(
+            deal.value?.commissionAmount
+            ??
+            (
+              property.transactionType === "Rental"
+                ? property.price?.rent ?? 0
+                :
+                (
+                  Number(
+                    current.closingPrice || 0
+                  )
+                  *
+                  (
+                    property.price?.commission ?? 2
+                  )
+                  /
+                  100
+                )
+            )
+          ),
+
+
+      })
     )
-  ),
-
-    })
-  )
 
 
-},[
-  property,
-  deal.value?.commissionBasis,
-  deal.value?.commissionPercentage,
-  deal.value?.commissionAmount
-])
+  },[
+    property,
+    deal.value?.commissionBasis,
+    deal.value?.commissionPercentage,
+    deal.value?.commissionAmount
+  ])
 
 
 
@@ -321,53 +387,79 @@ commissionAmount:
 
   function calculateCommission(){
 
-  const baseAmount =
-    property?.transactionType === "Rental"
-      ? Number(
+
+    const baseAmount =
+
+      property?.transactionType === "Rental"
+
+        ?
+
+        Number(
           property?.price?.rent ?? 0
         )
-      : Number(
+
+        :
+
+        Number(
           form.closingPrice || 0
         )
 
 
-  if(
-    form.commissionBasis === "percentage"
-  ){
 
-    return (
-      baseAmount *
-      Number(
-        form.commissionPercentage || 0
+
+
+    if(
+      form.commissionBasis === "percentage"
+    ){
+
+
+      return (
+
+        baseAmount *
+
+        Number(
+          form.commissionPercentage || 0
+        )
+
+        /
+
+        100
+
       )
-      /
-      100
+
+
+    }
+
+
+
+
+
+    return Number(
+      form.commissionAmount || 0
     )
+
 
   }
 
 
-  return Number(
-    form.commissionAmount || 0
-  )
 
-}
-    async function submit(){
+
+
+
+
+  async function submit(){
 
 
     setLoading(true)
 
 
-
     try {
 
-const finalCommission =
-          calculateCommission()
-          
-      if(type === "won"){
 
+      const finalCommission =
+        calculateCommission()
 
-        
+              if(type === "won"){
 
 
 
@@ -381,41 +473,40 @@ const finalCommission =
               "closed_won",
 
 
-
             value:{
 
-  propertyPrice:
-    Number(
-      form.closingPrice || 0
-    ),
+              propertyPrice:
+                Number(
+                  form.closingPrice || 0
+                ),
 
 
-  commissionType:
-    form.commissionType as
-      | "sale"
-      | "rental",
+              commissionType:
+                form.commissionType as
+                  | "sale"
+                  | "rental",
 
 
-  commissionBasis:
-    form.commissionBasis as
-      | "fixed"
-      | "percentage",
+              commissionBasis:
+                form.commissionBasis as
+                  | "fixed"
+                  | "percentage",
 
 
-  commissionPercentage:
-    form.commissionBasis === "percentage"
-      ?
-        Number(
-          form.commissionPercentage || 0
-        )
-      :
-        0,
+              commissionPercentage:
+                form.commissionBasis === "percentage"
+                  ?
+                    Number(
+                      form.commissionPercentage || 0
+                    )
+                  :
+                    0,
 
 
-  commissionAmount:
-    finalCommission,
+              commissionAmount:
+                finalCommission,
 
-},
+            }
 
           }
 
@@ -426,46 +517,121 @@ const finalCommission =
 
 
 
+        const dealWithCommission = {
 
-        
+  ...deal,
 
-await createActivity({
+  value:{
 
-  type:
-    "commission",
-
-
-  title:
-    "Commission Created",
+    ...deal.value,
 
 
-  description:
-    deal.name,
+    commissionType:
+      form.commissionType as
+      | "sale"
+      | "rental",
 
 
-  body:
+    commissionBasis:
+      form.commissionBasis as
+      | "percentage"
+      | "fixed",
+
+
+    commissionPercentage:
+      Number(
+        form.commissionPercentage || 0
+      ),
+
+
+    commissionAmount:
+      finalCommission,
+
+  }
+
+}
+
+
+
+const calculatedCommissions =
+
+  calculateDealCommissions({
+
+    deal:
+      dealWithCommission,
+
+
+    propertySources,
+
+
+    closingPrice:
+      Number(
+        form.closingPrice || 0
+      ),
+
+  })
+
+
+
+
+
+
+        for(
+          const commission of calculatedCommissions
+        ){
+
+          await createCommission(
+            commission
+          )
+
+        }
+
+
+
+
+
+
+
+        await createActivity({
+
+          type:
+            "commission",
+
+
+          title:
+            "Commission Created",
+
+
+          description:
+            deal.name,
+
+
+          body:
 `
 Expected Commission:
 ₹${finalCommission.toLocaleString("en-IN")}
 `,
 
 
-  dealId:
-    deal.id,
+          dealId:
+            deal.id,
 
 
-  contactId:
-    deal.contactId,
+          contactId:
+            deal.contactId,
 
 
-  propertyId:
-    deal.propertyId,
+          propertyId:
+            deal.propertyId,
 
 
-  date:
-    new Date().toISOString(),
+          date:
+            new Date()
+            .toISOString(),
 
-})
+        })
+
+
 
 
 
@@ -477,15 +643,12 @@ Expected Commission:
             "deal_closed",
 
 
-
           title:
             "Deal Closed Won",
 
 
-
           description:
             deal.name,
-
 
 
           body:
@@ -500,20 +663,16 @@ Commission:
 `,
 
 
-
           dealId:
             deal.id,
-
 
 
           contactId:
             deal.contactId,
 
 
-
           propertyId:
             deal.propertyId,
-
 
 
           date:
@@ -526,97 +685,21 @@ Commission:
 
 
 
+        onOpenChange(false)
 
-onOpenChange(false)
 
-router.push(
-  `/deals/${deal.id}`
-)
+        router.push(
+          `/deals/${deal.id}`
+        )
 
-router.refresh()
+
+        router.refresh()
 
 
 
       } else {
 
-const commission =
 
-          await createCommission({
-
-            dealId:
-              deal.id,
-
-
-
-            contactId:
-              deal.contactId,
-
-
-
-            propertyId:
-              deal.propertyId,
-
-
-
-            advisorId:
-              deal.advisorId,
-
-
-
-            type:
-              form.commissionType as
-                | "sale"
-                | "rental",
-
-
-
-            commissionBasis:
-              form.commissionBasis as
-                | "fixed"
-                | "percentage",
-
-
-
-            commissionPercentage:
-              form.commissionBasis === "percentage"
-                ?
-                  Number(
-                    form.commissionPercentage || 0
-                  )
-                :
-                  undefined,
-
-
-
-            amount:
-              finalCommission,
-
-
-
-            status:
-              "pending",
-
-
-
-            dueDate:
-              new Date(
-                Date.now()
-                +
-                30 *
-                24 *
-                60 *
-                60 *
-                1000
-              )
-              .toISOString()
-              .split("T")[0],
-
-
-
-            notes:
-              "Created from Closed Won deal",
-
-          })
 
         await updateDeal(
 
@@ -635,21 +718,20 @@ const commission =
 
 
 
+
+
         await createActivity({
 
           type:
             "deal_closed",
 
 
-
           title:
             "Deal Closed Lost",
 
 
-
           description:
             deal.name,
-
 
 
           body:
@@ -662,20 +744,16 @@ ${form.notes || "No notes"}
 `,
 
 
-
           dealId:
             deal.id,
-
 
 
           contactId:
             deal.contactId,
 
 
-
           propertyId:
             deal.propertyId,
-
 
 
           date:
@@ -685,7 +763,10 @@ ${form.notes || "No notes"}
         })
 
 
+
       }
+
+
 
 
 
@@ -723,6 +804,8 @@ ${form.notes || "No notes"}
 
 
   }
+
+
 
 
 
@@ -791,6 +874,7 @@ ${form.notes || "No notes"}
 
         {
           type === "won"
+
           ?
 
           <>
@@ -806,9 +890,11 @@ ${form.notes || "No notes"}
                   : "Final Sale Price"
               }
 
+
               value={
                 form.closingPrice
               }
+
 
               onChange={(e)=>
                 update(
@@ -818,8 +904,6 @@ ${form.notes || "No notes"}
               }
 
             />
-
-
 
 
 
@@ -844,14 +928,15 @@ ${form.notes || "No notes"}
 
 
 
-
             <select
 
               className="w-full rounded-md border p-2"
 
+
               value={
                 form.commissionBasis
               }
+
 
               onChange={(e)=>
                 update(
@@ -882,17 +967,21 @@ ${form.notes || "No notes"}
 
             {
               form.commissionBasis === "percentage"
+
               &&
 
               <input
 
                 className="w-full rounded-md border p-2"
 
+
                 placeholder="Commission %"
+
 
                 value={
                   form.commissionPercentage
                 }
+
 
                 onChange={(e)=>
                   update(
@@ -929,21 +1018,99 @@ ${form.notes || "No notes"}
             </div>
 
 
+
+
+
+
+            {
+              propertySources.length > 0 && (
+
+                <div className="
+                  rounded-xl
+                  border
+                  p-4
+                  space-y-3
+                ">
+
+                  <h3 className="font-semibold">
+                    Property Commission Agreements
+                  </h3>
+
+
+                  {
+                    propertySources.map(
+
+                      source => (
+
+                        <div
+
+                          key={
+                            source.id
+                          }
+
+                          className="
+                            flex
+                            justify-between
+                            text-sm
+                          "
+
+                        >
+
+                          <span>
+
+                            {
+                              source.relationshipType
+                            }
+
+                          </span>
+
+
+                          <span>
+
+                            {
+                              source.commission?.percentage
+                              ??
+                              "-"
+                            }%
+
+                          </span>
+
+
+                        </div>
+
+                      )
+
+                    )
+
+                  }
+
+
+                </div>
+
+              )
+            }
+
+
           </>
+
 
           :
 
           <>
 
+
             <input
 
               className="w-full rounded-md border p-2"
 
+
               placeholder="Lost Reason"
+
 
               value={
                 form.lostReason
               }
+
 
               onChange={(e)=>
                 update(
@@ -961,11 +1128,14 @@ ${form.notes || "No notes"}
 
               className="w-full rounded-md border p-2"
 
+
               placeholder="Notes"
+
 
               value={
                 form.notes
               }
+
 
               onChange={(e)=>
                 update(
@@ -993,9 +1163,11 @@ ${form.notes || "No notes"}
             submit
           }
 
+
           disabled={
             loading
           }
+
 
           className="w-full"
 
@@ -1003,10 +1175,15 @@ ${form.notes || "No notes"}
 
           {
             loading
+
             ?
-              "Saving..."
+
+            "Saving..."
+
             :
-              "Close Deal"
+
+            "Close Deal"
+
           }
 
 
@@ -1019,7 +1196,8 @@ ${form.notes || "No notes"}
 
     </FormDrawer>
 
-
   )
 
+
 }
+

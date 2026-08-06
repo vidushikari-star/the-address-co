@@ -74,6 +74,19 @@ import {
   HousingSyncStatus,
 } from "@/components/properties/housing-sync-status"
 
+import {
+  getPropertySources,
+} from "@/lib/repositories/property-contact-repository"
+
+
+import {
+  PropertySourcesCard,
+} from "@/components/properties/property-sources-card"
+
+import {
+  ContactsRepository,
+} from "@/lib/supabase/repositories/contacts.repository"
+
 
 
 type Props = {
@@ -160,24 +173,39 @@ const {
   images,
   documents,
   deals,
+  propertySources,
+  contacts,
 ] =
 await Promise.all([
+
 
   getActivitiesByPropertyId(
     property.id
   ),
 
+
   getPropertyImages(
     property.id
   ),
+
 
   getPropertyDocuments(
     property.id
   ),
 
+
   getDealsByPropertyId(
     property.id
   ),
+
+
+  getPropertySources(
+    property.id
+  ),
+
+
+  ContactsRepository.getAll(),
+
 
 ])
 
@@ -394,10 +422,6 @@ await Promise.all([
 
       </section>
 
-
-
-
-
       <section id="documents">
 
   <PropertyDocuments
@@ -406,6 +430,24 @@ await Promise.all([
   />
 
 </section>
+
+
+
+<PropertySourcesCard
+
+  sources={
+    propertySources
+  }
+
+  contacts={
+    contacts
+  }
+
+  propertyId={
+    property.id
+  }
+
+/>
 
       <PropertyDeals
   deals={deals}

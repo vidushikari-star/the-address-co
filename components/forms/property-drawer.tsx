@@ -38,6 +38,18 @@ import {
   uploadPropertyDocument,
 } from "@/lib/repositories/property-document-repository"
 
+import {
+  ContactsRepository,
+} from "@/lib/supabase/repositories/contacts.repository"
+
+import {
+  addPropertyContact,
+} from "@/lib/repositories/property-contact-repository"
+
+import {
+  addPropertyCommission,
+} from "@/lib/repositories/property-commission-repository"
+
 
 
 type PropertyDrawerProps = {
@@ -98,7 +110,29 @@ export function PropertyDrawer({
 }:PropertyDrawerProps){
 
 
+const [
+  contacts,
+  setContacts,
+] = useState<any[]>([])
 
+
+const [
+  propertySources,
+  setPropertySources,
+] =
+useState<
+  {
+    contactId:string
+    relationshipType:
+      | "owner"
+      | "developer"
+      | "mou_holder"
+      | "broker"
+
+    commissionPercentage:string
+
+  }[]
+>([])
 
 
   const [
@@ -168,14 +202,6 @@ useState<
     slug:"",
 
     developer:"",
-
-    sourceType:"owner",
-
-sourceContactId:"",
-
-commissionAmount:"",
-
-commissionPercentage:"",
 
 
     transactionType:"Sale",
@@ -385,24 +411,16 @@ function removeDocument(index:number){
 
   setForm({
 
-    name:
-      housingLead?.projectName
-      ??
-      "",
+ name:
+   housingLead?.projectName
+   ??
+   "",
 
-    slug:"",
+ slug:"",
 
-    developer:"",
+ developer:"",
 
-    sourceType:"owner",
-
-sourceContactId:"",
-
-commissionAmount:"",
-
-commissionPercentage:"",
-
-    transactionType:"Sale",
+ transactionType:"Sale",
 
 
     propertyType:
@@ -492,6 +510,8 @@ commissionPercentage:"",
 
   setDocuments([])
 
+  setPropertySources([])
+
 
 
   if(imageInputRef.current){
@@ -521,9 +541,31 @@ commissionPercentage:"",
 
     resetForm()
 
+    loadContacts()
+
   }
 
 },[open, housingLead])
+
+
+
+async function loadContacts(){
+
+  const data =
+    await ContactsRepository.getAll()
+
+
+  console.log(
+    "PROPERTY CONTACTS:",
+    data
+  )
+
+
+  setContacts(
+    data
+  )
+
+}
 
     async function submit(
     e:React.FormEvent
@@ -689,6 +731,66 @@ commissionPercentage:"",
 
 
         })
+
+              for(
+        const source of propertySources
+      ){
+
+        if(
+          !source.contactId
+        ){
+
+          continue
+
+        }
+
+
+        await addPropertyContact({
+
+          propertyId:
+            property.id,
+
+          contactId:
+            source.contactId,
+
+          relationshipType:
+            source.relationshipType,
+
+        })
+
+
+
+        if(
+          source.commissionPercentage
+        ){
+
+          await addPropertyCommission({
+
+            propertyId:
+              property.id,
+
+            contactId:
+              source.contactId,
+
+              transactionType:
+  form.transactionType as "Sale" | "Rental",
+
+            sourceType:
+              source.relationshipType,
+
+            commissionType:
+              "percentage",
+
+            percentage:
+              Number(
+                source.commissionPercentage
+              ),
+
+          })
+
+        }
+
+      }
 
 
 
@@ -1458,7 +1560,217 @@ commissionPercentage:"",
 </div>
 
 
+<div className="
+  space-y-3
+  rounded-lg
+  border
+  p-4
+">
 
+<p className="font-medium text-sm">
+  Property Source & Commission
+</p>
+
+
+<select
+
+className="w-full rounded-lg border p-3"
+
+value={
+ propertySources[0]?.relationshipType ?? "owner"
+}
+
+onChange={
+  e => {
+
+    const relationshipType =
+      e.target.value as
+      | "owner"
+      | "developer"
+      | "mou_holder"
+      | "broker"
+
+
+    setPropertySources(
+      current => [
+
+        {
+
+          contactId:
+            current[0]?.contactId
+            ??
+            "",
+
+
+          relationshipType,
+
+
+          commissionPercentage:
+            current[0]?.commissionPercentage
+            ??
+            "",
+
+        }
+
+      ]
+    )
+
+  }
+}
+
+>
+
+<option value="owner">
+Owner
+</option>
+
+<option value="developer">
+Developer
+</option>
+
+<option value="mou_holder">
+MOU Holder
+</option>
+
+<option value="broker">
+Broker
+</option>
+
+</select>
+
+
+
+<select
+
+className="w-full rounded-lg border p-3"
+
+value={
+ propertySources[0]?.contactId ?? ""
+}
+
+onChange={
+  e => {
+
+    const contactId =
+      e.target.value
+
+
+    setPropertySources(
+      current => [
+
+        {
+
+          contactId,
+
+          relationshipType:
+            current[0]?.relationshipType
+            ??
+            "owner",
+
+
+          commissionPercentage:
+            current[0]?.commissionPercentage
+            ??
+            "",
+
+        }
+
+      ]
+    )
+
+  }
+}
+
+>
+
+<option value="">
+Select Contact
+</option>
+
+
+{
+contacts.map(
+ contact => (
+
+<option
+key={contact.id}
+value={contact.id}
+>
+
+{
+ contact.fullName ??
+ `${contact.firstName} ${contact.lastName ?? ""}`
+}
+
+</option>
+
+)
+
+)
+
+}
+
+</select>
+
+
+
+<Input
+
+placeholder="Commission %"
+
+type="number"
+
+value={
+ propertySources[0]?.commissionPercentage ?? ""
+}
+
+onChange={
+ e => {
+
+  const value =
+    e.target.value
+
+
+  setPropertySources(
+    current => [
+
+      ...current.filter(
+        item =>
+          item.relationshipType !==
+          propertySources[0]?.relationshipType
+      ),
+
+
+      {
+
+        contactId:
+          propertySources[0]?.contactId
+          ??
+          "",
+
+
+        relationshipType:
+          propertySources[0]?.relationshipType
+          ??
+          "owner",
+
+
+        commissionPercentage:
+          value,
+
+      }
+
+    ]
+  )
+
+ }
+
+}
+
+/>
+
+
+</div>
 
 
         <Input

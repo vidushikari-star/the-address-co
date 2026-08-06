@@ -36,6 +36,8 @@ export interface Commission {
 
   contactId?: string
 
+  contactName?: string
+
 
   propertyId?: string
 

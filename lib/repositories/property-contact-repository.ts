@@ -10,6 +10,8 @@ import type {
 
 
 
+
+
 export interface PropertyContact {
 
   id:string
@@ -26,6 +28,56 @@ export interface PropertyContact {
   updatedAt:string
 
 }
+
+
+
+
+
+
+
+
+export interface PropertySource {
+
+
+  id:string
+
+
+  relationshipType:
+    PropertyContactRelationship
+
+
+
+  contact:{
+
+    id:string
+
+    name:string
+
+    phone?:string
+
+    email?:string
+
+  }
+
+
+
+  commission?:{
+
+    percentage?:number
+
+    amount?:number
+
+    commissionType?:string
+
+    commissionBasis?:string
+
+  }
+
+}
+
+
+
+
 
 
 
@@ -52,9 +104,14 @@ type PropertyContactRow = {
 
 
 
+
+
+
+
 function mapPropertyContact(
   row:PropertyContactRow
 ):PropertyContact {
+
 
   return {
 
@@ -83,6 +140,7 @@ function mapPropertyContact(
 
   }
 
+
 }
 
 
@@ -92,8 +150,9 @@ function mapPropertyContact(
 
 
 
+
 export async function getPropertyContacts(
-  propertyId:string
+propertyId:string
 ):Promise<PropertyContact[]> {
 
 
@@ -102,18 +161,24 @@ export async function getPropertyContacts(
     error,
   } =
   await supabase
+
     .from("property_contacts")
+
     .select("*")
+
     .eq(
       "property_id",
       propertyId
     )
+
     .order(
       "created_at",
       {
         ascending:true,
       }
     )
+
+
 
 
 
@@ -125,16 +190,262 @@ export async function getPropertyContacts(
 
 
 
+
+
+
   return (
 
     data ?? []
 
   )
+
   .map(
+
     row =>
+
       mapPropertyContact(
         row as PropertyContactRow
       )
+
+  )
+
+
+}
+
+
+
+
+
+
+
+
+
+export async function getPropertySources(
+propertyId:string
+):Promise<PropertySource[]> {
+
+
+
+  const {
+    data,
+    error,
+  } =
+  await supabase
+
+    .from("property_contacts")
+
+    .select(`
+
+      id,
+
+      relationship_type,
+
+      contacts(
+        id,
+        full_name,
+        phone,
+        email
+      )
+
+    `)
+
+    .eq(
+      "property_id",
+      propertyId
+    )
+
+
+
+
+
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+
+
+
+
+  const {
+  data:commissions,
+  error:commissionError,
+} =
+await supabase
+  .from("property_commissions")
+  .select(`
+
+    id,
+
+    property_id,
+
+    contact_id,
+
+    source_type,
+
+    commission_type,
+
+    percentage,
+
+    amount
+
+  `)
+
+    .eq(
+      "property_id",
+      propertyId
+    )
+
+
+
+
+
+
+  if(commissionError){
+
+    throw commissionError
+
+  }
+
+
+
+
+
+
+
+  return (
+
+    data ?? []
+
+  )
+
+  .map(
+
+    item => {
+
+
+      const contact =
+
+        Array.isArray(
+          item.contacts
+        )
+
+        ?
+
+        item.contacts[0]
+
+        :
+
+        item.contacts
+
+
+
+
+
+      const commission =
+
+        commissions?.find(
+
+          c =>
+
+            c.contact_id ===
+            contact?.id
+
+        )
+
+
+
+
+
+
+
+      return {
+
+
+        id:
+          item.id,
+
+
+
+        relationshipType:
+          item.relationship_type,
+
+
+
+        contact:{
+
+          id:
+            contact?.id
+            ??
+            "",
+
+
+          name:
+            contact?.full_name
+            ??
+            "",
+
+
+          phone:
+            contact?.phone
+            ??
+            "",
+
+
+          email:
+            contact?.email
+            ??
+            "",
+
+        },
+
+
+
+        commission:
+
+          commission
+
+          ?
+
+          {
+
+            percentage:
+              commission.percentage
+              ??
+              undefined,
+
+
+            amount:
+              commission.amount
+              ??
+              undefined,
+
+
+            commissionType:
+              commission.commission_type
+              ??
+              undefined,
+
+
+           
+
+
+          }
+
+          :
+
+          undefined,
+
+
+      }
+
+
+    }
+
   )
 
 
@@ -169,12 +480,16 @@ export async function addPropertyContact({
 
 
 
+
+
   const {
     data,
     error,
   } =
   await supabase
+
     .from("property_contacts")
+
     .insert({
 
       property_id:
@@ -189,8 +504,12 @@ export async function addPropertyContact({
         relationshipType,
 
     })
+
     .select()
+
     .single()
+
+
 
 
 
@@ -199,6 +518,8 @@ export async function addPropertyContact({
     throw error
 
   }
+
+
 
 
 
@@ -218,7 +539,7 @@ export async function addPropertyContact({
 
 
 export async function removePropertyContact(
-  id:string
+id:string
 ){
 
 
@@ -226,12 +547,17 @@ export async function removePropertyContact(
     error,
   } =
   await supabase
+
     .from("property_contacts")
+
     .delete()
+
     .eq(
       "id",
       id
     )
+
+
 
 
 
@@ -269,24 +595,33 @@ export async function updatePropertyContact({
 
 
 
+
+
   const {
     data,
     error,
   } =
   await supabase
+
     .from("property_contacts")
+
     .update({
 
       relationship_type:
         relationshipType,
 
     })
+
     .eq(
       "id",
       id
     )
+
     .select()
+
     .single()
+
+
 
 
 
@@ -295,6 +630,8 @@ export async function updatePropertyContact({
     throw error
 
   }
+
+
 
 
 
