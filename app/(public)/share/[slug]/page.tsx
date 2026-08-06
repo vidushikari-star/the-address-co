@@ -28,6 +28,10 @@ import {
   supabase,
 } from "@/lib/supabase/client"
 
+import {
+  PublicHeader,
+} from "@/components/public/public-header"
+
 const documentCategoryLabels: Record<string,string> = {
 
   brochure:
@@ -183,9 +187,9 @@ const coverType =
 
 
   const advisorName =
-    sharedAdvisor?.name
-    ||
-    "Vidushi Kari"
+  sharedAdvisor?.name
+  ||
+  "The Address Co"
 
 
 
@@ -208,7 +212,7 @@ const coverType =
 
   const whatsappMessage =
 
-`Hi ${advisorName},
+`Hi The Address Co,
 
 I am interested in:
 
@@ -240,7 +244,9 @@ Please share more details.`
 
   return (
 
-    <main className="min-h-screen bg-background">
+<main className="min-h-screen bg-background">
+
+<PublicHeader />
 
 
       <section
@@ -808,41 +814,57 @@ Please share more details.`
         <div className="mx-auto max-w-6xl px-6 text-center">
 
 
-          <h2 className="text-3xl font-semibold">
-            Interested in this property?
-          </h2>
+          <section
+  id="enquiry"
+  className="bg-muted py-12"
+>
+
+
+  <div className="mx-auto max-w-6xl px-6 text-center">
+
+
+    <h2 className="text-3xl font-semibold">
+      Interested in this property?
+    </h2>
 
 
 
-          <p className="mt-3 text-muted-foreground">
-            Contact {advisorName} for a private viewing.
-          </p>
+    <p className="mt-3 text-muted-foreground">
+      Connect with us for a private viewing and more details.
+    </p>
 
 
 
 
 
-          <a
+    <a
 
-            href={whatsappUrl}
+      href={whatsappUrl}
 
-            target="_blank"
+      target="_blank"
 
-            className="
-              mt-6
-              inline-block
-              rounded-xl
-              bg-primary
-              px-8
-              py-3
-              text-white
-            "
+      className="
+        mt-6
+        inline-block
+        rounded-xl
+        bg-primary
+        px-8
+        py-3
+        text-white
+      "
 
-          >
+    >
 
-            WhatsApp {advisorName}
+      Connect with us
 
-          </a>
+
+    </a>
+
+
+  </div>
+
+
+</section>
 
 
         </div>
