@@ -39,7 +39,81 @@ export type FurnishingType =
   | "unfurnished"
 
 
+export type PropertyContactRelationship =
+  | "owner"
+  | "developer"
+  | "mou_holder"
+  | "broker"
 
+
+
+export type CommissionSourceType =
+  | "owner"
+  | "client"
+  | "developer"
+  | "mou_holder"
+  | "broker"
+
+
+
+export type CommissionType =
+  | "percentage"
+  | "fixed"
+  | "monthly_rent"
+
+
+
+
+export interface PropertyContact {
+
+  id:string
+
+  propertyId:string
+
+  contactId:string
+
+  relationshipType:
+    PropertyContactRelationship
+
+  createdAt:string
+
+  updatedAt:string
+
+}
+
+
+
+
+
+export interface PropertyCommission {
+
+  id:string
+
+  propertyId:string
+
+  contactId?:string
+
+  transactionType:
+    | "Sale"
+    | "Rental"
+
+  sourceType:
+    CommissionSourceType
+
+  commissionType:
+    CommissionType
+
+  percentage?:number
+
+  amount?:number
+
+  notes?:string
+
+  createdAt:string
+
+  updatedAt:string
+
+}
 
 
 export interface PropertyPrice {

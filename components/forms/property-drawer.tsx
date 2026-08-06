@@ -169,6 +169,14 @@ useState<
 
     developer:"",
 
+    sourceType:"owner",
+
+sourceContactId:"",
+
+commissionAmount:"",
+
+commissionPercentage:"",
+
 
     transactionType:"Sale",
 
@@ -385,6 +393,14 @@ function removeDocument(index:number){
     slug:"",
 
     developer:"",
+
+    sourceType:"owner",
+
+sourceContactId:"",
+
+commissionAmount:"",
+
+commissionPercentage:"",
 
     transactionType:"Sale",
 
