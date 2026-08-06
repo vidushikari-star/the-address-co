@@ -1,8 +1,13 @@
+"use client"
+
+import Link from "next/link"
+
 import {
   CalendarDays,
   Clock,
   User,
   ArrowRight,
+  AlertCircle,
 } from "lucide-react"
 
 import {
@@ -14,16 +19,75 @@ import {
 
 
 type AgendaItem = {
+
+  id?: string
+
   title?: string
+
   type?: string
+
   time?: string
+
   assignedTo?: string
+
+  contactId?: string
+
+  dealId?: string
+
+  propertyId?: string
+
+  isOverdue?: boolean
+
 }
+
 
 
 type Props = {
+
   items: AgendaItem[]
+
 }
+
+
+
+
+
+function getHref(
+  item:AgendaItem
+){
+
+  if(
+    item.dealId
+  ){
+
+    return `/deals/${item.dealId}`
+
+  }
+
+
+  if(
+    item.contactId
+  ){
+
+    return `/contacts/${item.contactId}`
+
+  }
+
+
+  if(
+    item.propertyId
+  ){
+
+    return `/properties/${item.propertyId}`
+
+  }
+
+
+  return null
+
+}
+
+
 
 
 
@@ -48,8 +112,8 @@ export function AgendaCard({
           <div>
 
             <p className="text-sm text-muted-foreground">
-  Today&apos;s Agenda
-</p>
+              Today&apos;s Agenda
+            </p>
 
 
             <h3 className="mt-2 text-xl font-semibold sm:text-2xl">
@@ -79,7 +143,6 @@ export function AgendaCard({
       <DashboardCardContent>
 
 
-
         {
           items.length === 0 ? (
 
@@ -87,129 +150,41 @@ export function AgendaCard({
               No upcoming events today.
             </p>
 
-          ) : (
+          )
+
+          :
+
+          (
+
+            <div className="space-y-4">
 
 
-            <>
+              {
+                items.map(
+                  (item,index)=>{
 
 
-              {/* MOBILE */}
+                    const href =
+                      getHref(
+                        item
+                      )
 
-              <div className="space-y-3 md:hidden">
 
 
-                {
-                  items.map(
-                    (item,index)=>(
-
+                    const content = (
 
                       <div
 
-                        key={`${item.title}-${item.time}-${index}`}
-
-                        className="flex items-center justify-between rounded-xl border p-4"
-
-                      >
-
-
-                        <div className="flex items-center gap-3">
-
-
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-
-                            <Clock className="h-5 w-5 text-muted-foreground" />
-
-                          </div>
-
-
-
-
-                          <div>
-
-
-                            <p className="font-medium">
-
-                              {item.title ?? "Event"}
-
-                            </p>
-
-
-
-                            <p className="text-sm text-muted-foreground">
-
-                              {item.time ?? "-"}
-
-                              {
-                                item.type &&
-                                ` • ${item.type}`
-                              }
-
-                            </p>
-
-
-
-
-                            {
-                              item.assignedTo && (
-
-                                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-
-                                  <User className="h-3 w-3"/>
-
-                                  {item.assignedTo}
-
-                                </p>
-
-                              )
-                            }
-
-
-                          </div>
-
-
-                        </div>
-
-
-
-
-
-                        <ArrowRight className="h-4 w-4 text-muted-foreground"/>
-
-
-                      </div>
-
-
-                    )
-
-                  )
-
-
-                }
-
-
-              </div>
-
-
-
-
-
-
-
-              {/* DESKTOP */}
-
-              <div className="hidden space-y-5 md:block">
-
-
-                {
-                  items.map(
-                    (item,index)=>(
-
-
-                      <div
-
-                        key={`${item.title}-${item.time}-${index}`}
-
-                        className="flex gap-4"
+                        className="
+                          flex
+                          gap-4
+                          rounded-2xl
+                          border
+                          p-4
+                          transition
+                          hover:border-primary/30
+                          hover:bg-muted/30
+                        "
 
                       >
 
@@ -217,14 +192,29 @@ export function AgendaCard({
                         <div className="flex flex-col items-center">
 
 
-                          <div className="h-3 w-3 rounded-full bg-primary"/>
-
+                          <div
+                            className={`
+                              h-3
+                              w-3
+                              rounded-full
+                              ${
+                                item.isOverdue
+                                ? "bg-destructive"
+                                : "bg-primary"
+                              }
+                            `}
+                          />
 
 
                           {
                             index !== items.length - 1 && (
 
-                              <div className="mt-2 h-full w-px bg-border"/>
+                              <div className="
+                                mt-2
+                                h-full
+                                w-px
+                                bg-border
+                              "/>
 
                             )
                           }
@@ -236,10 +226,10 @@ export function AgendaCard({
 
 
 
-                        <div className="flex-1 rounded-2xl border p-4">
+                        <div className="flex-1">
 
 
-                          <div className="flex justify-between">
+                          <div className="flex items-start justify-between gap-3">
 
 
                             <div>
@@ -253,7 +243,12 @@ export function AgendaCard({
 
 
 
-                              <p className="mt-1 text-sm text-muted-foreground">
+
+                              <p className="
+                                mt-1
+                                text-sm
+                                text-muted-foreground
+                              ">
 
                                 {item.type ?? "Meeting"}
 
@@ -265,11 +260,36 @@ export function AgendaCard({
 
 
 
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+
+                            <div className="
+                              flex
+                              items-center
+                              gap-2
+                              text-sm
+                              text-muted-foreground
+                            ">
+
+
+                              {
+                                item.isOverdue && (
+
+                                  <AlertCircle
+                                    className="
+                                      h-4
+                                      w-4
+                                      text-destructive
+                                    "
+                                  />
+
+                                )
+                              }
+
+
 
                               <Clock className="h-4 w-4"/>
 
                               {item.time ?? "-"}
+
 
                             </div>
 
@@ -280,10 +300,18 @@ export function AgendaCard({
 
 
 
+
                           {
                             item.assignedTo && (
 
-                              <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                              <div className="
+                                mt-3
+                                flex
+                                items-center
+                                gap-2
+                                text-sm
+                                text-muted-foreground
+                              ">
 
 
                                 <User className="h-4 w-4"/>
@@ -297,26 +325,84 @@ export function AgendaCard({
                           }
 
 
+
+
+
+                          {
+                            href && (
+
+                              <div className="
+                                mt-3
+                                flex
+                                justify-end
+                              ">
+
+                                <ArrowRight className="
+                                  h-4
+                                  w-4
+                                  text-muted-foreground
+                                "/>
+
+                              </div>
+
+                            )
+                          }
+
+
                         </div>
 
 
                       </div>
 
+                    )
+
+
+
+
+                    return href ? (
+
+                      <Link
+
+                        key={`${item.id ?? item.title}-${index}`}
+
+                        href={href}
+
+                      >
+
+                        {content}
+
+                      </Link>
+
 
                     )
 
-                  )
+                    :
 
 
-                }
+                    (
+
+                      <div
+                        key={`${item.id ?? item.title}-${index}`}
+                      >
+
+                        {content}
+
+                      </div>
+
+                    )
 
 
-              </div>
+                  }
+
+                )
+
+              }
 
 
-            </>
+            </div>
 
           )
+
         }
 
 

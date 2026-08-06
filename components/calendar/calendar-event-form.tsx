@@ -7,6 +7,7 @@ import {
 
 import {
   useRouter,
+  useSearchParams,
 } from "next/navigation"
 
 import {
@@ -32,6 +33,30 @@ import type {
   CalendarEventType,
 } from "@/types/calendar-event"
 
+import {
+  ContactsRepository,
+} from "@/lib/supabase/repositories/contacts.repository"
+
+import {
+  getProperties,
+} from "@/lib/repositories/property-repository"
+
+import {
+  getDeals,
+} from "@/lib/repositories/deal-repository"
+
+import type {
+  Contact,
+} from "@/types/contact"
+
+import type {
+  Property,
+} from "@/types/property"
+
+import type {
+  Deal,
+} from "@/types/deal"
+
 
 
 
@@ -48,14 +73,62 @@ type Props = {
 
 
 
+function formatIndiaDateTime(
+  dateString:string
+){
+
+  const date =
+    new Date(dateString)
+
+
+  return {
+
+    date:
+      new Intl.DateTimeFormat(
+        "en-CA",
+        {
+          timeZone:"Asia/Kolkata",
+        }
+      ).format(date),
+
+
+    time:
+      new Intl.DateTimeFormat(
+        "en-GB",
+        {
+          timeZone:"Asia/Kolkata",
+          hour:"2-digit",
+          minute:"2-digit",
+          hour12:false,
+        }
+      ).format(date),
+
+  }
+
+}
+
+
+
+
+
+
+
 export function CalendarEventForm({
   mode = "create",
   event,
 }:Props){
 
+  
+
 
   const router =
     useRouter()
+
+
+  const searchParams =
+    useSearchParams()
+
+
 
 
 
@@ -64,6 +137,30 @@ export function CalendarEventForm({
     setUsers,
   ] =
   useState<UserProfile[]>([])
+
+
+
+  const [
+    contacts,
+    setContacts,
+  ] =
+  useState<Contact[]>([])
+
+
+
+  const [
+    properties,
+    setProperties,
+  ] =
+  useState<Property[]>([])
+
+
+
+  const [
+    deals,
+    setDeals,
+  ] =
+  useState<Deal[]>([])
 
 
 
@@ -78,21 +175,52 @@ export function CalendarEventForm({
 
 
   const [
-  form,
-  setForm,
-] = useState<{
-  title: string
-  eventType: CalendarEventType
-  date: string
-  time: string
-  assignedTo: string
-}>({
-  title: "",
-  eventType: "meeting",
-  date: "",
-  time: "",
-  assignedTo: "",
-})
+    form,
+    setForm,
+  ] =
+  useState({
+
+    title:"",
+
+    eventType:
+      "meeting" as CalendarEventType,
+
+    date:"",
+
+    time:"",
+
+    assignedTo:"",
+
+    contactId:"",
+
+    propertyId:"",
+
+    dealId:"",
+
+  })
+
+  const filteredDeals =
+  deals.filter(
+    deal => {
+
+      const matchesContact =
+        !form.contactId ||
+        deal.contactId === form.contactId
+
+
+      const matchesProperty =
+        !form.propertyId ||
+        deal.propertyId === form.propertyId
+
+
+      return (
+        matchesContact &&
+        matchesProperty
+      )
+
+    }
+  )
+
 
 
 
@@ -103,24 +231,105 @@ export function CalendarEventForm({
   useEffect(()=>{
 
 
-    async function loadUsers(){
+    async function loadData(){
 
-      const data =
-        await getCalendarUsers()
+
+      const [
+        usersData,
+        contactsData,
+        propertiesData,
+        dealsData,
+      ] =
+      await Promise.all([
+
+        getCalendarUsers(),
+
+        ContactsRepository.getAll(),
+
+        getProperties(),
+
+        getDeals(),
+
+      ])
+
 
 
       setUsers(
-        data
+        usersData
+      )
+
+
+      setContacts(
+        contactsData
+      )
+
+
+      setProperties(
+        propertiesData
+      )
+
+
+      setDeals(
+        dealsData
       )
 
 
     }
 
 
-    loadUsers()
+    loadData()
 
 
   },[])
+
+
+
+
+
+
+
+
+  useEffect(()=>{
+
+
+    if(
+      mode !== "create"
+    ){
+
+      return
+
+    }
+
+
+    const selectedDate =
+      searchParams.get(
+        "date"
+      )
+
+
+    if(
+      selectedDate
+    ){
+
+      setForm(
+        current => ({
+
+          ...current,
+
+          date:
+            selectedDate,
+
+        })
+      )
+
+    }
+
+
+  },[
+    mode,
+    searchParams,
+  ])
+
 
 
 
@@ -136,10 +345,12 @@ export function CalendarEventForm({
       event
     ){
 
-      const date =
-        new Date(
+
+      const indiaDate =
+        formatIndiaDateTime(
           event.startTime
         )
+
 
 
       setForm({
@@ -153,43 +364,31 @@ export function CalendarEventForm({
 
 
         date:
-          `${date.getFullYear()}-${
-            String(
-              date.getMonth()+1
-            ).padStart(
-              2,
-              "0"
-            )
-          }-${
-            String(
-              date.getDate()
-            ).padStart(
-              2,
-              "0"
-            )
-          }`,
+          indiaDate.date,
 
 
         time:
-          `${String(
-            date.getHours()
-          ).padStart(
-            2,
-            "0"
-          )}:${
-            String(
-              date.getMinutes()
-            ).padStart(
-              2,
-              "0"
-            )
-          }`,
+          indiaDate.time,
 
 
         assignedTo:
           event.assignedTo ?? "",
 
+
+        contactId:
+          event.contactId ?? "",
+
+
+        propertyId:
+          event.propertyId ?? "",
+
+
+        dealId:
+          event.dealId ?? "",
+
+
       })
+
 
     }
 
@@ -198,7 +397,6 @@ export function CalendarEventForm({
     mode,
     event,
   ])
-
 
 
 
@@ -222,9 +420,7 @@ export function CalendarEventForm({
 
 
 
-    setSaving(
-      true
-    )
+    setSaving(true)
 
 
 
@@ -232,12 +428,45 @@ export function CalendarEventForm({
 
 
       const startTime =
-        new Date(
-          `${form.date}T${form.time}`
-        )
-        .toISOString()
+        `${form.date}T${form.time}:00+05:30`
 
 
+
+      const payload = {
+
+
+        title:
+          form.title,
+
+
+        eventType:
+          form.eventType,
+
+
+        startTime,
+
+
+        assignedTo:
+          form.assignedTo ||
+          undefined,
+
+
+        contactId:
+          form.contactId ||
+          undefined,
+
+
+        propertyId:
+          form.propertyId ||
+          undefined,
+
+
+        dealId:
+          form.dealId ||
+          undefined,
+
+
+      }
 
 
 
@@ -248,28 +477,8 @@ export function CalendarEventForm({
 
 
         await updateCalendarEvent(
-
           event.id,
-
-          {
-
-            title:
-              form.title,
-
-
-            eventType:
-              form.eventType,
-
-
-            startTime,
-
-
-            assignedTo:
-              form.assignedTo ||
-              undefined,
-
-          }
-
+          payload
         )
 
 
@@ -284,20 +493,7 @@ export function CalendarEventForm({
 
         await createCalendarEvent({
 
-          title:
-            form.title,
-
-
-          eventType:
-            form.eventType,
-
-
-          startTime,
-
-
-          assignedTo:
-            form.assignedTo ||
-            undefined,
+          ...payload,
 
 
           createdBy:
@@ -307,7 +503,6 @@ export function CalendarEventForm({
 
 
       }
-
 
 
 
@@ -322,22 +517,14 @@ export function CalendarEventForm({
     }
     finally{
 
-      setSaving(
-        false
-      )
+      setSaving(false)
 
     }
 
 
   }
 
-
-
-
-
-
-
-  return (
+    return (
 
     <div className="
       space-y-6
@@ -370,7 +557,7 @@ export function CalendarEventForm({
           text-muted-foreground
         ">
 
-          Shared team calendar event.
+          Schedule meetings, site visits and follow-ups.
 
         </p>
 
@@ -384,6 +571,8 @@ export function CalendarEventForm({
 
       <div className="space-y-4">
 
+
+        {/* TITLE */}
 
         <div>
 
@@ -418,6 +607,9 @@ export function CalendarEventForm({
 
 
 
+
+        {/* TYPE */}
+
         <div>
 
           <label className="text-sm">
@@ -431,22 +623,14 @@ export function CalendarEventForm({
               form.eventType
             }
 
-            onChange={(e) => {
-  const value = e.target.value
-
-  if (
-    value === "meeting" ||
-    value === "site_visit" ||
-    value === "follow_up" ||
-    value === "task" ||
-    value === "other"
-  ) {
-    setForm({
-      ...form,
-      eventType: value,
-    })
-  }
-}}
+            onChange={
+              e =>
+                setForm({
+                  ...form,
+                  eventType:
+                    e.target.value as CalendarEventType,
+                })
+            }
 
             className="
               mt-1
@@ -464,24 +648,104 @@ export function CalendarEventForm({
               Meeting
             </option>
 
-
             <option value="site_visit">
               Site Visit
             </option>
-
 
             <option value="follow_up">
               Follow Up
             </option>
 
+            <option value="task">
+              Task
+            </option>
 
             <option value="other">
               Other
             </option>
 
-            <option value="task">
-  Task
-</option>
+          </select>
+
+
+        </div>
+
+
+
+
+
+
+
+
+
+        {/* CONTACT */}
+
+        <div>
+
+          <label className="text-sm">
+            Contact
+          </label>
+
+
+          <select
+
+            value={
+              form.contactId
+            }
+
+            onChange={
+  e =>
+    setForm({
+      ...form,
+
+      contactId:
+        e.target.value,
+
+      dealId:
+        "",
+    })
+}
+
+
+            className="
+              mt-1
+              w-full
+              rounded-md
+              border
+              bg-background
+              px-3
+              py-2
+            "
+
+          >
+
+            <option value="">
+              Select Contact
+            </option>
+
+
+            {
+              contacts.map(
+                contact => (
+
+                  <option
+
+                    key={
+                      contact.id
+                    }
+
+                    value={
+                      contact.id
+                    }
+
+                  >
+
+                    {contact.name}
+
+                  </option>
+
+                )
+              )
+            }
 
 
           </select>
@@ -494,6 +758,174 @@ export function CalendarEventForm({
 
 
 
+
+
+
+        {/* PROPERTY */}
+
+        <div>
+
+          <label className="text-sm">
+            Property
+          </label>
+
+
+          <select
+
+            value={
+              form.propertyId
+            }
+
+            onChange={
+  e =>
+    setForm({
+      ...form,
+
+      propertyId:
+        e.target.value,
+
+      dealId:
+        "",
+    })
+}
+
+
+            className="
+              mt-1
+              w-full
+              rounded-md
+              border
+              bg-background
+              px-3
+              py-2
+            "
+
+          >
+
+            <option value="">
+              Select Property
+            </option>
+
+
+            {
+              properties.map(
+                property => (
+
+                  <option
+
+                    key={
+                      property.id
+                    }
+
+                    value={
+                      property.id
+                    }
+
+                  >
+
+                    {property.name}
+
+                  </option>
+
+                )
+              )
+            }
+
+
+          </select>
+
+
+        </div>
+
+
+
+
+
+
+
+
+
+        {/* DEAL */}
+
+        <div>
+
+          <label className="text-sm">
+            Deal
+          </label>
+
+
+          <select
+
+            value={
+              form.dealId
+            }
+
+            onChange={
+              e =>
+                setForm({
+                  ...form,
+                  dealId:
+                    e.target.value,
+                })
+            }
+
+
+            className="
+              mt-1
+              w-full
+              rounded-md
+              border
+              bg-background
+              px-3
+              py-2
+            "
+
+          >
+
+            <option value="">
+              Select Deal
+            </option>
+
+
+            {
+  filteredDeals.map(
+    deal => (
+
+                  <option
+
+                    key={
+                      deal.id
+                    }
+
+                    value={
+                      deal.id
+                    }
+
+                  >
+
+                    {deal.name}
+
+                  </option>
+
+                )
+              )
+            }
+
+
+          </select>
+
+
+        </div>
+
+
+
+
+
+
+
+
+
+        {/* DATE + TIME */}
 
         <div className="
           grid
@@ -521,7 +953,8 @@ export function CalendarEventForm({
                 e =>
                   setForm({
                     ...form,
-                    date:e.target.value,
+                    date:
+                      e.target.value,
                   })
               }
 
@@ -552,7 +985,8 @@ export function CalendarEventForm({
                 e =>
                   setForm({
                     ...form,
-                    time:e.target.value,
+                    time:
+                      e.target.value,
                   })
               }
 
@@ -569,6 +1003,9 @@ export function CalendarEventForm({
 
 
 
+
+
+        {/* ASSIGN */}
 
         <div>
 
@@ -587,7 +1024,8 @@ export function CalendarEventForm({
               e =>
                 setForm({
                   ...form,
-                  assignedTo:e.target.value,
+                  assignedTo:
+                    e.target.value,
                 })
             }
 
@@ -645,6 +1083,8 @@ export function CalendarEventForm({
 
 
 
+
+
         <Button
 
           className="w-full"
@@ -665,8 +1105,10 @@ export function CalendarEventForm({
             "Saving..."
             :
             mode === "edit"
-            ? "Save Changes"
-            : "Create Event"
+            ?
+            "Save Changes"
+            :
+            "Create Event"
           }
 
 

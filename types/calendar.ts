@@ -34,6 +34,8 @@ export interface CalendarItem {
 
 propertyName?: string 
 
+  dealName?: string
+
 url?: string
 
 }

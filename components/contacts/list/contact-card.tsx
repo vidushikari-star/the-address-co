@@ -11,7 +11,9 @@ import {
 import { Avatar } from "@/components/shared/avatar"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { WhatsAppButton } from "@/components/communications/whatsapp-button"
+import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { getLeadPriority } from "@/lib/utils/lead-score"
 import type { Contact } from "@/types/contact"
 
 
@@ -28,7 +30,10 @@ export function ContactCard({
   className,
 }: ContactCardProps) {
 
-  const router = useRouter()
+
+  const router =
+    useRouter()
+
 
 
   function handleClick() {
@@ -48,6 +53,122 @@ export function ContactCard({
     contact.phone ??
     ""
   ).replace(/\D/g, "")
+
+
+
+
+
+  function formatBudget(
+    value?: number
+  ){
+
+    if(!value){
+      return null
+    }
+
+
+    if(value >= 10000000){
+
+      return `${(
+        value / 10000000
+      ).toFixed(1)} Cr`
+
+    }
+
+
+    if(value >= 100000){
+
+      return `${(
+        value / 100000
+      ).toFixed(0)} L`
+
+    }
+
+
+    return value.toString()
+
+  }
+
+
+
+
+
+  function getFollowUpStatus(
+    lastActivityAt?: string
+  ){
+
+    if(!lastActivityAt){
+
+      return {
+        label:"Needs Contact",
+        variant:"new",
+      }
+
+    }
+
+
+    const lastActivity =
+      new Date(lastActivityAt)
+
+
+    const daysSinceActivity =
+      Math.floor(
+        (
+          Date.now() -
+          lastActivity.getTime()
+        )
+        /
+        (
+          1000 *
+          60 *
+          60 *
+          24
+        )
+      )
+
+
+    if(daysSinceActivity >= 7){
+
+      return {
+        label:"Follow Up Due",
+        variant:"due",
+      }
+
+    }
+
+
+    return null
+
+  }
+
+
+
+
+
+  const budgetLabel =
+    contact.budgetMin || contact.budgetMax
+      ? `${formatBudget(contact.budgetMin)} - ${formatBudget(contact.budgetMax)}`
+      : null
+
+
+
+
+
+  const leadPriority =
+    getLeadPriority(
+      contact
+    )
+
+
+
+
+
+  const followUpStatus =
+    getFollowUpStatus(
+      contact.lastActivityAt
+    )
+
+
 
 
 
@@ -91,9 +212,17 @@ export function ContactCard({
         <div className="min-w-0 flex-1">
 
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="
+            flex
+            flex-wrap
+            items-center
+            gap-2
+          ">
 
-            <h3 className="truncate font-semibold">
+            <h3 className="
+              truncate
+              font-semibold
+            ">
 
               {contact.name || "Unnamed"}
 
@@ -104,7 +233,117 @@ export function ContactCard({
               status={contact.stage}
             />
 
+
           </div>
+
+
+
+
+
+          <div className="
+            mt-2
+            flex
+            flex-wrap
+            gap-2
+          ">
+
+
+
+            <Badge
+              variant="secondary"
+            >
+
+              {leadPriority.emoji}
+              {" "}
+              {leadPriority.label}
+
+            </Badge>
+
+
+
+
+
+            {
+              followUpStatus && (
+
+                <Badge
+                  variant={
+                    followUpStatus.variant === "due"
+                      ? "destructive"
+                      : "secondary"
+                  }
+                >
+
+                  {followUpStatus.label}
+
+                </Badge>
+
+              )
+            }
+
+
+
+
+
+            {
+              contact.intent && (
+
+                <Badge
+                  variant="secondary"
+                >
+
+                  {
+                    contact.intent === "sale"
+                      ? "Sale"
+                      : contact.intent === "rental"
+                      ? "Rental"
+                      : "Sale + Rental"
+                  }
+
+                </Badge>
+
+              )
+            }
+
+
+
+
+
+            {
+              contact.propertyType && (
+
+                <Badge
+                  variant="outline"
+                >
+
+                  {contact.propertyType}
+
+                </Badge>
+
+              )
+            }
+
+
+
+
+
+            {
+              budgetLabel && (
+
+                <Badge
+                  variant="outline"
+                >
+
+                  ₹ {budgetLabel}
+
+                </Badge>
+
+              )
+            }
+
+
+          </div>
+
 
 
 
@@ -119,9 +358,16 @@ export function ContactCard({
 
             {contact.phone && (
 
-              <div className="flex items-center gap-2">
+              <div className="
+                flex
+                items-center
+                gap-2
+              ">
 
-                <Phone className="h-3.5 w-3.5" />
+                <Phone className="
+                  h-3.5
+                  w-3.5
+                " />
 
                 {contact.phone}
 
@@ -134,11 +380,20 @@ export function ContactCard({
 
             {contact.email && (
 
-              <div className="flex items-center gap-2">
+              <div className="
+                flex
+                items-center
+                gap-2
+              ">
 
-                <Mail className="h-3.5 w-3.5" />
+                <Mail className="
+                  h-3.5
+                  w-3.5
+                " />
 
-                <span className="truncate">
+                <span className="
+                  truncate
+                ">
 
                   {contact.email}
 
@@ -157,10 +412,15 @@ export function ContactCard({
 
 
 
-        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        <ChevronRight className="
+          h-5
+          w-5
+          text-muted-foreground
+        " />
 
 
       </button>
+
 
 
 
@@ -198,26 +458,34 @@ export function ContactCard({
 
 
         {contact.phone && (
-  <a
-    href={`tel:${contact.phone}`}
-    onClick={(e) => e.stopPropagation()}
-    className="
-      flex
-      h-9
-      w-full
-      items-center
-      justify-center
-      gap-2
-      rounded-xl
-      border
-      px-3
-      text-sm
-    "
-  >
-    <Phone className="h-4 w-4" />
-    Call
-  </a>
-)}
+
+          <a
+            href={`tel:${contact.phone}`}
+            onClick={(e) => e.stopPropagation()}
+            className="
+              flex
+              h-9
+              w-full
+              items-center
+              justify-center
+              gap-2
+              rounded-xl
+              border
+              px-3
+              text-sm
+            "
+          >
+
+            <Phone className="
+              h-4
+              w-4
+            " />
+
+            Call
+
+          </a>
+
+        )}
 
 
       </div>

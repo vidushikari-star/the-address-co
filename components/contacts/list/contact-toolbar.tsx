@@ -11,17 +11,40 @@ import {
 
 
 
-
-
 type ContactToolbarProps = {
 
   query:string
 
   onQueryChange:(value:string)=>void
 
-  typeFilter:string
 
-  onTypeFilterChange:(value:string)=>void
+  relationshipFilter:string
+
+  onRelationshipFilterChange:(value:string)=>void
+
+
+  leadSourceFilter:string
+
+  onLeadSourceFilterChange:(value:string)=>void
+
+
+  propertyTypeFilter:string
+
+  onPropertyTypeFilterChange:(value:string)=>void
+
+
+  purposeFilter:string
+
+  onPurposeFilterChange:(value:string)=>void
+
+
+  followUpFilter:string
+
+  onFollowUpFilterChange:(value:string)=>void
+
+
+  onClear:()=>void
+
 
   count?:number
 
@@ -39,9 +62,34 @@ export function ContactToolbar({
 
   onQueryChange,
 
-  typeFilter,
 
-  onTypeFilterChange,
+  relationshipFilter,
+
+  onRelationshipFilterChange,
+
+
+  leadSourceFilter,
+
+  onLeadSourceFilterChange,
+
+
+  propertyTypeFilter,
+
+  onPropertyTypeFilterChange,
+
+
+  purposeFilter,
+
+  onPurposeFilterChange,
+
+
+  followUpFilter,
+
+  onFollowUpFilterChange,
+
+
+  onClear,
+
 
   count,
 
@@ -52,9 +100,28 @@ export function ContactToolbar({
 
 
   const hasFilters =
+
     query !== ""
+
     ||
-    typeFilter !== "all"
+
+    relationshipFilter !== "all"
+
+    ||
+
+    leadSourceFilter !== "all"
+
+    ||
+
+    propertyTypeFilter !== "all"
+
+    ||
+
+    purposeFilter !== "all"
+
+    ||
+
+    followUpFilter !== "all"
 
 
 
@@ -62,46 +129,101 @@ export function ContactToolbar({
 
 
 
-  function clear(){
+  const relationshipTypes = [
+
+    ["all","All Relationships"],
+
+    ["buyer","Buyer"],
+
+    ["seller","Seller"],
+
+    ["investor","Investor"],
+
+    ["tenant","Tenant"],
+
+    ["landlord","Landlord"],
+
+    ["developer","Developer"],
+
+    ["broker","Broker"],
+
+  ]
 
 
-    onQueryChange("")
-
-
-    onTypeFilterChange(
-      "all"
-    )
-
-
-  }
 
 
 
+  const leadSources = [
+
+    ["all","All Sources"],
+
+    ["instagram","Instagram"],
+
+    ["housing","Housing"],
+
+    ["magicbricks","Magicbricks"],
+
+    ["99acres","99Acres"],
+
+    ["website","Website"],
+
+    ["whatsapp","WhatsApp"],
+
+    ["referral","Referral"],
+
+    ["broker","Broker"],
+
+    ["other","Other"],
+
+  ]
 
 
 
 
-  const types = [
 
-    {
-      value:"all",
-      label:"All",
-    },
+  const propertyTypes = [
 
-    {
-      value:"buyer",
-      label:"Buyers",
-    },
+    ["all","All Property Types"],
 
-    {
-      value:"seller",
-      label:"Sellers",
-    },
+    ["villa","Villa"],
 
-    {
-      value:"investor",
-      label:"Investors",
-    },
+    ["apartment","Apartment"],
+
+    ["plot","Plot"],
+
+    ["commercial","Commercial"],
+
+  ]
+
+
+
+
+
+  const purposes = [
+
+    ["all","All Purposes"],
+
+    ["primary_residence","Primary Residence"],
+
+    ["holiday_home","Holiday Home"],
+
+    ["investment","Investment"],
+
+    ["retirement","Retirement"],
+
+  ]
+
+
+
+
+
+  const followUpTypes = [
+
+    ["all","All Follow Ups"],
+
+    ["due","Follow Up Due"],
+
+    ["new","Needs Contact"],
 
   ]
 
@@ -117,9 +239,6 @@ export function ContactToolbar({
     <div className="
       space-y-4
     ">
-
-
-
 
 
       <div className="
@@ -147,17 +266,13 @@ export function ContactToolbar({
 
 
 
-
-
-
-
         {
           hasFilters && (
 
             <button
 
               onClick={
-                clear
+                onClear
               }
 
               className="
@@ -189,10 +304,8 @@ export function ContactToolbar({
 
 
 
-
       <div className="
         relative
-        w-full
       ">
 
 
@@ -244,63 +357,249 @@ export function ContactToolbar({
 
 
 
-
       <div className="
-        flex
-        gap-2
-        overflow-x-auto
-        pb-2
+        grid
+        gap-3
+        md:grid-cols-5
       ">
 
 
-        {
-          types.map(
-            item => (
+        <select
 
-              <button
+          value={relationshipFilter}
 
-                key={
-                  item.value
-                }
+          onChange={
+            e =>
+              onRelationshipFilterChange(
+                e.target.value
+              )
+          }
 
-                onClick={() =>
-                  onTypeFilterChange(
-                    item.value
-                  )
-                }
+          className="
+            rounded-xl
+            border
+            bg-background
+            px-3
+            py-2
+            text-sm
+          "
 
-                className={`
-                  shrink-0
-                  rounded-full
-                  border
-                  px-4
-                  py-2
-                  text-sm
-                  transition
-                  ${
-                    typeFilter === item.value
-                    ?
-                    "bg-primary text-primary-foreground"
-                    :
-                    "bg-background"
-                  }
-                `}
+        >
 
-              >
+          {
+            relationshipTypes.map(
+              item => (
 
-                {item.label}
+                <option
+                  key={item[0]}
+                  value={item[0]}
+                >
 
-              </button>
+                  {item[1]}
 
+                </option>
+
+              )
             )
+          }
 
-          )
 
-        }
+        </select>
+
+
+
+
+
+
+
+        <select
+
+          value={leadSourceFilter}
+
+          onChange={
+            e =>
+              onLeadSourceFilterChange(
+                e.target.value
+              )
+          }
+
+          className="
+            rounded-xl
+            border
+            bg-background
+            px-3
+            py-2
+            text-sm
+          "
+
+        >
+
+          {
+            leadSources.map(
+              item => (
+
+                <option
+                  key={item[0]}
+                  value={item[0]}
+                >
+
+                  {item[1]}
+
+                </option>
+
+              )
+            )
+          }
+
+        </select>
+
+
+
+
+
+
+
+
+        <select
+
+          value={propertyTypeFilter}
+
+          onChange={
+            e =>
+              onPropertyTypeFilterChange(
+                e.target.value
+              )
+          }
+
+          className="
+            rounded-xl
+            border
+            bg-background
+            px-3
+            py-2
+            text-sm
+          "
+
+        >
+
+          {
+            propertyTypes.map(
+              item => (
+
+                <option
+                  key={item[0]}
+                  value={item[0]}
+                >
+
+                  {item[1]}
+
+                </option>
+
+              )
+            )
+          }
+
+        </select>
+
+
+
+
+
+
+
+
+        <select
+
+          value={purposeFilter}
+
+          onChange={
+            e =>
+              onPurposeFilterChange(
+                e.target.value
+              )
+          }
+
+          className="
+            rounded-xl
+            border
+            bg-background
+            px-3
+            py-2
+            text-sm
+          "
+
+        >
+
+          {
+            purposes.map(
+              item => (
+
+                <option
+                  key={item[0]}
+                  value={item[0]}
+                >
+
+                  {item[1]}
+
+                </option>
+
+              )
+            )
+          }
+
+        </select>
+
+
+
+
+
+
+
+
+        <select
+
+          value={followUpFilter}
+
+          onChange={
+            e =>
+              onFollowUpFilterChange(
+                e.target.value
+              )
+          }
+
+          className="
+            rounded-xl
+            border
+            bg-background
+            px-3
+            py-2
+            text-sm
+          "
+
+        >
+
+          {
+            followUpTypes.map(
+              item => (
+
+                <option
+                  key={item[0]}
+                  value={item[0]}
+                >
+
+                  {item[1]}
+
+                </option>
+
+              )
+            )
+          }
+
+        </select>
+
 
 
       </div>
-
 
 
     </div>

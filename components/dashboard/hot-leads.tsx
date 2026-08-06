@@ -11,19 +11,38 @@ import {
   DashboardCardHeader,
 } from "@/components/ui/dashboard-card"
 
+import {
+  Badge,
+} from "@/components/ui/badge"
+
 
 
 type Lead = {
+
+  id:string
+
   name:string
+
   budget:string
+
   location:string
-  stage:string
+
+  intent?:string
+
+  propertyType?:string
+
+  timeline?:string
+
 }
 
 
 
+
+
 type HotLeadsProps = {
+
   leads:Lead[]
+
 }
 
 
@@ -37,132 +56,166 @@ export function HotLeads({
 
   return (
 
-    <Link
-      href="/deals?filter=hot"
-      className="block"
-    >
+    <DashboardCard>
 
 
-      <DashboardCard
-
-        className="
-          h-full
-          cursor-pointer
-          transition
-          hover:border-primary/30
-        "
-
-      >
+      <DashboardCardHeader>
 
 
-        <DashboardCardHeader>
+        <div>
 
 
-          <div>
+          <p className="
+            flex
+            items-center
+            gap-2
+            text-sm
+            font-medium
+            tracking-wide
+            text-muted-foreground
+          ">
 
 
-            <p className="flex items-center gap-2 text-sm font-medium tracking-wide text-muted-foreground">
+            <Flame className="
+              h-4
+              w-4
+            "/>
 
-              <Flame className="h-4 w-4" />
 
-              Hot Leads
+            Hot Leads
+
+
+          </p>
+
+
+
+          <h3 className="
+            mt-2
+            text-xl
+            font-semibold
+            tracking-tight
+            sm:text-2xl
+          ">
+
+            {leads.length} Hot Opportunities
+
+          </h3>
+
+
+        </div>
+
+
+      </DashboardCardHeader>
+
+
+
+
+
+
+      <DashboardCardContent>
+
+
+        {
+          leads.length === 0
+
+          ?
+
+          (
+
+            <p className="
+              text-sm
+              text-muted-foreground
+            ">
+
+              No hot leads currently.
 
             </p>
 
+          )
 
 
-            <h3 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">
+          :
 
-              {leads.length} Priority Clients
+          (
 
-            </h3>
-
-
-          </div>
-
-
-        </DashboardCardHeader>
+            <div className="
+              space-y-3
+            ">
 
 
+              {
+                leads.map(
+                  lead => (
+
+                    <Link
+
+                      key={
+                        lead.id
+                      }
+
+                      href={
+                        `/contacts/${lead.id}`
+                      }
+
+                      className="block"
+
+                    >
+
+
+                      <div className="
+                        group
+                        rounded-2xl
+                        border
+                        border-border/60
+                        bg-muted/20
+                        p-4
+                        transition
+                        hover:border-primary/20
+                        hover:bg-background
+                      ">
 
 
 
-
-        <DashboardCardContent>
-
-
-          {
-            leads.length === 0 ? (
-
-              <p className="text-sm text-muted-foreground">
-                No hot leads currently.
-              </p>
-
-            ) : (
+                        <div className="
+                          flex
+                          items-start
+                          justify-between
+                          gap-3
+                        ">
 
 
-              <>
+                          <div className="
+                            min-w-0
+                          ">
 
 
-                {/* MOBILE */}
+                            <h4 className="
+                              truncate
+                              font-medium
+                            ">
 
-                <div className="space-y-3 md:hidden">
-
-
-                  {
-                    leads.map(
-                      lead => (
-
-                        <div
-
-                          key={lead.name}
-
-                          className="
-                            flex
-                            items-center
-                            justify-between
-                            rounded-xl
-                            border
-                            p-4
-                          "
-
-                        >
-
-
-                          <div>
-
-
-                            <p className="font-medium">
                               {lead.name}
-                            </p>
+
+                            </h4>
 
 
 
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              {lead.location}
-                            </p>
+                            {
+                              lead.location && (
 
+                                <p className="
+                                  mt-1
+                                  text-sm
+                                  text-muted-foreground
+                                ">
 
+                                  {lead.location}
 
-                            <div className="mt-2 flex items-center gap-2">
+                                </p>
 
+                              )
 
-                              <span className="rounded-full bg-muted px-2.5 py-1 text-xs">
-
-                                {lead.stage}
-
-                              </span>
-
-
-
-                              <span className="text-xs text-muted-foreground">
-
-                                {lead.budget}
-
-                              </span>
-
-
-                            </div>
+                            }
 
 
                           </div>
@@ -170,163 +223,142 @@ export function HotLeads({
 
 
 
-
-                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                          <ArrowRight className="
+                            h-4
+                            w-4
+                            shrink-0
+                            text-muted-foreground
+                            transition-transform
+                            group-hover:translate-x-1
+                          "/>
 
 
                         </div>
 
-                      )
-
-                    )
-
-                  }
-
-
-                </div>
 
 
 
 
 
 
-
-                {/* DESKTOP */}
-
-                <div className="hidden space-y-4 md:block">
-
-
-                  {
-                    leads.map(
-                      lead => (
-
-                        <div
-
-                          key={lead.name}
-
-                          className="
-                            group
-                            rounded-2xl
-                            border
-                            border-border/60
-                            bg-muted/20
-                            p-4
-                            transition-all
-                            duration-200
-                            hover:-translate-y-0.5
-                            hover:border-primary/20
-                            hover:bg-background
-                          "
-
-                        >
-
-
-                          <div className="flex items-start justify-between">
-
-
-                            <div>
-
-
-                              <h4 className="font-medium">
-
-                                {lead.name}
-
-                              </h4>
+                        <div className="
+                          mt-3
+                          flex
+                          flex-wrap
+                          gap-2
+                        ">
 
 
 
-                              <p className="mt-1 text-sm text-muted-foreground">
+                          {
+                            lead.intent && (
 
-                                {lead.location}
+                              <Badge
+                                variant="secondary"
+                              >
 
-                              </p>
+                                {
+                                  lead.intent === "sale"
+                                  ? "Buyer"
+                                  : lead.intent === "rental"
+                                  ? "Rental"
+                                  : "Sale + Rental"
+                                }
 
+                              </Badge>
 
-                            </div>
-
-
-
-                            <ArrowRight
-
-                              className="
-                                h-4 w-4
-                                text-muted-foreground
-                                transition-transform
-                                group-hover:translate-x-1
-                              "
-
-                            />
-
-
-                          </div>
+                            )
+                          }
 
 
 
 
 
-                          <div className="mt-4 flex items-center justify-between text-sm">
+                          {
+                            lead.propertyType && (
+
+                              <Badge
+                                variant="outline"
+                              >
+
+                                {lead.propertyType}
+
+                              </Badge>
+
+                            )
+
+                          }
 
 
-                            <div>
-
-
-                              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-
-                                Budget
-
-                              </p>
 
 
 
-                              <p className="mt-1 font-medium">
+                          {
+                            lead.budget && (
+
+                              <Badge
+                                variant="outline"
+                              >
 
                                 {lead.budget}
 
-                              </p>
+                              </Badge>
 
+                            )
 
-                            </div>
+                          }
 
-
-
-
-
-                            <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">
-
-                              {lead.stage}
-
-                            </span>
-
-
-                          </div>
 
 
                         </div>
 
-                      )
-
-                    )
-
-                  }
 
 
-                </div>
 
 
-              </>
 
-            )
+                        {
+                          lead.timeline && (
 
-          }
+                            <p className="
+                              mt-3
+                              text-xs
+                              text-muted-foreground
+                            ">
+
+                              Timeline: {lead.timeline}
+
+                            </p>
+
+                          )
+
+                        }
 
 
-        </DashboardCardContent>
+
+                      </div>
 
 
-      </DashboardCard>
+                    </Link>
+
+                  )
+
+                )
+
+              }
 
 
-    </Link>
+            </div>
+
+          )
+
+        }
+
+
+      </DashboardCardContent>
+
+
+    </DashboardCard>
 
   )
 

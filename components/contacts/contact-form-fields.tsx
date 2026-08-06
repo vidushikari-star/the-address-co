@@ -61,6 +61,8 @@ type ContactFormState = {
 
   leadSource:string
 
+  intent:string
+
   budgetMin:string
 
   budgetMax:string
@@ -68,6 +70,16 @@ type ContactFormState = {
   propertyType:string
 
   bedrooms:string
+
+  bathrooms:string
+
+  resident:string
+
+  minArea:string
+
+  maxArea:string
+
+  plotSize:string
 
   purpose:string
 
@@ -78,6 +90,14 @@ type ContactFormState = {
   locations:string
 
   mustHave:string
+
+  niceToHave:string
+
+  spouseName:string
+
+  coBuyer:string
+
+  referralSource:string
 
   notes:string
 
@@ -110,10 +130,7 @@ export function ContactFormFields({
 }:Props){
 
 
-  const isBuyerRelated =
-    form.relationshipTypes.includes("buyer")
-    ||
-    form.relationshipTypes.includes("investor")
+  const showRequirements = true
 
 
 
@@ -301,7 +318,7 @@ export function ContactFormFields({
 
 
       {
-        isBuyerRelated && (
+        showRequirements && (
 
           <>
 
@@ -347,6 +364,40 @@ export function ContactFormFields({
               />
 
             </div>
+
+            <select
+
+className="w-full rounded-lg border p-3"
+
+value={form.intent}
+
+onChange={
+  e =>
+    update(
+      "intent",
+      e.target.value
+    )
+}
+
+>
+
+<option value="">
+Intent
+</option>
+
+<option value="sale">
+Buy / Purchase
+</option>
+
+<option value="rental">
+Rent
+</option>
+
+<option value="both">
+Buy + Rent
+</option>
+
+</select>
 
 
 
@@ -577,7 +628,134 @@ export function ContactFormFields({
 
 
 
+<input
+  placeholder="Bathrooms"
+  className="w-full rounded-lg border p-3"
+  value={form.bathrooms}
+  onChange={
+    e =>
+      update(
+        "bathrooms",
+        e.target.value
+      )
+  }
+/>
 
+
+<input
+  placeholder="Resident (India / NRI etc.)"
+  className="w-full rounded-lg border p-3"
+  value={form.resident}
+  onChange={
+    e =>
+      update(
+        "resident",
+        e.target.value
+      )
+  }
+/>
+
+
+<div className="grid gap-4 md:grid-cols-3">
+
+  <input
+    placeholder="Min Area"
+    className="rounded-lg border p-3"
+    value={form.minArea}
+    onChange={
+      e =>
+        update(
+          "minArea",
+          e.target.value
+        )
+    }
+  />
+
+
+  <input
+    placeholder="Max Area"
+    className="rounded-lg border p-3"
+    value={form.maxArea}
+    onChange={
+      e =>
+        update(
+          "maxArea",
+          e.target.value
+        )
+    }
+  />
+
+
+  <input
+    placeholder="Plot Size"
+    className="rounded-lg border p-3"
+    value={form.plotSize}
+    onChange={
+      e =>
+        update(
+          "plotSize",
+          e.target.value
+        )
+    }
+  />
+
+</div>
+
+
+<input
+  placeholder="Nice to have"
+  className="w-full rounded-lg border p-3"
+  value={form.niceToHave}
+  onChange={
+    e =>
+      update(
+        "niceToHave",
+        e.target.value
+      )
+  }
+/>
+
+
+<input
+  placeholder="Spouse Name"
+  className="w-full rounded-lg border p-3"
+  value={form.spouseName}
+  onChange={
+    e =>
+      update(
+        "spouseName",
+        e.target.value
+      )
+  }
+/>
+
+
+<input
+  placeholder="Co Buyer"
+  className="w-full rounded-lg border p-3"
+  value={form.coBuyer}
+  onChange={
+    e =>
+      update(
+        "coBuyer",
+        e.target.value
+      )
+  }
+/>
+
+
+<input
+  placeholder="Referral Source"
+  className="w-full rounded-lg border p-3"
+  value={form.referralSource}
+  onChange={
+    e =>
+      update(
+        "referralSource",
+        e.target.value
+      )
+  }
+/>
 
       <input
 

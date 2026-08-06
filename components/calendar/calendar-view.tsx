@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  useEffect,
   useState,
 } from "react"
 
@@ -8,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CalendarDays,
+  ListFilter,
 } from "lucide-react"
 
 import {
@@ -18,11 +20,20 @@ import type {
   CalendarItem,
 } from "@/types/calendar"
 
+import Link from "next/link"
+
 
 
 type Props = {
   items: CalendarItem[]
 }
+
+
+type FilterType =
+  | "all"
+  | "activity"
+  | "site_visit"
+  | "task"
 
 
 
@@ -48,6 +59,31 @@ function formatDateKey(
 
 
 
+function getIndiaDate(
+  date:string | Date
+){
+
+  const value =
+    new Date(date)
+
+
+  return new Date(
+    value.toLocaleString(
+      "en-US",
+      {
+        timeZone:"Asia/Kolkata",
+      }
+    )
+  )
+
+}
+
+
+
+
+
+
+
 export function CalendarView({
   items,
 }: Props){
@@ -57,14 +93,77 @@ export function CalendarView({
     currentMonth,
     setCurrentMonth,
   ] =
-  useState(
-    new Date()
+  useState<Date | null>(null)
+
+
+
+  const [
+    filter,
+    setFilter,
+  ] =
+  useState<FilterType>(
+    "all"
   )
 
 
 
+
+
+  useEffect(()=>{
+
+    setCurrentMonth(
+      getIndiaDate(
+        new Date()
+      )
+    )
+
+  },[])
+
+
+
+
+
+  if(!currentMonth){
+
+    return null
+
+  }
+
+
+
+
+
   const today =
-    new Date()
+    getIndiaDate(
+      new Date()
+    )
+
+
+
+
+
+  const filteredItems =
+    items.filter(
+      item => {
+
+        if(
+          filter === "all"
+        ){
+
+          return true
+
+        }
+
+
+        return (
+          item.type === filter
+        )
+
+      }
+    )
+
+
+
 
 
 
@@ -74,6 +173,9 @@ export function CalendarView({
 
   const month =
     currentMonth.getMonth()
+
+
+
 
 
 
@@ -90,8 +192,10 @@ export function CalendarView({
 
 
 
+
+
   const grouped =
-    items
+    filteredItems
       .filter(
         item =>
           item.type === "task" ||
@@ -107,7 +211,7 @@ export function CalendarView({
 
 
           const eventDate =
-            new Date(
+            getIndiaDate(
               item.date
             )
 
@@ -132,7 +236,6 @@ export function CalendarView({
 
           return acc
 
-
         },
 
         {} as Record<string, CalendarItem[]>
@@ -146,10 +249,12 @@ export function CalendarView({
 
 
   const upcoming =
-    items
+    filteredItems
       .filter(
         item =>
-          new Date(item.date) >= today
+          getIndiaDate(
+            item.date
+          ) >= today
       )
       .slice(
         0,
@@ -213,21 +318,108 @@ export function CalendarView({
 
 
 
+
   return (
 
     <div className="space-y-8">
 
 
 
+      <div className="
+        flex
+        flex-wrap
+        items-center
+        gap-2
+      ">
 
 
-      {/* MOBILE UPCOMING VIEW */}
+        <div className="
+          flex
+          items-center
+          gap-2
+          text-sm
+          text-muted-foreground
+          mr-2
+        ">
+
+          <ListFilter className="h-4 w-4"/>
+
+          Filter
+
+        </div>
+
+
+
+        {
+          [
+            {
+              key:"all",
+              label:"All",
+            },
+            {
+              key:"activity",
+              label:"Meetings",
+            },
+            {
+              key:"site_visit",
+              label:"Site Visits",
+            },
+            {
+              key:"task",
+              label:"Tasks",
+            },
+          ]
+          .map(
+            option => (
+
+              <button
+
+                key={
+                  option.key
+                }
+
+                onClick={() =>
+                  setFilter(
+                    option.key as FilterType
+                  )
+                }
+
+                className={`
+                  rounded-full
+                  border
+                  px-4
+                  py-2
+                  text-sm
+                  transition
+                  ${
+                    filter === option.key
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted"
+                  }
+                `}
+
+              >
+
+                {option.label}
+
+              </button>
+
+            )
+          )
+
+        }
+
+
+      </div>
+
+
+
+
 
       <div className="
         space-y-4
         md:hidden
       ">
-
 
         <div className="
           flex
@@ -241,9 +433,7 @@ export function CalendarView({
             text-lg
             font-semibold
           ">
-
             Upcoming
-
           </h2>
 
         </div>
@@ -274,12 +464,8 @@ export function CalendarView({
                   item => (
 
                     <CalendarEvent
-                      key={
-                        item.id
-                      }
-                      item={
-                        item
-                      }
+                      key={item.id}
+                      item={item}
                       mobile
                     />
 
@@ -294,7 +480,6 @@ export function CalendarView({
 
         }
 
-
       </div>
 
 
@@ -302,17 +487,11 @@ export function CalendarView({
 
 
 
-
-
-
-      {/* DESKTOP MONTH VIEW */}
-
       <div className="
         hidden
         space-y-6
         md:block
       ">
-
 
 
         <div className="
@@ -463,7 +642,6 @@ export function CalendarView({
 
 
 
-
                 const date =
                   new Date(
                     year,
@@ -484,17 +662,17 @@ export function CalendarView({
 
                   <div
 
-                    key={index}
+  key={index}
 
-                    className="
-                      min-h-32
-                      rounded-xl
-                      border
-                      p-2
-                      space-y-2
-                    "
+  className="
+    min-h-32
+    rounded-xl
+    border
+    p-2
+    space-y-2
+  "
 
-                  >
+>
 
                     <div className="
                       text-sm
@@ -512,12 +690,8 @@ export function CalendarView({
                         item => (
 
                           <CalendarEvent
-                            key={
-                              item.id
-                            }
-                            item={
-                              item
-                            }
+                            key={item.id}
+                            item={item}
                           />
 
                         )

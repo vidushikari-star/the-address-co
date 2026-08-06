@@ -90,14 +90,18 @@ export default function EditContactPage() {
     leadSource:
       "referral",
 
+    intent:
+  "" as "sale" | "rental" | "both" | "",
+
     budgetMin:"",
 
     budgetMax:"",
 
-    propertyType:
-      "villa",
+    propertyType:"",
 
     bedrooms:"",
+
+    bathrooms:"",
 
     purpose:"",
 
@@ -109,9 +113,27 @@ export default function EditContactPage() {
 
     mustHave:"",
 
+    niceToHave:"",
+
+    resident:"",
+
+    minArea:"",
+
+    maxArea:"",
+
+    plotSize:"",
+
+    spouseName:"",
+
+    coBuyer:"",
+
+    referralSource:"",
+
     notes:"",
 
   })
+
+
 
 
 
@@ -165,6 +187,10 @@ export default function EditContactPage() {
           data.leadSource ?? "referral",
 
 
+        intent:
+          data.intent ?? "",
+
+
         budgetMin:
           data.budgetMin
             ? String(data.budgetMin)
@@ -178,7 +204,7 @@ export default function EditContactPage() {
 
 
         propertyType:
-          data.propertyType ?? "villa",
+          data.propertyType ?? "",
 
 
         bedrooms:
@@ -187,8 +213,14 @@ export default function EditContactPage() {
             : "",
 
 
+        bathrooms:
+          data.bathrooms
+            ? String(data.bathrooms)
+            : "",
+
+
         purpose:
-  data.purpose ?? "",
+          data.purpose ?? "",
 
 
         financing:
@@ -207,11 +239,48 @@ export default function EditContactPage() {
           data.mustHave?.join(", ") ?? "",
 
 
+        niceToHave:
+          data.niceToHave?.join(", ") ?? "",
+
+
+        resident:
+          data.resident ?? "",
+
+
+        minArea:
+          data.minArea
+            ? String(data.minArea)
+            : "",
+
+
+        maxArea:
+          data.maxArea
+            ? String(data.maxArea)
+            : "",
+
+
+        plotSize:
+          data.plotSize
+            ? String(data.plotSize)
+            : "",
+
+
+        spouseName:
+          data.spouseName ?? "",
+
+
+        coBuyer:
+          data.coBuyer ?? "",
+
+
+        referralSource:
+          data.referralSource ?? "",
+
+
         notes:
-  "",
+          "",
 
       })
-
 
 
       setLoading(false)
@@ -222,7 +291,10 @@ export default function EditContactPage() {
     loadContact()
 
 
-  },[id])
+  },[
+    id
+  ])
+
 
 
 
@@ -292,61 +364,99 @@ export default function EditContactPage() {
 
 
 
-    async function save() {
+  async function save(){
+
 
     setSaving(true)
 
-    try {
+
+    try{
+
 
       await ContactsRepository.update(
-        id,
-        {
+  id,
+  {
 
-          fullName:
-            form.fullName,
 
-          phone:
-            form.phone,
+    fullName:
+      form.fullName,
 
-          email:
-            form.email,
 
-          whatsapp:
-            form.whatsapp,
+    phone:
+      form.phone,
 
-          city:
-            form.city,
 
-          country:
-            form.country,
+    email:
+      form.email,
 
-          leadSource:
-            form.leadSource,
 
-          budgetMin:
-            form.budgetMin
-              ? Number(form.budgetMin)
-              : undefined,
+    whatsapp:
+      form.whatsapp,
 
-          budgetMax:
-            form.budgetMax
-              ? Number(form.budgetMax)
-              : undefined,
+
+    city:
+      form.city,
+
+
+    country:
+      form.country,
+
+
+    relationshipTypes:
+      form.relationshipTypes,
+
+
+    leadSource:
+      form.leadSource,
+
+
+    intent:
+      form.intent === "sale"
+      ||
+      form.intent === "rental"
+      ||
+      form.intent === "both"
+        ? form.intent
+        : undefined,
+
+
+    budgetMin:
+      form.budgetMin
+        ? Number(form.budgetMin)
+        : undefined,
+
+
+    budgetMax:
+      form.budgetMax
+        ? Number(form.budgetMax)
+        : undefined,
+
 
           propertyType:
-            form.propertyType,
+            form.propertyType || undefined,
+
 
           bedrooms:
-  form.bedrooms || undefined,
+            form.bedrooms || undefined,
+
+
+          bathrooms:
+            form.bathrooms
+              ? Number(form.bathrooms)
+              : undefined,
+
 
           purpose:
-  form.purpose || undefined,
+            form.purpose || undefined,
+
 
           financing:
-  form.financing || undefined,
+            form.financing || undefined,
+
 
           timeline:
-            form.timeline,
+            form.timeline || undefined,
+
 
           locations:
             form.locations
@@ -356,6 +466,7 @@ export default function EditContactPage() {
               )
               .filter(Boolean),
 
+
           mustHave:
             form.mustHave
               .split(",")
@@ -364,8 +475,54 @@ export default function EditContactPage() {
               )
               .filter(Boolean),
 
+
+          niceToHave:
+            form.niceToHave
+              .split(",")
+              .map(
+                item => item.trim()
+              )
+              .filter(Boolean),
+
+
+          resident:
+            form.resident || undefined,
+
+
+          minArea:
+            form.minArea
+              ? Number(form.minArea)
+              : undefined,
+
+
+          maxArea:
+            form.maxArea
+              ? Number(form.maxArea)
+              : undefined,
+
+
+          plotSize:
+            form.plotSize
+              ? Number(form.plotSize)
+              : undefined,
+
+
+          spouseName:
+            form.spouseName || undefined,
+
+
+          coBuyer:
+            form.coBuyer || undefined,
+
+
+          referralSource:
+            form.referralSource || undefined,
+
+
         }
       )
+
+
 
 
       if(
@@ -382,6 +539,8 @@ export default function EditContactPage() {
         })
 
       }
+
+
 
 
       router.push(
@@ -411,15 +570,6 @@ export default function EditContactPage() {
 
   }
 
-if (loading) {
-
-  return (
-    <div className="p-8">
-      Loading...
-    </div>
-  )
-
-}
 
 
 
@@ -447,24 +597,34 @@ if (loading) {
 
 
 
+
   return (
 
-    <div className="mx-auto max-w-4xl space-y-8 p-8">
+    <div className="
+      mx-auto
+      max-w-4xl
+      space-y-8
+      p-8
+    ">
 
 
       <div>
 
-
-        <h1 className="text-3xl font-bold">
+        <h1 className="
+          text-3xl
+          font-bold
+        ">
 
           Edit Contact
 
         </h1>
 
 
-        <p className="text-muted-foreground">
+        <p className="
+          text-muted-foreground
+        ">
 
-          Update buyer information and requirements.
+          Update contact information and requirements.
 
         </p>
 
@@ -476,14 +636,24 @@ if (loading) {
 
 
 
-      <div className="rounded-2xl border bg-card p-8 space-y-5">
+      <div className="
+        rounded-2xl
+        border
+        bg-card
+        p-8
+        space-y-5
+      ">
 
 
         <ContactFormFields
 
-          form={form}
+          form={
+            form
+          }
 
-          update={update}
+          update={
+            update
+          }
 
           toggleRelationship={
             toggleRelationship
@@ -496,9 +666,13 @@ if (loading) {
 
         <Button
 
-          onClick={save}
+          onClick={
+            save
+          }
 
-          disabled={saving}
+          disabled={
+            saving
+          }
 
         >
 

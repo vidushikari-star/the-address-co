@@ -4,7 +4,8 @@ export interface ContactRow {
   advisor_id: string | null
 
   created_at: string
-  updated_at: string
+updated_at: string
+last_activity_at: string | null
 
   first_name: string
   last_name: string | null
@@ -21,6 +22,8 @@ export interface ContactRow {
 
   lead_source: string | null
 
+  intent: string | null
+
   housing_lead_id: string | null
 
   relationship_types: string[] | null
@@ -33,6 +36,8 @@ export interface ContactRow {
 
   budget_min: number | null
   budget_max: number | null
+
+  
 
   currency: string | null
 

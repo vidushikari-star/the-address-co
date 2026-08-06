@@ -127,7 +127,7 @@ export function PipelineCard({
   value={formatCurrency(
     summary.commissionPotential
   )}
-  subtitle="From active deals"
+  subtitle="Pending commission"
 />
 
 

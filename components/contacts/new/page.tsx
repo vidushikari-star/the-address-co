@@ -72,6 +72,9 @@ export default function NewRelationshipPage() {
 
     leadSource:"referral",
 
+    intent:
+  "" as "sale" | "rental" | "both" | "",
+
 
     budgetMin:"",
 
@@ -83,10 +86,22 @@ export default function NewRelationshipPage() {
 
     bedrooms:"",
 
+    bathrooms:"",
+
+
+    resident:"",
+
+
+    minArea:"",
+
+    maxArea:"",
+
+    plotSize:"",
+
 
     purpose:"",
 
-financing:"",
+    financing:"",
 
 
     timeline:"",
@@ -96,6 +111,15 @@ financing:"",
 
 
     mustHave:"",
+
+    niceToHave:"",
+
+
+    spouseName:"",
+
+    coBuyer:"",
+
+    referralSource:"",
 
 
     notes:"",
@@ -171,21 +195,6 @@ financing:"",
 
 
 
-  const isBuyerRelated =
-
-    form.relationshipTypes.includes("buyer")
-
-    ||
-
-    form.relationshipTypes.includes("investor")
-
-
-
-
-
-
-
-
 
   async function handleSubmit(
     event:React.FormEvent
@@ -239,6 +248,16 @@ financing:"",
             form.leadSource,
 
 
+          intent:
+  form.intent === "sale"
+  ||
+  form.intent === "rental"
+  ||
+  form.intent === "both"
+    ? form.intent
+    : undefined,
+
+
 
           budgetMin:
             form.budgetMin
@@ -255,27 +274,60 @@ financing:"",
 
 
           propertyType:
-  form.propertyType || undefined,
+            form.propertyType || undefined,
 
 
 
           bedrooms:
-  form.bedrooms || undefined,
+            form.bedrooms || undefined,
+
+
+
+          bathrooms:
+            form.bathrooms
+              ? Number(form.bathrooms)
+              : undefined,
+
+
+
+          resident:
+            form.resident || undefined,
+
+
+
+          minArea:
+            form.minArea
+              ? Number(form.minArea)
+              : undefined,
+
+
+
+          maxArea:
+            form.maxArea
+              ? Number(form.maxArea)
+              : undefined,
+
+
+
+          plotSize:
+            form.plotSize
+              ? Number(form.plotSize)
+              : undefined,
 
 
 
           purpose:
-  form.purpose || undefined,
+            form.purpose || undefined,
 
 
 
           financing:
-  form.financing || undefined,
+            form.financing || undefined,
 
 
 
           timeline:
-            form.timeline,
+            form.timeline || undefined,
 
 
 
@@ -298,6 +350,32 @@ financing:"",
                   item.trim()
               )
               .filter(Boolean),
+
+
+
+          niceToHave:
+            form.niceToHave
+              .split(",")
+              .map(
+                item =>
+                  item.trim()
+              )
+              .filter(Boolean),
+
+
+
+          spouseName:
+            form.spouseName || undefined,
+
+
+
+          coBuyer:
+            form.coBuyer || undefined,
+
+
+
+          referralSource:
+            form.referralSource || undefined,
 
 
 
@@ -350,16 +428,33 @@ financing:"",
 
   return (
 
-    <div className="mx-auto max-w-4xl space-y-8 p-8">
+    <div className="
+      mx-auto
+      max-w-4xl
+      space-y-8
+      p-8
+    ">
 
 
 
-      <div className="flex items-center gap-3">
+      <div className="
+        flex
+        items-center
+        gap-3
+      ">
 
 
-        <div className="rounded-xl bg-primary/10 p-3">
+        <div className="
+          rounded-xl
+          bg-primary/10
+          p-3
+        ">
 
-          <UserPlus className="h-6 w-6 text-primary" />
+          <UserPlus className="
+            h-6
+            w-6
+            text-primary
+          " />
 
         </div>
 
@@ -367,7 +462,10 @@ financing:"",
 
         <div>
 
-          <h1 className="text-3xl font-bold">
+          <h1 className="
+            text-3xl
+            font-bold
+          ">
 
             New Relationship
 
@@ -375,7 +473,9 @@ financing:"",
 
 
 
-          <p className="text-muted-foreground">
+          <p className="
+            text-muted-foreground
+          ">
 
             Add a buyer, seller, investor or business contact.
 
@@ -396,48 +496,60 @@ financing:"",
 
       <form
 
-  onSubmit={handleSubmit}
+        onSubmit={handleSubmit}
 
-  className="rounded-2xl border bg-card p-8 space-y-6"
+        className="
+          rounded-2xl
+          border
+          bg-card
+          p-8
+          space-y-6
+        "
 
->
-
-
-  <ContactFormFields
-
-    form={form}
-
-    update={update}
-
-    toggleRelationship={
-      toggleRelationship
-    }
-
-  />
+      >
 
 
+        <ContactFormFields
 
-  <button
+          form={form}
 
-    disabled={
-      loading
-    }
+          update={update}
 
-    className="rounded-xl bg-primary px-6 py-3 text-primary-foreground"
+          toggleRelationship={
+            toggleRelationship
+          }
 
-  >
-
-    {
-      loading
-        ? "Saving..."
-        : "Create Relationship"
-    }
+        />
 
 
-  </button>
+
+        <button
+
+          disabled={
+            loading
+          }
+
+          className="
+            rounded-xl
+            bg-primary
+            px-6
+            py-3
+            text-primary-foreground
+          "
+
+        >
+
+          {
+            loading
+              ? "Saving..."
+              : "Create Relationship"
+          }
 
 
-</form>
+        </button>
+
+
+      </form>
 
 
     </div>

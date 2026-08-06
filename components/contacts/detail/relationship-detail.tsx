@@ -13,6 +13,10 @@ import {
 } from "./relationship-snapshot"
 
 import {
+  LeadIntentCard,
+} from "./lead-intent-card"
+
+import {
   RelationshipTimeline,
 } from "./relationship-timeline"
 
@@ -37,9 +41,11 @@ import {
 } from "./next-follow-up-card"
 
 
+
 type RelationshipDetailProps = {
   contact: Contact
 }
+
 
 
 export function RelationshipDetail({
@@ -89,6 +95,11 @@ export function RelationshipDetail({
             contact={contact}
           />
 
+
+          <LeadIntentCard
+            contact={contact}
+          />
+
         </aside>
 
 
@@ -106,9 +117,10 @@ export function RelationshipDetail({
         >
 
           <NextFollowUpCard
-  contact={contact}
-/>
-          
+            contact={contact}
+          />
+
+
           <RelationshipDeals
             contact={contact}
           />

@@ -23,6 +23,31 @@ import type {
 
 
 
+function formatIndiaTime(
+  value:string
+){
+
+  return new Date(
+    value
+  )
+  .toLocaleTimeString(
+    "en-IN",
+    {
+      timeZone:"Asia/Kolkata",
+      hour:"2-digit",
+      minute:"2-digit",
+      hour12:true,
+    }
+  )
+
+}
+
+
+
+
+
+
+
 export async function getCalendarItems(): Promise<CalendarItem[]> {
 
 
@@ -167,69 +192,74 @@ export async function getCalendarItems(): Promise<CalendarItem[]> {
 
 
 
-  const eventItems: CalendarItem[] = calendarEvents.map(
-  (event) => {
+  const eventItems: CalendarItem[] =
 
-    return {
+    calendarEvents.map(
+      event => ({
 
-      id:
-        `event-${event.id}`,
+        id:
+          `event-${event.id}`,
 
-      title:
-        event.title,
-
-      date:
-        event.start_time,
-
-      time:
-        new Date(
-          event.start_time
-        ).toLocaleTimeString(
-          "en-IN",
-          {
-            hour:"2-digit",
-            minute:"2-digit",
-          }
-        ),
+        title:
+          event.title,
 
 
-      type:
-        "activity",
+        date:
+          event.start_time,
 
 
-      status:
-        event.status,
+        time:
+          formatIndiaTime(
+            event.start_time
+          ),
 
 
-      contactId:
-        event.contact_id ?? undefined,
+        type:
+          "activity",
 
 
-      propertyId:
-        event.property_id ?? undefined,
+        status:
+          event.status,
 
 
-      dealId:
-        event.deal_id ?? undefined,
+        contactId:
+          event.contact_id ?? undefined,
 
 
-      assignedTo:
-        event.assigned_to ?? undefined,
+        propertyId:
+          event.property_id ?? undefined,
 
 
-      url:
-        "/calendar",
-
-    }
-
-  }
-)
+        dealId:
+          event.deal_id ?? undefined,
 
 
-console.log(
-  "EVENT ITEMS CREATED:",
-  eventItems
-)
+        contactName:
+          event.contact_name ?? undefined,
+
+
+        propertyName:
+          event.property_name ?? undefined,
+
+
+        dealName:
+          event.deal_name ?? undefined,
+
+
+        assignedTo:
+          event.assigned_to ?? undefined,
+
+
+        url:
+          `/calendar/${event.id}`,
+
+      })
+
+    )
+
+
+
+
 
 
 
@@ -243,13 +273,21 @@ console.log(
 
     ...siteVisitItems,
 
-  ].sort(
+  ]
+
+  .sort(
 
     (a,b) =>
 
-      new Date(a.date).getTime()
+      new Date(
+        a.date
+      ).getTime()
+
       -
-      new Date(b.date).getTime()
+
+      new Date(
+        b.date
+      ).getTime()
 
   )
 
@@ -272,13 +310,30 @@ async function getSharedCalendarEvents(){
 
 
 
+
+
   const {
     data,
     error,
   } =
     await supabase
       .from("calendar_events")
-      .select("*")
+      .select(`
+        *,
+        
+        contacts:contact_id(
+          full_name
+        ),
+
+        properties:property_id(
+          name
+        ),
+
+        deals:deal_id(
+          name
+        )
+
+      `)
       .order(
         "start_time",
         {
@@ -299,13 +354,40 @@ async function getSharedCalendarEvents(){
 
   }
 
-  console.log(
-  "RAW CALENDAR EVENTS:",
-  data
-)
 
 
 
-  return data ?? []
+
+  return (
+
+    data ?? []
+
+  )
+
+  .map(
+    event => ({
+
+      ...event,
+
+      contact_name:
+        event.contacts?.full_name
+        ??
+        null,
+
+
+      property_name:
+        event.properties?.name
+        ??
+        null,
+
+
+      deal_name:
+        event.deals?.name
+        ??
+        null,
+
+    })
+
+  )
 
 }

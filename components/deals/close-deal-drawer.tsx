@@ -239,34 +239,36 @@ export function CloseDealDrawer({
 
 
       commissionPercentage:
-        String(
-          deal.value?.commissionPercentage ??
-          (
-            property.transactionType === "Rental"
-              ? 0
-              : 2
-          )
-        ),
+  String(
+    deal.value?.commissionPercentage ??
+    (
+      property.transactionType === "Rental"
+        ? 0
+        : property.price?.commission ?? 2
+    )
+  ),
 
 
-      commissionAmount:
-        String(
-          deal.value?.commissionAmount ??
-          (
-            property.transactionType === "Rental"
-              ? property.price?.rent ?? 0
-              :
-              (
-                Number(
-                  current.closingPrice || 0
-                )
-                *
-                2
-                /
-                100
-              )
+commissionAmount:
+  String(
+    deal.value?.commissionAmount ??
+    (
+      property.transactionType === "Rental"
+        ? property.price?.rent ?? 0
+        :
+        (
+          Number(
+            current.closingPrice || 0
           )
-        ),
+          *
+          (
+            property.price?.commission ?? 2
+          )
+          /
+          100
+        )
+    )
+  ),
 
     })
   )
@@ -359,12 +361,13 @@ export function CloseDealDrawer({
 
     try {
 
-
+const finalCommission =
+          calculateCommission()
+          
       if(type === "won"){
 
 
-        const finalCommission =
-          calculateCommission()
+        
 
 
 
@@ -424,84 +427,7 @@ export function CloseDealDrawer({
 
 
 
-        const commission =
-
-          await createCommission({
-
-            dealId:
-              deal.id,
-
-
-
-            contactId:
-              deal.contactId,
-
-
-
-            propertyId:
-              deal.propertyId,
-
-
-
-            advisorId:
-              deal.advisorId,
-
-
-
-            type:
-              form.commissionType as
-                | "sale"
-                | "rental",
-
-
-
-            commissionBasis:
-              form.commissionBasis as
-                | "fixed"
-                | "percentage",
-
-
-
-            commissionPercentage:
-              form.commissionBasis === "percentage"
-                ?
-                  Number(
-                    form.commissionPercentage || 0
-                  )
-                :
-                  undefined,
-
-
-
-            amount:
-              finalCommission,
-
-
-
-            status:
-              "pending",
-
-
-
-            dueDate:
-              new Date(
-                Date.now()
-                +
-                30 *
-                24 *
-                60 *
-                60 *
-                1000
-              )
-              .toISOString()
-              .split("T")[0],
-
-
-
-            notes:
-              "Created from Closed Won deal",
-
-          })
+        
 
 await createActivity({
 
@@ -601,24 +527,96 @@ Commission:
 
 
 
+onOpenChange(false)
 
-        onOpenChange(false)
+router.push(
+  `/deals/${deal.id}`
+)
 
-
-
-        router.push(
-          `/commissions/${commission.id}`
-        )
-
-
-
-        router.refresh()
+router.refresh()
 
 
 
       } else {
 
+const commission =
 
+          await createCommission({
+
+            dealId:
+              deal.id,
+
+
+
+            contactId:
+              deal.contactId,
+
+
+
+            propertyId:
+              deal.propertyId,
+
+
+
+            advisorId:
+              deal.advisorId,
+
+
+
+            type:
+              form.commissionType as
+                | "sale"
+                | "rental",
+
+
+
+            commissionBasis:
+              form.commissionBasis as
+                | "fixed"
+                | "percentage",
+
+
+
+            commissionPercentage:
+              form.commissionBasis === "percentage"
+                ?
+                  Number(
+                    form.commissionPercentage || 0
+                  )
+                :
+                  undefined,
+
+
+
+            amount:
+              finalCommission,
+
+
+
+            status:
+              "pending",
+
+
+
+            dueDate:
+              new Date(
+                Date.now()
+                +
+                30 *
+                24 *
+                60 *
+                60 *
+                1000
+              )
+              .toISOString()
+              .split("T")[0],
+
+
+
+            notes:
+              "Created from Closed Won deal",
+
+          })
 
         await updateDeal(
 

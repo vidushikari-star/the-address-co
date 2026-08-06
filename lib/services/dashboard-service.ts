@@ -16,6 +16,10 @@ import {
   formatCurrency,
 } from "@/lib/utils/format-currency"
 
+import {
+  getLeadPriority,
+} from "@/lib/utils/lead-score"
+
 export async function getDashboardStats() {
 
   const [
@@ -73,19 +77,32 @@ export async function getDashboardStats() {
 
 
 
+const activeSaleProperties =
+  properties.filter(
+    property =>
+      property.transactionType === "Sale"
+      &&
+      [
+        "available",
+        "viewed",
+        "shortlisted",
+        "offer",
+      ].includes(
+        property.status
+      )
+  )
 
 
-  const portfolioValue =
-    properties.reduce(
-      (sum, property) =>
-        sum +
-        (
-          property.transactionType === "Sale"
-            ? property.price.asking ?? 0
-            : 0
-        ),
-      0
-    )
+
+const portfolioValue =
+  activeSaleProperties.reduce(
+    (sum, property) =>
+      sum +
+      (
+        property.price.asking ?? 0
+      ),
+    0
+  )
 
 
 
@@ -94,13 +111,25 @@ export async function getDashboardStats() {
   return {
 
     contactsCount:
-      contacts.length,
+  contacts.length,
+
+
+activeContactsCount:
+  contacts.filter(
+    contact =>
+      ![
+        "lost",
+        "inactive",
+      ].includes(
+        contact.stage
+      )
+  ).length,
 
     openDealsCount:
       openDeals.length,
 
     propertiesCount:
-      properties.length,
+  activeSaleProperties.length,
 
     portfolioValue,
 
@@ -168,95 +197,109 @@ export async function getRecentActivities() {
 
   ).map(
 
-    activity => {
+  activity => {
 
 
-      let type:
-        | "client"
-        | "property"
-        | "document"
-        | "commission"
-
-
-
-
-
-      switch(activity.type){
-
-
-        case "deal_closed":
-
-          type =
-            "commission"
-
-          break
+    let type:
+      | "client"
+      | "property"
+      | "document"
+      | "commission"
 
 
 
-        case "property_shared":
-
-        case "property_viewed":
-
-          type =
-            "property"
-
-          break
+    switch(activity.type){
 
 
+      case "contact_created":
+      case "lead_stage_changed":
 
-        case "contact_created":
+        type = "client"
 
-          type =
-            "client"
-
-          break
+        break
 
 
 
-        default:
+      case "property_shared":
+      case "property_viewed":
+      case "site_visit":
 
-          type =
-            "document"
+        type = "property"
 
-      }
-
-
-
+        break
 
 
-      return {
 
-        time:
+      case "deal_closed":
+      case "commission":
+      case "commission_received":
 
-          new Date(
-            activity.created_at
-          ).toLocaleTimeString(
-            [],
-            {
-              hour:"2-digit",
-              minute:"2-digit",
-            }
-          ),
+        type = "commission"
+
+        break
 
 
-        title:
-          activity.title ?? "",
+
+      default:
+
+        type = "document"
+
+    }
 
 
-        description:
-          activity.description ??
-          activity.body ??
-          "",
+
+    return {
+
+      id:
+        activity.id,
 
 
-        type,
+      time:
 
-      }
+        new Date(
+          activity.created_at
+        ).toLocaleTimeString(
+          "en-IN",
+          {
+            hour:"2-digit",
+            minute:"2-digit",
+          }
+        ),
+
+
+      title:
+        activity.title,
+
+
+      description:
+        activity.description
+        ??
+        activity.body
+        ??
+        "",
+
+
+      type,
+
+
+      contactId:
+        activity.contact_id,
+
+
+      dealId:
+        activity.deal_id,
+
+
+      propertyId:
+        activity.property_id,
 
 
     }
 
-  )
+
+  }
+
+)
 
 
 }
@@ -272,7 +315,7 @@ export async function getRecentActivities() {
 export async function getUpcomingTasks(){
 
   const supabase =
-  await createServerSupabaseClient()
+    await createServerSupabaseClient()
 
 
 
@@ -293,9 +336,7 @@ export async function getUpcomingTasks(){
           ascending:true,
         }
       )
-      .limit(5)
-
-
+      .limit(10)
 
 
 
@@ -307,13 +348,47 @@ export async function getUpcomingTasks(){
 
 
 
+  const now =
+    new Date()
+
 
 
   return (
 
     data ?? []
 
-  ).map(
+  )
+
+  .sort(
+    (a,b)=>{
+
+      const aDate =
+        a.due_date
+          ? new Date(
+              a.due_date
+            ).getTime()
+          : Infinity
+
+
+      const bDate =
+        b.due_date
+          ? new Date(
+              b.due_date
+            ).getTime()
+          : Infinity
+
+
+      return aDate - bDate
+
+    }
+  )
+
+  .slice(
+    0,
+    5
+  )
+
+  .map(
 
     task => {
 
@@ -331,11 +406,8 @@ export async function getUpcomingTasks(){
 
 
 
-
       const lowerTitle =
         title.toLowerCase()
-
-
 
 
 
@@ -347,7 +419,6 @@ export async function getUpcomingTasks(){
 
         type =
           "call"
-
 
       }
 
@@ -368,33 +439,68 @@ export async function getUpcomingTasks(){
 
       return {
 
-  time:
+        id:
+          task.id,
 
-    task.due_date
-      ? new Date(
+
+        time:
+
           task.due_date
-        ).toLocaleTimeString(
-          [],
-          {
-            hour:"2-digit",
-            minute:"2-digit",
-          }
-        )
-      : "—",
 
-  title,
+            ? new Date(
+                task.due_date
+              ).toLocaleTimeString(
+                [],
+                {
+                  hour:"2-digit",
+                  minute:"2-digit",
+                }
+              )
 
-  description:
-    task.description ??
-    task.assigned_to ??
-    "",
+            : "—",
 
-  type,
 
-  contactId:
-    task.contact_id,
 
-}
+        title,
+
+
+
+        description:
+          task.description
+          ??
+          task.assigned_to
+          ??
+          "",
+
+
+
+        type,
+
+
+
+        contactId:
+          task.contact_id,
+
+
+
+        dealId:
+          task.deal_id,
+
+
+        propertyId:
+          task.property_id,
+
+
+        isOverdue:
+          task.due_date
+            ? new Date(
+                task.due_date
+              ) < now
+            : false,
+
+
+      }
+
 
     }
 
@@ -413,129 +519,87 @@ export async function getUpcomingTasks(){
 
 export async function getHotLeads(){
 
-
-  const [
-    deals,
-    properties,
-  ] =
-  await Promise.all([
-
-    getDeals(),
-
-    getProperties(),
-
-  ])
+  const contacts =
+    await ContactsRepository.getAll()
 
 
 
-
-
-  return (
-
-    deals
-
+  const hotLeads =
+    contacts
       .filter(
-        deal => {
-
-
-          const isActive =
-            deal.stage !== "closed_won"
-            &&
-            deal.stage !== "closed_lost"
-
-
-
-          const isHot =
-            deal.priority === "high"
-            ||
-            deal.stage === "negotiation"
-            ||
-            deal.stage === "documentation"
-            ||
-            deal.stage === "site_visit"
-
-
-
-          return (
-            isActive &&
-            isHot
-          )
-
-
-        }
+        contact =>
+          getLeadPriority(contact).priority === "hot"
       )
+      .sort(
+  (a,b) => {
 
+    const aFollowUp =
+      a.nextFollowUpAt
+        ? new Date(
+            a.nextFollowUpAt
+          ).getTime()
+        : Infinity
+
+
+    const bFollowUp =
+      b.nextFollowUpAt
+        ? new Date(
+            b.nextFollowUpAt
+          ).getTime()
+        : Infinity
+
+
+    return aFollowUp - bFollowUp
+
+  }
+)
       .slice(
         0,
         5
       )
 
-      .map(
-        deal => {
-
-
-          const property =
-            properties.find(
-              item =>
-                item.id === deal.propertyId
-            )
 
 
 
 
+  return hotLeads.map(
+    contact => ({
 
-          return {
-
-            id:
-              deal.id,
-
-
-            name:
-              deal.name,
+      id:
+        contact.id,
 
 
-            location:
-              property?.locality ??
-              property?.location ??
-              "-",
+      name:
+        contact.name,
 
 
-            stage:
-              deal.stage
-                .replace(
-                  "_",
-                  " "
-                )
-                .replace(
-                  /\b\w/g,
-                  char =>
-                    char.toUpperCase()
-                ),
+      budget:
+        formatCurrency(
+          contact.budgetMax ??
+          contact.budgetMin ??
+          0
+        ),
 
 
-            budget:
-  formatCurrency(
-    deal.value.propertyPrice
-  ),
+      location:
+        contact.locations?.join(", ")
+        ??
+        "-",
 
 
-            advisor:
-              deal.advisor ?? "-",
+      intent:
+        contact.intent,
 
 
-            contactId:
-              deal.contactId,
+      propertyType:
+        contact.propertyType,
 
 
-          }
+      timeline:
+        contact.timeline,
 
-
-        }
-
-      )
-
+    })
   )
-
 
 }
 
@@ -549,245 +613,100 @@ export async function getHotLeads(){
 
 export async function getNewLeads(){
 
-
-  const supabase =
-  await createServerSupabaseClient()
-
-
-
-
-  const {
-    data: activities,
-    error,
-  } =
-    await supabase
-      .from("activities")
-      .select(
-        `
-        id,
-        title,
-        description,
-        created_at,
-        contact_id,
-        property_id
-        `
-      )
-      .in(
-  "type",
-  [
-    "contact_created",
-    "site_visit",
-  ]
-)
-      .order(
-        "created_at",
-        {
-          ascending:false,
-        }
-      )
-      .limit(5)
-
-
-
-
-
-  if(error){
-
-    throw error
-
-  }
-
-
-
-
-
-  const contactIds =
-    activities
-      ?.map(
-        item => item.contact_id
-      )
-      .filter(Boolean) ?? []
-
-
-
-
-
-  const propertyIds =
-    activities
-      ?.map(
-        item => item.property_id
-      )
-      .filter(Boolean) ?? []
-
-
-
-
-
-
-
-  const [
-    contactsResult,
-    propertiesResult,
-  ] =
-  await Promise.all([
-
-
-    supabase
-      .from("contacts")
-      .select(
-        "id, full_name, phone, whatsapp"
-      )
-      .in(
-        "id",
-        contactIds
-      ),
-
-
-
-    supabase
-      .from("properties")
-      .select(
-        "id, name"
-      )
-      .in(
-        "id",
-        propertyIds
-      ),
-
-
-  ])
-
-
-
-
-
-
   const contacts =
-    contactsResult.data ?? []
-
-
-
-  const properties =
-    propertiesResult.data ?? []
-
-
-
-
+    await ContactsRepository.getAll()
 
 
 
   return (
 
-    activities ?? []
+    contacts
 
-  ).map(
+      .filter(
+        contact =>
+          contact.stage === "new"
+          ||
+          contact.stage === "contacted"
+      )
 
-    activity => {
+      .sort(
+        (a,b) =>
+          new Date(
+            b.createdAt ?? 0
+          ).getTime()
+          -
+          new Date(
+            a.createdAt ?? 0
+          ).getTime()
+      )
 
+      .slice(
+        0,
+        5
+      )
 
-      const contact =
-        contacts.find(
-          item =>
-            item.id === activity.contact_id
-        )
+      .map(
+        contact => ({
 
-
-
-      const property =
-        properties.find(
-          item =>
-            item.id === activity.property_id
-        )
-
-
-
-
-      return {
-
-        id:
-          activity.id,
-
-
-        name:
-          contact?.full_name ??
-          "Unknown",
+          id:
+            contact.id,
 
 
-        phone:
-          contact?.whatsapp ??
-          contact?.phone ??
-          "",
+          name:
+            contact.name,
 
 
-        property:
-          property?.name ??
-          "-",
+          property:
+            contact.propertyType
+            ??
+            "-",
 
 
-        description:
-          activity.description ??
-          "",
+          description:
+            contact.intent
+              ? `${contact.intent} enquiry`
+              : "New relationship created",
 
 
-        createdAt:
-          activity.created_at,
+
+          createdAt:
+            contact.createdAt
+            ??
+            new Date().toISOString(),
 
 
-        contactId:
-          activity.contact_id,
+
+          contactId:
+            contact.id,
 
 
-      }
+          phone:
+            contact.whatsapp
+            ??
+            contact.phone
+            ??
+            "",
 
 
-    }
+
+          intent:
+            contact.intent,
+
+        })
+
+      )
 
   )
 
-
 }
+
 export async function getMyWork(){
 
   const [
-    newLeadsResult,
-    followUpsResult,
     activeDealsResult,
+    upcomingVisitsResult,
   ] =
   await Promise.all([
-
-
-    supabase
-      .from("contacts")
-      .select(
-        "id",
-        {
-          count:"exact",
-          head:true,
-        }
-      )
-      .eq(
-        "lead_stage",
-        "new"
-      ),
-
-
-
-    supabase
-      .from("contacts")
-      .select(
-        "id",
-        {
-          count:"exact",
-          head:true,
-        }
-      )
-      .not(
-        "next_follow_up_at",
-        "is",
-        null
-      ),
-
-
 
     supabase
       .from("deals")
@@ -804,143 +723,44 @@ export async function getMyWork(){
         "(closed_won,closed_lost)"
       ),
 
+
+    supabase
+      .from("tasks")
+      .select(
+        "id",
+        {
+          count:"exact",
+          head:true,
+        }
+      )
+      .eq(
+        "status",
+        "pending"
+      )
+      .or(
+        "title.ilike.%visit%,title.ilike.%site%"
+      ),
+
   ])
-
-
 
 
   return {
 
-    newLeads:
-      newLeadsResult.count ?? 0,
+    newLeads:0,
 
-
-    followUps:
-      followUpsResult.count ?? 0,
-
+    followUps:0,
 
     activeDeals:
       activeDealsResult.count ?? 0,
 
-
     upcomingVisits:
-      0,
+      upcomingVisitsResult.count ?? 0,
 
   }
 
 }
 
-export async function getDealsToFollowUp(){
 
-
-  const [
-    dealsResult,
-    tasksResult,
-  ] =
-  await Promise.all([
-
-
-    supabase
-      .from("deals")
-      .select("*")
-      .not(
-        "stage",
-        "in",
-        "(closed_won,closed_lost)"
-      ),
-
-
-
-    supabase
-      .from("tasks")
-      .select("*")
-      .eq(
-        "status",
-        "pending"
-      ),
-
-
-  ])
-
-
-
-
-
-  const deals =
-    dealsResult.data ?? []
-
-
-
-  const tasks =
-    tasksResult.data ?? []
-
-
-
-
-
-  return deals
-
-    .filter(
-      deal => {
-
-
-        const relatedTask =
-          tasks.some(
-            task =>
-              task.deal_id === deal.id
-          )
-
-
-
-        const lastActivity =
-          new Date(
-            deal.last_activity
-          )
-
-
-
-        const daysSinceActivity =
-          Math.floor(
-            (
-              Date.now()
-              -
-              lastActivity.getTime()
-            )
-            /
-            (
-              1000 *
-              60 *
-              60 *
-              24
-            )
-          )
-
-
-
-        return (
-
-          deal.priority === "high"
-
-          ||
-
-          relatedTask
-
-          ||
-
-          daysSinceActivity > 7
-
-        )
-
-
-      }
-    )
-
-    .slice(
-      0,
-      5
-    )
-
-}
 
 export async function getDealHealthSummary(){
 
@@ -1059,3 +879,188 @@ const summary = {
 
 
 }
+
+export async function getFollowUpContacts(){
+
+  const contacts =
+    await ContactsRepository.getAll()
+
+
+
+  const now =
+    new Date()
+
+
+
+  const startOfToday =
+    new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    )
+
+
+
+  const sevenDaysAgo =
+    new Date(
+      now.getTime()
+      -
+      7 *
+      24 *
+      60 *
+      60 *
+      1000
+    )
+
+
+
+  const overdue =
+    contacts
+      .filter(
+        contact => {
+
+
+          if(
+            contact.nextFollowUpAt
+          ){
+
+            return (
+              new Date(
+                contact.nextFollowUpAt
+              )
+              <
+              now
+            )
+
+          }
+
+
+
+          if(
+            !contact.lastActivityAt
+          ){
+
+            return true
+
+          }
+
+
+
+          return (
+            new Date(
+              contact.lastActivityAt
+            )
+            <
+            sevenDaysAgo
+          )
+
+
+        }
+      )
+      .slice(
+        0,
+        10
+      )
+
+
+
+
+
+  const today =
+    contacts
+      .filter(
+        contact => {
+
+
+          if(
+            !contact.nextFollowUpAt
+          ){
+
+            return false
+
+          }
+
+
+
+          const followUp =
+            new Date(
+              contact.nextFollowUpAt
+            )
+
+
+
+          return (
+            followUp >= startOfToday
+            &&
+            followUp < new Date(
+              startOfToday.getTime()
+              +
+              24 *
+              60 *
+              60 *
+              1000
+            )
+          )
+
+
+        }
+      )
+      .slice(
+        0,
+        10
+      )
+
+
+
+
+
+
+  const upcoming =
+    contacts
+      .filter(
+        contact => {
+
+
+          if(
+            !contact.nextFollowUpAt
+          ){
+
+            return false
+
+          }
+
+
+
+          return (
+            new Date(
+              contact.nextFollowUpAt
+            )
+            >
+            now
+          )
+
+
+        }
+      )
+      .slice(
+        0,
+        10
+      )
+
+
+
+
+
+  return {
+
+    overdue,
+
+    today,
+
+    upcoming,
+
+  }
+
+
+}
+

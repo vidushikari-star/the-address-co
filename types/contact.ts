@@ -184,6 +184,11 @@ export interface Contact {
 
   resident?: string
 
+  intent?: 
+  "sale"
+  | "rental"
+  | "both"
+
   propertyType?: string
 
   propertyTypes?: PropertyTypePreference[]
@@ -217,6 +222,10 @@ export interface Contact {
   leadSource?: LeadSource
 
   nextFollowUpAt?: string
+
+  lastActivityAt?: string
+
+  createdAt?: string
 
     housingLeadId?: string
 

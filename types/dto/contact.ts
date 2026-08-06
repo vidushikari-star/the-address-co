@@ -1,4 +1,5 @@
 export interface CreateContactDto {
+
   fullName: string
 
   phone: string
@@ -15,31 +16,49 @@ export interface CreateContactDto {
 
   leadSource?: string
 
+
+  intent?:
+    | "sale"
+    | "rental"
+    | "both"
+
+
   relationshipTypes?: string[]
 
+
   assignedAdvisor?: string
+
 
   budgetMin?: number
 
   budgetMax?: number
 
+
   currency?: string
+
 
   purpose?: string
 
+
   timeline?: string
+
 
   financing?: string
 
+
   resident?: string
 
+
   propertyType?: string
+
 
   bedrooms?: string
 
   bathrooms?: number
 
+
   locations?: string[]
+
 
   minArea?: number
 
@@ -47,23 +66,32 @@ export interface CreateContactDto {
 
   plotSize?: number
 
+
   mustHave?: string[]
 
   niceToHave?: string[]
+
 
   spouseName?: string
 
   coBuyer?: string
 
+
   referralSource?: string
+
 
   notes?: string
 
   privateNotes?: string
 
+
   advisorId?: string
 
-  
+
+  nextFollowUpAt?: string
+
 }
 
-export type UpdateContactDto = Partial<CreateContactDto>
+
+export type UpdateContactDto =
+  Partial<CreateContactDto>

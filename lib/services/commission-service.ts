@@ -64,26 +64,34 @@ export async function getCommissionStats() {
 
 
 
-  const upcoming =
-    pendingCommissions
-      .filter(
-        (commission) =>
+  const today =
+  new Date()
+
+
+const upcoming =
+  pendingCommissions
+    .filter(
+      (commission) =>
+        commission.dueDate
+        &&
+        new Date(
           commission.dueDate
-      )
-      .sort(
-        (a,b) =>
-          new Date(
-            a.dueDate!
-          ).getTime()
-          -
-          new Date(
-            b.dueDate!
-          ).getTime()
-      )
-      .slice(
-        0,
-        5
-      )
+        ) >= today
+    )
+    .sort(
+      (a,b) =>
+        new Date(
+          a.dueDate!
+        ).getTime()
+        -
+        new Date(
+          b.dueDate!
+        ).getTime()
+    )
+    .slice(
+      0,
+      5
+    )
 
 
 

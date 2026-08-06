@@ -181,33 +181,56 @@ export function RelationshipSnapshot({
 
 
           <div className="
-            flex
-            items-center
-            gap-3
-            text-sm
-          ">
+  flex
+  items-center
+  gap-3
+  text-sm
+">
 
 
-            <User className="
-              h-4
-              w-4
-              shrink-0
-              text-muted-foreground
-            "/>
+  <User className="
+    h-4
+    w-4
+    shrink-0
+    text-muted-foreground
+  "/>
 
 
-            <Badge variant="secondary">
+  <div className="
+    flex
+    flex-wrap
+    gap-2
+  ">
 
-              {
-                contact.type ??
-                "Buyer"
-              }
+    {
+      contact.relationshipTypes?.length ? (
 
+        contact.relationshipTypes.map(
+          type => (
+
+            <Badge
+              key={type}
+              variant="secondary"
+            >
+              {type}
             </Badge>
 
+          )
+        )
 
-          </div>
+      ) : (
 
+        <Badge variant="secondary">
+          Buyer
+        </Badge>
+
+      )
+    }
+
+  </div>
+
+
+</div>
 
 
 

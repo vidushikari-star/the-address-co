@@ -340,23 +340,36 @@ export function DealDrawer({
 
 
 
-      const commissionAmount =
+      const commissionPercentage =
+  isRental
+    ? undefined
+    : (
+        selectedProperty?.price?.commission
+        ??
+        2
+      )
 
-        isRental
 
-          ?
+const commissionAmount =
 
-            Number(
-              selectedProperty?.price?.rent ?? 0
-            )
+  isRental
 
-          :
+    ?
 
-            (
-              price *
-              2 /
-              100
-            )
+      Number(
+        selectedProperty?.price?.rent ?? 0
+      )
+
+    :
+
+      (
+        price *
+        Number(
+          commissionPercentage
+        )
+        /
+        100
+      )
 
 
 
@@ -414,9 +427,7 @@ export function DealDrawer({
 
 
           commissionPercentage:
-            isRental
-              ? undefined
-              : 2,
+  commissionPercentage,
 
 
           commissionAmount:

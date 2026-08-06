@@ -79,6 +79,9 @@ export function ContactActivityDrawer({
     body:
       "",
 
+    nextFollowUpAt:
+      "",
+
   })
 
 
@@ -86,7 +89,11 @@ export function ContactActivityDrawer({
 
 
   function update(
-    key:"type"|"title"|"body",
+    key:
+      | "type"
+      | "title"
+      | "body"
+      | "nextFollowUpAt",
     value:string
   ){
 
@@ -138,6 +145,13 @@ export function ContactActivityDrawer({
         date:
           new Date()
             .toISOString(),
+
+        nextFollowUpAt:
+          form.nextFollowUpAt
+            ? new Date(
+                form.nextFollowUpAt
+              ).toISOString()
+            : undefined,
 
       })
 
@@ -246,6 +260,7 @@ export function ContactActivityDrawer({
 
 
 
+
         <Input
 
           placeholder="Activity title"
@@ -294,6 +309,43 @@ export function ContactActivityDrawer({
           }
 
         />
+
+
+
+
+
+        <div className="space-y-2">
+
+          <label className="
+            text-sm
+            font-medium
+          ">
+
+            Next Follow Up
+
+          </label>
+
+
+          <Input
+
+            type="datetime-local"
+
+            value={
+              form.nextFollowUpAt
+            }
+
+            onChange={
+              e =>
+                update(
+                  "nextFollowUpAt",
+                  e.target.value
+                )
+            }
+
+          />
+
+
+        </div>
 
 
 

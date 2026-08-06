@@ -1,6 +1,7 @@
+"use client"
+
 import {
   Users,
-  PhoneCall,
   BriefcaseBusiness,
   MapPin,
   ArrowRight,
@@ -18,12 +19,10 @@ import {
 type MyWorkProps = {
   data: {
     newLeads: number
-    followUps: number
     activeDeals: number
     upcomingVisits: number
   }
 }
-
 
 
 
@@ -40,14 +39,6 @@ export function MyWork({
       value: data.newLeads,
       icon: Users,
       href: "/contacts?stage=new",
-    },
-
-
-    {
-      label: "Follow Ups Due",
-      value: data.followUps,
-      icon: PhoneCall,
-      href: "/tasks",
     },
 
 
@@ -72,6 +63,7 @@ export function MyWork({
 
 
 
+
   return (
 
     <DashboardCard>
@@ -81,14 +73,26 @@ export function MyWork({
 
         <div>
 
-          <p className="text-sm text-muted-foreground">
+          <p className="
+            text-sm
+            text-muted-foreground
+          ">
+
             My Work
+
           </p>
 
 
-          <h3 className="mt-2 text-2xl font-semibold">
+          <h3 className="
+            mt-2
+            text-2xl
+            font-semibold
+          ">
+
             Today&apos;s Priorities
+
           </h3>
+
 
         </div>
 
@@ -104,52 +108,103 @@ export function MyWork({
 
 
 
-        {/* MOBILE VIEW */}
 
-        <div className="space-y-3 md:hidden">
+        {/* MOBILE */}
+
+        <div className="
+          space-y-3
+          md:hidden
+        ">
 
 
           {
             items.map(
-              (item) => {
+              item => {
+
 
                 const Icon =
                   item.icon
+
 
 
                 return (
 
                   <Link
 
-                    key={item.label}
+                    key={
+                      item.label
+                    }
 
-                    href={item.href}
+                    href={
+                      item.href
+                    }
 
-                    className="flex items-center justify-between rounded-xl border p-4 transition active:scale-[0.98]"
+                    className="
+                      flex
+                      items-center
+                      justify-between
+                      rounded-xl
+                      border
+                      p-4
+                      transition
+                      active:scale-[0.98]
+                    "
 
                   >
 
 
-                    <div className="flex items-center gap-4">
+                    <div className="
+                      flex
+                      items-center
+                      gap-4
+                    ">
 
 
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                      <div className="
+                        flex
+                        h-10
+                        w-10
+                        items-center
+                        justify-center
+                        rounded-full
+                        bg-muted
+                      ">
 
-                        <Icon className="h-5 w-5 text-muted-foreground" />
+
+                        <Icon className="
+                          h-5
+                          w-5
+                          text-muted-foreground
+                        "/>
+
 
                       </div>
 
 
 
+
+
                       <div>
 
-                        <p className="text-sm text-muted-foreground">
+
+                        <p className="
+                          text-sm
+                          text-muted-foreground
+                        ">
+
                           {item.label}
+
                         </p>
 
 
-                        <p className="text-xl font-semibold">
+
+                        <p className="
+                          text-xl
+                          font-semibold
+                        ">
+
                           {item.value}
+
                         </p>
 
 
@@ -162,7 +217,11 @@ export function MyWork({
 
 
 
-                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                    <ArrowRight className="
+                      h-4
+                      w-4
+                      text-muted-foreground
+                    "/>
 
 
                   </Link>
@@ -170,9 +229,7 @@ export function MyWork({
                 )
 
               }
-
             )
-
 
           }
 
@@ -185,41 +242,63 @@ export function MyWork({
 
 
 
-        {/* DESKTOP VIEW */}
+        {/* DESKTOP */}
 
-        <div className="hidden grid-cols-2 gap-4 md:grid">
+        <div className="
+          hidden
+          grid-cols-3
+          gap-4
+          md:grid
+        ">
 
 
           {
             items.map(
-              (item) => {
+              item => {
+
 
                 const Icon =
                   item.icon
+
 
 
                 return (
 
                   <Link
 
-                    key={item.label}
+                    key={
+                      item.label
+                    }
 
-                    href={item.href}
+                    href={
+                      item.href
+                    }
 
-                    className="rounded-xl border p-4 transition hover:border-primary hover:shadow-sm"
+                    className="
+                      rounded-xl
+                      border
+                      p-4
+                      transition
+                      hover:border-primary
+                      hover:shadow-sm
+                    "
 
                   >
 
 
-                    <Icon
+                    <Icon className="
+                      h-5
+                      w-5
+                      text-muted-foreground
+                    "/>
 
-                      className="h-5 w-5 text-muted-foreground"
-
-                    />
 
 
-
-                    <p className="mt-3 text-2xl font-semibold">
+                    <p className="
+                      mt-3
+                      text-2xl
+                      font-semibold
+                    ">
 
                       {item.value}
 
@@ -227,12 +306,14 @@ export function MyWork({
 
 
 
-                    <p className="text-sm text-muted-foreground">
+                    <p className="
+                      text-sm
+                      text-muted-foreground
+                    ">
 
                       {item.label}
 
                     </p>
-
 
 
                   </Link>
@@ -240,9 +321,7 @@ export function MyWork({
                 )
 
               }
-
             )
-
 
           }
 

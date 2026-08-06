@@ -119,8 +119,13 @@ export async function getActivitiesByPropertyId(
 
 
 export async function createActivity(
-  activity: Partial<Activity>
+  activity:
+    Partial<Activity>
+    & {
+      nextFollowUpAt?: string
+    }
 ): Promise<Activity> {
+
 
   const {
     data,
@@ -130,54 +135,76 @@ export async function createActivity(
       .from("activities")
       .insert({
 
-        contact_id:
-          activity.contactId,
+  contact_id:
+    activity.contactId,
 
+  deal_id:
+    activity.dealId,
 
-        deal_id:
-          activity.dealId,
+  property_id:
+    activity.propertyId,
 
+  type:
+    activity.type,
 
-        property_id:
-          activity.propertyId,
+  title:
+    activity.title,
 
+  description:
+    activity.description,
 
-        type:
-          activity.type,
+  body:
+    activity.body,
 
+  activity_date:
+    activity.date,
 
-        title:
-          activity.title,
+  created_by:
+    activity.createdBy,
 
+  user_id:
+    activity.userId,
 
-        description:
-          activity.description,
-
-
-        body:
-          activity.body,
-
-
-        activity_date:
-          activity.date,
-
-
-        created_by:
-          activity.createdBy,
-
-
-        user_id:
-          activity.userId,
-
-      })
+})
       .select()
       .single()
 
 
 
-  if (error) {
+  if(error){
+
     throw error
+
   }
+
+
+
+  // Update last contact touchpoint
+
+  if(activity.contactId){
+
+  await supabase
+    .from("contacts")
+    .update({
+
+      last_activity_at:
+        new Date().toISOString(),
+
+      ...(activity.nextFollowUpAt && {
+
+        next_follow_up_at:
+          activity.nextFollowUpAt,
+
+      }),
+
+    })
+    .eq(
+      "id",
+      activity.contactId
+    )
+
+}
+
 
 
 

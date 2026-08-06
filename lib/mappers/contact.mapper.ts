@@ -54,6 +54,9 @@ export function mapContactRow(
     leadSource:
       row.lead_source as Contact["leadSource"],
 
+      intent:
+  row.intent as Contact["intent"],
+
       nextFollowUpAt:
   row.next_follow_up_at ?? undefined,
 
@@ -75,6 +78,11 @@ export function mapContactRow(
     budgetMax:
       row.budget_max ?? undefined,
 
+      lastActivityAt:
+  row.last_activity_at ?? undefined,
+      
+createdAt:
+  row.created_at ?? undefined,
 
     currency:
       row.currency ?? undefined,
@@ -98,6 +106,8 @@ export function mapContactRow(
 
     propertyType:
       row.property_type ?? undefined,
+
+      
 
 
     bedrooms:

@@ -194,23 +194,7 @@ if(duplicateDeal){
 
 
 
-      const commissionPercentage =
-  property?.price?.commission &&
-  property.price.commission > 0
-    ? property.price.commission
-    : 2
-
-
-
-      const commissionAmount =
-        (
-          (property?.price?.asking ?? 0)
-          *
-          commissionPercentage
-          /
-          100
-        )
-
+      
 
 
       const deal =
@@ -239,26 +223,28 @@ if(duplicateDeal){
 
           value: {
 
-            propertyPrice:
-              property?.price?.asking
-              ??
-              0,
+  propertyPrice:
+    property?.price?.asking
+    ??
+    0,
 
 
-            commissionType:
-              "sale",
+  commissionType:
+    "sale",
 
 
-            commissionBasis:
-              "percentage",
+  commissionBasis:
+    "percentage",
 
 
-            commissionPercentage,
+  commissionPercentage:
+    0,
 
 
-            commissionAmount,
+  commissionAmount:
+    0,
 
-          },
+},
 
 
 

@@ -28,8 +28,6 @@ import type {
 
 
 
-
-
 type Props = {
 
   stageFilter?: string
@@ -38,15 +36,9 @@ type Props = {
 
 
 
-
-
-
-
-
 export function ContactList({
   stageFilter,
-}:Props){
-
+}: Props) {
 
 
   const [
@@ -74,8 +66,40 @@ export function ContactList({
 
 
   const [
-    typeFilter,
-    setTypeFilter,
+    relationshipFilter,
+    setRelationshipFilter,
+  ] =
+  useState("all")
+
+
+
+  const [
+    leadSourceFilter,
+    setLeadSourceFilter,
+  ] =
+  useState("all")
+
+
+
+  const [
+    propertyTypeFilter,
+    setPropertyTypeFilter,
+  ] =
+  useState("all")
+
+
+
+  const [
+    purposeFilter,
+    setPurposeFilter,
+  ] =
+  useState("all")
+
+
+
+  const [
+    followUpFilter,
+    setFollowUpFilter,
   ] =
   useState("all")
 
@@ -83,25 +107,16 @@ export function ContactList({
 
 
 
-
-
   useEffect(()=>{
-
 
     async function loadContacts(){
 
-
       try{
-
 
         const data =
           await ContactsRepository.getAll()
 
-
-        setContacts(
-          data
-        )
-
+        setContacts(data)
 
       }
       finally{
@@ -109,7 +124,6 @@ export function ContactList({
         setLoading(false)
 
       }
-
 
     }
 
@@ -126,13 +140,13 @@ export function ContactList({
 
 
 
-
   const filteredContacts =
+
     useMemo(()=>{
 
 
       return contacts.filter(
-        contact=>{
+        contact => {
 
 
           const search =
@@ -141,36 +155,134 @@ export function ContactList({
 
 
           const matchesSearch =
+
             !query
+
             ||
+
             contact.name
               .toLowerCase()
               .includes(search)
+
             ||
+
             (contact.email ?? "")
               .toLowerCase()
               .includes(search)
+
             ||
-            contact.phone.includes(
-              query
+
+            contact.phone
+              .includes(query)
+
+
+
+
+
+          const matchesRelationship =
+
+            relationshipFilter === "all"
+
+            ||
+
+            contact.relationshipTypes?.includes(
+              relationshipFilter
             )
 
 
 
 
 
-          const matchesType =
-            typeFilter === "all"
+          const matchesLeadSource =
+
+            leadSourceFilter === "all"
+
             ||
-            contact.type === typeFilter
+
+            contact.leadSource === leadSourceFilter
+
+
+
+
+
+          const matchesPropertyType =
+
+            propertyTypeFilter === "all"
+
+            ||
+
+            contact.propertyType === propertyTypeFilter
+
+
+
+
+
+          const matchesPurpose =
+
+            purposeFilter === "all"
+
+            ||
+
+            contact.purpose === purposeFilter
+
+
+
+
+
+          const matchesFollowUp =
+
+            followUpFilter === "all"
+
+            ||
+
+            (
+              followUpFilter === "new"
+
+              &&
+
+              !contact.lastActivityAt
+            )
+
+            ||
+
+            (
+              followUpFilter === "due"
+
+              &&
+
+              contact.lastActivityAt
+
+              &&
+
+              (
+                Date.now()
+                -
+                new Date(
+                  contact.lastActivityAt
+                ).getTime()
+              )
+
+              >=
+
+              (
+                7 *
+                24 *
+                60 *
+                60 *
+                1000
+              )
+            )
 
 
 
 
 
           const matchesStage =
+
             !stageFilter
+
             ||
+
             contact.stage === stageFilter
 
 
@@ -178,11 +290,33 @@ export function ContactList({
 
 
           return (
+
             matchesSearch
+
             &&
-            matchesType
+
+            matchesRelationship
+
             &&
+
+            matchesLeadSource
+
+            &&
+
+            matchesPropertyType
+
+            &&
+
+            matchesPurpose
+
+            &&
+
+            matchesFollowUp
+
+            &&
+
             matchesStage
+
           )
 
 
@@ -192,12 +326,47 @@ export function ContactList({
 
 
     },[
+
       contacts,
+
       query,
-      typeFilter,
+
+      relationshipFilter,
+
+      leadSourceFilter,
+
+      propertyTypeFilter,
+
+      purposeFilter,
+
+      followUpFilter,
+
       stageFilter,
+
     ])
 
+
+
+
+
+
+
+
+  function clearFilters(){
+
+    setQuery("")
+
+    setRelationshipFilter("all")
+
+    setLeadSourceFilter("all")
+
+    setPropertyTypeFilter("all")
+
+    setPurposeFilter("all")
+
+    setFollowUpFilter("all")
+
+  }
 
 
 
@@ -215,10 +384,7 @@ export function ContactList({
     ">
 
 
-
       <ContactHeader />
-
-
 
 
 
@@ -232,18 +398,62 @@ export function ContactList({
           setQuery
         }
 
-        typeFilter={
-          typeFilter
+
+        relationshipFilter={
+          relationshipFilter
         }
 
-        onTypeFilterChange={
-          setTypeFilter
+        onRelationshipFilterChange={
+          setRelationshipFilter
+        }
+
+
+        leadSourceFilter={
+          leadSourceFilter
+        }
+
+        onLeadSourceFilterChange={
+          setLeadSourceFilter
+        }
+
+
+        propertyTypeFilter={
+          propertyTypeFilter
+        }
+
+        onPropertyTypeFilterChange={
+          setPropertyTypeFilter
+        }
+
+
+        purposeFilter={
+          purposeFilter
+        }
+
+        onPurposeFilterChange={
+          setPurposeFilter
+        }
+
+
+        followUpFilter={
+          followUpFilter
+        }
+
+        onFollowUpFilterChange={
+          setFollowUpFilter
+        }
+
+
+        onClear={
+          clearFilters
+        }
+
+
+        count={
+          filteredContacts.length
         }
 
       />
-
-
-
 
 
 
@@ -271,11 +481,10 @@ export function ContactList({
 
           <div className="
             rounded-2xl
-            border
             border-dashed
+            border
             p-10
             text-center
-            text-muted-foreground
           ">
 
             No contacts found.
@@ -290,7 +499,6 @@ export function ContactList({
 
           <>
 
-
             <p className="
               text-sm
               text-muted-foreground
@@ -301,13 +509,9 @@ export function ContactList({
             </p>
 
 
-
-
-
             <div className="
               space-y-4
             ">
-
 
               {
                 filteredContacts.map(
@@ -326,20 +530,16 @@ export function ContactList({
                     />
 
                   )
-
                 )
               }
 
-
             </div>
-
 
           </>
 
         )
 
       }
-
 
 
     </div>

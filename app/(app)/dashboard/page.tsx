@@ -12,9 +12,8 @@ import {
   getRecentActivities,
   getUpcomingTasks,
   getHotLeads,
-  getNewLeads,
   getMyWork,
-  getDealsToFollowUp,
+  getFollowUpContacts,
 } from "@/lib/services/dashboard-service"
 
 
@@ -23,115 +22,280 @@ import {
 } from "@/lib/services/commission-service"
 
 
+
 import { AgendaCard } from "@/components/dashboard/agenda-card"
 import { ActivityFeed } from "@/components/dashboard/activity-feed"
 import { DealHealthCard } from "@/components/dashboard/deal-health-card"
 import { HotLeads } from "@/components/dashboard/hot-leads"
 import { MyWork } from "@/components/dashboard/my-work"
-import { NewLeads } from "@/components/dashboard/new-leads"
-import { NeedsAttention } from "@/components/dashboard/needs-attention"
+import { DealsAtRisk } from "@/components/dashboard/deals-at-risk"
 import { PipelineCard } from "@/components/dashboard/pipeline-card"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { UpcomingCommissions } from "@/components/dashboard/upcoming-commissions"
+import { FollowUpQueue } from "@/components/dashboard/follow-up-queue"
+
+
 
 import {
   formatCurrency,
 } from "@/lib/utils/format-currency"
 
+
+
 export const dynamic = "force-dynamic"
 
 
 
-export default async function DashboardPage() {
+
+
+
+
+export default async function DashboardPage(){
 
 
   const [
+
     stats,
+
     recentActivities,
+
     upcomingTasks,
+
     hotLeads,
-    newLeads,
+
     commissionStats,
+
     myWork,
-    dealsToFollowUp,
+
     dealHealth,
-  ] =
-    await Promise.all([
 
-      getDashboardStats(),
+    followUpQueue,
 
-      getRecentActivities(),
-
-      getUpcomingTasks(),
-
-      getHotLeads(),
-
-      getNewLeads(),
-
-      getCommissionStats(),
-
-      getMyWork(),
-
-      getDealsToFollowUp(),
-
-      getDealHealthSummary(),
-
-    ])
+  ] = await Promise.all([
 
 
+    getDashboardStats(),
+
+    getRecentActivities(),
+
+    getUpcomingTasks(),
+
+    getHotLeads(),
+
+    getCommissionStats(),
+
+    getMyWork(),
+
+    getDealHealthSummary(),
+
+    getFollowUpContacts(),
+
+
+  ])
 
 
 
-    return (
-
-    <div className="mx-auto flex w-full max-w-[1650px] flex-col gap-6 px-6 pb-6 pt-6">
 
 
-      {/* TOP STATS */}
 
-      <section className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
+  const pipelineStages = [
+
+
+    {
+      title:"Lead",
+      count:
+        stats.deals.filter(
+          deal =>
+            deal.stage === "lead"
+        ).length,
+    },
+
+
+    {
+      title:"Qualified",
+      count:
+        stats.deals.filter(
+          deal =>
+            deal.stage === "qualification"
+        ).length,
+    },
+
+
+    {
+      title:"Property Shared",
+      count:
+        stats.deals.filter(
+          deal =>
+            deal.stage === "property_shared"
+        ).length,
+    },
+
+
+    {
+      title:"Site Visit",
+      count:
+        stats.deals.filter(
+          deal =>
+            deal.stage === "site_visit"
+        ).length,
+    },
+
+
+    {
+      title:"Negotiation",
+      count:
+        stats.deals.filter(
+          deal =>
+            deal.stage === "negotiation"
+        ).length,
+    },
+
+
+    {
+      title:"Documentation",
+      count:
+        stats.deals.filter(
+          deal =>
+            deal.stage === "documentation"
+        ).length,
+    },
+
+
+  ]
+
+
+
+
+
+
+
+
+  return (
+
+    <main
+
+      className="
+        mx-auto
+        w-full
+        max-w-[1650px]
+        space-y-8
+        bg-muted/10
+        px-4
+        pb-10
+        pt-6
+        sm:px-6
+        lg:px-8
+      "
+
+    >
+
+
+
+
+
+      {/* EXECUTIVE SUMMARY */}
+
+
+      <section
+
+        className="
+          grid
+          grid-cols-1
+          gap-4
+          sm:grid-cols-2
+          xl:grid-cols-4
+        "
+
+      >
 
 
         <StatCard
-          title="Active Clients"
-          value={String(stats.contactsCount)}
-          subtitle="Total contacts"
+
+          title="Active Relationships"
+
+          value={
+            String(
+              stats.activeContactsCount
+            )
+          }
+
+          subtitle={
+            `${stats.contactsCount} total contacts`
+          }
+
           trend="up"
+
           icon={Users}
+
         />
 
 
+
+
         <StatCard
+
           title="Open Deals"
-          value={String(stats.openDealsCount)}
-          subtitle={`${formatCurrency(
-  stats.pipelineValue
-)} pipeline`}
+
+          value={
+            String(
+              stats.openDealsCount
+            )
+          }
+
+          subtitle={
+            `${formatCurrency(
+              stats.pipelineValue
+            )} pipeline`
+          }
+
           icon={BriefcaseBusiness}
+
         />
 
 
+
+
         <StatCard
-          title="Portfolio Value"
-          value={formatCurrency(
-  stats.portfolioValue
-)}
-          subtitle={`${stats.propertiesCount} listings`}
+
+          title="Live Portfolio"
+
+          value={
+            formatCurrency(
+              stats.portfolioValue
+            )
+          }
+
+          subtitle={
+            `${stats.propertiesCount} listings`
+          }
+
           icon={Home}
+
         />
 
 
-        <StatCard
-          title="Commission Pipeline"
-          value={formatCurrency(
-  commissionStats.pending
-)}
 
-subtitle={`${formatCurrency(
-  commissionStats.received
-)} received`}
+
+        <StatCard
+
+          title="Commission Pipeline"
+
+          value={
+            formatCurrency(
+              commissionStats.pending
+            )
+          }
+
+          subtitle={
+            `${formatCurrency(
+              commissionStats.received
+            )} received`
+          }
+
           trend="up"
+
           icon={CircleDollarSign}
+
         />
 
 
@@ -143,17 +307,36 @@ subtitle={`${formatCurrency(
 
 
 
-      {/* DAILY WORK */}
 
 
-      <section className="grid gap-6 xl:grid-cols-3">
+      {/* TODAY'S COMMAND CENTRE */}
 
 
-        <div className="xl:col-span-2">
+      <section
+
+        className="
+          grid
+          gap-6
+          xl:grid-cols-3
+        "
+
+      >
 
 
-          <MyWork
-            data={myWork}
+        <div
+
+          className="
+            xl:col-span-2
+          "
+
+        >
+
+          <FollowUpQueue
+
+            queue={
+              followUpQueue
+            }
+
           />
 
 
@@ -162,168 +345,9 @@ subtitle={`${formatCurrency(
 
 
         <AgendaCard
-          items={upcomingTasks}
-        />
 
-
-      </section>
-
-
-
-
-
-
-
-
-      {/* SALES PRIORITY */}
-
-
-      <section className="grid gap-6 xl:grid-cols-3">
-
-
-        <div className="xl:col-span-2">
-
-
-          <HotLeads
-            leads={hotLeads}
-          />
-
-
-        </div>
-
-
-
-        <NeedsAttention
-          deals={dealsToFollowUp}
-        />
-
-
-      </section>
-
-
-
-
-
-
-
-
-      {/* PIPELINE HEALTH */}
-
-
-      <section className="grid gap-6 xl:grid-cols-3">
-
-
-        <div className="xl:col-span-2">
-
-
-          <PipelineCard
-
-  summary={{
-    activeClients: stats.contactsCount,
-    inventoryValue: stats.portfolioValue,
-    inventoryCount: stats.propertiesCount,
-    commissionPotential: commissionStats.pending,
-  }}
-
-  stages={[
-
-              {
-                title:"Lead",
-                count:
-                  stats.deals.filter(
-                    deal =>
-                      deal.stage === "lead"
-                  ).length,
-              },
-
-
-              {
-                title:"Qualified",
-                count:
-                  stats.deals.filter(
-                    deal =>
-                      deal.stage === "qualification"
-                  ).length,
-              },
-
-
-              {
-                title:"Site Visit",
-                count:
-                  stats.deals.filter(
-                    deal =>
-                      deal.stage === "site_visit"
-                  ).length,
-              },
-
-
-              {
-                title:"Negotiation",
-                count:
-                  stats.deals.filter(
-                    deal =>
-                      deal.stage === "negotiation"
-                  ).length,
-              },
-
-
-              {
-                title:"Documentation",
-                count:
-                  stats.deals.filter(
-                    deal =>
-                      deal.stage === "documentation"
-                  ).length,
-              },
-
-
-              {
-                title:"Closed",
-                count:
-                  stats.deals.filter(
-                    deal =>
-                      deal.stage === "closed_won"
-                  ).length,
-              },
-
-            ]}
-
-          />
-
-
-        </div>
-
-
-
-
-
-        <DealHealthCard
-
-          data={dealHealth}
-
-        />
-
-
-      </section>
-
-
-
-
-
-
-
-
-
-      {/* ACTIVITY */}
-
-
-      <section className="grid gap-6">
-
-
-        <ActivityFeed
-
-          activities={
-            recentActivities
+          items={
+            upcomingTasks
           }
 
         />
@@ -338,15 +362,73 @@ subtitle={`${formatCurrency(
 
 
 
-      {/* NEW BUSINESS */}
+
+      {/* OPPORTUNITIES */}
+
+<section
+  className="
+    grid
+    gap-6
+    xl:grid-cols-2
+  "
+>
 
 
-      <section className="grid gap-6">
+  <MyWork
+    data={myWork}
+  />
 
 
-        <NewLeads
 
-          leads={newLeads}
+  <HotLeads
+    leads={hotLeads}
+  />
+
+
+</section>
+
+
+
+
+
+
+
+
+
+      {/* SALES PIPELINE */}
+
+
+      <section>
+
+
+        <PipelineCard
+
+
+          summary={{
+
+            activeClients:
+              stats.contactsCount,
+
+
+            inventoryValue:
+              stats.portfolioValue,
+
+
+            inventoryCount:
+              stats.propertiesCount,
+
+
+            commissionPotential:
+              stats.commissionPipeline,
+
+
+          }}
+
+
+          stages={
+            pipelineStages
+          }
+
 
         />
 
@@ -360,10 +442,73 @@ subtitle={`${formatCurrency(
 
 
 
-      {/* COMMISSIONS */}
+
+      {/* DEAL HEALTH */}
 
 
-      <section className="grid gap-6">
+      <section
+
+        className="
+          grid
+          gap-6
+          xl:grid-cols-2
+        "
+
+      >
+
+
+        <DealsAtRisk
+
+          deals={
+            dealHealth.concerns ?? []
+          }
+
+        />
+
+
+
+        <DealHealthCard
+
+          data={
+            dealHealth
+          }
+
+        />
+
+
+      </section>
+
+
+
+
+
+
+
+
+
+      {/* ACTIVITY + FINANCE */}
+
+
+      <section
+
+        className="
+          grid
+          gap-6
+          xl:grid-cols-2
+        "
+
+      >
+
+
+        <ActivityFeed
+
+          activities={
+            recentActivities
+          }
+
+        />
+
+
 
 
         <UpcomingCommissions
@@ -379,9 +524,10 @@ subtitle={`${formatCurrency(
 
 
 
-    </div>
+
+    </main>
+
 
   )
 
 }
-

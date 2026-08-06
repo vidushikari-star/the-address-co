@@ -6,6 +6,8 @@ import {
   Clock,
   User,
   CalendarDays,
+  Home,
+  Handshake,
 } from "lucide-react"
 
 import Link from "next/link"
@@ -43,10 +45,43 @@ function getTypeLabel(
     case "activity":
       return "Meeting"
 
+    case "commission":
+      return "Commission"
+
     default:
       return type
 
   }
+
+}
+
+
+
+
+
+
+
+function formatIndiaTime(
+  date?:string
+){
+
+  if(!date){
+
+    return ""
+
+  }
+
+
+  return new Date(date)
+    .toLocaleTimeString(
+      "en-IN",
+      {
+        timeZone:"Asia/Kolkata",
+        hour:"2-digit",
+        minute:"2-digit",
+        hour12:true,
+      }
+    )
 
 }
 
@@ -74,6 +109,16 @@ export function CalendarEvent({
 
 
 
+  const displayTime =
+    item.date
+      ? formatIndiaTime(
+          item.date
+        )
+      : item.time ?? ""
+
+
+
+
 
 
 
@@ -96,8 +141,8 @@ export function CalendarEvent({
           ? "p-4"
           : "p-3"
         }
-        space-y-2
-        hover:bg-muted
+        space-y-3
+        hover:bg-muted/50
         transition
       `}
 
@@ -105,9 +150,11 @@ export function CalendarEvent({
 
 
 
+      {/* Title */}
+
       <div className="
         flex
-        items-center
+        items-start
         gap-2
         font-medium
       ">
@@ -116,13 +163,13 @@ export function CalendarEvent({
         {
           isTask
           ?
-          <CheckCircle2 className="h-4 w-4"/>
+          <CheckCircle2 className="h-4 w-4 mt-0.5"/>
           :
           isSiteVisit
           ?
-          <MapPin className="h-4 w-4"/>
+          <MapPin className="h-4 w-4 mt-0.5"/>
           :
-          <CalendarDays className="h-4 w-4"/>
+          <CalendarDays className="h-4 w-4 mt-0.5"/>
         }
 
 
@@ -140,6 +187,8 @@ export function CalendarEvent({
 
 
 
+
+      {/* Type */}
 
       <div className="
         text-xs
@@ -162,8 +211,10 @@ export function CalendarEvent({
 
 
 
+      {/* Time */}
+
       {
-        item.time && (
+        displayTime && (
 
           <div className="
             flex
@@ -175,7 +226,7 @@ export function CalendarEvent({
 
             <Clock className="h-4 w-4"/>
 
-            {item.time}
+            {displayTime}
 
           </div>
 
@@ -188,13 +239,22 @@ export function CalendarEvent({
 
 
 
+
+
+      {/* Contact */}
+
       {
         item.contactName && (
 
           <div className="
+            flex
+            items-center
+            gap-2
             text-sm
             text-muted-foreground
           ">
+
+            <User className="h-4 w-4"/>
 
             {item.contactName}
 
@@ -210,6 +270,69 @@ export function CalendarEvent({
 
 
 
+
+      {/* Property */}
+
+      {
+        item.propertyName && (
+
+          <div className="
+            flex
+            items-center
+            gap-2
+            text-sm
+            text-muted-foreground
+          ">
+
+            <Home className="h-4 w-4"/>
+
+            {item.propertyName}
+
+          </div>
+
+        )
+
+      }
+
+
+
+
+
+
+
+
+      {/* Deal */}
+
+      {
+        item.dealName && (
+
+          <div className="
+            flex
+            items-center
+            gap-2
+            text-sm
+            text-muted-foreground
+          ">
+
+            <Handshake className="h-4 w-4"/>
+
+            {item.dealName}
+
+          </div>
+
+        )
+
+      }
+
+
+
+
+
+
+
+
+      {/* Assigned */}
+
       {
         item.assignedTo && (
 
@@ -221,9 +344,12 @@ export function CalendarEvent({
             text-muted-foreground
           ">
 
-            <User className="h-4 w-4"/>
 
-            {item.assignedTo}
+            Assigned:
+            <span className="font-medium">
+              {item.assignedTo}
+            </span>
+
 
           </div>
 

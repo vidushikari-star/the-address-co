@@ -261,6 +261,12 @@ export const ContactsRepository = {
     lead_source:
       contact.leadSource ?? null,
 
+      intent:
+  contact.intent ?? null,
+
+      relationship_types:
+  contact.relationshipTypes ?? [],
+
 
     advisor_id:
       contact.advisorId ?? user?.id ?? null,
@@ -350,7 +356,7 @@ export const ContactsRepository = {
       contact.coBuyer ?? null,
 
 
-    referral_source:
+        referral_source:
       contact.referralSource ?? null,
 
 
@@ -362,6 +368,10 @@ export const ContactsRepository = {
 
     private_notes:
       contact.privateNotes ?? null,
+
+
+    next_follow_up_at:
+      contact.nextFollowUpAt ?? null,
 
   }
 
@@ -492,6 +502,11 @@ export const ContactsRepository = {
   payload.lead_source =
     contact.leadSource ?? null
 
+    if(contact.relationshipTypes !== undefined)
+
+  payload.relationship_types =
+    contact.relationshipTypes ?? []
+
 
 
 
@@ -563,6 +578,16 @@ if(contact.leadSource !== undefined)
 
   payload.lead_source =
     contact.leadSource ?? null
+
+    if(contact.intent !== undefined)
+
+  payload.intent =
+    contact.intent ?? null
+
+    if(contact.nextFollowUpAt !== undefined)
+
+  payload.next_follow_up_at =
+    contact.nextFollowUpAt ?? null
 
 
 
