@@ -75,17 +75,20 @@ export async function getPropertyDocuments(
 }
 
 export async function uploadPropertyDocument(
-  propertyId: string,
-  file: File,
-  category: string
+propertyId: string,
+file: File,
+category: string
 ): Promise<PropertyDocument> {
-  const fileExt =
-    file.name
-      .split(".")
-      .pop()
 
-  const fileName =
-    `${propertyId}-${Date.now()}.${fileExt}`
+const fileExt =
+file.name
+.split(".")
+.pop()
+?.toLowerCase() || "file"
+
+
+const fileName =
+`${propertyId}/${crypto.randomUUID()}.${fileExt}`
 
   const {
     error: uploadError,
@@ -94,9 +97,12 @@ export async function uploadPropertyDocument(
       .storage
       .from("property-documents")
       .upload(
-        fileName,
-        file
-      )
+fileName,
+file,
+{
+upsert:false,
+}
+)
 
   if (uploadError) {
     throw uploadError

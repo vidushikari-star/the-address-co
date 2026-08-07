@@ -549,6 +549,9 @@ export async function markCommissionReceived(
 Amount:
 ₹${Number(data.amount).toLocaleString("en-IN")}
 
+Role:
+${data.commission_role ?? "-"}
+
 Basis:
 ${data.commission_basis ?? "-"}`
   )
