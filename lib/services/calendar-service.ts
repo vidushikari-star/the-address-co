@@ -82,15 +82,17 @@ export async function getCalendarItems(): Promise<CalendarItem[]> {
 
   const taskItems: CalendarItem[] =
 
-    tasks
+tasks
 
-    .filter(
-      task =>
-        task.dueDate
-    )
+.filter(
+  task =>
+    task.dueDate &&
+    task.status !== "completed" &&
+    task.archived !== true
+)
 
-    .map(
-      task => ({
+.map(
+  task => ({
 
         id:
           `task-${task.id}`,
