@@ -312,28 +312,6 @@ export function RelationshipHeader({
 
 
 
-{
-  contact.relationshipTypes?.map(
-    relationship => (
-
-      <Badge
-        key={relationship}
-        variant="secondary"
-        className="capitalize"
-      >
-
-        {
-          relationship.replace(
-            "_",
-            " "
-          )
-        }
-
-      </Badge>
-
-    )
-  )
-}
 
               {
                 intentLabel && (

@@ -179,29 +179,71 @@ export async function createActivity(
 
 
 
-  // Update last contact touchpoint
+  // Update contact touchpoints and lead stage
 
-  if(activity.contactId){
+if(activity.contactId){
 
-  await supabase
-    .from("contacts")
-    .update({
 
-      last_activity_at:
-        new Date().toISOString(),
+const {
+data: contact,
+error: contactError,
+} =
+await supabase
+.from("contacts")
+.select(
+`
+lead_stage
+`
+)
+.eq(
+"id",
+activity.contactId
+)
+.single()
 
-      ...(activity.nextFollowUpAt && {
 
-        next_follow_up_at:
-          activity.nextFollowUpAt,
 
-      }),
+if(contactError){
 
-    })
-    .eq(
-      "id",
-      activity.contactId
-    )
+throw contactError
+
+}
+
+
+
+await supabase
+.from("contacts")
+.update({
+
+  last_activity_at:
+    new Date().toISOString(),
+
+
+  last_contacted_at:
+    new Date().toISOString(),
+
+
+  ...(contact?.lead_stage === "new" && {
+
+    lead_stage:
+      "contacted",
+
+  }),
+
+
+  ...(activity.nextFollowUpAt && {
+
+    next_follow_up_at:
+      activity.nextFollowUpAt,
+
+  }),
+
+})
+.eq(
+"id",
+activity.contactId
+)
+
 
 }
 
