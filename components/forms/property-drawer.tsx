@@ -23,7 +23,8 @@ import {
 } from "@/components/ui/textarea"
 
 import {
-  createProperty,
+createProperty,
+deleteProperty,
 } from "@/lib/repositories/property-repository"
 
 import {
@@ -585,17 +586,16 @@ if(open){
 
 
     async function submit(
-    e:React.FormEvent
-  ){
+e:React.FormEvent
+){
 
-    e.preventDefault()
+e.preventDefault()
 
+setLoading(true)
 
-    setLoading(true)
+let createdPropertyId:string | null = null
 
-
-
-    try{
+try{
 
 
       const property =
@@ -749,6 +749,9 @@ if(open){
 
         })
 
+        createdPropertyId =
+property.id
+
               for(
         const source of propertySources
       ){
@@ -866,19 +869,40 @@ if(open){
     }
     catch(error){
 
-
-      console.error(
-        "Property creation failed",
-        error
-      )
-
-
-      alert(
-        "Property creation failed"
-      )
+console.error(
+"Property creation failed",
+error
+)
 
 
-    }
+if(
+createdPropertyId
+){
+
+try{
+
+await deleteProperty(
+createdPropertyId
+)
+
+}
+catch(deleteError){
+
+console.error(
+"Failed rolling back property",
+deleteError
+)
+
+}
+
+}
+
+
+alert(
+"Property creation failed"
+)
+
+}
     finally{
 
 

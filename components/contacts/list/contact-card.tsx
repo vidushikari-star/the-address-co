@@ -265,26 +265,7 @@ lastActivityAt?: string
 
             </Badge>
 
-            {
-  contact.relationshipTypes?.map(
-    relationship => (
-
-      <Badge
-        key={relationship}
-        variant="outline"
-        className="capitalize"
-      >
-
-        {
-          relationship
-            .replace("_"," ")
-        }
-
-      </Badge>
-
-    )
-  )
-}
+            
 
 
 
