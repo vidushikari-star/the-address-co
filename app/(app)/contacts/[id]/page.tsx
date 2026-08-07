@@ -5,6 +5,10 @@ import { PageContainer } from "@/components/layout/page-container"
 
 import { ContactsRepository } from "@/lib/supabase/repositories/contacts.repository"
 
+import {
+  getContactSummary,
+} from "@/lib/repositories/contact-summary-repository"
+
 
 type ContactDetailPageProps = {
   params: Promise<{
@@ -13,21 +17,37 @@ type ContactDetailPageProps = {
 }
 
 
+
 export default async function ContactDetailPage({
   params,
 }: ContactDetailPageProps) {
 
 
-  const { id } = await params
+  const {
+    id,
+  } =
+  await params
+
 
 
   const contact =
     await ContactsRepository.getById(id)
 
 
+
   if (!contact) {
+
     notFound()
+
   }
+
+
+
+  const summary =
+    await getContactSummary(
+      contact.id
+    )
+
 
 
   return (
@@ -35,7 +55,15 @@ export default async function ContactDetailPage({
     <PageContainer>
 
       <RelationshipDetail
-        contact={contact}
+
+        contact={
+          contact
+        }
+
+        summary={
+          summary
+        }
+
       />
 
     </PageContainer>

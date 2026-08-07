@@ -20,6 +20,14 @@ type CommissionRow = {
   deal_name?: string | null
 
   commission_type: Commission["type"]
+    commission_role:
+    | "buyer"
+    | "tenant"
+    | "owner"
+    | "developer"
+    | "broker"
+    | "mou_holder"
+    | null
   commission_basis: Commission["commissionBasis"] | null
   commission_percentage: number | string | null
   amount: number | string | null
@@ -82,6 +90,9 @@ function mapCommissionRow(
 
     type:
       row.commission_type,
+
+      commissionRole:
+  row.commission_role ?? undefined,
 
     commissionBasis:
       row.commission_basis ?? undefined,
@@ -384,6 +395,9 @@ export async function createCommission(
         commission_type:
           commission.type ?? "sale",
 
+          commission_role:
+  commission.commissionRole ?? null,
+
         commission_basis:
           commission.commissionBasis ??
           null,
@@ -421,6 +435,9 @@ export async function createCommission(
 
 Amount:
 ₹${Number(data.amount).toLocaleString("en-IN")}
+
+Role:
+${data.commission_role ?? "-"}
 
 Basis:
 ${data.commission_basis ?? "-"}`
@@ -478,6 +495,9 @@ export async function markCommissionInvoiced(
 
 Amount:
 ₹${Number(data.amount).toLocaleString("en-IN")}
+
+Role:
+${data.commission_role ?? "-"}
 
 Basis:
 ${data.commission_basis ?? "-"}`

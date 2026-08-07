@@ -23,7 +23,9 @@ import {
 } from "@/lib/repositories/commission-repository"
 
 
-
+import {
+  formatCommissionRole,
+} from "@/lib/utils/format-commission-role"
 
 
 
@@ -68,6 +70,7 @@ function formatDate(
   )
 
 }
+
 
 
 
@@ -194,6 +197,16 @@ export function DealCommission({
 
             >
 
+            <div className="text-lg font-semibold">
+
+  {
+    formatCommissionRole(
+      commission.commissionRole
+    )
+  }
+
+</div>
+
 
 
 
@@ -205,7 +218,9 @@ export function DealCommission({
                 </span>
 
                 <span className="font-medium capitalize">
-                  {commission.type}
+                  {formatCommissionRole(
+  commission.commissionRole
+)}
                 </span>
 
               </div>

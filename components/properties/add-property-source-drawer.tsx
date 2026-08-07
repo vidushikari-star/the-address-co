@@ -20,6 +20,9 @@ import type {
   PropertyContactRelationship,
 } from "@/types/property"
 
+import {
+  addContactRelationshipType,
+} from "@/lib/supabase/repositories/contact-relationship.repository"
 
 
 
@@ -119,6 +122,11 @@ export function AddPropertySourceDrawer({
 
       })
 
+      await addContactRelationshipType(
+  contactId,
+  relationshipType
+)
+
 
 
       onAdded()
@@ -138,6 +146,8 @@ export function AddPropertySourceDrawer({
 
 
   }
+
+  
 
 
 

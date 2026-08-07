@@ -131,23 +131,27 @@ export function ContactToolbar({
 
   const relationshipTypes = [
 
-    ["all","All Relationships"],
+["all","All Relationships"],
 
-    ["buyer","Buyer"],
+["owner","Owner"],
 
-    ["seller","Seller"],
+["buyer","Buyer"],
 
-    ["investor","Investor"],
+["tenant","Tenant"],
 
-    ["tenant","Tenant"],
+["developer","Developer"],
 
-    ["landlord","Landlord"],
+["broker","Broker"],
 
-    ["developer","Developer"],
+["mou_holder","MOU Holder"],
 
-    ["broker","Broker"],
+["seller","Seller"],
 
-  ]
+["investor","Investor"],
+
+["landlord","Landlord"],
+
+]
 
 
 

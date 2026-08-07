@@ -88,7 +88,7 @@ export interface CreateContactDto {
   advisorId?: string
 
 
-  nextFollowUpAt?: string
+  nextFollowUpAt?: string | null
 
 }
 

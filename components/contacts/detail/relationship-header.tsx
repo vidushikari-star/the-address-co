@@ -30,6 +30,10 @@ import {
 } from "@/components/ui/badge"
 
 import {
+  formatContactRole,
+} from "@/lib/utils/format-contact-role"
+
+import {
   StageSelector,
 } from "@/components/contacts/detail/stage-selector"
 
@@ -308,7 +312,28 @@ export function RelationshipHeader({
 
 
 
+{
+  contact.relationshipTypes?.map(
+    relationship => (
 
+      <Badge
+        key={relationship}
+        variant="secondary"
+        className="capitalize"
+      >
+
+        {
+          relationship.replace(
+            "_",
+            " "
+          )
+        }
+
+      </Badge>
+
+    )
+  )
+}
 
               {
                 intentLabel && (
@@ -321,6 +346,27 @@ export function RelationshipHeader({
 
                 )
               }
+
+              {
+  contact.relationshipTypes?.map(
+    role => (
+
+      <Badge
+        key={role}
+        variant="secondary"
+      >
+
+        {
+          formatContactRole(
+            role
+          )
+        }
+
+      </Badge>
+
+    )
+  )
+}
 
 
 

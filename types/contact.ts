@@ -221,7 +221,7 @@ export interface Contact {
 
   leadSource?: LeadSource
 
-  nextFollowUpAt?: string
+  nextFollowUpAt?: string | null
 
   lastActivityAt?: string
 

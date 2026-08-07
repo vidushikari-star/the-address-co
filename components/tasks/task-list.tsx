@@ -1,7 +1,8 @@
 "use client"
 
 import {
-  useState,
+useEffect,
+useState,
 } from "react"
 
 import type {
@@ -40,7 +41,15 @@ export function TaskList({
 ] = useState(initialTasks)
 
 
+useEffect(()=>{
 
+  setTasks(
+    initialTasks
+  )
+
+},[
+  initialTasks
+])
 
 
 

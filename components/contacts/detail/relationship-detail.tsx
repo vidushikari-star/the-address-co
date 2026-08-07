@@ -40,16 +40,25 @@ import {
   NextFollowUpCard,
 } from "./next-follow-up-card"
 
+import {
+  ContactFinancialSnapshot,
+} from "./contact-financial-snapshot"
+
+import type {
+  ContactSummary,
+} from "@/lib/repositories/contact-summary-repository"
+
 
 
 type RelationshipDetailProps = {
   contact: Contact
+  summary: ContactSummary
 }
 
 
-
 export function RelationshipDetail({
-  contact,
+contact,
+summary,
 }: RelationshipDetailProps) {
 
   return (
@@ -91,14 +100,19 @@ export function RelationshipDetail({
           "
         >
 
-          <RelationshipSnapshot
-            contact={contact}
-          />
+         <RelationshipSnapshot
+  contact={contact}
+/>
 
 
-          <LeadIntentCard
-            contact={contact}
-          />
+<ContactFinancialSnapshot
+  summary={summary}
+/>
+
+
+<LeadIntentCard
+  contact={contact}
+/>
 
         </aside>
 

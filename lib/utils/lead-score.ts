@@ -11,7 +11,6 @@ export type LeadPriority =
 
 
 
-
 export function getLeadPriority(
   contact: Contact
 ): {
@@ -94,6 +93,71 @@ export function getLeadPriority(
 
 
 
+  /*
+    Activity decay
+
+    Prevent inactive buyers
+    from staying Hot forever
+  */
+
+
+  if(
+    contact.lastActivityAt
+  ){
+
+    const lastActivity =
+      new Date(
+        contact.lastActivityAt
+      )
+
+
+    const daysInactive =
+      Math.floor(
+        (
+          Date.now() -
+          lastActivity.getTime()
+        )
+        /
+        (
+          1000 *
+          60 *
+          60 *
+          24
+        )
+      )
+
+
+
+    // Active in last 7 days
+    if(
+      daysInactive <= 7
+    ){
+
+      score += 2
+
+    }
+
+
+    // No activity for more than 60 days
+    if(
+      daysInactive > 60
+    ){
+
+      score -= 3
+
+    }
+
+
+  }
+  else {
+
+    // No activity should never be hot
+
+    score -= 2
+
+  }
+
+
 
 
 
@@ -142,6 +206,5 @@ export function getLeadPriority(
     emoji:"⚪",
 
   }
-
 
 }

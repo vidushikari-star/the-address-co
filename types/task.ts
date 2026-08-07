@@ -1,34 +1,37 @@
 export type TaskPriority =
-  | "low"
-  | "medium"
-  | "high"
+| "low"
+| "medium"
+| "high"
+
 
 export interface Task {
 
-  id: string
+id: string
 
-  title: string
+title: string
 
-  description?: string
+description?: string
 
-  completed: boolean
+completed: boolean
 
-  status:
-    | "pending"
-    | "completed"
+archived: boolean
 
-  priority: TaskPriority
+status:
+| "pending"
+| "completed"
 
-  dueDate?: Date
+priority: TaskPriority
 
-  assignedTo?: string
+dueDate?: Date
 
-  contactId?: string
+assignedTo?: string
 
-  dealId?: string
+contactId?: string
 
-  createdAt?: string
+dealId?: string
 
-  updatedAt?: string
+createdAt?: string
+
+updatedAt?: string
 
 }

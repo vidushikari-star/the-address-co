@@ -50,6 +50,10 @@ import {
   addPropertyCommission,
 } from "@/lib/repositories/property-commission-repository"
 
+import {
+  addContactRelationshipType,
+} from "@/lib/supabase/repositories/contact-relationship.repository"
+
 
 
 type PropertyDrawerProps = {
@@ -532,24 +536,9 @@ function removeDocument(index:number){
 
 
 
-
-
-
-  useEffect(()=>{
-
-  if(open){
-
-    resetForm()
-
-    loadContacts()
-
-  }
-
-},[open, housingLead])
-
-
-
 async function loadContacts(){
+
+try {
 
   const data =
     await ContactsRepository.getAll()
@@ -565,7 +554,35 @@ async function loadContacts(){
     data
   )
 
+
 }
+catch(error){
+
+  console.error(
+    "Failed loading contacts",
+    error
+  )
+
+}
+
+}
+
+
+  useEffect(()=>{
+
+if(open){
+
+  resetForm()
+
+  loadContacts()
+
+}
+
+},[open])
+
+
+
+
 
     async function submit(
     e:React.FormEvent
@@ -757,6 +774,11 @@ async function loadContacts(){
             source.relationshipType,
 
         })
+
+        await addContactRelationshipType(
+  source.contactId,
+  source.relationshipType
+)
 
 
 

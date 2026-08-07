@@ -22,6 +22,10 @@ type CommissionRow = {
 
   contact_id:string | null
 
+    contacts?: {
+    full_name: string | null
+  } | null
+
   property_id:string | null
 
   advisor_id:string | null
@@ -32,6 +36,15 @@ type CommissionRow = {
 
   commission_type:
     Commission["type"]
+
+      commission_role:
+    | "buyer"
+    | "tenant"
+    | "owner"
+    | "developer"
+    | "broker"
+    | "mou_holder"
+    | null
 
 
   amount:
@@ -59,15 +72,6 @@ type CommissionRow = {
   deals?:{
 
     name:string | null
-
-  } | null
-
-
-
-
-  contacts?:{
-
-    full_name:string | null
 
   } | null
 
@@ -135,6 +139,9 @@ function mapCommissionRow(
 
     type:
       row.commission_type,
+
+      commissionRole:
+  row.commission_role ?? undefined,
 
 
 
@@ -485,19 +492,17 @@ commission:Partial<Commission>
     .select("*")
 
     .eq(
-      "deal_id",
-      commission.dealId
-    )
-
-    .eq(
-      "property_id",
-      commission.propertyId
-    )
-
-    .eq(
-      "commission_type",
-      commission.type ?? "sale"
-    )
+  "deal_id",
+  commission.dealId
+)
+.eq(
+  "contact_id",
+  commission.contactId ?? null
+)
+.eq(
+  "commission_role",
+  commission.commissionRole ?? null
+)
 
     .maybeSingle()
 
@@ -525,33 +530,34 @@ commission:Partial<Commission>
 
 
 
+      const payload = {
+
+  deal_id:
+    commission.dealId,
 
 
-  const payload = {
+  contact_id:
+    commission.contactId ?? null,
 
 
-    deal_id:
-      commission.dealId,
+  commission_role:
+    commission.commissionRole ?? null,
 
 
-    contact_id:
-      commission.contactId ?? null,
+  property_id:
+    commission.propertyId ?? null,
 
 
-    property_id:
-      commission.propertyId ?? null,
+  advisor_id:
+    commission.advisorId ?? null,
 
 
-    advisor_id:
-      commission.advisorId ?? null,
+  commission_type:
+    commission.type ?? "sale",
 
 
-    commission_type:
-      commission.type ?? "sale",
-
-
-    amount:
-      commission.amount ?? 0,
+  amount:
+    commission.amount ?? 0,
 
 
     commission_basis:

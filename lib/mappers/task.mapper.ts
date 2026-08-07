@@ -1,17 +1,31 @@
 import type { Task } from "@/types/task"
 
 type TaskRow = {
-  id: string
-  title: string | null
-  description: string | null
-  status: Task["status"] | null
-  priority: Task["priority"] | null
-  due_date: string | null
-  assigned_to: string | null
-  contact_id: string | null
-  deal_id: string | null
-  created_at: string | null
-  updated_at: string | null
+
+id: string
+
+title: string | null
+
+description: string | null
+
+status: Task["status"] | null
+
+priority: Task["priority"] | null
+
+archived: boolean | null
+
+due_date: string | null
+
+assigned_to: string | null
+
+contact_id: string | null
+
+deal_id: string | null
+
+created_at: string | null
+
+updated_at: string | null
+
 }
 
 export function mapTaskRow(
@@ -25,6 +39,9 @@ export function mapTaskRow(
     description: row.description ?? "",
 
     completed: row.status === "completed",
+
+    archived:
+  row.archived ?? false,
 
     status: row.status ?? "pending",
 

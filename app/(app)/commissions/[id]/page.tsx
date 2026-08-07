@@ -2,7 +2,6 @@ import {
   createServerSupabaseClient,
 } from "@/lib/supabase/server"
 
-
 import {
   notFound,
 } from "next/navigation"
@@ -13,6 +12,9 @@ import type {
   ReactNode,
 } from "react"
 
+import {
+  formatCommissionRole,
+} from "@/lib/utils/format-commission-role"
 
 
 
@@ -60,30 +62,33 @@ function formatDate(
 
 
 
-
-
-
-
 function DetailRow(
-  {
-    label,
-    value,
-  }: {
-    label: string
-    value: ReactNode
-  }
-) {
-  return (
-    <div>
-      <p className="text-sm text-muted-foreground">
-        {label}
-      </p>
+{
+  label,
+  value,
+}:{
+  label:string
+  value:ReactNode
+}
+){
 
-      <p className="font-medium">
+  return (
+
+    <div className="flex justify-between gap-4 border-b pb-3">
+
+      <span className="text-muted-foreground">
+        {label}
+      </span>
+
+
+      <p className="font-medium text-right">
         {value ?? "-"}
       </p>
+
     </div>
+
   )
+
 }
 
 
@@ -92,16 +97,14 @@ function DetailRow(
 
 
 
-
-
 export default async function CommissionDetailPage(
-  {
-    params,
-  }:{
-    params: Promise<{
-      id:string
-    }>
-  }
+{
+  params,
+}:{
+  params:Promise<{
+    id:string
+  }>
+}
 ){
 
 
@@ -208,11 +211,10 @@ export default async function CommissionDetailPage(
 
 
 
-
-
   return (
 
     <div className="space-y-8 p-8">
+
 
 
 
@@ -284,7 +286,6 @@ export default async function CommissionDetailPage(
 
 
 
-
       <div className="grid gap-6 md:grid-cols-2">
 
 
@@ -300,6 +301,7 @@ export default async function CommissionDetailPage(
 
 
 
+
           <DetailRow
 
             label="Deal"
@@ -312,6 +314,8 @@ export default async function CommissionDetailPage(
 
 
 
+
+
           <DetailRow
 
             label="Advisor"
@@ -321,6 +325,24 @@ export default async function CommissionDetailPage(
             }
 
           />
+
+
+
+
+
+          <DetailRow
+
+            label="Commission Role"
+
+            value={
+              formatCommissionRole(
+                commission.commission_role
+              )
+            }
+
+          />
+
+
 
 
 
@@ -354,6 +376,7 @@ export default async function CommissionDetailPage(
 
 
 
+
           {
             commission.commission_basis === "percentage" && (
 
@@ -376,6 +399,7 @@ export default async function CommissionDetailPage(
 
 
 
+
           <DetailRow
 
             label="Amount"
@@ -392,6 +416,8 @@ export default async function CommissionDetailPage(
 
 
 
+
+
           <DetailRow
 
             label="Status"
@@ -401,6 +427,8 @@ export default async function CommissionDetailPage(
             }
 
           />
+
+
 
 
 
@@ -436,6 +464,8 @@ export default async function CommissionDetailPage(
 
 
 
+
+
           <DetailRow
 
             label="Invoice Number"
@@ -445,6 +475,8 @@ export default async function CommissionDetailPage(
             }
 
           />
+
+
 
 
 
@@ -464,9 +496,13 @@ export default async function CommissionDetailPage(
 
 
 
+
+
           <h2 className="text-xl font-semibold pt-4">
             Payment Details
           </h2>
+
+
 
 
 
@@ -482,6 +518,8 @@ export default async function CommissionDetailPage(
 
 
 
+
+
           <DetailRow
 
             label="Payment Reference"
@@ -491,6 +529,8 @@ export default async function CommissionDetailPage(
             }
 
           />
+
+
 
 
 
@@ -511,16 +551,6 @@ export default async function CommissionDetailPage(
 
 
       </div>
-
-
-
-
-
-
-
-
-
-      
 
 
 

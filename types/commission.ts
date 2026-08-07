@@ -59,6 +59,14 @@ export interface Commission {
 
   type: CommissionType
 
+  commissionRole?:
+  | "buyer"
+  | "tenant"
+  | "owner"
+  | "developer"
+  | "broker"
+  | "mou_holder"
+
 
   commissionBasis?: CommissionBasis
 

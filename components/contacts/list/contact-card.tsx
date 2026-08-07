@@ -14,7 +14,12 @@ import { WhatsAppButton } from "@/components/communications/whatsapp-button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { getLeadPriority } from "@/lib/utils/lead-score"
+import {
+  formatContactRole,
+} from "@/lib/utils/format-contact-role"
 import type { Contact } from "@/types/contact"
+
+
 
 
 type ContactCardProps = {
@@ -94,52 +99,53 @@ export function ContactCard({
 
 
   function getFollowUpStatus(
-    lastActivityAt?: string
-  ){
+lastActivityAt?: string
+){
 
-    if(!lastActivityAt){
+  if(!lastActivityAt){
 
-      return {
-        label:"Needs Contact",
-        variant:"new",
-      }
-
+    return {
+      label:"Needs Contact",
+      variant:"new",
     }
-
-
-    const lastActivity =
-      new Date(lastActivityAt)
-
-
-    const daysSinceActivity =
-      Math.floor(
-        (
-          Date.now() -
-          lastActivity.getTime()
-        )
-        /
-        (
-          1000 *
-          60 *
-          60 *
-          24
-        )
-      )
-
-
-    if(daysSinceActivity >= 7){
-
-      return {
-        label:"Follow Up Due",
-        variant:"due",
-      }
-
-    }
-
-
-    return null
 
   }
+
+
+  const daysSinceActivity =
+    Math.floor(
+      (
+        Date.now()
+        -
+        new Date(
+          lastActivityAt
+        ).getTime()
+      )
+      /
+      (
+        1000 *
+        60 *
+        60 *
+        24
+      )
+    )
+
+
+  if(
+    daysSinceActivity > 30
+  ){
+
+    return {
+      label:"Follow Up Due",
+      variant:"due",
+    }
+
+  }
+
+
+  return null
+
+}
 
 
 
@@ -259,6 +265,27 @@ export function ContactCard({
 
             </Badge>
 
+            {
+  contact.relationshipTypes?.map(
+    relationship => (
+
+      <Badge
+        key={relationship}
+        variant="outline"
+        className="capitalize"
+      >
+
+        {
+          relationship
+            .replace("_"," ")
+        }
+
+      </Badge>
+
+    )
+  )
+}
+
 
 
 
@@ -304,6 +331,27 @@ export function ContactCard({
 
               )
             }
+
+            {
+  contact.relationshipTypes?.map(
+    role => (
+
+      <Badge
+        key={role}
+        variant="outline"
+      >
+
+        {
+          formatContactRole(
+            role
+          )
+        }
+
+      </Badge>
+
+    )
+  )
+}
 
 
 

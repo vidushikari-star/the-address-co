@@ -140,9 +140,15 @@ export async function updateTask(
           updates.title,
 
         status:
-          updates.completed
-            ? "completed"
-            : "pending",
+  updates.completed
+    ? "completed"
+    : "pending",
+
+
+archived:
+  updates.completed
+    ? true
+    : false,
 
         due_date:
           updates.dueDate

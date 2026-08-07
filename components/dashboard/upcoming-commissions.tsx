@@ -12,6 +12,10 @@ import type {
   Commission,
 } from "@/types/commission"
 
+import {
+  formatCommissionRole,
+} from "@/lib/utils/format-commission-role"
+
 
 
 type Props = {
@@ -232,7 +236,9 @@ export function UpcomingCommissions({
                     ">
 
                       {
-                        commission.type
+                        formatCommissionRole(
+  commission.commissionRole
+)
                       }
 
                       {" "}

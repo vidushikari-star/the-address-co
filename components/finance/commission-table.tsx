@@ -19,6 +19,10 @@ import {
 
 import Link from "next/link"
 
+import {
+  formatCommissionRole,
+} from "@/lib/utils/format-commission-role"
+
 
 type Props = {
   commissions: Commission[]
@@ -312,8 +316,20 @@ export function CommissionTable({
                   text-muted-foreground
                 ">
 
+                 <p>
+  Source:
+  {
+    commission.contactName ?? "-"
+  }
+</p>
+                 
                   <p>
-                    Type: {commission.type}
+                    Type:
+{
+  formatCommissionRole(
+    commission.commissionRole
+  )
+}
                   </p>
 
                   <p>
@@ -388,8 +404,12 @@ export function CommissionTable({
               </th>
 
               <th className="p-4 text-left">
-                Type
-              </th>
+  Source
+</th>
+
+<th className="p-4 text-left">
+  Type
+</th>
 
               <th className="p-4 text-left">
                 Advisor
@@ -443,9 +463,18 @@ export function CommissionTable({
 
                     </td>
 
+<td className="p-4">
+  {
+    commission.contactName ?? "-"
+  }
+</td>
 
                     <td className="p-4 capitalize">
-                      {commission.type}
+                      {
+  formatCommissionRole(
+    commission.commissionRole
+  )
+}
                     </td>
 
 

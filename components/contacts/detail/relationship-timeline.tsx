@@ -14,8 +14,9 @@ import type {
 } from "@/types/activity"
 
 import {
-  getActivitiesByContactId,
-} from "@/lib/repositories/activity-repository"
+  getContactTimeline,
+  TimelineEvent,
+} from "@/lib/repositories/contact-timeline-repository"
 
 import {
   Calendar,
@@ -40,9 +41,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-
-
-
 
 
 
@@ -91,9 +89,6 @@ const activityIcons = {
 
 
 
-
-
-
 type Props = {
 
   contact: Contact
@@ -102,22 +97,16 @@ type Props = {
 
 
 
-
-
-
-
-
 export function RelationshipTimeline({
   contact,
-}:Props){
-
+}: Props) {
 
 
   const [
     activities,
     setActivities,
   ] =
-  useState<Activity[]>([])
+  useState<TimelineEvent[]>([])
 
 
 
@@ -138,9 +127,6 @@ export function RelationshipTimeline({
 
 
 
-
-
-
   useEffect(()=>{
 
 
@@ -151,7 +137,7 @@ export function RelationshipTimeline({
 
 
         const data =
-          await getActivitiesByContactId(
+          await getContactTimeline(
             contact.id
           )
 
@@ -185,9 +171,6 @@ export function RelationshipTimeline({
 
 
 
-
-
-
   const sortedActivities =
     activities
       .slice()
@@ -195,16 +178,14 @@ export function RelationshipTimeline({
         (a,b)=>
 
           new Date(
-            b.date ??
-            b.createdAt
+            b.date
           )
           .getTime()
 
           -
 
           new Date(
-            a.date ??
-            a.createdAt
+            a.date
           )
           .getTime()
 
@@ -214,13 +195,14 @@ export function RelationshipTimeline({
 
 
 
+
   const visibleActivities =
     showAll
       ? sortedActivities
-      : sortedActivities.slice(0,5)
-
-
-
+      : sortedActivities.slice(
+          0,
+          5
+        )
 
 
 
@@ -233,7 +215,6 @@ export function RelationshipTimeline({
     ">
 
 
-
       <CardHeader className="
         px-4
         py-3
@@ -244,7 +225,7 @@ export function RelationshipTimeline({
           text-base
         ">
 
-          Activity Timeline
+          Relationship Timeline
 
         </CardTitle>
 
@@ -255,17 +236,10 @@ export function RelationshipTimeline({
 
 
 
-
-
-
       <CardContent className="
         px-4
         pb-5
       ">
-
-
-
-
 
 
         {
@@ -278,7 +252,7 @@ export function RelationshipTimeline({
               text-muted-foreground
             ">
 
-              Loading activity...
+              Loading timeline...
 
             </p>
 
@@ -311,6 +285,7 @@ export function RelationshipTimeline({
 
             <>
 
+
               <div className="
                 space-y-6
               ">
@@ -331,11 +306,8 @@ export function RelationshipTimeline({
 
 
 
-
                       const text =
                         activity.body
-                        ??
-                        activity.description
                         ??
                         ""
 
@@ -430,10 +402,10 @@ export function RelationshipTimeline({
                                 text-muted-foreground
                               ">
 
+
                                 {
                                   new Date(
-                                    activity.date ??
-                                    activity.createdAt
+                                    activity.date
                                   )
                                   .toLocaleDateString(
                                     "en-IN",
@@ -445,11 +417,11 @@ export function RelationshipTimeline({
                                   )
                                 }
 
+
                               </span>
 
 
                             </div>
-
 
 
 
@@ -476,7 +448,6 @@ export function RelationshipTimeline({
                             }
 
 
-
                           </div>
 
 
@@ -485,9 +456,7 @@ export function RelationshipTimeline({
                       )
 
                     }
-
                   )
-
                 }
 
 
@@ -537,7 +506,6 @@ export function RelationshipTimeline({
           )
 
         }
-
 
 
       </CardContent>

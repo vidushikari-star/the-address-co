@@ -331,17 +331,48 @@ export async function getPropertiesByIds(
 
 
 export async function createProperty(
-  property:CreatePropertyDto
-):Promise<Property>{
+property: CreatePropertyDto
+): Promise<Property> {
 
 
-  const uniqueSlug =
-    await generateUniqueSlug(
-      property.slug
-    )
+if(
+  !property.name ||
+  !property.name.trim()
+){
+
+  throw new Error(
+    "Property name is required"
+  )
+
+}
 
 
-  const payload = {
+
+const baseSlug =
+property.slug?.trim()
+||
+property.name
+  .toLowerCase()
+  .trim()
+  .replace(
+    /[^a-z0-9]+/g,
+    "-"
+  )
+  .replace(
+    /(^-|-$)/g,
+    ""
+  )
+
+
+
+const uniqueSlug =
+await generateUniqueSlug(
+  baseSlug
+)
+
+
+
+const payload = {
 
 
     name:

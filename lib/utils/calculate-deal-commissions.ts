@@ -12,6 +12,7 @@ import type {
 
 
 
+
 type Input = {
 
   deal: Deal
@@ -37,48 +38,56 @@ export function calculateDealCommissions({
 }:Input){
 
 
+
   const commissions:any[] = []
 
 
 
+
+
   /*
-    CLIENT SIDE COMMISSION
+    BUYER / TENANT COMMISSION
   */
 
 
+
   const clientPercentage =
-  deal.value.commissionPercentage
-  ??
-  0
-
-
-
-const clientAmount =
-
-  clientPercentage > 0
-
-    ?
-
-    (
-      closingPrice *
-      clientPercentage /
-      100
-    )
-
-    :
-
-    (
-      deal.value.commissionAmount
-      ??
-      0
-    )
+    deal.value.commissionPercentage
+    ??
+    0
 
 
 
 
+  const clientAmount =
+
+    clientPercentage > 0
+
+      ?
+
+      (
+        closingPrice *
+        clientPercentage /
+        100
+      )
+
+      :
+
+      (
+        deal.value.commissionAmount
+        ??
+        0
+      )
 
 
-  if(clientAmount > 0){
+
+
+
+
+  if(
+    clientAmount > 0 &&
+    deal.contactId
+  ){
 
 
     commissions.push({
@@ -99,8 +108,17 @@ const clientAmount =
         deal.advisorId,
 
 
+
       type:
         deal.value.commissionType as CommissionType,
+
+
+
+      commissionRole:
+        deal.value.commissionType === "rental"
+          ? "tenant"
+          : "buyer",
+
 
 
       commissionBasis:
@@ -114,9 +132,18 @@ const clientAmount =
       amount:
         clientAmount,
 
+
+      notes:
+        deal.value.commissionType === "rental"
+          ? "tenant commission"
+          : "buyer commission",
+
     })
 
+
   }
+
+
 
 
 
@@ -128,6 +155,7 @@ const clientAmount =
   */
 
 
+
   propertySources.forEach(
 
     source => {
@@ -135,6 +163,7 @@ const clientAmount =
 
       const percentage =
         source.commission?.percentage
+
 
 
 
@@ -150,6 +179,7 @@ const clientAmount =
 
 
 
+
       const amount =
 
         closingPrice *
@@ -159,48 +189,68 @@ const clientAmount =
 
 
 
+
+
       commissions.push({
+
 
         dealId:
           deal.id,
+
 
 
         contactId:
           source.contact.id,
 
 
+
         propertyId:
           deal.propertyId,
+
 
 
         advisorId:
           deal.advisorId,
 
 
+
         type:
           deal.value.commissionType as CommissionType,
+
+
+
+        commissionRole:
+          source.relationshipType,
+
 
 
         commissionBasis:
           "percentage",
 
 
+
         commissionPercentage:
           percentage,
+
 
 
         amount,
 
 
+
         notes:
           `${source.relationshipType} commission`
 
+
       })
+
 
 
     }
 
   )
+
+
 
 
 

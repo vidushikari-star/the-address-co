@@ -24,24 +24,18 @@ type Props = {
 
 
 
-
-
 type Filter =
   | "all"
   | "today"
   | "upcoming"
   | "completed"
-
-
-
-
+  | "archive"
 
 
 
 export function TaskPageClient({
   tasks,
 }: Props){
-
 
   const router =
     useRouter()
@@ -55,8 +49,6 @@ export function TaskPageClient({
   useState<Filter>(
     "all"
   )
-
-
 
 
 
@@ -74,14 +66,14 @@ export function TaskPageClient({
 
 
 
-
-
-
-
   const counts = {
 
     all:
-      tasks.length,
+  tasks.filter(
+    task =>
+      !task.archived
+  ).length,
+
 
 
     today:
@@ -167,11 +159,15 @@ export function TaskPageClient({
           task.completed
       ).length,
 
+
+
+    archive:
+  tasks.filter(
+    task =>
+      task.archived
+  ).length,
+
   }
-
-
-
-
 
 
 
@@ -181,14 +177,25 @@ export function TaskPageClient({
 
 
         if(
-          filter === "completed"
-        ){
+  filter === "archive"
+){
 
-          return task.completed
+  return task.archived
 
-        }
+}
 
 
+
+        if(
+  filter === "completed"
+){
+
+  return (
+    task.completed &&
+    !task.archived
+  )
+
+}
 
 
 
@@ -232,8 +239,6 @@ export function TaskPageClient({
 
 
 
-
-
         if(
           filter === "upcoming"
         ){
@@ -272,9 +277,8 @@ export function TaskPageClient({
 
 
 
-
-
-        return true
+        // Default: Active Tasks only
+        return !task.archived
 
 
       }
@@ -282,15 +286,11 @@ export function TaskPageClient({
 
 
 
-
-
-
-
   const filters = [
 
     {
       id:"all",
-      label:"All",
+      label:"Active",
       count:counts.all,
     },
 
@@ -312,12 +312,13 @@ export function TaskPageClient({
       count:counts.completed,
     },
 
+    {
+      id:"archive",
+      label:"Archive",
+      count:counts.archive,
+    },
+
   ]
-
-
-
-
-
 
 
 
@@ -326,9 +327,6 @@ export function TaskPageClient({
     <div className="
       space-y-6
     ">
-
-
-
 
 
       <div className="
@@ -407,8 +405,6 @@ export function TaskPageClient({
 
 
 
-
-
       <TaskList
 
         tasks={
@@ -420,7 +416,6 @@ export function TaskPageClient({
         }
 
       />
-
 
 
     </div>
