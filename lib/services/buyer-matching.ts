@@ -13,53 +13,25 @@ export function getBuyerMatches(
   buyers: Contact[]
 ): BuyerMatch[] {
 
-
   const matches: BuyerMatch[] =
     buyers.map((contact) => {
 
-
-      const requirements =
-        contact.buyerProfile?.requirements ??
-        contact.buyerRequirements
-
-
-
-      if (!requirements) {
-
-        return {
-          contact,
-          score: 0,
-          reasons: [],
-        }
-
-      }
-
-
-
-
-
       let score = 0
-
-      const reasons: string[] = []
-
-
-
+      const reasons:string[] = []
 
 
       const minBudget =
-        requirements.budget?.min ?? 0
-
+        contact.budgetMin ??
+        contact.buyerRequirements?.budget.min ??
+        0
 
 
       const maxBudget =
-        requirements.budget?.max ??
+        contact.budgetMax ??
+        contact.buyerRequirements?.budget.max ??
         Number.MAX_SAFE_INTEGER
 
 
-
-
-
-      // Budget
 
       const propertyPrice =
         property.transactionType === "Rental"
@@ -68,35 +40,37 @@ export function getBuyerMatches(
 
 
 
-      if (
+      // Budget match
+      if(
         propertyPrice !== undefined &&
         propertyPrice >= minBudget &&
         propertyPrice <= maxBudget
-      ) {
+      ){
 
         score += 35
 
         reasons.push(
-          "Within budget range"
+          "Within budget"
         )
 
       }
 
 
 
+      // Location match
+      const locations =
+        contact.locations ??
+        contact.buyerRequirements?.preferredLocations ??
+        []
 
 
-
-
-      // Location
-
-      if (
-        requirements.preferredLocations?.some(
-          (location) =>
+      if(
+        locations.some(
+          location =>
             location.toLowerCase() ===
             property.location.toLowerCase()
         )
-      ) {
+      ){
 
         score += 25
 
@@ -108,50 +82,58 @@ export function getBuyerMatches(
 
 
 
+      // Property type match
+      const propertyTypes =
+        contact.propertyTypes ??
+        contact.buyerRequirements?.propertyTypes ??
+        []
 
 
-
-
-      // Property Type
-
-      const propertyType =
-        property.propertyType
-
-
-
-      if (
-        requirements.propertyTypes?.some(
-          (type) =>
+      if(
+        propertyTypes.some(
+          type =>
             type.toLowerCase() ===
-            propertyType.toLowerCase()
+            property.propertyType.toLowerCase()
         )
-      ) {
+      ){
 
         score += 20
 
         reasons.push(
-          "Property type match"
+          "Property type"
         )
 
       }
 
 
 
+      // Bedrooms
+      if(
+        contact.buyerRequirements?.bedrooms &&
+        property.specifications.bedrooms &&
+        property.specifications.bedrooms >=
+          contact.buyerRequirements.bedrooms
+      ){
+
+        score += 10
+
+        reasons.push(
+          "Bedroom match"
+        )
+
+      }
 
 
 
-
-      // Features
-
-      const features =
+      // Amenities
+      const amenities =
         property.amenities ?? []
 
 
-
-      if (
-        requirements.privatePool &&
-        features.includes("private_pool")
-      ) {
+      if(
+        contact.buyerRequirements?.privatePool &&
+        amenities.includes("private_pool")
+      ){
 
         score += 5
 
@@ -162,13 +144,10 @@ export function getBuyerMatches(
       }
 
 
-
-
-
-      if (
-        requirements.staffQuarters &&
-        features.includes("staff_quarters")
-      ) {
+      if(
+        contact.buyerRequirements?.staffQuarters &&
+        amenities.includes("staff_quarters")
+      ){
 
         score += 5
 
@@ -180,35 +159,23 @@ export function getBuyerMatches(
 
 
 
-
-
-
-
       return {
         contact,
         score,
         reasons,
       }
 
-
     })
 
 
-
-
-
-
-
   return matches
-
     .filter(
-      (match) =>
+      match =>
         match.score > 0
     )
-
     .sort(
-      (a, b) =>
-        b.score - a.score
+      (a,b)=>
+        b.score-a.score
     )
 
 }

@@ -87,6 +87,16 @@ import {
   ContactsRepository,
 } from "@/lib/supabase/repositories/contacts.repository"
 
+import {
+  PropertyBuyerMatches,
+} from "@/components/properties/property-buyer-matches"
+
+import {
+  getBuyerMatches,
+} from "@/lib/services/buyer-matching"
+
+
+
 
 
 type Props = {
@@ -178,36 +188,36 @@ const {
 ] =
 await Promise.all([
 
-
   getActivitiesByPropertyId(
     property.id
   ),
-
 
   getPropertyImages(
     property.id
   ),
 
-
   getPropertyDocuments(
     property.id
   ),
-
 
   getDealsByPropertyId(
     property.id
   ),
 
-
   getPropertySources(
     property.id
   ),
 
-
   ContactsRepository.getAll(),
 
-
 ])
+
+
+const buyerMatches =
+getBuyerMatches(
+  property,
+  contacts
+)
 
 
 
@@ -285,24 +295,57 @@ await Promise.all([
 
 
 
-              <div className="mt-5 space-y-1 text-muted-foreground">
+              <div className="mt-5 space-y-2 text-muted-foreground">
 
 
-                <p className="font-medium">
+  <p className="font-medium">
 
-                  {property.developer}
+    {property.developer}
 
-                </p>
-
-
-                <p>
-
-                  {property.location}
-
-                </p>
+  </p>
 
 
-              </div>
+  <p>
+
+    {property.location}
+
+  </p>
+
+
+  {
+    property.googleMapLink && (
+
+      <a
+
+        href={
+          property.googleMapLink
+        }
+
+        target="_blank"
+
+        rel="noopener noreferrer"
+
+        className="
+          inline-flex
+          items-center
+          gap-1
+          text-sm
+          font-medium
+          text-primary
+          underline
+        "
+
+      >
+
+        📍 Open Google Maps
+
+      </a>
+
+    )
+  }
+
+
+</div>
 
 
             </div>
@@ -449,6 +492,11 @@ await Promise.all([
 
 />
 
+<PropertyBuyerMatches
+  matches={buyerMatches}
+  propertyId={property.id}
+/>
+
       <PropertyDeals
   deals={deals}
   transactionType={
@@ -532,6 +580,8 @@ await Promise.all([
               }
 
             />
+
+            
 
 
           </div>

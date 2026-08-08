@@ -5,6 +5,10 @@ import {
 } from "react"
 
 import {
+  supabase,
+} from "@/lib/supabase/client"
+
+import {
   updatePropertyShareStatus,
 } from "@/lib/repositories/property-share-repository"
 
@@ -42,41 +46,79 @@ type Props = {
 
 
 
-
-
 const statuses: {
   value: PropertyShareStatus
   label: string
 }[] = [
 
-  {
-    value: "shared",
-    label: "Shared",
-  },
+{
+  value: "shared",
+  label: "Shared",
+},
 
-  {
-    value: "viewed",
-    label: "Viewed",
-  },
+{
+  value: "viewed",
+  label: "Viewed",
+},
 
-  {
-    value: "interested",
-    label: "Interested",
-  },
+{
+  value: "interested",
+  label: "Interested",
+},
 
-  {
-    value: "site_visit",
-    label: "Site Visit",
-  },
+{
+  value: "site_visit",
+  label: "Site Visit",
+},
 
-  {
-    value: "rejected",
-    label: "Rejected",
-  },
+{
+  value: "rejected",
+  label: "Rejected",
+},
 
 ]
 
 
+
+const stageMap = {
+
+  shared:
+    "contacted",
+
+  viewed:
+    "qualified",
+
+  interested:
+    "active",
+
+  site_visit:
+    "viewing",
+
+  rejected:
+    null,
+
+} as const
+
+
+
+const activityTypeMap = {
+
+  shared:
+    "property_shared",
+
+  viewed:
+    "property_viewed",
+
+  interested:
+    "note",
+
+  site_visit:
+    "site_visit",
+
+  rejected:
+    "note",
+
+} as const
 
 
 
@@ -89,152 +131,183 @@ export function PropertyShareStatus({
 }: Props) {
 
 
-  const [
-    currentStatus,
-    setCurrentStatus,
-  ] =
-  useState(status)
+const [
+currentStatus,
+setCurrentStatus,
+] =
+useState(status)
 
 
 
-  const [
-    updating,
-    setUpdating,
-  ] =
-  useState(false)
+const [
+updating,
+setUpdating,
+] =
+useState(false)
 
 
 
-
-
-  async function update(
-  value: PropertyShareStatus | null
+async function update(
+value: PropertyShareStatus | null
 ) {
 
-  if (!value) {
-    return
-  }
 
+if(!value){
 
-  setUpdating(true)
-
-
-  try {
-
-
-    await updatePropertyShareStatus(
-      shareId,
-      value
-    )
-
-
-
-    setCurrentStatus(
-      value
-    )
-
-
-
-    await createActivity({
-
-      contactId,
-
-      propertyId,
-
-      type:
-        value === "viewed"
-          ? "property_viewed"
-          : value === "site_visit"
-            ? "site_visit"
-            : "note",
-
-
-      title:
-        `Property status updated: ${value}`,
-
-
-      body:
-        `${propertyName} marked as ${value.replace("_"," ")}`,
-
-
-      date:
-        new Date().toISOString(),
-
-    })
-
-
-
-  }
-  finally {
-
-    setUpdating(false)
-
-  }
+  return
 
 }
 
 
 
-
-  return (
-
-    <Select
-
-      value={
-        currentStatus
-      }
-
-      disabled={
-        updating
-      }
-
-      onValueChange={
-        update
-      }
-
-    >
-
-      <SelectTrigger
-        className="
-          h-7
-          w-fit
-          text-xs
-        "
-      >
-
-        <SelectValue />
-
-      </SelectTrigger>
+setUpdating(true)
 
 
-      <SelectContent>
-
-        {
-          statuses.map(
-            item => (
-
-              <SelectItem
-                key={
-                  item.value
-                }
-                value={
-                  item.value
-                }
-              >
-
-                {item.label}
-
-              </SelectItem>
-
-            )
-          )
-        }
-
-      </SelectContent>
+try {
 
 
-    </Select>
+await updatePropertyShareStatus(
+  shareId,
+  value
+)
 
-  )
+
+
+const nextStage =
+stageMap[value]
+
+
+
+if(nextStage){
+
+
+await supabase
+.from("contacts")
+.update({
+
+  lead_stage:
+    nextStage,
+
+})
+.eq(
+"id",
+contactId
+)
+
+
+}
+
+
+
+setCurrentStatus(
+value
+)
+
+
+
+await createActivity({
+
+contactId,
+
+propertyId,
+
+type:
+activityTypeMap[value],
+
+title:
+`Property status updated: ${value}`,
+
+body:
+`${propertyName} marked as ${value.replace("_"," ")}`,
+
+date:
+new Date().toISOString(),
+
+})
+
+
+}
+catch(error){
+
+console.error(
+"Failed updating property share status",
+error
+)
+
+}
+finally{
+
+setUpdating(false)
+
+}
+
+
+}
+
+
+
+return (
+
+<Select
+
+  value={
+    currentStatus
+  }
+
+  disabled={
+    updating
+  }
+
+  onValueChange={
+    update
+  }
+
+>
+
+  <SelectTrigger
+    className="
+      h-7
+      w-fit
+      text-xs
+    "
+  >
+
+    <SelectValue />
+
+  </SelectTrigger>
+
+
+  <SelectContent>
+
+    {
+      statuses.map(
+        (item)=>(
+          
+          <SelectItem
+
+            key={
+              item.value
+            }
+
+            value={
+              item.value
+            }
+
+          >
+
+            {item.label}
+
+          </SelectItem>
+
+        )
+      )
+    }
+
+  </SelectContent>
+
+
+</Select>
+
+)
 
 }

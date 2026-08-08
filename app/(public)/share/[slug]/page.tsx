@@ -32,6 +32,10 @@ import {
   PublicHeader,
 } from "@/components/public/public-header"
 
+import {
+LocationMapPreview,
+} from "@/components/public/location-map-preview"
+
 const documentCategoryLabels: Record<string,string> = {
 
   brochure:
@@ -373,6 +377,14 @@ Please share more details.`
       <p className="mt-4 text-xl text-white/80">
         {property.location}
       </p>
+
+      <LocationMapPreview
+
+location={
+property.location
+}
+
+/>
 
 
 

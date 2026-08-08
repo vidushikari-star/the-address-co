@@ -179,33 +179,37 @@ export async function createActivity(
 
 
 
-  // Update contact touchpoints and lead stage
+  // Update last contact touchpoint + move lead stage
 
 if(activity.contactId){
 
+const updatePayload:any = {
 
-const {
-data: contact,
-error: contactError,
-} =
-await supabase
-.from("contacts")
-.select(
-`
-lead_stage
-`
-)
-.eq(
-"id",
-activity.contactId
-)
-.single()
+  last_activity_at:
+    new Date().toISOString(),
+
+}
 
 
+if(
+  activity.nextFollowUpAt
+){
 
-if(contactError){
+  updatePayload.next_follow_up_at =
+    activity.nextFollowUpAt
 
-throw contactError
+}
+
+
+if(
+  activity.type === "property_shared" ||
+  activity.type === "whatsapp" ||
+  activity.type === "email" ||
+  activity.type === "call"
+){
+
+  updatePayload.stage =
+    "contacted"
 
 }
 
@@ -213,37 +217,13 @@ throw contactError
 
 await supabase
 .from("contacts")
-.update({
-
-  last_activity_at:
-    new Date().toISOString(),
-
-
-  last_contacted_at:
-    new Date().toISOString(),
-
-
-  ...(contact?.lead_stage === "new" && {
-
-    lead_stage:
-      "contacted",
-
-  }),
-
-
-  ...(activity.nextFollowUpAt && {
-
-    next_follow_up_at:
-      activity.nextFollowUpAt,
-
-  }),
-
-})
-.eq(
-"id",
-activity.contactId
+.update(
+  updatePayload
 )
-
+.eq(
+  "id",
+  activity.contactId
+)
 
 }
 

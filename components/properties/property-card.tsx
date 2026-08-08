@@ -216,12 +216,21 @@ export function PropertyCard({
               <Ruler className="h-5 w-5 text-muted-foreground" />
 
               <span className="text-sm font-medium">
-                {property.specifications.carpetArea.toLocaleString()}
+                {property.specifications.builtUpArea
+  ? property.specifications.builtUpArea.toLocaleString()
+  : property.specifications.carpetArea?.toLocaleString()
+}
               </span>
 
               <span className="text-xs text-muted-foreground">
-                Sqft
+                sqft Built-up
               </span>
+
+              {property.specifications.plotArea && (
+  <span>
+    Plot: {property.specifications.plotArea.toLocaleString()} sqm
+  </span>
+)}
 
             </div>
 
@@ -489,21 +498,30 @@ export function PropertyCard({
 
             <div className="flex items-center gap-3">
 
-              <Ruler className="h-5 w-5 text-muted-foreground" />
+  <Ruler className="h-5 w-5 text-muted-foreground" />
 
-              <div>
+  <div>
 
-                <p className="text-lg font-semibold">
-                  {property.specifications.carpetArea.toLocaleString()}
-                </p>
+    <p className="text-lg font-semibold">
+      {property.specifications.builtUpArea
+        ? property.specifications.builtUpArea.toLocaleString()
+        : property.specifications.carpetArea?.toLocaleString()
+      }
+    </p>
 
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Sqft
-                </p>
+    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+      Sqft Built-up
+    </p>
 
-              </div>
+    {property.specifications.plotArea && (
+      <p className="text-xs text-muted-foreground mt-1">
+        Plot: {property.specifications.plotArea.toLocaleString()} sqm
+      </p>
+    )}
 
-            </div>
+  </div>
+
+</div>
 
           </div>
 

@@ -1,428 +1,415 @@
 "use client"
 
 import {
-  useEffect,
-  useState,
+useEffect,
+useState,
 } from "react"
 
 import type {
-  Contact,
+Contact,
 } from "@/types/contact"
 
 import type {
-  Property,
+Property,
 } from "@/types/property"
 
-import type {
-  PropertyShare,
-} from "@/lib/repositories/property-share-repository"
 
 import {
-  getProperties,
+getProperties,
 } from "@/lib/repositories/property-repository"
 
+
 import {
-  getPropertySharesByContactId,
+getPropertySharesByContactId,
 } from "@/lib/repositories/property-share-repository"
 
+
 import {
-  getPropertyMatches,
+getPropertyMatches,
 } from "@/lib/services/property-matching"
 
+
 import {
-  RecommendedPropertyCard,
+RecommendedPropertyCard,
 } from "./recommended-property-card"
 
+
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
+Card,
+CardContent,
+CardHeader,
+CardTitle,
 } from "@/components/ui/card"
 
+
 import {
-  Badge,
+Badge,
 } from "@/components/ui/badge"
-
-
 
 
 
 type Props = {
 
-  contact: Contact
+contact: Contact
 
 }
 
 
 
-
-
-
-
-
 export function RelationshipProperties({
-  contact,
+contact,
 }:Props){
 
 
+const [
+sharedProperties,
+setSharedProperties,
+] =
+useState<Property[]>([])
 
-  const [
-    matches,
-    setMatches,
-  ] =
-  useState<Property[]>([])
 
 
+const [
+sharedData,
+setSharedData,
+] =
+useState<any[]>([])
 
-  const [
-    sharedProperties,
-    setSharedProperties,
-  ] =
-  useState<PropertyShare[]>([])
 
 
+const [
+recommendedProperties,
+setRecommendedProperties,
+] =
+useState<Property[]>([])
 
-  const [
-    loading,
-    setLoading,
-  ] =
-  useState(true)
 
 
+const [
+loading,
+setLoading,
+] =
+useState(true)
 
 
 
+useEffect(()=>{
 
 
-  useEffect(()=>{
+async function load(){
 
 
-    async function loadProperties(){
+try{
 
 
-      try{
+const [
 
+properties,
 
-        const [
+propertyShares,
 
-          properties,
+] =
+await Promise.all([
 
-          propertyShares,
+getProperties(),
 
-        ] =
-        await Promise.all([
+getPropertySharesByContactId(
+contact.id
+),
 
-          getProperties(),
+])
 
-          getPropertySharesByContactId(
-            contact.id
-          ),
 
-        ])
 
+const sharedIds =
+new Set(
+propertyShares.map(
+item =>
+item.propertyId
+)
+)
 
 
 
+const shared =
+properties.filter(
+property =>
+sharedIds.has(
+property.id
+)
+)
 
-        setSharedProperties(
-          propertyShares
-        )
 
 
+const recommended =
+getPropertyMatches(
+contact,
+properties
+)
+.map(
+item =>
+item.property
+)
+.filter(
+property =>
+!sharedIds.has(
+property.id
+)
+)
 
 
 
-        const sharedIds =
-          new Set(
-            propertyShares.map(
-              item =>
-                item.propertyId
-            )
-          )
+setSharedProperties(
+shared
+)
 
 
+setSharedData(
+propertyShares
+)
 
 
+setRecommendedProperties(
+recommended.slice(
+0,
+5
+)
+)
 
-        const manuallyShared =
-          properties.filter(
-            property =>
-              sharedIds.has(
-                property.id
-              )
-          )
 
 
+}
+catch(error){
 
+console.error(
+"Loading contact properties failed",
+error
+)
 
 
-        const recommended =
-          getPropertyMatches(
-            contact,
-            properties
-          )
-          .map(
-            item =>
-              item.property
-          )
+}
+finally{
 
+setLoading(false)
 
+}
 
 
+}
 
-        const combined = [
 
-          ...manuallyShared,
+load()
 
-          ...recommended,
 
-        ]
+},[
+contact
+])
 
 
 
+return (
 
+<div className="space-y-6">
 
-        const unique =
-          Array.from(
 
-            new Map(
+<Card className="rounded-2xl">
 
-              combined.map(
-                property => [
 
-                  property.id,
+<CardHeader
+className="px-4 py-3"
+>
 
-                  property
+<CardTitle
+className="flex items-center justify-between text-base"
+>
 
-                ]
-              )
+<span>
+Shared Properties
+</span>
 
-            )
-            .values()
 
-          )
+<Badge variant="secondary">
 
+{sharedProperties.length}
 
+</Badge>
 
 
+</CardTitle>
 
-        setMatches(
+</CardHeader>
 
-          unique.slice(
-            0,
-            5
-          )
 
-        )
 
+<CardContent className="space-y-3 px-4 pb-5">
 
-      }
-      catch(error){
 
-        console.error(
-          "Loading recommended properties failed",
-          error
-        )
+{
+loading ?
 
-      }
-      finally{
+(
 
-        setLoading(false)
+<p className="text-sm text-muted-foreground">
+Loading properties...
+</p>
 
-      }
+)
 
+:
 
-    }
+sharedProperties.length === 0
 
+?
 
+(
 
-    loadProperties()
+<p className="text-sm text-muted-foreground">
+No properties shared yet.
+</p>
 
+)
 
-  },[
-    contact
-  ])
+:
 
+sharedProperties.map(
+property => {
 
 
+const share =
+sharedData.find(
+item =>
+item.propertyId === property.id
+)
 
 
+return (
 
+<RecommendedPropertyCard
 
+key={
+property.id
+}
 
+property={
+property
+}
 
-  return (
+label="shared"
 
-    <Card className="
-      rounded-2xl
-    ">
+status={
+share?.status
+}
 
+sharedAt={
+share?.sharedAt
+}
 
+shareId={
+share?.id
+}
 
-      <CardHeader className="
-        px-4
-        py-3
-      ">
+contactId={
+contact.id
+}
 
+/>
 
-        <CardTitle className="
-          flex
-          items-center
-          justify-between
-          text-base
-        ">
+)
 
+}
 
-          <span>
+)
 
-            Recommended Properties
+}
 
-          </span>
 
+</CardContent>
 
+</Card>
 
 
 
-          <Badge variant="secondary">
 
-            {matches.length}
 
-          </Badge>
 
+<Card className="rounded-2xl">
 
 
-        </CardTitle>
+<CardHeader
+className="px-4 py-3"
+>
 
+<CardTitle
+className="flex items-center justify-between text-base"
+>
 
-      </CardHeader>
+<span>
+Recommended Matches
+</span>
 
 
+<Badge variant="secondary">
 
+{recommendedProperties.length}
 
+</Badge>
 
 
+</CardTitle>
 
+</CardHeader>
 
 
-      <CardContent className="
-        space-y-4
-        px-4
-        pb-5
-      ">
 
+<CardContent className="space-y-3 px-4 pb-5">
 
 
+{
+recommendedProperties.length === 0
 
+?
 
+(
 
-        {
-          loading ? (
+<p className="text-sm text-muted-foreground">
+No matching properties found.
+</p>
 
-            <p className="
-              text-sm
-              text-muted-foreground
-            ">
+)
 
-              Finding matching properties...
+:
 
-            </p>
+recommendedProperties.map(
+property => (
 
-          )
+<RecommendedPropertyCard
 
-          :
+key={
+property.id
+}
 
-          matches.length === 0 ? (
+property={
+property
+}
 
-            <div className="
-              rounded-xl
-              border
-              border-dashed
-              p-5
-              text-center
-              text-sm
-              text-muted-foreground
-            ">
+label="recommended"
 
-              No matching properties found.
+/>
 
-            </div>
+)
 
-          )
+)
 
+}
 
-          :
 
-          (
+</CardContent>
 
-            <div className="
-              space-y-3
-            ">
+</Card>
 
 
-              {
-                matches.map(
-                  property => {
+</div>
 
-
-                    const share =
-                      sharedProperties.find(
-                        item =>
-                          item.propertyId === property.id
-                      )
-
-
-
-                    return (
-
-                      <RecommendedPropertyCard
-
-                        key={
-                          property.id
-                        }
-
-                        property={
-                          property
-                        }
-
-                        label={
-                          share
-                            ? "shared"
-                            : "recommended"
-                        }
-
-                        status={
-                          share?.status
-                        }
-
-                        sharedAt={
-                          share?.sharedAt
-                        }
-
-                      />
-
-                    )
-
-                  }
-
-                )
-
-              }
-
-
-            </div>
-
-          )
-
-        }
-
-
-
-      </CardContent>
-
-
-    </Card>
-
-  )
+)
 
 }

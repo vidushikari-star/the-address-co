@@ -11,8 +11,8 @@ import {
 } from "./property-card"
 
 import {
-  getProperties,
-} from "@/lib/repositories/property-repository"
+getPropertyCardData,
+} from "@/lib/services/property-card-service"
 
 import type {
   Property,
@@ -95,7 +95,7 @@ export function PropertyList() {
 
 
         const data =
-          await getProperties()
+await getPropertyCardData()
 
 
         setProperties(data)

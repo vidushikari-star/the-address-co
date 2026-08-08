@@ -55,9 +55,9 @@ type Props = {
 
   propertyId:string
 
+  selectedContactIds:string[]
+
 }
-
-
 
 
 
@@ -69,179 +69,138 @@ export function SharePropertyDrawer({
 
   propertyId,
 
+  selectedContactIds,
+
 }:Props){
 
 
+const [
+property,
+setProperty,
+] =
+useState<Property | null>(null)
 
-  const [
-    property,
-    setProperty,
-  ] =
-  useState<Property | null>(null)
 
 
+const [
+contacts,
+setContacts,
+] =
+useState<Contact[]>([])
 
-  const [
-    contacts,
-    setContacts,
-  ] =
-  useState<Contact[]>([])
 
 
+const [
+currentUser,
+setCurrentUser,
+] =
+useState<UserProfile | null>(null)
 
-  const [
-    currentUser,
-    setCurrentUser,
-  ] =
-  useState<UserProfile | null>(null)
 
 
+const [
+loading,
+setLoading,
+] =
+useState(false)
 
-  const [
-    selectedContact,
-    setSelectedContact,
-  ] =
-  useState("")
 
 
+useEffect(() => {
 
-  const [
-    loading,
-    setLoading,
-  ] =
-  useState(false)
+async function load(){
 
+const [
+propertyData,
+contactData,
+userData,
+] =
+await Promise.all([
 
+getPropertyById(
+propertyId
+),
 
+ContactsRepository.getAll(),
 
+getCurrentUser(),
 
+])
 
 
-  useEffect(() => {
+setProperty(
+propertyData ?? null
+)
 
+setContacts(
+contactData
+)
 
-    async function load(){
+setCurrentUser(
+userData
+)
 
+}
 
-      const [
 
-        propertyData,
+if(open){
 
-        contactData,
+load()
 
-        userData,
+}
 
-      ] =
-      await Promise.all([
+},[
+open,
+propertyId,
+])
 
 
-        getPropertyById(
-          propertyId
-        ),
 
+async function share(){
 
-        ContactsRepository.getAll(),
+if(
+!property ||
+selectedContactIds.length === 0
+){
 
+return
 
-        getCurrentUser(),
+}
 
 
-      ])
+setLoading(true)
 
 
+try {
 
-      setProperty(
-        propertyData ?? null
-      )
 
+const propertyUrl =
+`${window.location.origin}/share/${property.slug}?advisor=${currentUser?.id}`
 
-      setContacts(
-        contactData
-      )
 
 
-      setCurrentUser(
-        userData
-      )
+for(
+const contactId of selectedContactIds
+){
 
 
-    }
+const buyer =
+contacts.find(
+contact =>
+contact.id === contactId
+)
 
 
 
-    if(open){
+if(!buyer){
 
-      load()
+continue
 
-    }
+}
 
 
-  },[
-    open,
-    propertyId,
-  ])
 
-
-
-
-
-
-
-
-
-  async function share(){
-
-
-    if(
-      !property ||
-      !selectedContact
-    ){
-
-      return
-
-    }
-
-
-
-
-
-    const buyer =
-      contacts.find(
-        contact =>
-          contact.id === selectedContact
-      )
-
-
-
-    if(!buyer){
-
-      return
-
-    }
-
-
-
-
-
-    setLoading(true)
-
-
-
-
-
-    try {
-
-
-      const propertyUrl =
-  `${window.location.origin}/share/${property.slug}?advisor=${currentUser?.id}`
-
-
-
-
-
-      const message =
-
-
+const message =
 `Hi ${buyer.name},
 
 Sharing details of this luxury property:
@@ -251,39 +210,25 @@ Sharing details of this luxury property:
 📍 Location:
 ${property.location || "-"}
 
-${
-  property.transactionType === "Rental"
-    ? "💰 Monthly Rent:"
-    : "💰 Asking Price:"
+💰 ${
+property.transactionType === "Rental"
+? "Monthly Rent"
+: "Asking Price"
 }
 
 ${
-  property.transactionType === "Rental"
-    ? (
-        property.price.rent
-          ? `₹${property.price.rent.toLocaleString("en-IN")}/month`
-          : "-"
-      )
-    : (
-        property.price.asking
-          ? `₹${property.price.asking.toLocaleString("en-IN")}`
-          : "-"
-      )
+property.transactionType === "Rental"
+? property.price.rent
+? `₹${property.price.rent.toLocaleString("en-IN")}/month`
+: "-"
+: property.price.asking
+? `₹${property.price.asking.toLocaleString("en-IN")}`
+: "-"
 }
-
-
-${
-  property.transactionType === "Rental" &&
-  property.price.securityDeposit
-    ? `🔐 Security Deposit:
-₹${property.price.securityDeposit.toLocaleString("en-IN")}`
-    : ""
-}
-
 
 Property Details:
 
-• Property Type:
+• Type:
 ${property.propertyType || "-"}
 
 • Bedrooms:
@@ -292,49 +237,25 @@ ${property.specifications.bedrooms || "-"}
 • Bathrooms:
 ${property.specifications.bathrooms || "-"}
 
-• Plot Area:
+• Plot:
 ${
-  property.specifications.plotArea
-    ? `${property.specifications.plotArea} sqm`
-    : "-"
+property.specifications.plotArea
+? `${property.specifications.plotArea} sqm`
+: "-"
 }
 
-• Built-up Area:
+• Built-up:
 ${
-  property.specifications.builtUpArea
-    ? `${property.specifications.builtUpArea} sqft`
-    : "-"
+property.specifications.builtUpArea
+? `${property.specifications.builtUpArea} sqft`
+: "-"
 }
 
-• Furnishing:
-${property.furnishing || "-"}
-
-
-✨ Amenities:
-
-${
-  property.amenities?.length
-    ? property.amenities
-        .map(
-          item => `• ${item}`
-        )
-        .join("\n")
-    : "-"
-}
-
-
-About the Property:
-
-${property.description || "-"}
-
-
-View complete property details and images:
+View complete property details:
 
 ${propertyUrl}
 
-
-Please let me know if you would like to schedule a private viewing.
-
+Please let me know if you would like more details.
 
 Regards,
 
@@ -343,264 +264,179 @@ ${currentUser?.name || "The Address Co."}
 
 
 
-
-
-
-      const phone =
-        (
-          buyer.whatsapp ??
-          buyer.phone ??
-          ""
-        )
-        .replace(
-          /\D/g,
-          ""
-        )
-
-
-
 await createPropertyShare({
 
-  contactId:
-    buyer.id,
+contactId:
+buyer.id,
 
-  propertyId:
-    property.id,
+propertyId:
+property.id,
 
 })
-
-
 
 
 
 await createActivity({
 
-  type:
-    "property_shared",
+type:
+"property_shared",
 
+title:
+"Property Shared on WhatsApp",
 
-  title:
-    "Property Shared on WhatsApp",
+description:
+`${property.name} shared with ${buyer.name}`,
 
+body:
+message,
 
-  description:
-    `${property.name} shared with ${buyer.name}`,
+contactId:
+buyer.id,
 
+propertyId:
+property.id,
 
-  body:
-    message,
-
-
-  contactId:
-    buyer.id,
-
-
-  propertyId:
-    property.id,
-
-
-  date:
-    new Date().toISOString(),
+date:
+new Date().toISOString(),
 
 })
 
 
 
+const phone =
+(
+buyer.whatsapp ??
+buyer.phone ??
+""
+)
+.replace(
+ /\D/g,
+ ""
+)
 
 
 
-      window.open(
+if(phone){
 
-        `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
+window.open(
 
-        "_blank"
+`https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
 
-      )
+"_blank"
 
+)
 
+}
 
 
+}
 
-      onOpenChange(false)
 
 
+onOpenChange(false)
 
-    } catch(error){
 
+}
+catch(error){
 
-      console.error(
-        "Sharing failed",
-        error
-      )
+console.error(
+"Bulk sharing failed",
+error
+)
 
 
-      alert(
-        "Unable to share property"
-      )
+alert(
+"Unable to share property"
+)
 
 
-    } finally {
+}
+finally{
 
+setLoading(false)
 
-      setLoading(false)
+}
 
 
-    }
+}
 
 
-  }
 
+return (
 
+<FormDrawer
 
+open={
+open
+}
 
+onOpenChange={
+onOpenChange
+}
 
+title="Share Property"
 
+description="Send property details to selected buyers."
 
+>
 
-  return (
 
-    <FormDrawer
+<div className="space-y-5 pb-2">
 
-      open={
-        open
-      }
 
-      onOpenChange={
-        onOpenChange
-      }
+<div className="rounded-xl border bg-muted p-4">
 
-      title="Share Property"
+<p className="text-sm font-medium">
 
-      description="Send luxury property details to a buyer."
+Selected Buyers
 
-    >
+</p>
 
 
-      <div className="
-        space-y-5
-        pb-2
-      ">
+<p className="mt-1 text-sm text-muted-foreground">
 
+{
+selectedContactIds.length
+}
 
-        <div>
+buyers will receive this property.
 
-          <label className="
-            mb-2
-            block
-            text-sm
-            font-medium
-          ">
+</p>
 
-            Select Buyer
+</div>
 
-          </label>
 
 
+<Button
 
-          <select
+className="h-11 w-full"
 
-            className="
-              w-full
-              rounded-xl
-              border
-              p-3
-              text-sm
-            "
+disabled={
+loading ||
+selectedContactIds.length === 0
+}
 
-            value={
-              selectedContact
-            }
+onClick={
+share
+}
 
-            onChange={
-              e =>
-                setSelectedContact(
-                  e.target.value
-                )
-            }
+>
 
-          >
+{
+loading
+? "Opening WhatsApp..."
+: "Share on WhatsApp"
+}
 
-            <option value="">
 
-              Select Buyer
+</Button>
 
-            </option>
 
+</div>
 
-            {
-              contacts.map(
 
-                contact => (
+</FormDrawer>
 
-                  <option
-
-                    key={
-                      contact.id
-                    }
-
-                    value={
-                      contact.id
-                    }
-
-                  >
-
-                    {contact.name}
-                    {" - "}
-                    {contact.phone}
-
-                  </option>
-
-                )
-
-              )
-
-            }
-
-
-          </select>
-
-
-        </div>
-
-
-
-
-
-
-
-        <Button
-
-          className="
-            w-full
-            h-11
-          "
-
-          disabled={
-            loading ||
-            !selectedContact
-          }
-
-          onClick={
-            share
-          }
-
-        >
-
-          {
-            loading
-              ? "Opening WhatsApp..."
-              : "Share on WhatsApp"
-          }
-
-
-        </Button>
-
-
-      </div>
-
-
-    </FormDrawer>
-
-  )
+)
 
 }
