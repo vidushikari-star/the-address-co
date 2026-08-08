@@ -1,61 +1,66 @@
 "use client"
 
 import {
-  useEffect,
-  useState,
+useEffect,
+useMemo,
+useState,
 } from "react"
 
 import {
-  FormDrawer,
+FormDrawer,
 } from "@/components/forms/form-drawer"
 
 import {
-  Button,
+Button,
 } from "@/components/ui/button"
 
 import {
-  ContactsRepository,
+Input,
+} from "@/components/ui/input"
+
+import {
+ContactsRepository,
 } from "@/lib/supabase/repositories/contacts.repository"
 
 import {
-  getPropertyById,
+getPropertyById,
 } from "@/lib/repositories/property-repository"
 
 import {
-  createActivity,
+createActivity,
 } from "@/lib/repositories/activity-repository"
 
 import {
-  createPropertyShare,
+createPropertyShare,
 } from "@/lib/repositories/property-share-repository"
 
 import {
-  getCurrentUser,
+getCurrentUser,
 } from "@/lib/auth/current-user"
 
 import type {
-  Contact,
+Contact,
 } from "@/types/contact"
 
 import type {
-  Property,
+Property,
 } from "@/types/property"
 
 import type {
-  UserProfile,
+UserProfile,
 } from "@/types/user"
 
 
 
 type Props = {
 
-  open:boolean
+open:boolean
 
-  onOpenChange:(open:boolean)=>void
+onOpenChange:(open:boolean)=>void
 
-  propertyId:string
+propertyId:string
 
-  selectedContactIds:string[]
+selectedContactIds?:string[]
 
 }
 
@@ -63,15 +68,25 @@ type Props = {
 
 export function SharePropertyDrawer({
 
-  open,
+open,
 
-  onOpenChange,
+onOpenChange,
 
-  propertyId,
+propertyId,
 
-  selectedContactIds,
+selectedContactIds = [],
 
 }:Props){
+
+
+const [
+selectedBuyers,
+setSelectedBuyers,
+] =
+useState<string[]>(
+selectedContactIds
+)
+
 
 
 const [
@@ -99,6 +114,14 @@ useState<UserProfile | null>(null)
 
 
 const [
+search,
+setSearch,
+] =
+useState("")
+
+
+
+const [
 loading,
 setLoading,
 ] =
@@ -106,7 +129,8 @@ useState(false)
 
 
 
-useEffect(() => {
+useEffect(()=>{
+
 
 async function load(){
 
@@ -114,12 +138,10 @@ const [
 propertyData,
 contactData,
 userData,
-] =
+]=
 await Promise.all([
 
-getPropertyById(
-propertyId
-),
+getPropertyById(propertyId),
 
 ContactsRepository.getAll(),
 
@@ -143,24 +165,119 @@ userData
 }
 
 
+
 if(open){
+
+setSelectedBuyers(
+selectedContactIds
+)
 
 load()
 
 }
 
+
 },[
 open,
 propertyId,
+selectedContactIds,
 ])
+
+
+
+
+const filteredContacts =
+useMemo(()=>{
+
+
+const query =
+search.toLowerCase().trim()
+
+
+
+if(!query){
+
+return contacts
+
+}
+
+
+
+return contacts.filter(
+contact => {
+
+
+return (
+
+contact.name
+?.toLowerCase()
+.includes(query)
+
+||
+
+contact.phone
+?.toLowerCase()
+.includes(query)
+
+||
+
+contact.email
+?.toLowerCase()
+.includes(query)
+
+)
+
+
+}
+
+)
+
+
+},[
+contacts,
+search,
+])
+
+
+
+
+
+function toggleBuyer(
+id:string
+){
+
+setSelectedBuyers(
+current =>
+
+current.includes(id)
+
+?
+
+current.filter(
+item=>item!==id
+)
+
+:
+
+[
+...current,
+id
+]
+
+)
+
+}
+
+
 
 
 
 async function share(){
 
+
 if(
 !property ||
-selectedContactIds.length === 0
+selectedBuyers.length===0
 ){
 
 return
@@ -168,10 +285,11 @@ return
 }
 
 
+
 setLoading(true)
 
 
-try {
+try{
 
 
 const propertyUrl =
@@ -180,14 +298,14 @@ const propertyUrl =
 
 
 for(
-const contactId of selectedContactIds
+const contactId of selectedBuyers
 ){
 
 
 const buyer =
 contacts.find(
 contact =>
-contact.id === contactId
+contact.id===contactId
 )
 
 
@@ -210,47 +328,6 @@ Sharing details of this luxury property:
 📍 Location:
 ${property.location || "-"}
 
-💰 ${
-property.transactionType === "Rental"
-? "Monthly Rent"
-: "Asking Price"
-}
-
-${
-property.transactionType === "Rental"
-? property.price.rent
-? `₹${property.price.rent.toLocaleString("en-IN")}/month`
-: "-"
-: property.price.asking
-? `₹${property.price.asking.toLocaleString("en-IN")}`
-: "-"
-}
-
-Property Details:
-
-• Type:
-${property.propertyType || "-"}
-
-• Bedrooms:
-${property.specifications.bedrooms || "-"}
-
-• Bathrooms:
-${property.specifications.bathrooms || "-"}
-
-• Plot:
-${
-property.specifications.plotArea
-? `${property.specifications.plotArea} sqm`
-: "-"
-}
-
-• Built-up:
-${
-property.specifications.builtUpArea
-? `${property.specifications.builtUpArea} sqft`
-: "-"
-}
-
 View complete property details:
 
 ${propertyUrl}
@@ -259,8 +336,7 @@ Please let me know if you would like more details.
 
 Regards,
 
-${currentUser?.name || "The Address Co."}
-`
+${currentUser?.name || "The Address Co."}`
 
 
 
@@ -310,8 +386,8 @@ buyer.phone ??
 ""
 )
 .replace(
- /\D/g,
- ""
+/\D/g,
+""
 )
 
 
@@ -319,11 +395,8 @@ buyer.phone ??
 if(phone){
 
 window.open(
-
 `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
-
 "_blank"
-
 )
 
 }
@@ -340,15 +413,12 @@ onOpenChange(false)
 catch(error){
 
 console.error(
-"Bulk sharing failed",
 error
 )
-
 
 alert(
 "Unable to share property"
 )
-
 
 }
 finally{
@@ -362,58 +432,203 @@ setLoading(false)
 
 
 
+
+
+
 return (
 
 <FormDrawer
 
-open={
-open
-}
+open={open}
 
-onOpenChange={
-onOpenChange
-}
+onOpenChange={onOpenChange}
 
 title="Share Property"
 
-description="Send property details to selected buyers."
+description="Select buyers and send property details."
 
 >
 
 
-<div className="space-y-5 pb-2">
+<div className="space-y-5">
 
 
-<div className="rounded-xl border bg-muted p-4">
 
-<p className="text-sm font-medium">
+<div>
+
+<Input
+
+placeholder="Search buyer by name, phone or email"
+
+value={search}
+
+onChange={
+e =>
+setSearch(
+e.target.value
+)
+}
+
+/>
+
+</div>
+
+
+
+
+
+<div className="
+max-h-72
+space-y-2
+overflow-y-auto
+">
+
+
+{
+filteredContacts.map(
+contact => (
+
+
+<label
+
+key={
+contact.id
+}
+
+className="
+flex
+cursor-pointer
+items-center
+gap-3
+rounded-xl
+border
+p-3
+"
+
+>
+
+
+<input
+
+type="checkbox"
+
+checked={
+selectedBuyers.includes(
+contact.id
+)
+}
+
+onChange={()=>
+toggleBuyer(
+contact.id
+)
+}
+
+/>
+
+
+<div className="min-w-0">
+
+<p className="
+truncate
+text-sm
+font-medium
+">
+
+{contact.name}
+
+</p>
+
+
+<p className="
+text-xs
+text-muted-foreground
+">
+
+{contact.phone}
+
+</p>
+
+
+</div>
+
+
+</label>
+
+
+)
+
+)
+
+}
+
+
+{
+filteredContacts.length===0 && (
+
+<p className="
+py-6
+text-center
+text-sm
+text-muted-foreground
+">
+
+No buyers found.
+
+</p>
+
+)
+
+}
+
+
+</div>
+
+
+
+
+
+<div className="
+rounded-xl
+bg-muted
+p-4
+">
+
+<p className="
+font-medium
+">
 
 Selected Buyers
 
 </p>
 
 
-<p className="mt-1 text-sm text-muted-foreground">
+<p className="
+text-sm
+text-muted-foreground
+">
 
-{
-selectedContactIds.length
-}
-
-buyers will receive this property.
+{selectedBuyers.length} buyers will receive this property.
 
 </p>
+
 
 </div>
 
 
 
+
+
 <Button
 
-className="h-11 w-full"
+className="
+h-11
+w-full
+"
 
 disabled={
 loading ||
-selectedContactIds.length === 0
+selectedBuyers.length===0
 }
 
 onClick={
@@ -422,14 +637,18 @@ share
 
 >
 
+
 {
 loading
-? "Opening WhatsApp..."
-: "Share on WhatsApp"
+?
+"Opening WhatsApp..."
+:
+`Share on WhatsApp (${selectedBuyers.length})`
 }
 
 
 </Button>
+
 
 
 </div>

@@ -79,21 +79,15 @@ export function SharePropertyButton({
 
       <SharePropertyDrawer
 
-  open={
-    open
-  }
+open={open}
 
-  onOpenChange={
-    setOpen
-  }
+onOpenChange={setOpen}
 
-  propertyId={
-    property.id
-  }
+propertyId={property.id}
 
-  selectedContactIds={
-    []
-  }
+selectedContactIds={
+[]
+}
 
 />
 
