@@ -1,56 +1,44 @@
 import {
-getAllTasks,
+  getAllTasks,
 } from "@/lib/repositories/task-server-repository"
 
 import {
-getAllSiteVisits,
+  getAllSiteVisits,
 } from "@/lib/repositories/site-visit-repository"
 
 import {
-createServerSupabaseClient,
+  createServerSupabaseClient,
 } from "@/lib/supabase/server"
 
 import type {
-CalendarItem,
+  CalendarItem,
 } from "@/types/calendar"
 
 
 
 function formatIndiaTime(
-value:string
+  value:string
 ){
 
-return new Date(
-value
-)
+return new Date(value)
 .toLocaleTimeString(
-"en-IN",
-{
-timeZone:"Asia/Kolkata",
-hour:"2-digit",
-minute:"2-digit",
-hour12:true,
-}
+  "en-IN",
+  {
+    timeZone:"Asia/Kolkata",
+    hour:"2-digit",
+    minute:"2-digit",
+    hour12:true,
+  }
 )
 
 }
 
 
-
-function combineIndiaDateTime(
-date:string,
-time:string
-){
-
-return new Date(
-`${date}T${time}:00+05:30`
-).toISOString()
-
-}
 
 
 
 export async function getCalendarItems(): Promise<CalendarItem[]> {
+
 
 const [
 
@@ -77,13 +65,14 @@ getSharedCalendarEvents(),
 
 const taskItems: CalendarItem[] =
 
+
 tasks
 
 .filter(
 task =>
 task.dueDate &&
-task.completed !== true &&
-task.archived !== true
+!task.completed &&
+!task.archived
 )
 
 .map(
@@ -95,7 +84,6 @@ id:
 title:
 task.title,
 
-
 date:
 task.dueDate!.toISOString(),
 
@@ -105,9 +93,7 @@ type:
 
 
 status:
-task.completed
-? "completed"
-: "pending",
+"pending",
 
 
 contactId:
@@ -119,15 +105,20 @@ task.dealId,
 
 
 assignedTo:
-task.advisorName,
+task.advisorName
+?? "Unassigned",
 
 
 url:
 task.dealId
-? `/deals/${task.dealId}`
-: task.contactId
-? `/contacts/${task.contactId}`
-: "/tasks",
+?
+`/deals/${task.dealId}`
+:
+task.contactId
+?
+`/contacts/${task.contactId}`
+:
+"/tasks",
 
 })
 )
@@ -139,69 +130,95 @@ task.dealId
 
 const siteVisitItems: CalendarItem[] =
 
+
 siteVisits.map(
-  visit => ({
+visit => {
 
-    id:
-      `visit-${visit.id}`,
 
-    title:
-      "Site Visit",
+const dateTime =
+`${visit.scheduledDate}T${visit.scheduledTime}:00+05:30`
 
-    date:
-`${visit.scheduledDate}T${visit.scheduledTime}:00+05:30`,
+
+
+return {
+
+id:
+`visit-${visit.id}`,
+
+
+title:
+"Site Visit",
+
+
+date:
+new Date(
+dateTime
+)
+.toISOString(),
+
 
 time:
 new Date(
-`${visit.scheduledDate}T${visit.scheduledTime}:00+05:30`
+dateTime
 )
 .toLocaleTimeString(
 "en-IN",
 {
+timeZone:"Asia/Kolkata",
 hour:"2-digit",
 minute:"2-digit",
 hour12:true,
 }
 ),
 
-    type:
-      "site_visit",
 
-    status:
-      visit.status,
+type:
+"site_visit",
 
 
-    contactId:
-      visit.contactId,
+status:
+visit.status,
 
 
-    dealId:
-      visit.dealId,
+contactId:
+visit.contactId,
 
 
-    propertyId:
-      visit.propertyId,
+dealId:
+visit.dealId,
 
 
-    contactName:
-      visit.contactName,
+propertyId:
+visit.propertyId,
 
 
-    propertyName:
-      visit.propertyName,
+contactName:
+visit.contactName,
 
 
-    assignedTo:
-      visit.advisorName || undefined,
+propertyName:
+visit.propertyName,
 
 
-    url:
-      visit.dealId
-        ? `/deals/${visit.dealId}`
-        : "/calendar",
+assignedTo:
+visit.advisorName
+?? "Unassigned",
 
-  })
+
+url:
+visit.dealId
+?
+`/deals/${visit.dealId}`
+:
+"/calendar",
+
+}
+
+}
+
 )
+
+
 
 
 
@@ -210,8 +227,10 @@ hour12:true,
 
 const eventItems: CalendarItem[] =
 
+
 calendarEvents.map(
 event => ({
+
 
 id:
 `event-${event.id}`,
@@ -240,31 +259,38 @@ event.status,
 
 
 contactId:
-event.contact_id ?? undefined,
+event.contact_id
+?? undefined,
 
 
 propertyId:
-event.property_id ?? undefined,
+event.property_id
+?? undefined,
 
 
 dealId:
-event.deal_id ?? undefined,
+event.deal_id
+?? undefined,
 
 
 contactName:
-event.contact_name ?? undefined,
+event.contact_name
+?? undefined,
 
 
 propertyName:
-event.property_name ?? undefined,
+event.property_name
+?? undefined,
 
 
 dealName:
-event.deal_name ?? undefined,
+event.deal_name
+?? undefined,
 
 
 assignedTo:
-event.assigned_to ?? undefined,
+event.assigned_to
+?? undefined,
 
 
 url:
@@ -272,6 +298,7 @@ url:
 
 
 })
+
 )
 
 
@@ -311,7 +338,9 @@ b.date
 
 
 
+
 async function getSharedCalendarEvents(){
+
 
 const supabase =
 await createServerSupabaseClient()
@@ -391,7 +420,9 @@ event.deals?.name
 ??
 null,
 
+
 })
+
 )
 
 }

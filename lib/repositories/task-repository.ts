@@ -1,36 +1,59 @@
-import { supabase } from "@/lib/supabase/client"
+import {
+  supabase,
+} from "@/lib/supabase/client"
 
-import { mapTaskRow } from "@/lib/mappers/task.mapper"
+import {
+  mapTaskRow,
+} from "@/lib/mappers/task.mapper"
 
-import type { Task } from "@/types/task"
+import type {
+  Task,
+} from "@/types/task"
 
 
 
 export async function getTasksByContactId(
-  contactId: string
-): Promise<Task[]> {
+  contactId:string
+):Promise<Task[]> {
+
 
   const {
     data,
     error,
-  } = await supabase
+  } =
+  await supabase
     .from("tasks")
     .select("*")
-    .eq("contact_id", contactId)
-    .order("created_at", {
-      ascending: false,
-    })
+    .eq(
+      "contact_id",
+      contactId
+    )
+    .order(
+      "created_at",
+      {
+        ascending:false,
+      }
+    )
 
 
-  if (error) {
+  if(error){
+
     throw error
+
   }
 
 
-  return (data ?? []).map(
+  return (
+    data ?? []
+  )
+  .map(
     mapTaskRow
   )
+
 }
+
+
+
 
 export async function getTasksByDealId(
   dealId:string
@@ -41,19 +64,19 @@ export async function getTasksByDealId(
     data,
     error,
   } =
-    await supabase
-      .from("tasks")
-      .select("*")
-      .eq(
-        "deal_id",
-        dealId
-      )
-      .order(
-        "created_at",
-        {
-          ascending:false,
-        }
-      )
+  await supabase
+    .from("tasks")
+    .select("*")
+    .eq(
+      "deal_id",
+      dealId
+    )
+    .order(
+      "created_at",
+      {
+        ascending:false,
+      }
+    )
 
 
   if(error){
@@ -65,132 +88,78 @@ export async function getTasksByDealId(
 
   return (
     data ?? []
-  ).map(
+  )
+  .map(
     mapTaskRow
   )
 
 }
 
+
+
+
 export async function createTask(
-  task: Partial<Task> & {
-    contactId?: string
-    dealId?: string
-  }
-): Promise<Task> {
+task: Partial<Task> & {
 
-  const {
-    data,
-    error,
-  } =
-    await supabase
-      .from("tasks")
-      .insert({
+contactId?:string
 
-        contact_id:
-          task.contactId,
+dealId?:string
 
-        deal_id:
-          task.dealId,
-
-        title:
-          task.title,
-
-        status:
-          task.completed
-            ? "completed"
-            : "pending",
-
-        due_date:
-          task.dueDate
-            ?.toISOString()
-            .split("T")[0] ?? null,
-
-        assigned_to:
-          task.assignedTo ?? null,
-
-      })
-      .select()
-      .single()
-
-
-  if (error) {
-    throw error
-  }
-
-
-  return mapTaskRow(data)
 }
+):Promise<Task>{
 
-
-
-export async function updateTask(
-  id: string,
-  updates: Partial<Task>
-): Promise<Task> {
 
   const {
     data,
     error,
   } =
-    await supabase
-      .from("tasks")
-      .update({
+  await supabase
+    .from("tasks")
+    .insert({
 
-        title:
-          updates.title,
-
-        status:
-  updates.completed
-    ? "completed"
-    : "pending",
+      contact_id:
+        task.contactId ?? null,
 
 
-archived:
-  updates.completed
-    ? true
-    : false,
-
-        due_date:
-          updates.dueDate
-            ?.toISOString()
-            .split("T")[0],
-
-        assigned_to:
-          updates.assignedTo,
-
-        updated_at:
-          new Date().toISOString(),
-
-      })
-      .eq("id", id)
-      .select()
-      .single()
+      deal_id:
+        task.dealId ?? null,
 
 
-  if (error) {
-    throw error
-  }
+      title:
+        task.title,
 
 
-  return mapTaskRow(data)
-}
-export async function getAllTasks(): Promise<Task[]> {
+      description:
+        task.description ?? null,
 
-  const {
-    data,
-    error,
-  } =
-    await supabase
-      .from("tasks")
-      .select("*")
-      .order(
-        "due_date",
-        {
-          ascending:true,
-        }
-      )
 
-      
+      priority:
+        task.priority ?? "medium",
+
+
+      status:
+        task.completed
+        ? "completed"
+        : "pending",
+
+
+      due_date:
+        task.dueDate
+        ?
+        task.dueDate
+          .toISOString()
+          .split("T")[0]
+        :
+        null,
+
+
+      assigned_to:
+        task.assignedTo ?? null,
+
+    })
+    .select()
+    .single()
+
 
 
   if(error){
@@ -200,10 +169,91 @@ export async function getAllTasks(): Promise<Task[]> {
   }
 
 
-  return (
-    data ?? []
-  ).map(
-    mapTaskRow
+  return mapTaskRow(
+    data
+  )
+
+}
+
+
+
+
+
+export async function updateTask(
+id:string,
+updates:Partial<Task>
+):Promise<Task>{
+
+
+  const {
+    data,
+    error,
+  } =
+  await supabase
+    .from("tasks")
+    .update({
+
+      title:
+        updates.title,
+
+
+      description:
+        updates.description,
+
+
+      priority:
+        updates.priority,
+
+
+      status:
+        updates.completed
+        ? "completed"
+        : "pending",
+
+
+      archived:
+        updates.completed
+        ? true
+        : updates.archived,
+
+
+      due_date:
+        updates.dueDate
+        ?
+        updates.dueDate
+          .toISOString()
+          .split("T")[0]
+        :
+        undefined,
+
+
+      assigned_to:
+        updates.assignedTo,
+
+
+      updated_at:
+        new Date()
+          .toISOString(),
+
+    })
+    .eq(
+      "id",
+      id
+    )
+    .select()
+    .single()
+
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+  return mapTaskRow(
+    data
   )
 
 }

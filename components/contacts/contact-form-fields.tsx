@@ -2,12 +2,13 @@
 
 const relationshipTypes = [
   "buyer",
-  "seller",
   "investor",
   "tenant",
-  "landlord",
+  "owner",
   "developer",
+  "mou holder",
   "broker",
+  "landlord",
 ]
 
 const leadSources = [
@@ -40,6 +41,19 @@ const financingOptions = [
   "cash",
   "loan",
   "both",
+]
+
+const buyerRoles = [
+  "buyer",
+  "investor",
+  "tenant",
+]
+
+const sellerRoles = [
+  "owner",
+  "developer",
+  "mou holder",
+  "broker",
 ]
 
 
@@ -129,8 +143,29 @@ export function ContactFormFields({
   toggleRelationship,
 }:Props){
 
+  const selectedRoles =
+  form.relationshipTypes.map(
+    role =>
+      role.toLowerCase()
+  )
 
-  const showRequirements = true
+
+const isBuyer =
+  selectedRoles.some(
+    role =>
+      buyerRoles.includes(role)
+  )
+
+
+const isSeller =
+  selectedRoles.some(
+    role =>
+      sellerRoles.includes(role)
+  )
+
+
+  const showRequirements =
+  isBuyer
 
 
 
@@ -316,11 +351,114 @@ export function ContactFormFields({
 
 
 
+            {
+(isBuyer || isSeller) && (
 
-      {
-        showRequirements && (
+<div>
 
-          <>
+<label className="
+text-sm
+font-medium
+">
+
+Intent
+
+</label>
+
+
+<select
+
+className="
+mt-2
+w-full
+rounded-md
+border
+px-3
+py-2
+"
+
+value={
+form.intent
+}
+
+onChange={
+e =>
+update(
+"intent",
+e.target.value
+)
+}
+
+>
+
+<option value="">
+Select Intent
+</option>
+
+
+{
+isBuyer && (
+
+<>
+
+<option value="sale">
+Buy Property
+</option>
+
+
+<option value="rental">
+Rent Property
+</option>
+
+
+<option value="both">
+Buy / Rent
+</option>
+
+</>
+
+)
+
+}
+
+
+
+{
+isSeller && (
+
+<>
+
+<option value="sale">
+Sell Property
+</option>
+
+
+<option value="rental">
+Lease Property
+</option>
+
+</>
+
+)
+
+}
+
+
+</select>
+
+
+</div>
+
+)
+
+}
+
+
+
+{
+showRequirements && (
+
+<>
 
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -365,73 +503,71 @@ export function ContactFormFields({
 
             </div>
 
-            <select
-
-className="w-full rounded-lg border p-3"
-
-value={form.intent}
-
-onChange={
-  e =>
-    update(
-      "intent",
-      e.target.value
-    )
-}
-
->
-
-<option value="">
-Intent
-</option>
-
-<option value="sale">
-Buy / Purchase
-</option>
-
-<option value="rental">
-Rent
-</option>
-
-<option value="both">
-Buy + Rent
-</option>
-
-</select>
 
 
 
 
 
-            <select
 
-              className="w-full rounded-lg border p-3"
 
-              value={form.propertyType}
 
-              onChange={
-                e =>
-                  update(
-                    "propertyType",
-                    e.target.value
-                  )
-              }
 
+
+
+
+            {
+  isBuyer && (
+
+    <select
+
+      className="
+        w-full
+        rounded-lg
+        border
+        p-3
+      "
+
+      value={
+        form.propertyType
+      }
+
+      onChange={
+        e =>
+          update(
+            "propertyType",
+            e.target.value
+          )
+      }
+
+    >
+
+      <option value="">
+        Property Type
+      </option>
+
+
+      {
+        propertyTypes.map(
+          item => (
+
+            <option
+              key={item}
+              value={item}
             >
 
-              {
-                propertyTypes.map(
-                  item => (
+              {item}
 
-                    <option key={item}>
-                      {item}
-                    </option>
+            </option>
 
-                  )
-                )
-              }
+          )
+        )
+      }
 
-            </select>
+
+    </select>
+
+  )
+}
 
 
 
@@ -585,6 +721,37 @@ Buy + Rent
 
             />
 
+            <>
+
+<input
+placeholder="Bathrooms"
+className="w-full rounded-lg border p-3"
+value={form.bathrooms}
+onChange={
+e =>
+update(
+"bathrooms",
+e.target.value
+)
+}
+/>
+
+
+<input
+placeholder="Resident (India / NRI etc.)"
+className="w-full rounded-lg border p-3"
+value={form.resident}
+onChange={
+e =>
+update(
+"resident",
+e.target.value
+)
+}
+/>
+
+</>
+
 
           </>
 
@@ -628,32 +795,6 @@ Buy + Rent
 
 
 
-<input
-  placeholder="Bathrooms"
-  className="w-full rounded-lg border p-3"
-  value={form.bathrooms}
-  onChange={
-    e =>
-      update(
-        "bathrooms",
-        e.target.value
-      )
-  }
-/>
-
-
-<input
-  placeholder="Resident (India / NRI etc.)"
-  className="w-full rounded-lg border p-3"
-  value={form.resident}
-  onChange={
-    e =>
-      update(
-        "resident",
-        e.target.value
-      )
-  }
-/>
 
 
 <div className="grid gap-4 md:grid-cols-3">

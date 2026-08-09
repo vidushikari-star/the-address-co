@@ -81,7 +81,7 @@ export default function NewRelationshipPage() {
     budgetMax:"",
 
 
-    propertyType:"villa",
+    propertyType:"",
 
 
     bedrooms:"",

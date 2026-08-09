@@ -1,5 +1,5 @@
 import {
-  getAllTasks,
+getAllTasks,
 } from "@/lib/repositories/task-server-repository"
 
 import {

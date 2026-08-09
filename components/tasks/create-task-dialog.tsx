@@ -450,29 +450,25 @@ Select Advisor
 
 
 {
-advisors.map(
-advisor=>(
+  advisors.map(
+    advisor => (
 
-<option
+      <option
+        key={
+          advisor.id
+        }
 
-key={
-advisor.id
-}
+        value={
+          advisor.id
+        }
+      >
 
-value={
-advisor.id
-}
+        {advisor.name}
 
->
+      </option>
 
-{advisor.name}
-
-</option>
-
-)
-
-)
-
+    )
+  )
 }
 
 
