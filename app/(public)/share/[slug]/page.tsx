@@ -1,6 +1,7 @@
 import {
   notFound,
 } from "next/navigation"
+import Image from "next/image"
 
 import {
   getPropertyBySlug,
@@ -190,15 +191,6 @@ const coverType =
 
 
 
-  const advisorName =
-  sharedAdvisor?.name
-  ||
-  "The Address Co"
-
-
-
-
-
   const advisorWhatsapp =
     (
       sharedAdvisor?.whatsapp ??
@@ -315,11 +307,12 @@ Please share more details.`
 
         ) : coverUrl && (
 
-          <img
-
+          <Image
             src={coverUrl}
-
             alt={property.name}
+            width={1600}
+            height={1067}
+            sizes="(max-width: 768px) 100vw, 80vw"
 
             className="
               max-h-[70vh]
@@ -574,6 +567,8 @@ property.location
       <video
         src={image.url}
         controls
+        preload="metadata"
+        playsInline
         className="
           h-full
           w-auto
@@ -585,9 +580,12 @@ property.location
 
   ) : (
 
-    <img
+    <Image
       src={image.url}
       alt={property.name}
+      width={900}
+      height={675}
+      sizes="(max-width: 768px) 100vw, 50vw"
       className="
         h-72
         w-full

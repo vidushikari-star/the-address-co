@@ -31,6 +31,10 @@ type RelationshipSnapshotProps = {
 
   contact: Contact
 
+  showRequirements?: boolean
+
+  showCrm?: boolean
+
 }
 
 
@@ -42,6 +46,8 @@ type RelationshipSnapshotProps = {
 
 export function RelationshipSnapshot({
   contact,
+  showRequirements = true,
+  showCrm = true,
 }:RelationshipSnapshotProps){
 
 
@@ -283,6 +289,9 @@ export function RelationshipSnapshot({
 
       {/* REQUIREMENTS */}
 
+
+      {
+        showRequirements && (
 
       <Card className="
         rounded-2xl
@@ -568,6 +577,9 @@ export function RelationshipSnapshot({
 
       </Card>
 
+        )
+      }
+
 
 
 
@@ -578,6 +590,9 @@ export function RelationshipSnapshot({
 
       {/* CRM */}
 
+
+      {
+        showCrm && (
 
       <Card className="
         rounded-2xl
@@ -660,6 +675,9 @@ export function RelationshipSnapshot({
 
 
       </Card>
+
+        )
+      }
 
 
 

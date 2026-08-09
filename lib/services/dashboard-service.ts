@@ -20,6 +20,72 @@ import {
   getLeadPriority,
 } from "@/lib/utils/lead-score"
 
+
+function getIndiaDateKey(
+  date = new Date()
+): string {
+  const parts = new Intl.DateTimeFormat(
+    "en-IN",
+    {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }
+  )
+    .formatToParts(date)
+    .reduce<Record<string, string>>(
+      (result, part) => {
+        result[part.type] = part.value
+        return result
+      },
+      {}
+    )
+
+  return `${parts.year}-${parts.month}-${parts.day}`
+}
+
+
+function getTaskDueLabel(
+  dueDate: string,
+  today: string
+): string {
+  if(dueDate < today){
+    return "Overdue"
+  }
+
+  if(dueDate === today){
+    return "Today"
+  }
+
+  const tomorrow = new Date(
+    `${today}T12:00:00+05:30`
+  )
+
+  tomorrow.setUTCDate(
+    tomorrow.getUTCDate() + 1
+  )
+
+  if(
+    dueDate === tomorrow
+      .toISOString()
+      .slice(0, 10)
+  ){
+    return "Tomorrow"
+  }
+
+  return new Intl.DateTimeFormat(
+    "en-IN",
+    {
+      day: "numeric",
+      month: "short",
+      timeZone: "Asia/Kolkata",
+    }
+  ).format(
+    new Date(`${dueDate}T12:00:00+05:30`)
+  )
+}
+
 export async function getDashboardStats() {
 
   const [
@@ -348,8 +414,8 @@ export async function getUpcomingTasks(){
 
 
 
-  const now =
-    new Date()
+  const today =
+    getIndiaDateKey()
 
 
 
@@ -447,14 +513,9 @@ export async function getUpcomingTasks(){
 
           task.due_date
 
-            ? new Date(
-                task.due_date
-              ).toLocaleTimeString(
-                [],
-                {
-                  hour:"2-digit",
-                  minute:"2-digit",
-                }
+            ? getTaskDueLabel(
+                task.due_date,
+                today
               )
 
             : "—",
@@ -493,9 +554,7 @@ export async function getUpcomingTasks(){
 
         isOverdue:
           task.due_date
-            ? new Date(
-                task.due_date
-              ) < now
+            ? task.due_date < today
             : false,
 
 
@@ -528,6 +587,11 @@ export async function getHotLeads(){
     contacts
       .filter(
         contact =>
+          contact.relationshipTypes?.some(
+            role =>
+              role.toLowerCase() === "buyer"
+          )
+          &&
           getLeadPriority(contact).priority === "hot"
       )
       .sort(
@@ -1101,4 +1165,3 @@ export async function getFollowUpContacts(){
 
 
 }
-

@@ -170,7 +170,7 @@ getFollowUpContacts(),
 
   return (
 
-    <main
+    <div
 
       className="
         mx-auto
@@ -221,9 +221,7 @@ getFollowUpContacts(),
             `${stats.contactsCount} total contacts`
           }
 
-          trend="up"
-
-          icon={Users}
+        icon={Users}
 
         />
 
@@ -290,9 +288,7 @@ getFollowUpContacts(),
             )} received`
           }
 
-          trend="up"
-
-          icon={CircleDollarSign}
+        icon={CircleDollarSign}
 
         />
 
@@ -402,27 +398,6 @@ getFollowUpContacts(),
         <PipelineCard
 
 
-          summary={{
-
-            activeClients:
-              stats.contactsCount,
-
-
-            inventoryValue:
-              stats.portfolioValue,
-
-
-            inventoryCount:
-              stats.propertiesCount,
-
-
-            commissionPotential:
-              stats.commissionPipeline,
-
-
-          }}
-
-
           stages={
             pipelineStages
           }
@@ -523,7 +498,7 @@ getFollowUpContacts(),
 
 
 
-    </main>
+    </div>
 
 
   )

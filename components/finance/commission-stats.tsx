@@ -7,7 +7,6 @@ import {
 
 import {
   DashboardCard,
-  DashboardCardContent,
   DashboardCardHeader,
 } from "@/components/ui/dashboard-card"
 
@@ -172,11 +171,6 @@ export function CommissionStats({
 
 
                 </DashboardCardHeader>
-
-
-
-                <DashboardCardContent />
-
 
               </DashboardCard>
 

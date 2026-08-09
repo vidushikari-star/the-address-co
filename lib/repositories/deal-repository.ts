@@ -202,6 +202,57 @@ export async function getDealsByPropertyId(
 
 
 
+export async function getDealsByPropertyIds(
+  propertyIds:string[]
+):Promise<Deal[]>{
+
+
+  if(propertyIds.length === 0){
+
+    return []
+
+  }
+
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("deals")
+      .select(`
+        *,
+        advisor:user_profiles (
+          name
+        )
+      `)
+      .in(
+        "property_id",
+        propertyIds
+      )
+
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+
+  return (
+    data ?? []
+  ).map(
+    mapDealRow
+  )
+
+}
+
+
+
+
+
 
 
 

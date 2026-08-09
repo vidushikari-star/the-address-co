@@ -83,6 +83,12 @@ export function DealDrawer({
   ] =
   useState(false)
 
+  const [
+    error,
+    setError,
+  ] =
+  useState<string | null>(null)
+
 
 
   const [
@@ -145,6 +151,17 @@ export function DealDrawer({
 
   const isRental =
     selectedProperty?.transactionType === "Rental"
+
+  const eligibleContacts =
+    contacts.filter(
+      contact =>
+        contact.relationshipTypes?.some(
+          relationship =>
+            ["buyer", "tenant", "investor"].includes(
+              relationship.toLowerCase()
+            )
+        )
+    )
 
 
 
@@ -298,6 +315,34 @@ export function DealDrawer({
 
   }
 
+  function selectProperty(
+    id:string
+  ){
+
+    const property =
+      properties.find(
+        item =>
+          item.id === id
+      )
+
+    const propertyPrice =
+      property?.transactionType === "Rental"
+        ? property.price.rent
+        : property?.price.asking
+
+    setForm(
+      current => ({
+        ...current,
+        propertyId: id,
+        price:
+          current.price ||
+          propertyPrice?.toString() ||
+          "",
+      })
+    )
+
+  }
+
 
 
 
@@ -314,10 +359,16 @@ export function DealDrawer({
 
 
 
-    if(!form.name.trim()){
+    if(
+      !form.name.trim() ||
+      !form.contactId ||
+      !form.propertyId ||
+      !Number.isFinite(Number(form.price)) ||
+      Number(form.price) <= 0
+    ){
 
-      alert(
-        "Please enter a deal name"
+      setError(
+        "Enter a deal name, select a client and property, and add a valid value."
       )
 
       return
@@ -327,6 +378,7 @@ export function DealDrawer({
 
 
     setLoading(true)
+    setError(null)
 
 
 
@@ -486,9 +538,7 @@ const commissionAmount =
       )
 
 
-      alert(
-        "Deal creation failed"
-      )
+      setError("Unable to create the deal. Please try again.")
 
 
     } finally {
@@ -547,6 +597,8 @@ const commissionAmount =
               )
           }
 
+          required
+
         />
 
 
@@ -569,6 +621,8 @@ const commissionAmount =
               )
           }
 
+          required
+
         >
 
           <option value="">
@@ -577,7 +631,7 @@ const commissionAmount =
 
 
           {
-            contacts.map(
+            eligibleContacts.map(
               contact => (
 
                 <option
@@ -599,8 +653,6 @@ const commissionAmount =
               )
             )
           }
-
-
         </select>
 
 
@@ -617,11 +669,12 @@ const commissionAmount =
 
           onChange={
             e =>
-              update(
-                "propertyId",
+              selectProperty(
                 e.target.value
               )
           }
+
+          required
 
         >
 
@@ -724,9 +777,15 @@ const commissionAmount =
 
           type="number"
 
+          min="0.01"
+
+          step="0.01"
+
           value={
             form.price
           }
+
+          required
 
           onChange={
             e =>
@@ -742,6 +801,29 @@ const commissionAmount =
 
 
 
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <Button
+
+          type="button"
+
+          variant="outline"
+
+          disabled={loading}
+
+          onClick={() => onOpenChange(false)}
+
+        >
+
+          Cancel
+
+        </Button>
+
         <Button
 
           type="submit"
@@ -749,6 +831,8 @@ const commissionAmount =
           disabled={
             loading
           }
+
+          className="w-full sm:w-auto"
 
         >
 
@@ -761,6 +845,7 @@ const commissionAmount =
           }
 
         </Button>
+        </div>
 
 
       </form>

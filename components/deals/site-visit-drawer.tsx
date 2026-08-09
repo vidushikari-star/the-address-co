@@ -5,589 +5,265 @@ import {
   useState,
 } from "react"
 
-import {
-  FormDrawer,
-} from "@/components/forms/form-drawer"
+import { FormDrawer } from "@/components/forms/form-drawer"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { createActivity } from "@/lib/repositories/activity-repository"
+import { getProperties } from "@/lib/repositories/property-repository"
+import { createSiteVisit } from "@/lib/repositories/site-visit-repository"
+import { supabase } from "@/lib/supabase/client"
 
-import {
-  Button,
-} from "@/components/ui/button"
-
-import {
-  getProperties,
-} from "@/lib/repositories/property-repository"
-
-import {
-  createSiteVisit,
-} from "@/lib/repositories/site-visit-repository"
-
-import {
-  createActivity,
-} from "@/lib/repositories/activity-repository"
-
-import {
-  supabase,
-} from "@/lib/supabase/client"
-
-import type {
-  Property,
-} from "@/types/property"
-
-
+import type { Property } from "@/types/property"
 
 type Advisor = {
-
-  id:string
-
-  name:string
-
+  id: string
+  name: string
 }
-
-
-
-
 
 type Props = {
-
-  open:boolean
-
-  onOpenChange:(open:boolean)=>void
-
-  onCreated?:()=>void
-
-  dealId:string
-
-  contactId:string
-
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onCreated?: () => void
+  dealId?: string
+  contactId: string
 }
 
-
-
-
+const emptyForm = {
+  propertyId: "",
+  date: "",
+  time: "",
+  notes: "",
+}
 
 export function SiteVisitDrawer({
-
   open,
-
   onOpenChange,
-
   onCreated,
-
   dealId,
-
   contactId,
+}: Props) {
+  const [properties, setProperties] = useState<Property[]>([])
+  const [advisors, setAdvisors] = useState<Advisor[]>([])
+  const [form, setForm] = useState(emptyForm)
+  const [advisorId, setAdvisorId] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-}:Props){
+  useEffect(() => {
+    async function load() {
+      try {
+        const [propertiesData, advisorsResult] = await Promise.all([
+          getProperties(),
+          supabase
+            .from("user_profiles")
+            .select("id,name")
+            .order("name"),
+        ])
 
-
-  const [
-    properties,
-    setProperties,
-  ] = useState<Property[]>([])
-
-
-
-  const [
-    advisors,
-    setAdvisors,
-  ] = useState<Advisor[]>([])
-
-
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(false)
-
-
-
-  const [
-    form,
-    setForm,
-  ] = useState({
-
-    propertyId:"",
-
-    date:"",
-
-    time:"",
-
-    notes:"",
-
-  })
-
-
-
-  const [
-    advisorId,
-    setAdvisorId,
-  ] = useState("")
-
-
-
-
-
-  useEffect(()=>{
-
-
-    async function load(){
-
-
-      const propertiesData =
-        await getProperties()
-
-
-      setProperties(
-        propertiesData
-      )
-
-
-
-      const {
-        data:advisorData,
-        error,
-      } =
-        await supabase
-          .from("user_profiles")
-          .select(
-            "id,name"
-          )
-          .order(
-            "name"
-          )
-
-
-
-      if(!error){
-
-        setAdvisors(
-          advisorData ?? []
-        )
-
+        setProperties(propertiesData)
+        setAdvisors(advisorsResult.data ?? [])
+      } catch (error) {
+        console.error("Unable to load site visit options", error)
+        setError("Unable to load properties or advisors. Please try again.")
       }
-
-
     }
 
-
-
-    if(open){
-
+    if (open) {
+      setError(null)
       load()
-
     }
-
-
-  },[open])
-
-
-
-
-
-
+  }, [open])
 
   function update(
-    key:string,
-    value:string
-  ){
-
-    setForm(
-      current => ({
-
-        ...current,
-
-        [key]:
-          value,
-
-      })
-    )
-
+    key: keyof typeof emptyForm,
+    value: string
+  ) {
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+    }))
   }
 
+  async function submit(event: React.FormEvent) {
+    event.preventDefault()
 
-
-
-
-
-
-  async function submit(){
-
-
-    if(
-      !form.propertyId ||
-      !form.date
-    ){
-
+    if (!form.propertyId || !form.date || !form.time) {
+      setError("Select a property, visit date, and time before scheduling.")
       return
-
     }
-
-
 
     setLoading(true)
+    setError(null)
 
-
-
-    try{
-
-
+    try {
       await createSiteVisit({
-
         dealId,
-
         contactId,
-
-        propertyId:
-          form.propertyId,
-
-
-        scheduledDate:
-          form.date,
-
-
-        scheduledTime:
-          form.time,
-
-
-        notes:
-          form.notes,
-
-
-        advisorId:
-          advisorId || undefined,
-
+        propertyId: form.propertyId,
+        scheduledDate: form.date,
+        scheduledTime: form.time,
+        notes: form.notes.trim() || undefined,
+        advisorId: advisorId || undefined,
       })
 
-
-
-
-
-      const property =
-        properties.find(
-          item =>
-            item.id === form.propertyId
-        )
-
-
-
-
+      const property = properties.find(
+        (item) => item.id === form.propertyId
+      )
 
       await createActivity({
-
-        type:
-          "site_visit",
-
-
-        title:
-          "Site visit scheduled",
-
-
-        description:
-          property?.name ??
-          "Property",
-
-
-        body:
-          `${form.date} ${form.time}
-
-${form.notes || "No notes added"}`,
-
-
-
+        type: "site_visit",
+        title: "Site visit scheduled",
+        description: property?.name ?? "Property",
+        body: `${form.date} ${form.time}\n\n${
+          form.notes.trim() || "No notes added"
+        }`,
         dealId,
-
         contactId,
-
-        propertyId:
-          form.propertyId,
-
-
-        date:
-          new Date().toISOString(),
-
+        propertyId: form.propertyId,
+        date: new Date().toISOString(),
       })
 
-
-
-
-
-      setForm({
-
-        propertyId:"",
-
-        date:"",
-
-        time:"",
-
-        notes:"",
-
-      })
-
-
+      setForm(emptyForm)
       setAdvisorId("")
-
-
-
       onOpenChange(false)
-
-
-
       onCreated?.()
-
-
-
-    }catch(error){
-
-
-      console.error(
-        "Failed creating site visit",
-        error
-      )
-
-
-      alert(
-        "Failed creating site visit"
-      )
-
-
-    }finally{
-
+    } catch (error) {
+      console.error("Failed creating site visit", error)
+      setError("Unable to schedule the site visit. Please try again.")
+    } finally {
       setLoading(false)
-
     }
-
   }
 
-
-
-
-
-
-
   return (
-
     <FormDrawer
-
       open={open}
-
       onOpenChange={onOpenChange}
-
       title="Schedule Site Visit"
-
-      description="Create a site visit for this buyer."
-
+      description="Choose a property, time, and advisor for this contact."
     >
-
-
-      <div className="space-y-5">
-
-
-        <select
-
-          className="w-full rounded-md border p-2"
-
-          value={
-            form.propertyId
-          }
-
-          onChange={
-            e =>
-              update(
-                "propertyId",
-                e.target.value
-              )
-          }
-
-        >
-
-          <option value="">
-            Select Property
-          </option>
-
-
-          {
-            properties.map(
-              property => (
-
-                <option
-
-                  key={
-                    property.id
-                  }
-
-                  value={
-                    property.id
-                  }
-
-                >
-
-                  {property.name}
-
-                </option>
-
-              )
-
-            )
-          }
-
-
-        </select>
-
-
-
-
-
-        <input
-
-          type="date"
-
-          className="w-full rounded-md border p-2"
-
-          value={
-            form.date
-          }
-
-          onChange={
-            e =>
-              update(
-                "date",
-                e.target.value
-              )
-          }
-
-        />
-
-
-
-
-
-        <input
-
-          type="time"
-
-          className="w-full rounded-md border p-2"
-
-          value={
-            form.time
-          }
-
-          onChange={
-            e =>
-              update(
-                "date",
-                e.target.value
-              )
-          }
-
-        />
-
-
-
-
-
-        <select
-
-          className="w-full rounded-md border p-2"
-
-          value={
-            advisorId
-          }
-
-          onChange={
-            e =>
-              setAdvisorId(
-                e.target.value
-              )
-          }
-
-        >
-
-          <option value="">
-            Assign Advisor
-          </option>
-
-
-          {
-            advisors.map(
-              advisor => (
-
-                <option
-
-                  key={
-                    advisor.id
-                  }
-
-                  value={
-                    advisor.id
-                  }
-
-                >
-
-                  {advisor.name}
-
-                </option>
-
-              )
-            )
-          }
-
-
-        </select>
-
-
-
-
-
-        <textarea
-
-          className="w-full rounded-md border p-2"
-
-          placeholder="Notes"
-
-          value={
-            form.notes
-          }
-
-          onChange={
-            e =>
-              update(
-                "notes",
-                e.target.value
-              )
-          }
-
-        />
-
-
-
-
-
-        <Button
-
-          onClick={submit}
-
-          disabled={
-            loading
-          }
-
-          className="w-full"
-
-        >
-
-          {
-            loading
-              ? "Saving..."
-              : "Schedule Site Visit"
-          }
-
-        </Button>
-
-
-      </div>
-
-
+      <form className="space-y-5" onSubmit={submit}>
+        <div className="space-y-2">
+          <label
+            htmlFor="site-visit-property"
+            className="text-sm font-medium"
+          >
+            Property <span className="text-destructive">*</span>
+          </label>
+
+          <select
+            id="site-visit-property"
+            className="w-full rounded-lg border bg-background p-3"
+            value={form.propertyId}
+            onChange={(event) => update("propertyId", event.target.value)}
+            required
+          >
+            <option value="">Select property</option>
+            {properties.map((property) => (
+              <option key={property.id} value={property.id}>
+                {property.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label
+              htmlFor="site-visit-date"
+              className="text-sm font-medium"
+            >
+              Visit date <span className="text-destructive">*</span>
+            </label>
+            <Input
+              id="site-visit-date"
+              type="date"
+              value={form.date}
+              onChange={(event) => update("date", event.target.value)}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label
+              htmlFor="site-visit-time"
+              className="text-sm font-medium"
+            >
+              Visit time <span className="text-destructive">*</span>
+            </label>
+            <Input
+              id="site-visit-time"
+              type="time"
+              value={form.time}
+              onChange={(event) => update("time", event.target.value)}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label
+            htmlFor="site-visit-advisor"
+            className="text-sm font-medium"
+          >
+            Assigned advisor
+          </label>
+          <select
+            id="site-visit-advisor"
+            className="w-full rounded-lg border bg-background p-3"
+            value={advisorId}
+            onChange={(event) => setAdvisorId(event.target.value)}
+          >
+            <option value="">Unassigned</option>
+            {advisors.map((advisor) => (
+              <option key={advisor.id} value={advisor.id}>
+                {advisor.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <label
+            htmlFor="site-visit-notes"
+            className="text-sm font-medium"
+          >
+            Notes
+          </label>
+          <Textarea
+            id="site-visit-notes"
+            value={form.notes}
+            onChange={(event) => update("notes", event.target.value)}
+            placeholder="Access instructions, requirements, or attendees"
+            rows={4}
+          />
+        </div>
+
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={loading}
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            className="w-full sm:w-auto"
+            disabled={loading}
+          >
+            {loading ? "Scheduling..." : "Schedule Site Visit"}
+          </Button>
+        </div>
+      </form>
     </FormDrawer>
-
   )
-
 }

@@ -63,6 +63,8 @@ export interface PropertySource {
 
   commission?:{
 
+    id:string
+
     percentage?:number
 
     amount?:number
@@ -216,6 +218,56 @@ propertyId:string
 
 
 
+export async function getPropertyContactsByContactId(
+contactId:string
+):Promise<PropertyContact[]> {
+
+
+  const {
+    data,
+    error,
+  } =
+  await supabase
+    .from("property_contacts")
+    .select("*")
+    .eq(
+      "contact_id",
+      contactId
+    )
+    .order(
+      "created_at",
+      {
+        ascending:true,
+      }
+    )
+
+
+
+  if(error){
+
+    throw error
+
+  }
+
+
+
+  return (
+    data ?? []
+  )
+  .map(
+    row =>
+      mapPropertyContact(
+        row as PropertyContactRow
+      )
+  )
+
+
+}
+
+
+
+
+
 
 
 
@@ -352,8 +404,11 @@ await supabase
 
           c =>
 
-            c.contact_id ===
+          c.contact_id ===
             contact?.id
+          &&
+          c.source_type ===
+            item.relationship_type
 
         )
 
@@ -417,6 +472,10 @@ await supabase
               commission.percentage
               ??
               undefined,
+
+
+            id:
+              commission.id,
 
 
             amount:
@@ -582,11 +641,15 @@ export async function updatePropertyContact({
 
   id,
 
+  contactId,
+
   relationshipType,
 
 }:{
 
   id:string
+
+  contactId?:string
 
   relationshipType:
     PropertyContactRelationship
@@ -594,6 +657,24 @@ export async function updatePropertyContact({
 }):Promise<PropertyContact>{
 
 
+
+
+
+  const updates:{
+    contact_id?:string
+    relationship_type:PropertyContactRelationship
+  } = {
+    relationship_type:
+      relationshipType,
+  }
+
+
+
+  if(contactId !== undefined){
+
+    updates.contact_id = contactId
+
+  }
 
 
 
@@ -605,12 +686,7 @@ export async function updatePropertyContact({
 
     .from("property_contacts")
 
-    .update({
-
-      relationship_type:
-        relationshipType,
-
-    })
+    .update(updates)
 
     .eq(
       "id",

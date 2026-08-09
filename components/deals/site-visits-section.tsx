@@ -32,7 +32,7 @@ type Props = {
 
   properties: Property[]
 
-  dealId:string
+  dealId?:string
 
   contactId:string
 
@@ -119,6 +119,10 @@ export function SiteVisitsSection({
 
         contactId={
           contactId
+        }
+
+        onCreated={() =>
+          window.location.reload()
         }
 
       />

@@ -19,7 +19,8 @@ export async function getOverviewReport(){
         `
         id,
         lead_temperature,
-        next_follow_up_at
+        next_follow_up_at,
+        relationship_types
         `,
         {
           count:"exact",
@@ -92,7 +93,8 @@ export async function getOverviewReport(){
   const hotLeads =
     contacts.filter(
       contact =>
-        contact.lead_temperature === "hot"
+        contact.lead_temperature === "hot" &&
+        contact.relationship_types?.includes("buyer")
     ).length
 
 
@@ -129,8 +131,8 @@ export async function getOverviewReport(){
     deals.filter(
       deal =>
         ![
-          "closed",
-          "lost",
+          "closed_won",
+          "closed_lost",
         ].includes(
           deal.stage
         )
@@ -147,8 +149,8 @@ export async function getOverviewReport(){
 
         if(
           [
-            "closed",
-            "lost",
+            "closed_won",
+            "closed_lost",
           ].includes(
             deal.stage
           )

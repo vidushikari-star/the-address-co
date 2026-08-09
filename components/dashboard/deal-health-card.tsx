@@ -31,7 +31,7 @@ export function DealHealthCard({
     {
       label:"Healthy",
       value:data.healthy,
-      icon:"🟢",
+      tone:"bg-emerald-500",
       description:"On track",
     },
 
@@ -39,7 +39,7 @@ export function DealHealthCard({
     {
       label:"Needs Attention",
       value:data.attention,
-      icon:"🟡",
+      tone:"bg-amber-500",
       description:"Requires follow up",
     },
 
@@ -47,7 +47,7 @@ export function DealHealthCard({
     {
       label:"At Risk",
       value:data.risk,
-      icon:"🔴",
+      tone:"bg-destructive",
       description:"Immediate action",
     },
 
@@ -119,9 +119,10 @@ export function DealHealthCard({
                   <div className="flex items-center gap-3">
 
 
-                    <span className="text-xl">
-                      {item.icon}
-                    </span>
+                    <span
+                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${item.tone}`}
+                      aria-hidden="true"
+                    />
 
 
 

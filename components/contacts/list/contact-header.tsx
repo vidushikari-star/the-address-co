@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { Plus } from "lucide-react"
 
 import {
@@ -5,7 +6,7 @@ import {
 } from "@/components/layout/page-header"
 
 import {
-  Button,
+  buttonVariants,
 } from "@/components/ui/button"
 
 
@@ -25,24 +26,19 @@ export function ContactHeader() {
 
       actions={
 
-        <Button
-
-          size="default"
-          
-          className="w-full sm:w-auto"
-
-          onClick={() =>
-            window.location.href =
-              "/contacts/new"
-          }
-
+        <Link
+          href="/contacts/new"
+          className={buttonVariants({
+            size: "default",
+            className: "w-full sm:w-auto",
+          })}
         >
 
           <Plus className="mr-2 h-4 w-4" />
 
           New Relationship
 
-        </Button>
+        </Link>
 
       }
 

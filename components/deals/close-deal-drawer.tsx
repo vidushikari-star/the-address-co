@@ -33,6 +33,10 @@ import {
   getPropertySources,
 } from "@/lib/repositories/property-contact-repository"
 
+import type {
+  PropertySource,
+} from "@/lib/repositories/property-contact-repository"
+
 import {
   calculateDealCommissions,
 } from "@/lib/utils/calculate-deal-commissions"
@@ -44,6 +48,10 @@ import {
 import type {
   Deal,
 } from "@/types/deal"
+
+import type {
+  Property,
+} from "@/types/property"
 
 
 
@@ -90,7 +98,7 @@ export function CloseDealDrawer({
     property,
     setProperty,
   ] =
-  useState<any>(null)
+  useState<Property | null>(null)
 
 
 
@@ -100,7 +108,7 @@ export function CloseDealDrawer({
     propertySources,
     setPropertySources,
   ] =
-  useState<any[]>([])
+  useState<PropertySource[]>([])
 
 
 
@@ -129,7 +137,7 @@ export function CloseDealDrawer({
 
 
       setProperty(
-        data
+        data ?? null
       )
 
 
@@ -200,6 +208,12 @@ export function CloseDealDrawer({
     setLoading,
   ] =
   useState(false)
+
+  const [
+    error,
+    setError,
+  ] =
+  useState<string | null>(null)
 
 
 
@@ -449,8 +463,34 @@ export function CloseDealDrawer({
 
   async function submit(){
 
+    if(
+      type === "won" &&
+      (
+        !Number.isFinite(Number(form.closingPrice)) ||
+        Number(form.closingPrice) <= 0
+      )
+    ){
+
+      setError("Enter the final sale value before closing this deal as won.")
+
+      return
+
+    }
+
+    if(
+      type === "lost" &&
+      !form.lostReason.trim()
+    ){
+
+      setError("Add a loss reason so it can be reported accurately.")
+
+      return
+
+    }
+
 
     setLoading(true)
+    setError(null)
 
 
     try {
@@ -788,9 +828,7 @@ ${form.notes || "No notes"}
 
 
 
-      alert(
-        "Failed closing deal"
-      )
+      setError("Unable to close the deal. Please try again.")
 
 
 
@@ -884,6 +922,12 @@ ${form.notes || "No notes"}
 
               className="w-full rounded-md border p-2"
 
+              type="number"
+
+              min="0.01"
+
+              step="0.01"
+
               placeholder={
                 isRental
                   ? "Monthly Rent"
@@ -973,6 +1017,12 @@ ${form.notes || "No notes"}
               <input
 
                 className="w-full rounded-md border p-2"
+
+                type="number"
+
+                min="0"
+
+                step="0.01"
 
 
                 placeholder="Commission %"
@@ -1103,6 +1153,8 @@ ${form.notes || "No notes"}
 
               className="w-full rounded-md border p-2"
 
+              required
+
 
               placeholder="Lost Reason"
 
@@ -1154,8 +1206,28 @@ ${form.notes || "No notes"}
 
 
 
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
 
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <Button
 
+          type="button"
+
+          variant="outline"
+
+          disabled={loading}
+
+          onClick={() => onOpenChange(false)}
+
+        >
+
+          Cancel
+
+        </Button>
 
         <Button
 
@@ -1169,7 +1241,7 @@ ${form.notes || "No notes"}
           }
 
 
-          className="w-full"
+          className="w-full sm:w-auto"
 
         >
 
@@ -1188,6 +1260,7 @@ ${form.notes || "No notes"}
 
 
         </Button>
+        </div>
 
 
 
@@ -1200,4 +1273,3 @@ ${form.notes || "No notes"}
 
 
 }
-

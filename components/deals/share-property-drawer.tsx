@@ -35,6 +35,10 @@ createPropertyShare,
 } from "@/lib/repositories/property-share-repository"
 
 import {
+generatePropertyShareMessage,
+} from "@/lib/communications/property-message"
+
+import {
 getCurrentUser,
 } from "@/lib/auth/current-user"
 
@@ -80,8 +84,8 @@ selectedContactIds = [],
 
 
 const [
-selectedBuyers,
-setSelectedBuyers,
+selectedRecipients,
+setSelectedRecipients,
 ] =
 useState<string[]>(
 selectedContactIds
@@ -168,7 +172,7 @@ userData
 
 if(open){
 
-setSelectedBuyers(
+setSelectedRecipients(
 selectedContactIds
 )
 
@@ -242,11 +246,11 @@ search,
 
 
 
-function toggleBuyer(
+function toggleRecipient(
 id:string
 ){
 
-setSelectedBuyers(
+setSelectedRecipients(
 current =>
 
 current.includes(id)
@@ -277,7 +281,7 @@ async function share(){
 
 if(
 !property ||
-selectedBuyers.length===0
+selectedRecipients.length===0
 ){
 
 return
@@ -293,16 +297,22 @@ try{
 
 
 const propertyUrl =
-`${window.location.origin}/share/${property.slug}?advisor=${currentUser?.id}`
+property.slug
+? `${window.location.origin}/share/${property.slug}${
+currentUser?.id
+? `?advisor=${currentUser.id}`
+: ""
+}`
+: property.publicLink
 
 
 
 for(
-const contactId of selectedBuyers
+const contactId of selectedRecipients
 ){
 
 
-const buyer =
+const recipient =
 contacts.find(
 contact =>
 contact.id===contactId
@@ -310,7 +320,7 @@ contact.id===contactId
 
 
 
-if(!buyer){
+if(!recipient){
 
 continue
 
@@ -319,31 +329,35 @@ continue
 
 
 const message =
-`Hi ${buyer.name},
+generatePropertyShareMessage({
 
-Sharing details of this luxury property:
+contactName:
+recipient.name,
 
-🏠 ${property.name}
+advisorName:
+currentUser?.name,
 
-📍 Location:
-${property.location || "-"}
+property:{
 
-View complete property details:
+name:
+property.name,
 
-${propertyUrl}
+location:
+property.location,
 
-Please let me know if you would like more details.
+publicLink:
+propertyUrl,
 
-Regards,
+},
 
-${currentUser?.name || "The Address Co."}`
+})
 
 
 
 await createPropertyShare({
 
 contactId:
-buyer.id,
+recipient.id,
 
 propertyId:
 property.id,
@@ -361,13 +375,13 @@ title:
 "Property Shared on WhatsApp",
 
 description:
-`${property.name} shared with ${buyer.name}`,
+`${property.name} shared with ${recipient.name}`,
 
 body:
 message,
 
 contactId:
-buyer.id,
+recipient.id,
 
 propertyId:
 property.id,
@@ -381,8 +395,8 @@ new Date().toISOString(),
 
 const phone =
 (
-buyer.whatsapp ??
-buyer.phone ??
+recipient.whatsapp ??
+recipient.phone ??
 ""
 )
 .replace(
@@ -445,7 +459,7 @@ onOpenChange={onOpenChange}
 
 title="Share Property"
 
-description="Select buyers and send property details."
+description="Select the contacts who should receive the property details."
 
 >
 
@@ -458,7 +472,7 @@ description="Select buyers and send property details."
 
 <Input
 
-placeholder="Search buyer by name, phone or email"
+placeholder="Search contacts by name, phone or email"
 
 value={search}
 
@@ -513,13 +527,13 @@ p-3
 type="checkbox"
 
 checked={
-selectedBuyers.includes(
+selectedRecipients.includes(
 contact.id
 )
 }
 
 onChange={()=>
-toggleBuyer(
+toggleRecipient(
 contact.id
 )
 }
@@ -573,7 +587,7 @@ text-sm
 text-muted-foreground
 ">
 
-No buyers found.
+No matching contacts found.
 
 </p>
 
@@ -598,7 +612,7 @@ p-4
 font-medium
 ">
 
-Selected Buyers
+Selected Recipients
 
 </p>
 
@@ -608,7 +622,7 @@ text-sm
 text-muted-foreground
 ">
 
-{selectedBuyers.length} buyers will receive this property.
+{selectedRecipients.length} contacts will receive this property.
 
 </p>
 
@@ -628,7 +642,7 @@ w-full
 
 disabled={
 loading ||
-selectedBuyers.length===0
+selectedRecipients.length===0
 }
 
 onClick={
@@ -643,7 +657,7 @@ loading
 ?
 "Opening WhatsApp..."
 :
-`Share on WhatsApp (${selectedBuyers.length})`
+`Share on WhatsApp (${selectedRecipients.length})`
 }
 
 

@@ -1,5 +1,10 @@
 import { supabase } from "@/lib/supabase/client"
 
+import {
+  getSupportedMediaType,
+  validatePropertyMediaFile,
+} from "@/lib/properties/media-upload"
+
 export interface PropertyImage {
   id: string
   propertyId: string
@@ -119,6 +124,20 @@ export async function uploadPropertyImage(
   file: File
 ): Promise<PropertyImage> {
 
+  const validationError =
+    validatePropertyMediaFile(file)
+
+  if (validationError) {
+    throw new Error(validationError)
+  }
+
+  const mediaType =
+    getSupportedMediaType(file)
+
+  if (!mediaType) {
+    throw new Error("Unsupported media format.")
+  }
+
 
   const fileExt =
     file.name
@@ -201,9 +220,7 @@ export async function uploadPropertyImage(
     false,
 
   media_type:
-    file.type.startsWith("video/")
-      ? "video"
-      : "image",
+    mediaType,
 
 })
       .select()
@@ -212,6 +229,13 @@ export async function uploadPropertyImage(
 
 
   if(error){
+
+    await supabase
+      .storage
+      .from("property-images")
+      .remove([
+        fileName,
+      ])
 
     throw error
 
@@ -249,7 +273,7 @@ export async function uploadPropertyImage(
 
   if(
   !propertyRow?.cover_image &&
-  !file.type.startsWith("video/")
+  mediaType === "image"
 ){
 
   await supabase

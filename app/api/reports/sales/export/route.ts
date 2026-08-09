@@ -3,7 +3,7 @@ import * as XLSX from "xlsx"
 
 import { getServerUserProfile } from "@/lib/auth/server-user-profile"
 
-import { getDeals } from "@/lib/repositories/deal-repository"
+import { getSalesReport } from "@/lib/services/reports/sales-report-service"
 
 import { filterByDate } from "@/lib/reports/filter-report-data"
 
@@ -42,7 +42,7 @@ export async function GET(
 
   try {
     deals = filterByDate(
-      await getDeals(),
+      await getSalesReport(),
       range
     )
   } catch (error) {
@@ -70,10 +70,10 @@ export async function GET(
         deal.stage,
 
       PropertyValue:
-        deal.value.propertyPrice,
+        deal.propertyPrice,
 
       Commission:
-        deal.value.commissionAmount,
+        deal.commissionAmount,
 
       ExpectedCloseDate:
         deal.expectedCloseDate ?? "-",

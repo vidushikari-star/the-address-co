@@ -25,10 +25,6 @@ CalendarItem,
 } from "@/types/calendar"
 
 import type {
-SiteVisit,
-} from "@/types/site-visit"
-
-import type {
 SiteVisitStatus,
 } from "@/types/site-visit"
 
@@ -719,7 +715,7 @@ selectedSiteVisit.id.replace(
 ""),
 
 dealId:
-selectedSiteVisit.dealId!,
+selectedSiteVisit.dealId,
 
 contactId:
 selectedSiteVisit.contactId!,
@@ -728,7 +724,11 @@ propertyId:
 selectedSiteVisit.propertyId!,
 
 scheduledDate:
-selectedSiteVisit.date,
+formatDateKey(
+  getIndiaDate(
+    selectedSiteVisit.date
+  )
+),
 
 scheduledTime:
 selectedSiteVisit.time ?? "",

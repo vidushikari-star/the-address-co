@@ -4,10 +4,12 @@ import { ReportCard } from "@/components/reports/report-card"
 
 import type { Commission } from "@/types/commission"
 import type { Expense } from "@/types/expense"
+import type { ReportRange } from "@/lib/reports/report-date-utils"
 
 type Props = {
   commissions: Commission[]
   expenses: Expense[]
+  range: ReportRange
 }
 
 function money(value: number) {
@@ -17,6 +19,7 @@ function money(value: number) {
 export function PnLReport({
   commissions,
   expenses,
+  range,
 }: Props) {
   const income = commissions
     .filter(
@@ -52,7 +55,7 @@ export function PnLReport({
         </div>
 
         <Link
-          href="/api/reports/pnl/export"
+          href={`/api/reports/pnl/export?range=${range}`}
           className="inline-flex w-full items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted sm:w-auto"
         >
           Download Excel

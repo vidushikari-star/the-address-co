@@ -25,8 +25,16 @@ import {
 } from "./relationship-properties"
 
 import {
+  RelationshipInventory,
+} from "./relationship-inventory"
+
+import {
   RelationshipTasks,
 } from "./relationship-tasks"
+
+import {
+  SiteVisitsSection,
+} from "@/components/deals/site-visits-section"
 
 import {
   RelationshipDeals,
@@ -44,22 +52,46 @@ import {
   ContactFinancialSnapshot,
 } from "./contact-financial-snapshot"
 
+import {
+  ContactCrmCard,
+} from "./contact-crm-card"
+
 import type {
   ContactSummary,
 } from "@/lib/repositories/contact-summary-repository"
+
+import {
+  isInventoryContact,
+} from "@/lib/utils/is-inventory-contact"
+
+import type {
+  SiteVisit,
+} from "@/types/site-visit"
+
+import type {
+  Property,
+} from "@/types/property"
 
 
 
 type RelationshipDetailProps = {
   contact: Contact
   summary: ContactSummary
+  siteVisits: SiteVisit[]
+  siteVisitProperties: Property[]
 }
 
 
 export function RelationshipDetail({
 contact,
 summary,
+siteVisits,
+siteVisitProperties,
 }: RelationshipDetailProps) {
+
+
+  const inventoryContact =
+    isInventoryContact(contact)
 
   return (
 
@@ -101,17 +133,43 @@ summary,
         >
 
          <RelationshipSnapshot
-  contact={contact}
-/>
+            contact={contact}
+            showRequirements={!inventoryContact}
+            showCrm={!inventoryContact}
+          />
+
+
+          {
+            inventoryContact && (
+
+              <RelationshipInventory
+                contact={contact}
+              />
+
+            )
+          }
+
+
+          {
+            inventoryContact && (
+
+              <ContactCrmCard
+                contact={contact}
+              />
+
+            )
+          }
 
 
 <ContactFinancialSnapshot
   summary={summary}
+  linkedPropertyScope={inventoryContact}
 />
 
 
 <LeadIntentCard
   contact={contact}
+  inventoryContact={inventoryContact}
 />
 
         </aside>
@@ -135,14 +193,28 @@ summary,
           />
 
 
+          <SiteVisitsSection
+            visits={siteVisits}
+            properties={siteVisitProperties}
+            contactId={contact.id}
+          />
+
+
           <RelationshipDeals
             contact={contact}
+            matchLinkedProperties={inventoryContact}
           />
 
 
-          <RelationshipProperties
-            contact={contact}
-          />
+          {
+            !inventoryContact && (
+
+              <RelationshipProperties
+                contact={contact}
+              />
+
+            )
+          }
 
 
           <RelationshipTasks

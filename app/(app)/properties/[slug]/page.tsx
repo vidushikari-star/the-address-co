@@ -15,16 +15,8 @@ import {
 } from "@/lib/repositories/property-document-repository"
 
 import {
-  getActivitiesByPropertyId,
-} from "@/lib/repositories/activity-repository"
-
-import {
   formatExactPropertyPrice
 } from "@/lib/utils/format-currency"
-
-import {
-  PropertyActivityTimeline,
-} from "@/components/properties/property-activity-timeline"
 
 import {
   PropertyDocuments,
@@ -55,10 +47,6 @@ import {
 } from "@/components/properties/archive-property-button"
 
 import {
-  PushHousingButton,
-} from "@/components/properties/push-housing-button"
-
-import {
   getDealsByPropertyId,
 } from "@/lib/repositories/deal-repository"
 
@@ -69,10 +57,6 @@ import {
 import {
   PropertyCreatedBanner,
 } from "@/components/properties/property-created-banner"
-
-import {
-  HousingSyncStatus,
-} from "@/components/properties/housing-sync-status"
 
 import {
   getPropertySources,
@@ -179,7 +163,6 @@ const {
 
 
   const [
-  activities,
   images,
   documents,
   deals,
@@ -187,10 +170,6 @@ const {
   contacts,
 ] =
 await Promise.all([
-
-  getActivitiesByPropertyId(
-    property.id
-  ),
 
   getPropertyImages(
     property.id
@@ -218,6 +197,13 @@ getBuyerMatches(
   property,
   contacts
 )
+
+
+
+const propertyValue =
+  property.transactionType === "Rental"
+    ? property.price.rent ?? 0
+    : property.price.asking ?? 0
 
 
 
@@ -361,12 +347,6 @@ getBuyerMatches(
                 property={property}
               />
 
-              <PushHousingButton
-  property={property}
-/>
-
-
-
               <Link
                 href={`/properties/${property.slug}/edit`}
                 className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
@@ -390,11 +370,6 @@ getBuyerMatches(
                   property.id
                 }
               />
-
-              <HousingSyncStatus
-  property={property}
-/>
-
 
             </div>
 
@@ -490,6 +465,14 @@ getBuyerMatches(
     property.id
   }
 
+  propertyValue={
+    propertyValue
+  }
+
+  transactionType={
+    property.transactionType
+  }
+
 />
 
 <PropertyBuyerMatches
@@ -499,6 +482,7 @@ getBuyerMatches(
 
       <PropertyDeals
   deals={deals}
+  propertySources={propertySources}
   transactionType={
     property.transactionType
   }

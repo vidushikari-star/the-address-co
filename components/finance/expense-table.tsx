@@ -95,10 +95,10 @@ export function ExpenseTable({
 
   return (
 
-    <div className="rounded-2xl border overflow-hidden">
+    <div className="overflow-x-auto rounded-2xl border">
 
 
-      <table className="w-full text-sm">
+      <table className="min-w-[760px] w-full text-sm">
 
 
         <thead className="bg-muted">

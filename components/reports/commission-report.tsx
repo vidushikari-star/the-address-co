@@ -3,9 +3,11 @@ import Link from "next/link"
 import { ReportCard } from "@/components/reports/report-card"
 
 import type { Commission } from "@/types/commission"
+import type { ReportRange } from "@/lib/reports/report-date-utils"
 
 type Props = {
   commissions: Commission[]
+  range: ReportRange
 }
 
 function money(value: number) {
@@ -14,6 +16,7 @@ function money(value: number) {
 
 export function CommissionReport({
   commissions,
+  range,
 }: Props) {
   const total = commissions.reduce(
     (sum, item) => sum + item.amount,
@@ -48,7 +51,7 @@ export function CommissionReport({
         </div>
 
         <Link
-          href="/api/reports/commission/export"
+          href={`/api/reports/commission/export?range=${range}`}
           className="inline-flex w-full items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted sm:w-auto"
         >
           Download Excel

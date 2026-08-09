@@ -10,7 +10,7 @@ export interface SiteVisit {
 
   id:string
 
-  dealId:string
+  dealId?:string
 
   contactId:string
 

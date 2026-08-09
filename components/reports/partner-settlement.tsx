@@ -5,9 +5,11 @@ import { ReportCard } from "@/components/reports/report-card"
 import type {
   CommissionDistribution,
 } from "@/types/commission-distribution"
+import type { ReportRange } from "@/lib/reports/report-date-utils"
 
 type Props = {
   distributions: CommissionDistribution[]
+  range: ReportRange
 }
 
 function money(
@@ -18,6 +20,7 @@ function money(
 
 export function PartnerSettlement({
   distributions,
+  range,
 }: Props) {
   const total = distributions.reduce(
     (sum, item) =>
@@ -60,7 +63,7 @@ export function PartnerSettlement({
         </div>
 
         <Link
-          href="/api/reports/settlement/export"
+          href={`/api/reports/settlement/export?range=${range}`}
           className="inline-flex w-full items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted sm:w-auto"
         >
           Download Excel

@@ -9,7 +9,7 @@ interface DashboardCardProps
 
 function DashboardCard({
   className,
-  interactive = true,
+  interactive = false,
   ...props
 }: DashboardCardProps) {
   return (

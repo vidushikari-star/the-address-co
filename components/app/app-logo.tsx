@@ -59,7 +59,7 @@ export function AppLogo({ collapsed = false }: AppLogoProps) {
             text-xs
             text-muted-foreground
           ">
-            Private Real Estate Platform
+            Luxury Real Estate Advisory
           </span>
 
         </div>

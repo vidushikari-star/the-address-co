@@ -11,10 +11,6 @@ import {
 } from "@/lib/repositories/commission-repository"
 
 import {
-  CommissionStats,
-} from "@/components/finance/commission-stats"
-
-import {
   CommissionTable,
 } from "@/components/finance/commission-table"
 
@@ -158,48 +154,9 @@ export default async function FinancePage() {
 
 
 
-  const now =
-    new Date()
-
-
-
-
-
-  const receivedThisMonth =
-    commissions
-      .filter(
-        commission =>
-          commission.status === "received" &&
-          commission.receivedDate &&
-          new Date(
-            commission.receivedDate
-          ).getMonth()
-          ===
-          now.getMonth()
-          &&
-          new Date(
-            commission.receivedDate
-          ).getFullYear()
-          ===
-          now.getFullYear()
-      )
-      .reduce(
-        (sum, commission) =>
-          sum + commission.amount,
-        0
-      )
-
-
-
-
-
-
-
-
-
   return (
 
-    <div className="space-y-8 p-8">
+    <div className="mx-auto max-w-[1600px] space-y-8 p-4 md:p-8">
 
 
 
@@ -207,7 +164,7 @@ export default async function FinancePage() {
 
       <div>
 
-        <h1 className="text-3xl font-semibold">
+        <h1 className="text-2xl font-semibold sm:text-3xl">
           Finance
         </h1>
 
@@ -246,34 +203,6 @@ export default async function FinancePage() {
 
         netCash={
           netCash
-        }
-
-      />
-
-
-
-
-
-
-
-
-
-      <CommissionStats
-
-        total={
-          total
-        }
-
-        pending={
-          pending
-        }
-
-        received={
-          received
-        }
-
-        receivedThisMonth={
-          receivedThisMonth
         }
 
       />
@@ -349,5 +278,4 @@ export default async function FinancePage() {
   )
 
 }
-
 

@@ -30,7 +30,8 @@ budget_max,
 locations,
 property_type,
 timeline,
-created_at
+created_at,
+relationship_types
 `
 )
 
@@ -45,7 +46,10 @@ throw error
 
 
 const leads =
-data ?? []
+(data ?? []).filter(
+lead =>
+  lead.relationship_types?.includes("buyer")
+)
 
 
 

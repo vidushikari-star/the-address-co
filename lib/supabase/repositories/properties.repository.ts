@@ -16,6 +16,7 @@ export const PropertiesRepository = {
         .select(`
           id,
           name,
+          slug,
           location,
           locality,
           property_type,

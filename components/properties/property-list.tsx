@@ -6,6 +6,12 @@ import {
   useState,
 } from "react"
 
+import Link from "next/link"
+
+import {
+  Plus,
+} from "lucide-react"
+
 import {
   PropertyCard,
 } from "./property-card"
@@ -20,6 +26,7 @@ import type {
 
 import {
   Button,
+  buttonVariants,
 } from "@/components/ui/button"
 
 import {
@@ -68,6 +75,12 @@ export function PropertyList() {
   const [
     status,
     setStatus,
+  ] =
+  useState("all")
+
+  const [
+    transactionType,
+    setTransactionType,
   ] =
   useState("all")
 
@@ -171,6 +184,11 @@ await getPropertyCardData()
     : property.status === status
 
 
+            const matchesTransactionType =
+              transactionType === "all" ||
+              property.transactionType === transactionType
+
+
 
 
             const propertyPrice =
@@ -196,6 +214,8 @@ const matchesPrice =
               &&
               matchesStatus
               &&
+              matchesTransactionType
+              &&
               matchesPrice
             )
 
@@ -210,6 +230,7 @@ const matchesPrice =
         properties,
         search,
         status,
+        transactionType,
         maxPrice,
       ]
     )
@@ -225,6 +246,8 @@ const matchesPrice =
     setSearch("")
 
     setStatus("all")
+
+    setTransactionType("all")
 
     setMaxPrice("")
 
@@ -268,6 +291,8 @@ const matchesPrice =
     ||
     status !== "all"
     ||
+    transactionType !== "all"
+    ||
     maxPrice !== ""
 
 
@@ -278,7 +303,29 @@ const matchesPrice =
 
   return (
 
-    <div className="space-y-6 px-1 pb-6">
+    <div className="mx-auto max-w-[1600px] space-y-6 p-4 md:p-8">
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            Properties
+          </h1>
+
+          <p className="mt-1 text-sm text-muted-foreground sm:text-base">
+            Search active inventory and match it to the right opportunity.
+          </p>
+        </div>
+
+        <Link
+          href="/properties/new"
+          className={buttonVariants({
+            className: "w-full sm:w-auto",
+          })}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          New Property
+        </Link>
+      </div>
 
 
 
@@ -356,7 +403,8 @@ const matchesPrice =
     p-4
     backdrop-blur
     sm:grid-cols-2
-    lg:grid-cols-3
+    lg:grid-cols-2
+    xl:grid-cols-4
   "
 >
 
@@ -445,6 +493,49 @@ const matchesPrice =
   Archived
 </SelectItem>
 
+
+          </SelectContent>
+
+
+        </Select>
+
+
+        <Select
+
+          value={transactionType}
+
+          onValueChange={
+            value =>
+              setTransactionType(
+                value ?? "all"
+              )
+          }
+
+        >
+
+          <SelectTrigger className="
+            h-11
+            rounded-xl
+          ">
+
+            <SelectValue placeholder="Transaction type"/>
+
+          </SelectTrigger>
+
+
+          <SelectContent>
+
+            <SelectItem value="all">
+              Sale &amp; Rent
+            </SelectItem>
+
+            <SelectItem value="Sale">
+              For Sale
+            </SelectItem>
+
+            <SelectItem value="Rental">
+              For Rent
+            </SelectItem>
 
           </SelectContent>
 

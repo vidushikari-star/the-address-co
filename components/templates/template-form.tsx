@@ -27,6 +27,7 @@ type Template =
 interface TemplateFormProps {
   template?: Template
   onSuccess?: () => void
+  onCancel?: () => void
 }
 
 const initialState = {
@@ -36,6 +37,7 @@ const initialState = {
 export function TemplateForm({
   template,
   onSuccess,
+  onCancel,
 }: TemplateFormProps) {
   const isEditing = !!template
 
@@ -217,6 +219,7 @@ export function TemplateForm({
         <Button
           type="button"
           variant="outline"
+          onClick={onCancel}
         >
           Cancel
         </Button>

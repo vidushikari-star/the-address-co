@@ -156,7 +156,7 @@ export default async function CommissionsPage() {
 
   return (
 
-    <div className="space-y-8 p-8">
+    <div className="mx-auto max-w-[1600px] space-y-8 p-4 md:p-8">
 
 
 
@@ -165,7 +165,7 @@ export default async function CommissionsPage() {
       <div>
 
 
-        <h1 className="text-3xl font-semibold">
+        <h1 className="text-2xl font-semibold sm:text-3xl">
 
           {
             user?.role === "sales"

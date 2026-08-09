@@ -6,7 +6,6 @@ import { useState } from "react"
 import {
   Camera,
   Star,
-  Video,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -334,6 +333,8 @@ export function PropertyGallery({
   <video
     src={image.url}
     controls
+    preload="metadata"
+    playsInline
     className="
       h-full
       w-auto

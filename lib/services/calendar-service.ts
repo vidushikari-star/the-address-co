@@ -136,7 +136,9 @@ visit => {
 
 
 const dateTime =
-`${visit.scheduledDate}T${visit.scheduledTime}:00+05:30`
+`${visit.scheduledDate}T${
+visit.scheduledTime || "00:00"
+}:00+05:30`
 
 
 
@@ -158,18 +160,7 @@ dateTime
 
 
 time:
-new Date(
-dateTime
-)
-.toLocaleTimeString(
-"en-IN",
-{
-timeZone:"Asia/Kolkata",
-hour:"2-digit",
-minute:"2-digit",
-hour12:true,
-}
-),
+visit.scheduledTime || "",
 
 
 type:
@@ -209,6 +200,10 @@ url:
 visit.dealId
 ?
 `/deals/${visit.dealId}`
+:
+visit.contactId
+?
+`/contacts/${visit.contactId}`
 :
 "/calendar",
 

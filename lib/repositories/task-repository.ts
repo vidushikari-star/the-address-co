@@ -185,57 +185,78 @@ updates:Partial<Task>
 ):Promise<Task>{
 
 
+  const payload: Record<string, unknown> = {
+    updated_at:
+      new Date()
+        .toISOString(),
+  }
+
+  if(updates.title !== undefined){
+
+    payload.title =
+      updates.title
+
+  }
+
+  if(updates.description !== undefined){
+
+    payload.description =
+      updates.description
+
+  }
+
+  if(updates.priority !== undefined){
+
+    payload.priority =
+      updates.priority
+
+  }
+
+  if(updates.completed !== undefined){
+
+    payload.status =
+      updates.completed
+        ? "completed"
+        : "pending"
+
+    payload.archived =
+      updates.completed
+
+  }
+
+  if(updates.archived !== undefined){
+
+    payload.archived =
+      updates.archived
+
+  }
+
+  if(updates.dueDate !== undefined){
+
+    payload.due_date =
+      updates.dueDate
+        ? updates.dueDate
+            .toISOString()
+            .split("T")[0]
+        : null
+
+  }
+
+  if(updates.assignedTo !== undefined){
+
+    payload.assigned_to =
+      updates.assignedTo
+
+  }
+
+
   const {
     data,
     error,
   } =
-  await supabase
-    .from("tasks")
-    .update({
-
-      title:
-        updates.title,
-
-
-      description:
-        updates.description,
-
-
-      priority:
-        updates.priority,
-
-
-      status:
-        updates.completed
-        ? "completed"
-        : "pending",
-
-
-      archived:
-        updates.completed
-        ? true
-        : updates.archived,
-
-
-      due_date:
-        updates.dueDate
-        ?
-        updates.dueDate
-          .toISOString()
-          .split("T")[0]
-        :
-        undefined,
-
-
-      assigned_to:
-        updates.assignedTo,
-
-
-      updated_at:
-        new Date()
-          .toISOString(),
-
-    })
+    await supabase
+      .from("tasks")
+    .update(payload)
     .eq(
       "id",
       id

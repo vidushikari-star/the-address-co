@@ -32,13 +32,17 @@ import {
   formatCurrency,
 } from "@/lib/utils/format-currency"
 
+import type {
+  WhatsAppQualification,
+} from "@/lib/communications/qualify-whatsapp"
+
 import type { Contact } from "@/types"
 
 
 
 type QualificationCardProps = {
 
-  qualification: any
+  qualification: WhatsAppQualification
 
   contact?: Contact
 
@@ -340,8 +344,14 @@ export function QualificationCard({
                 contactName:
                   contact?.name,
 
-
-                property,
+                property: {
+                  name: property.name,
+                  location: property.location,
+                  publicLink:
+                    property.slug
+                      ? `${window.location.origin}/share/${property.slug}`
+                      : property.public_link,
+                },
 
               })
 

@@ -47,18 +47,19 @@ Vidushi`
 
     message: (
       name:string,
-      property?:string
+      propertyName?:string,
+      propertyLink?:string
     ) =>
 
 `Hi ${name},
 
-Sharing the details of the property we discussed.
+I’m sharing a property that may be relevant:
 
-${property ?? "Property details"}
+${propertyName ?? "A property selected for you"}
 
-Please let me know your thoughts.
+${propertyLink ? `View the full listing, photos and pricing:\n${propertyLink}\n` : ""}
 
-Happy to arrange a viewing.
+Please let me know if you’d like to discuss it or arrange a viewing.
 
 Regards,
 Vidushi`

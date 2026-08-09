@@ -37,6 +37,8 @@ type Property = {
 
   name: string
 
+  slug: string | null
+
   location: string | null
 
   property_type: string | null

@@ -17,6 +17,7 @@ dealsResult,
 commissionsResult,
 visitsResult,
 profilesResult,
+userProfilesResult,
 ] =
 await Promise.all([
 
@@ -69,6 +70,16 @@ full_name
 ),
 
 
+supabase
+.from("user_profiles")
+.select(
+`
+id,
+name
+`
+),
+
+
 ])
 
 
@@ -88,6 +99,9 @@ throw visitsResult.error
 if(profilesResult.error)
 throw profilesResult.error
 
+if(userProfilesResult.error)
+throw userProfilesResult.error
+
 
 
 const advisorMap =
@@ -105,6 +119,24 @@ siteVisits:number
 const profiles =
 profilesResult.data ?? []
 
+const advisorNames =
+new Map(
+[
+...profiles.map(
+profile => [
+profile.id,
+profile.full_name,
+] as const
+),
+...(userProfilesResult.data ?? []).map(
+profile => [
+profile.id,
+profile.name,
+] as const
+),
+]
+)
+
 
 
 function getAdvisor(
@@ -113,18 +145,11 @@ id:string
 
 if(!advisorMap.has(id)){
 
-const profile =
-profiles.find(
-item =>
-item.id === id
-)
-
-
 advisorMap.set(
 id,
 {
 name:
-profile?.full_name ??
+advisorNames.get(id) ??
 "Unknown",
 
 leads:0,

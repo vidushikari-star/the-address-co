@@ -1,555 +1,283 @@
 "use client"
 
 import {
+  useEffect,
   useRef,
   useState,
 } from "react"
-
-import {
-  uploadPropertyImage,
-} from "@/lib/repositories/property-image-repository"
-
-import {
-  Button,
-} from "@/components/ui/button"
-
-import {
-  useRouter,
-} from "next/navigation"
+import Image from "next/image"
 
 import {
   ImagePlus,
+  X,
 } from "lucide-react"
+import { useRouter } from "next/navigation"
 
-
+import { Button } from "@/components/ui/button"
+import {
+  MAX_MEDIA_BATCH_BYTES,
+  MAX_MEDIA_FILES_PER_BATCH,
+  getSupportedMediaType,
+  validatePropertyMediaFile,
+  type SupportedMediaType,
+} from "@/lib/properties/media-upload"
+import { uploadPropertyImage } from "@/lib/repositories/property-image-repository"
 
 type Props = {
-
-  propertyId:string
-
+  propertyId: string
 }
 
+type SelectedMedia = {
+  file: File
+  previewUrl: string
+  type: SupportedMediaType
+}
 
+function revokePreview(media: SelectedMedia) {
+  URL.revokeObjectURL(media.previewUrl)
+}
 
+export function PropertyImageUpload({ propertyId }: Props) {
+  const router = useRouter()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const selectedMediaRef = useRef<SelectedMedia[]>([])
 
+  const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState("")
+  const [error, setError] = useState("")
 
-export function PropertyImageUpload({
-  propertyId,
-}:Props){
+  useEffect(() => {
+    selectedMediaRef.current = selectedMedia
+  }, [selectedMedia])
 
-
-  const router =
-    useRouter()
-
-
-
-  const fileRef =
-    useRef<HTMLInputElement>(null)
-
-
-
-
-
-  const [
-    files,
-    setFiles,
-  ] =
-  useState<File[]>([])
-
-
-
-
-
-  const [
-    previews,
-    setPreviews,
-  ] =
-  useState<
-    {
-      url:string
-      type:"image" | "video"
-    }[]
-  >([])
-
-
-
-
-
-  const [
-    loading,
-    setLoading,
-  ] =
-  useState(false)
-
-
-
-
-
-
-
-  function selectFiles(
-    selectedFiles: FileList | null
-  ){
-
-    if(!selectedFiles){
-
-      return
-
+  useEffect(() => {
+    return () => {
+      selectedMediaRef.current.forEach(revokePreview)
     }
+  }, [])
 
+  function clearSelection() {
+    setSelectedMedia(current => {
+      current.forEach(revokePreview)
+      return []
+    })
 
-
-    const selected =
-      Array.from(
-        selectedFiles
-      )
-
-
-
-    setFiles(
-      current => [
-        ...current,
-        ...selected,
-      ]
-    )
-
-
-
-    setPreviews(
-      current => [
-
-        ...current,
-
-        ...selected.map(
-  file => ({
-
-    url:
-      URL.createObjectURL(
-        file
-      ),
-
-    type:
-      file.type.startsWith("video/")
-        ? ("video" as const)
-        : ("image" as const),
-
-  })
-),
-
-      ]
-    )
-
-  }
-
-
-
-
-
-
-
-  function removeImage(
-    index:number
-  ){
-
-
-    setFiles(
-      current =>
-        current.filter(
-          (_,i) =>
-            i !== index
-        )
-    )
-
-
-    setPreviews(
-      current =>
-        current.filter(
-          (_,i) =>
-            i !== index
-        )
-    )
-
-  }
-
-
-
-
-
-
-
-  function clearSelection(){
-
-
-    setFiles([])
-
-    setPreviews([])
-
-
-
-    if(fileRef.current){
-
+    if (fileRef.current) {
       fileRef.current.value = ""
-
     }
-
-
   }
 
-
-
-
-
-
-
-  async function upload(){
-
-
-    if(!files.length){
-
-      alert(
-        "Please choose photos or videos first"
-      )
-
-      return
-
-    }
-
-
-
-    setLoading(true)
-
-
-    try {
-
-
-      await Promise.all(
-
-        files.map(
-
-          file =>
-            uploadPropertyImage(
-              propertyId,
-              file
-            )
-
-        )
-
-      )
-
-
-
-      clearSelection()
-
-
-
-      router.refresh()
-
-
-
-    }
-    catch(error){
-
-
-      console.error(
-        "Media upload failed",
-        error
-      )
-
-
-      alert(
-        "Media upload failed"
-      )
-
-
-    }
-    finally {
-
-
-      setLoading(false)
-
-    }
-
-
-  }
-
-
-
-
-
-
-
-  return (
-
-    <div className="
-      flex
-      flex-col
-      gap-4
-    ">
-
-
-      <input
-
-        ref={fileRef}
-
-        type="file"
-
-        accept="image/*,video/*"
-
-        multiple
-
-        hidden
-
-        onChange={
-          e =>
-            selectFiles(
-              e.target.files
-            )
-        }
-
-      />
-
-
-
-
-
-
-
-      {
-        previews.length > 0 && (
-
-          <div className="
-            grid
-            grid-cols-3
-            gap-3
-            sm:grid-cols-5
-          ">
-
-
-            {
-              previews.map(
-
-                (preview,index)=>(
-
-                  <div
-
-                    key={preview.url}
-
-                    className="
-                      relative
-                    "
-
-                  >
-
-
-                    {
-                      preview.type === "video"
-
-                      ?
-
-                      <video
-
-                        src={preview.url}
-
-                        className="
-                          h-20
-                          w-20
-                          rounded-xl
-                          border
-                          object-cover
-                        "
-
-                      />
-
-                      :
-
-                      <img
-
-                        src={preview.url}
-
-                        alt={`Preview ${index + 1}`}
-
-                        className="
-                          h-20
-                          w-20
-                          rounded-xl
-                          border
-                          object-cover
-                        "
-
-                      />
-
-                    }
-
-
-
-
-                    <button
-
-                      type="button"
-
-                      onClick={() =>
-                        removeImage(index)
-                      }
-
-                      className="
-                        absolute
-                        right-1
-                        top-1
-                        rounded-full
-                        bg-black/70
-                        px-2
-                        text-xs
-                        text-white
-                      "
-
-                    >
-
-                      ×
-
-                    </button>
-
-
-                  </div>
-
-                )
-
-              )
-
-            }
-
-
-          </div>
-
-        )
-
+  function removeMedia(previewUrl: string) {
+    setSelectedMedia(current => {
+      const media = current.find(item => item.previewUrl === previewUrl)
+
+      if (media) {
+        revokePreview(media)
       }
 
+      return current.filter(item => item.previewUrl !== previewUrl)
+    })
+  }
 
+  function selectFiles(fileList: FileList | null) {
+    if (!fileList) {
+      return
+    }
 
+    const files = Array.from(fileList)
+    const combinedFiles = [
+      ...selectedMedia.map(media => media.file),
+      ...files,
+    ]
 
+    if (combinedFiles.length > MAX_MEDIA_FILES_PER_BATCH) {
+      setError(`Select up to ${MAX_MEDIA_FILES_PER_BATCH} files at a time.`)
+      return
+    }
 
+    if (
+      combinedFiles.reduce((total, file) => total + file.size, 0) >
+      MAX_MEDIA_BATCH_BYTES
+    ) {
+      setError("Keep the total upload size below 250 MB.")
+      return
+    }
 
+    const validationError = files
+      .map(validatePropertyMediaFile)
+      .find(Boolean)
 
-      <div className="
-        flex
-        flex-col
-        gap-3
-        sm:flex-row
-        sm:items-center
-      ">
+    if (validationError) {
+      setError(validationError)
+      return
+    }
 
+    const nextMedia = files.flatMap(file => {
+      const type = getSupportedMediaType(file)
 
+      return type
+        ? [{
+            file,
+            type,
+            previewUrl: URL.createObjectURL(file),
+          }]
+        : []
+    })
 
-        <Button
+    setError("")
+    setSelectedMedia(current => [...current, ...nextMedia])
 
-          type="button"
+    if (fileRef.current) {
+      fileRef.current.value = ""
+    }
+  }
 
-          variant="outline"
+  async function upload() {
+    if (selectedMedia.length === 0 || uploading) {
+      return
+    }
 
-          className="
-            w-full
-            sm:w-auto
-          "
+    const uploadQueue = [...selectedMedia]
+    setUploading(true)
+    setError("")
 
-          onClick={() =>
-            fileRef.current?.click()
+    try {
+      for (const [index, media] of uploadQueue.entries()) {
+        setUploadStatus(`Uploading ${index + 1} of ${uploadQueue.length}…`)
+        await uploadPropertyImage(propertyId, media.file)
+
+        setSelectedMedia(current => {
+          const uploaded = current.find(
+            item => item.previewUrl === media.previewUrl
+          )
+
+          if (uploaded) {
+            revokePreview(uploaded)
           }
 
-        >
-
-          <ImagePlus className="mr-2 h-4 w-4"/>
-
-          Upload Photos / Videos
-
-        </Button>
-
-
-
-
-
-
-
-        {
-          files.length > 0 && (
-
-            <p className="
-              text-sm
-              text-muted-foreground
-            ">
-
-              {files.length} file
-              {files.length > 1 ? "s" : ""}
-              {" "}selected
-
-            </p>
-
+          return current.filter(
+            item => item.previewUrl !== media.previewUrl
           )
-        }
+        })
+      }
 
+      setUploadStatus("")
+      router.refresh()
+    } catch (uploadError) {
+      console.error("Media upload failed", uploadError)
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Media upload failed. Your remaining files are still selected."
+      )
+    } finally {
+      setUploading(false)
+    }
+  }
 
+  return (
+    <div className="flex flex-col gap-4">
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/avif,video/mp4,video/webm,video/quicktime"
+        multiple
+        hidden
+        onChange={event => selectFiles(event.target.files)}
+      />
 
-
-
-
-
-        {
-          files.length > 0 && (
-
-            <Button
-
-              type="button"
-
-              variant="ghost"
-
-              onClick={clearSelection}
-
+      {selectedMedia.length > 0 && (
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+          {selectedMedia.map((media, index) => (
+            <div
+              key={media.previewUrl}
+              className="relative aspect-square overflow-hidden rounded-xl border bg-muted"
             >
+              {media.type === "video" ? (
+                <video
+                  src={media.previewUrl}
+                  muted
+                  playsInline
+                  preload="metadata"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Image
+                  src={media.previewUrl}
+                  alt={`Selected property media ${index + 1}`}
+                  width={320}
+                  height={320}
+                  unoptimized
+                  className="h-full w-full object-cover"
+                />
+              )}
 
-              Clear
+              <button
+                type="button"
+                aria-label={`Remove ${media.file.name}`}
+                disabled={uploading}
+                onClick={() => removeMedia(media.previewUrl)}
+                className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
-            </Button>
-
-          )
-        }
-
-
-
-
-
-
-
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <Button
-
           type="button"
-
-          className="
-            w-full
-            sm:w-auto
-          "
-
-          onClick={upload}
-
-          disabled={
-            loading ||
-            files.length === 0
-          }
-
+          variant="outline"
+          className="w-full sm:w-auto"
+          disabled={uploading}
+          onClick={() => fileRef.current?.click()}
         >
-
-          {
-            loading
-              ? "Uploading..."
-              : "Upload Media"
-          }
-
+          <ImagePlus className="mr-2 h-4 w-4" />
+          Select photos or videos
         </Button>
 
+        {selectedMedia.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            {selectedMedia.length} of {MAX_MEDIA_FILES_PER_BATCH} selected
+          </p>
+        )}
 
+        {selectedMedia.length > 0 && (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={uploading}
+            onClick={clearSelection}
+          >
+            Clear
+          </Button>
+        )}
+
+        <Button
+          type="button"
+          className="w-full sm:ml-auto sm:w-auto"
+          onClick={upload}
+          disabled={uploading || selectedMedia.length === 0}
+        >
+          {uploading
+            ? uploadStatus || "Uploading…"
+            : "Upload media"}
+        </Button>
       </div>
 
+      <p className="text-xs text-muted-foreground">
+        JPEG, PNG, WebP or AVIF up to 12 MB each. MP4, WebM or MOV up to
+        75 MB each. Uploads run one at a time to stay reliable on mobile.
+      </p>
 
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
     </div>
-
   )
-
 }

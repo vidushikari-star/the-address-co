@@ -178,6 +178,8 @@ const isSeller =
 
         required
 
+        autoComplete="name"
+
         placeholder="Full Name"
 
         className="w-full rounded-lg border p-3"
@@ -200,6 +202,12 @@ const isSeller =
 
         required
 
+        type="tel"
+
+        inputMode="tel"
+
+        autoComplete="tel"
+
         placeholder="Phone"
 
         className="w-full rounded-lg border p-3"
@@ -220,6 +228,12 @@ const isSeller =
 
       <input
 
+        type="tel"
+
+        inputMode="tel"
+
+        autoComplete="tel"
+
         placeholder="WhatsApp"
 
         className="w-full rounded-lg border p-3"
@@ -239,6 +253,10 @@ const isSeller =
 
 
       <input
+
+        type="email"
+
+        autoComplete="email"
 
         placeholder="Email"
 

@@ -23,7 +23,8 @@ supabase
 .select(
 `
 id,
-lead_source
+lead_source,
+relationship_types
 `
 ),
 
@@ -34,7 +35,8 @@ supabase
 `
 contact_id,
 stage,
-closing_price
+closing_price,
+property_price
 `
 ),
 
@@ -58,7 +60,10 @@ throw dealsResult.error
 
 
 const contacts =
-contactsResult.data ?? []
+(contactsResult.data ?? []).filter(
+contact =>
+  contact.relationship_types?.includes("buyer")
+)
 
 
 const deals =
@@ -102,18 +107,34 @@ sourceMap.get(source).leads++
 
 
 
+const contactsById =
+new Map(
+contacts.map(
+contact => [
+contact.id,
+contact,
+]
+)
+)
+
+
 deals.forEach(
 deal=>{
 
 const contact =
-contacts.find(
-item =>
-item.id === deal.contact_id
+contactsById.get(
+deal.contact_id
 )
+
+if(!contact){
+
+return
+
+}
 
 
 const source =
-contact?.lead_source ?? "unknown"
+contact.lead_source ?? "unknown"
 
 
 
@@ -150,7 +171,9 @@ row.wonDeals++
 
 row.revenue +=
 Number(
-deal.closing_price ?? 0
+deal.closing_price ??
+deal.property_price ??
+0
 )
 
 }

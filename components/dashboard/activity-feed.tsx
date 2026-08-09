@@ -241,7 +241,7 @@ export function ActivityFeed({
 
 
           <h3 className="mt-2 text-xl font-semibold sm:text-2xl">
-            Today
+            Latest updates
           </h3>
 
 

@@ -17,7 +17,12 @@ import type {
 
 import {
   getDealsByContactId,
+  getDealsByPropertyIds,
 } from "@/lib/repositories/deal-repository"
+
+import {
+  getPropertyContactsByContactId,
+} from "@/lib/repositories/property-contact-repository"
 
 import {
   Card,
@@ -42,6 +47,8 @@ type Props = {
 
   contact: Contact
 
+  matchLinkedProperties?: boolean
+
 }
 
 
@@ -53,6 +60,7 @@ type Props = {
 
 export function RelationshipDeals({
   contact,
+  matchLinkedProperties = false,
 }:Props){
 
 
@@ -80,6 +88,32 @@ export function RelationshipDeals({
   useEffect(()=>{
 
 
+    async function getDealsForLinkedProperties(){
+
+
+      const propertyContacts =
+        await getPropertyContactsByContactId(
+          contact.id
+        )
+
+
+
+      return getDealsByPropertyIds(
+        [
+          ...new Set(
+            propertyContacts.map(
+              item =>
+                item.propertyId
+            )
+          ),
+        ]
+      )
+
+
+    }
+
+
+
     async function loadDeals(){
 
 
@@ -87,9 +121,11 @@ export function RelationshipDeals({
 
 
         const data =
-          await getDealsByContactId(
-            contact.id
-          )
+          matchLinkedProperties
+            ? await getDealsForLinkedProperties()
+            : await getDealsByContactId(
+                contact.id
+              )
 
 
         setDeals(
@@ -113,7 +149,8 @@ export function RelationshipDeals({
 
 
   },[
-    contact.id
+    contact.id,
+    matchLinkedProperties,
   ])
 
 
@@ -226,7 +263,11 @@ export function RelationshipDeals({
               text-muted-foreground
             ">
 
-              No active deals.
+              {
+                matchLinkedProperties
+                  ? "No deals for linked properties."
+                  : "No active deals."
+              }
 
             </div>
 

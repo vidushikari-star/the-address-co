@@ -2,10 +2,12 @@ import Link from "next/link"
 
 import { ReportCard } from "@/components/reports/report-card"
 
-import type { Commission } from "@/types/commission"
+import type { ReportRange } from "@/lib/reports/report-date-utils"
+import type { SalesDeal } from "@/lib/services/reports/sales-report-service"
 
 type Props = {
-  commissions: Commission[]
+  deals: SalesDeal[]
+  range: ReportRange
 }
 
 function money(value: number) {
@@ -13,22 +15,23 @@ function money(value: number) {
 }
 
 export function SalesReport({
-  commissions,
+  deals,
+  range,
 }: Props) {
   const totalDeals =
-    commissions.length
+    deals.length
 
   const totalCommission =
-    commissions.reduce(
+    deals.reduce(
       (sum, item) =>
-        sum + item.amount,
+        sum + item.commissionAmount,
       0
     )
 
   const completedDeals =
-    commissions.filter(
+    deals.filter(
       (item) =>
-        item.status === "received"
+        item.stage === "closed_won"
     ).length
 
   const completionRate =
@@ -54,7 +57,7 @@ export function SalesReport({
         </div>
 
         <Link
-          href="/api/reports/sales/export"
+          href={`/api/reports/sales/export?range=${range}`}
           className="inline-flex w-full items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted sm:w-auto"
         >
           Download Excel
@@ -65,13 +68,13 @@ export function SalesReport({
         <ReportCard
           title="Total Deals"
           value={totalDeals.toString()}
-          description="All commission-linked deals"
+          description="Created opportunities"
         />
 
         <ReportCard
           title="Completed Deals"
           value={completedDeals.toString()}
-          description="Deals with received commission"
+          description="Closed-won opportunities"
         />
 
         <ReportCard
@@ -81,7 +84,7 @@ export function SalesReport({
         />
 
         <ReportCard
-          title="Commission Generated"
+          title="Expected Commission"
           value={money(totalCommission)}
         />
       </div>

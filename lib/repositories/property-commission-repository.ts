@@ -324,17 +324,74 @@ export async function updatePropertyCommission({
 
   notes,
 
+  contactId,
+
+  sourceType,
+
 }:{
 
   id:string
 
-  percentage?:number
+  percentage?:number | null
 
-  amount?:number
+  amount?:number | null
 
-  notes?:string
+  notes?:string | null
+
+  contactId?:string
+
+  sourceType?:CommissionSourceType
 
 }):Promise<PropertyCommission>{
+
+
+  const updates:{
+    percentage?:number | null
+    amount?:number | null
+    notes?:string | null
+    contact_id?:string
+    source_type?:CommissionSourceType
+  } = {}
+
+
+
+  if(percentage !== undefined){
+
+    updates.percentage = percentage
+
+  }
+
+
+
+  if(amount !== undefined){
+
+    updates.amount = amount
+
+  }
+
+
+
+  if(notes !== undefined){
+
+    updates.notes = notes
+
+  }
+
+
+
+  if(contactId !== undefined){
+
+    updates.contact_id = contactId
+
+  }
+
+
+
+  if(sourceType !== undefined){
+
+    updates.source_type = sourceType
+
+  }
 
 
 
@@ -344,20 +401,7 @@ export async function updatePropertyCommission({
   } =
   await supabase
     .from("property_commissions")
-    .update({
-
-      percentage:
-        percentage ?? null,
-
-
-      amount:
-        amount ?? null,
-
-
-      notes:
-        notes ?? null,
-
-    })
+    .update(updates)
     .eq(
       "id",
       id

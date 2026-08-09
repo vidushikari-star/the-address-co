@@ -187,6 +187,7 @@ useState<SiteVisit | null>(null)
 
     if(
       value.status === "completed" &&
+      visit.dealId &&
       dealStage !== "negotiation"
     ){
 

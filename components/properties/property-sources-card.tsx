@@ -5,6 +5,7 @@ import {
   Phone,
   Mail,
   Percent,
+  Pencil,
   Trash2,
   Plus,
 } from "lucide-react"
@@ -32,6 +33,14 @@ import {
 } from "@/components/properties/add-property-source-drawer"
 
 import {
+  EditPropertySourceDrawer,
+} from "@/components/properties/edit-property-source-drawer"
+
+import type {
+  TransactionType,
+} from "@/types/property"
+
+import {
   Button,
 } from "@/components/ui/button"
 
@@ -45,10 +54,16 @@ type Props = {
 
   contacts:{
     id:string
+    firstName?:string
+    lastName?:string | null
     fullName?:string
   }[]
 
   propertyId:string
+
+  propertyValue:number
+
+  transactionType:TransactionType
 
 }
 
@@ -96,6 +111,10 @@ export function PropertySourcesCard({
 
   propertyId,
 
+  propertyValue,
+
+  transactionType,
+
 }:Props){
 
 
@@ -110,6 +129,14 @@ export function PropertySourcesCard({
     setOpen,
   ] =
   useState(false)
+
+
+
+  const [
+    editingSource,
+    setEditingSource,
+  ] =
+  useState<PropertySource | null>(null)
 
 
 
@@ -237,7 +264,22 @@ export function PropertySourcesCard({
         {
           sources.map(
 
-            source => (
+            source => {
+
+
+              const percentage =
+                source.commission?.percentage
+
+
+
+              const commissionValue =
+                percentage !== undefined
+                  ? propertyValue * percentage / 100
+                  : undefined
+
+
+
+              return (
 
               <div
 
@@ -283,6 +325,28 @@ export function PropertySourcesCard({
 
 
 
+                  <div className="flex items-center gap-1">
+
+                  <Button
+
+                    variant="ghost"
+
+                    size="icon"
+
+                    aria-label="Edit property source"
+
+                    onClick={() =>
+                      setEditingSource(source)
+                    }
+
+                  >
+
+                    <Pencil className="h-4 w-4"/>
+
+                  </Button>
+
+
+
                   <Button
 
                     variant="ghost"
@@ -300,6 +364,8 @@ export function PropertySourcesCard({
                     <Trash2 className="h-4 w-4"/>
 
                   </Button>
+
+                  </div>
 
 
                 </div>
@@ -416,7 +482,7 @@ export function PropertySourcesCard({
 
 
                 {
-                  source.commission?.percentage && (
+                  percentage !== undefined && (
 
                     <div className="
                       flex
@@ -435,8 +501,19 @@ export function PropertySourcesCard({
                       {" "}
 
                       {
-                        source.commission.percentage
+                        percentage
                       }%
+
+
+                      {
+                        commissionValue !== undefined && (
+
+                          <span className="text-muted-foreground">
+                            (₹{commissionValue.toLocaleString("en-IN")} of property value)
+                          </span>
+
+                        )
+                      }
 
 
                     </div>
@@ -447,7 +524,9 @@ export function PropertySourcesCard({
 
               </div>
 
-            )
+              )
+
+            }
 
           )
         }
@@ -484,6 +563,38 @@ export function PropertySourcesCard({
         }
 
       />
+
+
+
+      {
+        editingSource && (
+
+          <EditPropertySourceDrawer
+            key={editingSource.id}
+            open={true}
+            onOpenChange={
+              open => {
+
+                if(!open){
+
+                  setEditingSource(null)
+
+                }
+
+              }
+            }
+            propertyId={propertyId}
+            propertyValue={propertyValue}
+            transactionType={transactionType}
+            source={editingSource}
+            contacts={contacts}
+            onSaved={() =>
+              router.refresh()
+            }
+          />
+
+        )
+      }
 
 
     </section>

@@ -1,10 +1,13 @@
 import {
-  supabase,
-} from "@/lib/supabase/client"
+  createServerSupabaseClient,
+} from "@/lib/supabase/server"
 
 
 
 export async function getHousingLeads(){
+
+  const supabase =
+    await createServerSupabaseClient()
 
 
   const {

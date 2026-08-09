@@ -138,6 +138,12 @@ useState<UserOption[]>([])
   ] =
   useState(false)
 
+  const [
+    error,
+    setError,
+  ] =
+  useState<string | null>(null)
+
 
 
 
@@ -304,6 +310,27 @@ useState<UserOption[]>([])
     totalCommission -
     allocated
 
+  const activeSplits =
+    splits.filter(
+      split =>
+        split.userId &&
+        Number(split.amount) > 0
+    )
+
+  const hasIncompleteSplit =
+    splits.some(
+      split =>
+        Boolean(split.userId) !==
+        Boolean(split.amount)
+    )
+
+  const hasDuplicateRecipients =
+    new Set(
+      activeSplits.map(
+        split => split.userId
+      )
+    ).size !== activeSplits.length
+
 
 
 
@@ -351,9 +378,28 @@ useState<UserOption[]>([])
       !selectedCommission
     ){
 
-      alert(
-        "Select commission"
-      )
+      setError("Select the commission to distribute.")
+
+      return
+
+    }
+
+    if(
+      activeSplits.length === 0 ||
+      hasIncompleteSplit
+    ){
+
+      setError("Add at least one recipient and a positive amount for every split.")
+
+      return
+
+    }
+
+    if(
+      hasDuplicateRecipients
+    ){
+
+      setError("Each recipient can appear only once in a commission split.")
 
       return
 
@@ -368,9 +414,7 @@ useState<UserOption[]>([])
       totalCommission
     ){
 
-      alert(
-        "Split exceeds total commission"
-      )
+      setError("The split total cannot exceed the commission amount.")
 
       return
 
@@ -381,6 +425,7 @@ useState<UserOption[]>([])
 
 
     setLoading(true)
+    setError(null)
 
 
 
@@ -469,9 +514,7 @@ useState<UserOption[]>([])
       )
 
 
-      alert(
-        "Could not save split"
-      )
+      setError("Unable to save the commission split. Please try again.")
 
 
     }finally{
@@ -818,6 +861,29 @@ useState<UserOption[]>([])
 
 
 
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <Button
+
+          type="button"
+
+          variant="outline"
+
+          disabled={loading}
+
+          onClick={() => onOpenChange(false)}
+
+        >
+
+          Cancel
+
+        </Button>
+
         <Button
 
           type="submit"
@@ -825,10 +891,14 @@ useState<UserOption[]>([])
           disabled={
             loading ||
             allocated >
-            totalCommission
+            totalCommission ||
+            !selectedCommission ||
+            activeSplits.length === 0 ||
+            hasIncompleteSplit ||
+            hasDuplicateRecipients
           }
 
-          className="w-full"
+          className="w-full sm:w-auto"
 
         >
 
@@ -842,6 +912,7 @@ useState<UserOption[]>([])
 
 
         </Button>
+        </div>
 
 
       </form>

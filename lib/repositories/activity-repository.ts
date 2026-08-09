@@ -126,6 +126,18 @@ export async function createActivity(
     }
 ): Promise<Activity> {
 
+  const {
+    data: {
+      user,
+    },
+  } = await supabase.auth.getUser()
+
+  const actorId =
+    activity.createdBy ??
+    activity.userId ??
+    user?.id ??
+    null
+
 
   const {
     data,
@@ -160,10 +172,10 @@ export async function createActivity(
     activity.date,
 
   created_by:
-    activity.createdBy,
+    actorId,
 
   user_id:
-    activity.userId,
+    actorId,
 
 })
       .select()
@@ -183,7 +195,11 @@ export async function createActivity(
 
 if(activity.contactId){
 
-const updatePayload:any = {
+const updatePayload: {
+  last_activity_at: string
+  next_follow_up_at?: string
+  lead_stage?: "contacted"
+} = {
 
   last_activity_at:
     new Date().toISOString(),
@@ -208,8 +224,20 @@ if(
   activity.type === "call"
 ){
 
-  updatePayload.stage =
-    "contacted"
+  const {
+    data: contact,
+  } = await supabase
+    .from("contacts")
+    .select("lead_stage")
+    .eq("id", activity.contactId)
+    .maybeSingle()
+
+  if(contact?.lead_stage === "new"){
+
+    updatePayload.lead_stage =
+      "contacted"
+
+  }
 
 }
 

@@ -5,6 +5,10 @@ import {
 } from "react"
 
 import {
+  useRouter,
+} from "next/navigation"
+
+import {
   FormDrawer,
 } from "./form-drawer"
 
@@ -46,11 +50,19 @@ export function EditDealDrawer({
   deal,
 }:Props){
 
+  const router =
+    useRouter()
+
 
   const [
     loading,
     setLoading,
   ] = useState(false)
+
+  const [
+    error,
+    setError,
+  ] = useState<string | null>(null)
 
 
 
@@ -165,7 +177,39 @@ export function EditDealDrawer({
 
     e.preventDefault()
 
+    if(
+      !form.name.trim() ||
+      !Number.isFinite(Number(form.price)) ||
+      Number(form.price) <= 0 ||
+      !Number.isFinite(Number(form.probability)) ||
+      Number(form.probability) < 0 ||
+      Number(form.probability) > 100 ||
+      (
+        isRental &&
+        (
+          !Number.isFinite(Number(form.commissionAmount)) ||
+          Number(form.commissionAmount) < 0
+        )
+      ) ||
+      (
+        !isRental &&
+        (
+          !Number.isFinite(Number(form.commissionPercentage)) ||
+          Number(form.commissionPercentage) < 0
+        )
+      )
+    ){
+
+      setError(
+        "Enter a deal name, valid value, and probability between 0 and 100."
+      )
+
+      return
+
+    }
+
     setLoading(true)
+    setError(null)
 
 
 
@@ -225,18 +269,7 @@ export function EditDealDrawer({
                 form.commissionPercentage || 0
               ),
 
-            commissionAmount:
-              (
-                Number(
-                  form.price || 0
-                )
-                *
-                Number(
-                  form.commissionPercentage || 0
-                )
-                /
-                100
-              ),
+            commissionAmount,
 
           },
 
@@ -249,7 +282,7 @@ export function EditDealDrawer({
       onOpenChange(false)
 
 
-      window.location.reload()
+      router.refresh()
 
 
 
@@ -262,9 +295,7 @@ export function EditDealDrawer({
       )
 
 
-      alert(
-        "Failed updating deal. Check console."
-      )
+      setError("Unable to save the deal. Please try again.")
 
 
     } finally {
@@ -318,6 +349,8 @@ export function EditDealDrawer({
             )
           }
 
+          required
+
         />
 
 
@@ -370,6 +403,10 @@ export function EditDealDrawer({
 
           type="number"
 
+          min="0.01"
+
+          step="0.01"
+
           value={
             form.price
           }
@@ -380,6 +417,8 @@ export function EditDealDrawer({
               e.target.value
             )
           }
+
+          required
 
         />
 
@@ -395,6 +434,10 @@ export function EditDealDrawer({
 
               type="number"
 
+              min="0"
+
+              step="0.01"
+
               value={
                 form.commissionPercentage
               }
@@ -402,6 +445,35 @@ export function EditDealDrawer({
               onChange={(e)=>
                 update(
                   "commissionPercentage",
+                  e.target.value
+                )
+              }
+
+            />
+
+          )
+        }
+
+        {
+          isRental && (
+
+            <Input
+
+              placeholder="Expected Commission"
+
+              type="number"
+
+              min="0"
+
+              step="0.01"
+
+              value={
+                form.commissionAmount
+              }
+
+              onChange={(e)=>
+                update(
+                  "commissionAmount",
                   e.target.value
                 )
               }
@@ -442,6 +514,12 @@ export function EditDealDrawer({
 
           type="number"
 
+          min="0"
+
+          max="100"
+
+          step="1"
+
           value={
             form.probability
           }
@@ -476,6 +554,29 @@ export function EditDealDrawer({
 
 
 
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <Button
+
+          type="button"
+
+          variant="outline"
+
+          disabled={loading}
+
+          onClick={() => onOpenChange(false)}
+
+        >
+
+          Cancel
+
+        </Button>
+
         <Button
 
           type="submit"
@@ -484,7 +585,7 @@ export function EditDealDrawer({
             loading
           }
 
-          className="w-full"
+          className="w-full sm:w-auto"
 
         >
 
@@ -495,6 +596,7 @@ export function EditDealDrawer({
           }
 
         </Button>
+        </div>
 
 
       </form>

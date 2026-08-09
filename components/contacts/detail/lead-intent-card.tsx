@@ -26,6 +26,8 @@ import {
 
 type Props = {
   contact: Contact
+
+  inventoryContact?: boolean
 }
 
 
@@ -69,6 +71,7 @@ function formatBudget(
 
 export function LeadIntentCard({
   contact,
+  inventoryContact = false,
 }:Props){
 
 
@@ -273,7 +276,11 @@ export function LeadIntentCard({
               text-muted-foreground
             ">
 
-              No buying requirements added.
+              {
+                inventoryContact
+                  ? "No sale or lease intent added."
+                  : "No buying requirements added."
+              }
 
             </p>
 

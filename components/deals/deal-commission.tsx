@@ -27,6 +27,14 @@ import {
   formatCommissionRole,
 } from "@/lib/utils/format-commission-role"
 
+import type {
+  PropertySource,
+} from "@/lib/repositories/property-contact-repository"
+
+import {
+  DealCommissionBreakdown,
+} from "@/components/deals/deal-commission-breakdown"
+
 
 
 
@@ -36,6 +44,8 @@ type Props = {
   deal: Deal
 
   commissions: Commission[]
+
+  propertySources?: PropertySource[]
 
   role?: "admin" | "sales"
 
@@ -84,6 +94,10 @@ export function DealCommission({
 
   commissions,
 
+  deal,
+
+  propertySources = [],
+
   role,
 
 }: Props) {
@@ -116,11 +130,21 @@ export function DealCommission({
       <div className="rounded-2xl border p-6">
 
         <h2 className="font-semibold">
-          Commission
+          Expected Commission
         </h2>
 
-        <p className="mt-3 text-sm text-muted-foreground">
-          No commission recorded yet.
+        <div className="mt-4">
+
+          <DealCommissionBreakdown
+            deal={deal}
+            propertySources={propertySources}
+            showPropertyValue={true}
+          />
+
+        </div>
+
+        <p className="mt-4 text-sm text-muted-foreground">
+          Final commission records are created when the deal is closed.
         </p>
 
       </div>

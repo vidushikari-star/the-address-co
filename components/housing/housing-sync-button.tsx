@@ -5,6 +5,10 @@ import {
 } from "react"
 
 import {
+  useRouter,
+} from "next/navigation"
+
+import {
   Button,
 } from "@/components/ui/button"
 
@@ -27,19 +31,40 @@ export function HousingSyncButton(){
   ] =
   useState(false)
 
+  const [
+    error,
+    setError,
+  ] =
+  useState<string | null>(null)
+
+  const router = useRouter()
+
 
 
   async function sync(){
 
 
     setLoading(true)
+    setError(null)
 
 
     try{
 
-      await runHousingSync()
+      const result = await runHousingSync()
 
-      window.location.reload()
+      if (!result) {
+        throw new Error("Housing returned no sync result.")
+      }
+
+      router.refresh()
+    }
+    catch(error){
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Unable to sync Housing leads. Please try again."
+      )
 
     }
     finally{
@@ -56,11 +81,14 @@ export function HousingSyncButton(){
 
   return (
 
-    <Button
+    <div className="w-full sm:w-auto">
+      <Button
 
       onClick={sync}
 
       disabled={loading}
+
+      className="w-full sm:w-auto"
 
     >
 
@@ -79,7 +107,14 @@ export function HousingSyncButton(){
           : "Sync Housing Leads"
       }
 
-    </Button>
+      </Button>
+
+      {error && (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
 
   )
 

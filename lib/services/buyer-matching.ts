@@ -10,8 +10,20 @@ export interface BuyerMatch {
 
 export function getBuyerMatches(
   property: Property,
-  buyers: Contact[]
+  contacts: Contact[]
 ): BuyerMatch[] {
+
+
+  const buyers =
+    contacts.filter(
+      contact =>
+        contact.relationshipTypes?.some(
+          relationship =>
+            relationship
+              .trim()
+              .toLowerCase() === "buyer"
+        )
+    )
 
   const matches: BuyerMatch[] =
     buyers.map((contact) => {

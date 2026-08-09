@@ -9,6 +9,18 @@ import {
   getContactSummary,
 } from "@/lib/repositories/contact-summary-repository"
 
+import {
+  isInventoryContact,
+} from "@/lib/utils/is-inventory-contact"
+
+import {
+  getSiteVisitsByContactId,
+} from "@/lib/repositories/site-visit-repository"
+
+import {
+  getPropertiesByIds,
+} from "@/lib/repositories/property-repository"
+
 
 type ContactDetailPageProps = {
   params: Promise<{
@@ -43,9 +55,43 @@ export default async function ContactDetailPage({
 
 
 
-  const summary =
-    await getContactSummary(
+  const inventoryContact =
+    isInventoryContact(contact)
+
+
+
+  const [
+    summary,
+    siteVisits,
+  ] =
+  await Promise.all([
+
+    getContactSummary(
+      contact.id,
+      {
+        useLinkedPropertyData:
+          inventoryContact,
+      }
+    ),
+
+    getSiteVisitsByContactId(
       contact.id
+    ),
+
+  ])
+
+
+
+  const siteVisitProperties =
+    await getPropertiesByIds(
+      [
+        ...new Set(
+          siteVisits.map(
+            visit =>
+              visit.propertyId
+          )
+        ),
+      ]
     )
 
 
@@ -62,6 +108,14 @@ export default async function ContactDetailPage({
 
         summary={
           summary
+        }
+
+        siteVisits={
+          siteVisits
+        }
+
+        siteVisitProperties={
+          siteVisitProperties
         }
 
       />

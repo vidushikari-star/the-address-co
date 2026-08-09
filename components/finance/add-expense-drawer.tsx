@@ -73,6 +73,12 @@ export function AddExpenseDrawer({
   ] =
   useState(false)
 
+  const [
+    error,
+    setError,
+  ] =
+  useState<string | null>(null)
+
 
 
 
@@ -148,8 +154,21 @@ export function AddExpenseDrawer({
 
     e.preventDefault()
 
+    if(
+      !form.date ||
+      !Number.isFinite(Number(form.amount)) ||
+      Number(form.amount) <= 0
+    ){
+
+      setError("Enter an expense date and amount greater than zero.")
+
+      return
+
+    }
+
 
     setLoading(true)
+    setError(null)
 
 
     try{
@@ -238,9 +257,7 @@ export function AddExpenseDrawer({
       )
 
 
-      alert(
-        "Could not create expense"
-      )
+      setError("Unable to save the expense. Please try again.")
 
 
     }finally{
@@ -296,6 +313,8 @@ export function AddExpenseDrawer({
         <Input
 
           type="date"
+
+          required
 
           value={
             form.date
@@ -424,6 +443,10 @@ export function AddExpenseDrawer({
         <Input
 
           type="number"
+
+          min="0.01"
+
+          step="0.01"
 
           placeholder="Amount"
 
@@ -570,6 +593,29 @@ export function AddExpenseDrawer({
 
 
 
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <Button
+
+          type="button"
+
+          variant="outline"
+
+          disabled={loading}
+
+          onClick={() => onOpenChange(false)}
+
+        >
+
+          Cancel
+
+        </Button>
+
         <Button
 
           type="submit"
@@ -577,6 +623,8 @@ export function AddExpenseDrawer({
           disabled={
             loading
           }
+
+          className="w-full sm:w-auto"
 
         >
 
@@ -587,6 +635,7 @@ export function AddExpenseDrawer({
           }
 
         </Button>
+        </div>
 
 
       </form>

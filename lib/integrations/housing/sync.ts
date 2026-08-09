@@ -9,8 +9,8 @@ import {
 } from "@/lib/utils/phone"
 
 import {
-  createActivity,
-} from "@/lib/repositories/activity-repository"
+  recordHousingActivity,
+} from "./record-housing-activity"
 
 
 
@@ -26,6 +26,33 @@ export interface HousingSyncResult {
 
 const contactsRepository =
   ContactsServerRepository
+
+function needsHousingEnrichment(
+  existing: Record<string, unknown>,
+  incoming: {
+    email?: string
+    city?: string
+    budgetMin?: number
+    budgetMax?: number
+    propertyType?: string
+    locations?: string[]
+    housingLeadId?: string
+  }
+) {
+  const existingLocations = Array.isArray(existing.locations)
+    ? existing.locations
+    : []
+
+  return (
+    (!existing.email && incoming.email) ||
+    (!existing.city && incoming.city) ||
+    (!existing.budget_min && incoming.budgetMin) ||
+    (!existing.budget_max && incoming.budgetMax) ||
+    (!existing.property_type && incoming.propertyType) ||
+    (existingLocations.length === 0 && incoming.locations?.length) ||
+    (!existing.housing_lead_id && incoming.housingLeadId)
+  )
+}
 
 
 
@@ -166,13 +193,6 @@ export async function syncHousingLeads()
   ){
 
 
-    console.log(
-      "4️⃣ Processing",
-      lead.lead_name
-    )
-
-
-
     try {
 
 
@@ -264,6 +284,9 @@ export async function syncHousingLeads()
         leadSource:
           "housing",
 
+        relationshipTypes:
+          ["buyer"],
+
 
         housingLeadId:
           String(lead.flat_id),
@@ -317,6 +340,14 @@ export async function syncHousingLeads()
       }
       else {
 
+        if(!needsHousingEnrichment(existing, payload)){
+
+          skipped++
+
+          continue
+
+        }
+
 
         contact =
           await contactsRepository.update(
@@ -341,36 +372,18 @@ export async function syncHousingLeads()
 
 
 
-      await createActivity({
-
-  contactId:
-    contact.id,
-
-
-  type:
-    existing
-      ? "note"
-      : "contact_created",
-
-
-  title:
-    existing
-      ? "Updated enquiry from Housing.com"
-      : "New enquiry from Housing.com",
-
-
-  description:
-    `Housing lead interested in ${
-      lead.property_field?.[0]
-      ??
-      "property"
-    } in ${
-      lead.locality_name
-      ??
-      "Goa"
-    }.`
-
-})
+      await recordHousingActivity({
+        contactId: contact.id,
+        type: existing ? "note" : "contact_created",
+        title: existing
+          ? "Updated enquiry from Housing.com"
+          : "New enquiry from Housing.com",
+        description: `Housing lead interested in ${
+          lead.property_field?.[0] ?? "property"
+        } in ${
+          lead.locality_name ?? "Goa"
+        }.`,
+      })
 
 
     }

@@ -19,7 +19,8 @@ export interface UpsertHousingContactInput {
   | "commercial"
   locations?: string[]
   leadSource: string
-    housingLeadId?: string
+  housingLeadId?: string
+  relationshipTypes?: string[]
 }
 
 export const ContactsServerRepository = {
@@ -58,7 +59,9 @@ export const ContactsServerRepository = {
         locations: contact.locations,
         lead_source: contact.leadSource,
         housing_lead_id:
-  contact.housingLeadId ?? null,
+          contact.housingLeadId ?? null,
+        relationship_types:
+          contact.relationshipTypes ?? null,
       })
       .select()
       .single()

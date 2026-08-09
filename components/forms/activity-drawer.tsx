@@ -65,6 +65,11 @@ export function ActivityDrawer({
     setLoading,
   ] = useState(false)
 
+  const [
+    error,
+    setError,
+  ] = useState<string | null>(null)
+
 
 
   const [
@@ -115,8 +120,17 @@ export function ActivityDrawer({
 
     e.preventDefault()
 
+    if(!form.title.trim()){
+
+      setError("Activity title is required.")
+
+      return
+
+    }
+
 
     setLoading(true)
+    setError(null)
 
 
     try{
@@ -129,7 +143,7 @@ export function ActivityDrawer({
 
 
         title:
-          form.title,
+          form.title.trim(),
 
 
         body:
@@ -164,13 +178,9 @@ export function ActivityDrawer({
 
 
 
-      await new Promise(
-  resolve => setTimeout(resolve, 300)
-)
+      onOpenChange(false)
 
-onOpenChange(false)
-
-router.refresh()
+      router.refresh()
 
 
 
@@ -183,9 +193,7 @@ router.refresh()
       )
 
 
-      alert(
-        "Could not create activity"
-      )
+      setError("Unable to save the activity. Please try again.")
 
 
     }finally{
@@ -268,6 +276,10 @@ router.refresh()
             Site Visit
           </option>
 
+          <option value="email">
+            Email
+          </option>
+
         </select>
 
 
@@ -288,6 +300,8 @@ router.refresh()
               e.target.value
             )
           }
+
+          required
 
         />
 
@@ -318,6 +332,29 @@ router.refresh()
 
 
 
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <Button
+
+          type="button"
+
+          variant="outline"
+
+          disabled={loading}
+
+          onClick={() => onOpenChange(false)}
+
+        >
+
+          Cancel
+
+        </Button>
+
         <Button
 
           type="submit"
@@ -325,6 +362,8 @@ router.refresh()
           disabled={
             loading
           }
+
+          className="w-full sm:w-auto"
 
         >
 
@@ -335,6 +374,7 @@ router.refresh()
           }
 
         </Button>
+        </div>
 
 
       </form>

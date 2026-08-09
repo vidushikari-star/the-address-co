@@ -4,13 +4,9 @@ import {
 
 
 import {
-  getCalendarEvent,
-} from "@/lib/repositories/calendar-event-repository"
-
-
-import {
-  getAllUserProfiles,
-} from "@/lib/repositories/user-profile-repository"
+  getServerCalendarEvent,
+  getServerCalendarUsers,
+} from "@/lib/repositories/calendar-event-server-repository"
 
 
 import {
@@ -54,7 +50,7 @@ export default async function CalendarEventPage({
 
 
   const event =
-    await getCalendarEvent(
+    await getServerCalendarEvent(
       id
     )
 
@@ -73,7 +69,7 @@ export default async function CalendarEventPage({
 
 
   const users =
-    await getAllUserProfiles()
+    await getServerCalendarUsers()
 
 
 

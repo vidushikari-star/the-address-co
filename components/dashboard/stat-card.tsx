@@ -6,7 +6,6 @@ import {
 
 import {
   DashboardCard,
-  DashboardCardContent,
   DashboardCardFooter,
   DashboardCardHeader,
 } from "@/components/ui/dashboard-card"
@@ -38,8 +37,6 @@ export function StatCard({
   return (
 
     <DashboardCard
-
-      interactive
 
       className="
         min-h-0
@@ -109,9 +106,7 @@ export function StatCard({
               items-center
               justify-center
               rounded-xl
-              bg-muted/60
-              transition-colors
-              group-hover:bg-primary/10
+              bg-primary/10
               sm:h-12
               sm:w-12
               sm:rounded-2xl
@@ -219,11 +214,6 @@ export function StatCard({
 
         )
       }
-
-
-      <DashboardCardContent />
-
-
     </DashboardCard>
 
   )

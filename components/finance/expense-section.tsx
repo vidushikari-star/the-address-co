@@ -5,6 +5,14 @@ import {
 } from "react"
 
 import {
+  Plus,
+} from "lucide-react"
+
+import {
+  Button,
+} from "@/components/ui/button"
+
+import {
   AddExpenseDrawer,
 } from "./add-expense-drawer"
 
@@ -42,24 +50,20 @@ export function ExpenseSection({
   <div className="space-y-4">
 
 
-   <div className="flex justify-between items-center">
+   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
     <h2 className="text-xl font-semibold">
      Expense Ledger
     </h2>
 
 
-    <button
-
-     onClick={() => setOpen(true)}
-
-     className="rounded-md bg-primary px-4 py-2 text-sm text-white"
-
+    <Button
+      className="w-full sm:w-auto"
+      onClick={() => setOpen(true)}
     >
-
-     + Add Expense
-
-    </button>
+      <Plus className="mr-2 h-4 w-4" />
+      Add Expense
+    </Button>
 
 
    </div>

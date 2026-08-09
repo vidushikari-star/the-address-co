@@ -2,22 +2,28 @@ import { NextResponse } from "next/server"
 
 import { syncHousingLeads } from "@/lib/integrations/housing/sync"
 
-export async function GET() {
-  console.log("🚀 Route started")
+export async function GET(request: Request) {
+  const apiKey =
+    process.env.HOUSING_SYNC_API_KEY ??
+    process.env.HOUSING_LEAD_WEBHOOK_API_KEY
+  const authorization = request.headers.get("authorization")
+
+  if (!apiKey || authorization !== `Bearer ${apiKey}`) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    )
+  }
 
   try {
-    console.log("📥 About to call syncHousingLeads")
-
     const result = await syncHousingLeads()
-
-    console.log("✅ syncHousingLeads returned:", result)
 
     return NextResponse.json({
       success: true,
       ...result,
     })
   } catch (error) {
-    console.error("❌ Route error:", error)
+    console.error("Housing sync pull failed:", error)
 
     return NextResponse.json(
       {

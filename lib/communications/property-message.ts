@@ -2,17 +2,15 @@ type PropertyMessageInput = {
 
   contactName?: string | null
 
+  advisorName?: string | null
+
   property: {
 
     name: string
 
     location?: string | null
 
-    property_type?: string | null
-
-    bedrooms?: number | null
-
-    public_link?: string | null
+    publicLink?: string | null
 
   }
 
@@ -26,6 +24,8 @@ export function generatePropertyShareMessage({
 
   contactName,
 
+  advisorName,
+
   property,
 
 }: PropertyMessageInput) {
@@ -37,42 +37,27 @@ export function generatePropertyShareMessage({
       : "there"
 
 
-
-  const propertyType =
-    property.property_type
-      ? property.property_type
-      : "property"
-
-
-
-
-  const bedroomText =
-    property.bedrooms
-      ? `${property.bedrooms} Bedroom`
+  const location =
+    property.location?.trim()
+      ? `\n${property.location.trim()}`
       : ""
 
+  const listingLink =
+    property.publicLink?.trim()
+      ? `\n\nView the full listing, photos and pricing:\n${property.publicLink.trim()}`
+      : ""
 
-
-
+  const signOff =
+    advisorName?.trim() || "The Address Co."
 
   return `Hi ${name},
 
-Based on your requirement, I thought you may like this property:
+I’m sharing a property that may be relevant:
 
-${property.name}
+${property.name}${location}${listingLink}
 
-${bedroomText} ${propertyType}
-${property.location ?? ""}
-
-${
-  property.public_link
-    ? `View details:
-${property.public_link}`
-    : ""
-}
-
-Please let me know if you would like more details or would like to schedule a viewing.
+Please let me know if you’d like to discuss it or arrange a viewing.
 
 Regards,
-Vidushi`
+${signOff}`
 }

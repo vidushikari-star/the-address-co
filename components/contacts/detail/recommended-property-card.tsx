@@ -34,6 +34,7 @@ type Props = {
   label:
     | "shared"
     | "recommended"
+    | "inventory"
 
   status?: PropertyShareStatusType
 
@@ -170,6 +171,10 @@ export function RecommendedPropertyCard({
             {
               label === "shared"
                 ? "⭐ Shared with Client"
+                : label === "inventory"
+                ? property.transactionType === "Rental"
+                  ? "🏠 Lease Inventory"
+                  : "🏠 Sale Inventory"
                 : "🔎 Recommended Match"
             }
 

@@ -98,6 +98,10 @@ import {
 getSourcePerformanceReport,
 } from "@/lib/services/reports/source-performance-report-service"
 
+import {
+getSalesReport,
+} from "@/lib/services/reports/sales-report-service"
+
 
 
 type Props = {
@@ -133,8 +137,10 @@ await searchParams
 
 
 const range =
-(params.range as ReportRange) ??
-"all"
+params.range === "month" ||
+params.range === "year"
+? params.range
+: "all" as ReportRange
 
 
 
@@ -152,6 +158,7 @@ siteVisits,
 activity,
 conversion,
 sourcePerformance,
+sales,
 ] = await Promise.all([
 
 getCommissions(),
@@ -180,6 +187,8 @@ getConversionReport(),
 
 getSourcePerformanceReport(),
 
+getSalesReport(),
+
 ])
 
 
@@ -203,6 +212,12 @@ range
 const filteredDistributions =
 filterByDate(
 distributions,
+range
+)
+
+const filteredSales =
+filterByDate(
+sales,
 range
 )
 
@@ -249,7 +264,11 @@ active
 return (
 
 <div className="
+mx-auto
+max-w-[1650px]
 space-y-6
+p-4
+md:p-8
 ">
 
 
@@ -260,7 +279,7 @@ text-2xl
 font-semibold
 ">
 
-Reports
+Business Reports
 
 </h1>
 
@@ -270,29 +289,12 @@ mt-1
 text-muted-foreground
 ">
 
-Financial and business performance reports.
+Operational performance, buyer demand and financial health in one view.
 
 </p>
 
 
 </div>
-
-
-
-<div className="
-flex
-flex-wrap
-gap-2
-">
-
-{filterButton("All", "all")}
-
-{filterButton("This Month", "month")}
-
-{filterButton("This Year", "year")}
-
-</div>
-
 
 
 
@@ -339,6 +341,23 @@ gap-2
   {...sourcePerformance}
 />
 
+<section className="space-y-4 rounded-2xl border bg-muted/20 p-4 sm:p-5">
+
+<div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+  <div>
+    <h2 className="text-lg font-semibold">Financial reporting</h2>
+    <p className="mt-1 text-sm text-muted-foreground">
+      Choose a period for financial totals and matching exports.
+    </p>
+  </div>
+
+  <div className="flex flex-wrap gap-2">
+    {filterButton("All", "all")}
+    {filterButton("This Month", "month")}
+    {filterButton("This Year", "year")}
+  </div>
+</div>
+
 <PnLReport
 
 commissions={
@@ -348,6 +367,8 @@ filteredCommissions
 expenses={
 filteredExpenses
 }
+
+range={range}
 
 />
 
@@ -359,15 +380,19 @@ commissions={
 filteredCommissions
 }
 
+range={range}
+
 />
 
 
 
 <SalesReport
 
-commissions={
-filteredCommissions
+deals={
+filteredSales
 }
+
+range={range}
 
 />
 
@@ -379,7 +404,11 @@ distributions={
 filteredDistributions
 }
 
+range={range}
+
 />
+
+</section>
 
 
 </div>

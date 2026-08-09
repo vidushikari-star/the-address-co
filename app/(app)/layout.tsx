@@ -35,6 +35,10 @@ import {
   GlobalSearch,
 } from "@/components/layout/global-search"
 
+import {
+  getAppNotifications,
+} from "@/lib/services/notification-service"
+
 
 
 
@@ -64,6 +68,11 @@ export default async function AppLayout({
     )
 
   }
+
+  const notifications =
+    await getAppNotifications(
+      user.id
+    )
 
 
 
@@ -101,7 +110,10 @@ export default async function AppLayout({
         <SidebarInset>
 
 
-          <AppHeader />
+          <AppHeader
+            user={user}
+            notifications={notifications}
+          />
 
 
           <div
@@ -123,7 +135,7 @@ export default async function AppLayout({
           <main className="
             flex-1
             bg-stone-50
-            pb-16
+            pb-[calc(4rem+env(safe-area-inset-bottom))]
             md:pb-0
           ">
 

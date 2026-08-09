@@ -453,48 +453,58 @@ export function HousingLeadsList({
 
 
                   <div className="
-                    flex
-                    gap-2
-                  ">
+  flex
+  flex-col
+  gap-2
+  w-full
+  sm:w-auto
+  sm:flex-row
+">
 
 
-                    <Link
-                      href={`/contacts/${contact.id}`}
-                    >
+  <Link
+    href={`/contacts/${contact.id}`}
+    className="w-full sm:w-auto"
+  >
 
-                      <Button
-                        size="sm"
-                        variant="outline"
-                      >
+    <Button
+      size="sm"
+      variant="outline"
+      className="w-full sm:w-auto"
+    >
 
-                        View
+      View
 
-                      </Button>
+    </Button>
 
-                    </Link>
-
-
-
-                    {
-                      contact.phone && (
-
-                        <WhatsAppButton
-
-                          phone={
-                            contact.phone
-                          }
-
-                          contactId={
-                            contact.id
-                          }
-
-                        />
-
-                      )
-                    }
+  </Link>
 
 
-                  </div>
+
+  {
+    contact.phone && (
+
+      <div className="w-full sm:w-auto">
+
+        <WhatsAppButton
+
+          phone={
+            contact.phone
+          }
+
+          contactId={
+            contact.id
+          }
+
+        />
+
+      </div>
+
+    )
+  }
+
+
+</div>
 
 
                 </div>

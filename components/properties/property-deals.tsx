@@ -5,9 +5,16 @@ import type {
 } from "@/types/deal"
 
 import {
-  formatCurrency,
   formatPropertyPrice,
 } from "@/lib/utils/format-currency"
+
+import type {
+  PropertySource,
+} from "@/lib/repositories/property-contact-repository"
+
+import {
+  DealCommissionBreakdown,
+} from "@/components/deals/deal-commission-breakdown"
 
 
 
@@ -16,6 +23,8 @@ type Props = {
   deals: Deal[]
 
   transactionType: string
+
+  propertySources: PropertySource[]
 
 }
 
@@ -26,6 +35,7 @@ type Props = {
 export function PropertyDeals({
   deals,
   transactionType,
+  propertySources,
 }:Props){
 
 
@@ -60,7 +70,7 @@ export function PropertyDeals({
 
 
         <p className="text-sm text-muted-foreground">
-          Buyer negotiations and expected commission.
+          Buyer and seller commission expectations.
         </p>
 
       </div>
@@ -76,16 +86,6 @@ export function PropertyDeals({
         {
           deals.map(
             deal => {
-
-
-              const commissionPercentage =
-                deal.value?.commissionPercentage ?? 0
-
-
-
-              const commissionAmount =
-                deal.value?.commissionAmount ?? 0
-
 
 
               return (
@@ -167,63 +167,19 @@ export function PropertyDeals({
                       </p>
 
 
-
-
-
-                      {
-                        transactionType === "Rental"
-  ? false
-  : true
-                        ?
-
-                        <p className="
-                          text-sm
-                          text-muted-foreground
-                        ">
-
-                          Commission:
-                          {" "}
-                          {commissionPercentage}%
-
-                        </p>
-
-                        :
-
-                        <p className="
-                          text-sm
-                          text-muted-foreground
-                        ">
-
-                          Commission:
-                          {" "}
-                          Fixed
-
-                        </p>
-
-                      }
-
-
-
-
-
-
-
-                      <p className="
-                        font-semibold
-                        text-primary
-                      ">
-
-                        {
-                          formatCurrency(
-                            commissionAmount
-                          )
-                        }
-
-                      </p>
-
-
                     </div>
 
+
+                  </div>
+
+
+
+                  <div className="mt-4 border-t pt-4">
+
+                    <DealCommissionBreakdown
+                      deal={deal}
+                      propertySources={propertySources}
+                    />
 
                   </div>
 

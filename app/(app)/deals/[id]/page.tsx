@@ -10,6 +10,10 @@ import {
 } from "@/lib/repositories/property-repository"
 
 import {
+  getPropertySources,
+} from "@/lib/repositories/property-contact-repository"
+
+import {
   ContactsRepository,
 } from "@/lib/supabase/repositories/contacts.repository"
 
@@ -156,6 +160,8 @@ export default async function DealPage({
 
     commissions,
 
+    propertySources,
+
   ] =
 
   await Promise.all([
@@ -190,6 +196,11 @@ export default async function DealPage({
 
     getCommissionsByDealId(
       deal.id
+    ),
+
+
+    getPropertySources(
+      deal.propertyId
     ),
 
 
@@ -577,6 +588,8 @@ deal={deal}
 
 commissions={commissions}
 
+propertySources={propertySources}
+
 role={user?.role}
 
 paidDistributionAmount={
@@ -605,62 +618,6 @@ paidDistributionAmount
 <h2 className="text-xl font-semibold">
 Shared Properties
 </h2>
-
-<div className="
-rounded-xl
-bg-muted/40
-p-4
-space-y-3
-">
-
-<div className="flex justify-between">
-
-<span className="text-sm text-muted-foreground">
-Property Value
-</span>
-
-<span className="font-semibold">
-
-₹
-{deal.value.propertyPrice.toLocaleString("en-IN")}
-
-</span>
-
-</div>
-
-
-<div className="flex justify-between">
-
-<span className="text-sm text-muted-foreground">
-Commission %
-</span>
-
-<span className="font-semibold">
-
-{deal.value.commissionPercentage || 0}%
-
-</span>
-
-</div>
-
-
-<div className="flex justify-between">
-
-<span className="text-sm text-muted-foreground">
-Expected Commission
-</span>
-
-<span className="font-semibold text-primary">
-
-₹
-{deal.value.commissionAmount.toLocaleString("en-IN")}
-
-</span>
-
-</div>
-
-
-</div>
 
 <SharedProperties
 

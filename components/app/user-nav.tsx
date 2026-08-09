@@ -4,8 +4,11 @@ import {
   ChevronsUpDown,
   LogOut,
   Settings,
-  User,
 } from "lucide-react"
+
+import {
+  useRouter,
+} from "next/navigation"
 
 import {
   Avatar,
@@ -25,6 +28,10 @@ import {
 
 import type { UserRole } from "@/lib/navigation"
 
+import {
+  supabase,
+} from "@/lib/supabase/client"
+
 interface UserNavProps {
   name: string
   email: string
@@ -43,12 +50,20 @@ export function UserNav({
   role = "admin",
   image,
 }: UserNavProps) {
+  const router = useRouter()
+
   const initials = name
     .split(" ")
     .map((part) => part[0])
     .join("")
     .slice(0, 2)
     .toUpperCase()
+
+  async function logout(){
+    await supabase.auth.signOut()
+    router.push("/login")
+    router.refresh()
+  }
 
   return (
     <DropdownMenu>
@@ -97,19 +112,22 @@ export function UserNav({
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem>
-          <User className="mr-2 h-4 w-4" />
-          Profile
-        </DropdownMenuItem>
-
-        <DropdownMenuItem>
-          <Settings className="mr-2 h-4 w-4" />
-          Settings
-        </DropdownMenuItem>
+        {
+          role === "admin" && (
+            <DropdownMenuItem
+              onClick={() => router.push("/settings")}
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              Settings
+            </DropdownMenuItem>
+          )
+        }
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={logout}
+        >
           <LogOut className="mr-2 h-4 w-4" />
           Sign out
         </DropdownMenuItem>

@@ -25,8 +25,10 @@ return `₹${value.toLocaleString(
 
 export function ContactFinancialSnapshot({
 summary,
+linkedPropertyScope = false,
 }:{
 summary:ContactSummary
+linkedPropertyScope?:boolean
 }){
 
 
@@ -56,7 +58,11 @@ text-sm
 <div>
 
 <p className="text-muted-foreground">
-Properties
+{
+linkedPropertyScope
+? "Linked Properties"
+: "Properties"
+}
 </p>
 
 <p className="font-semibold">

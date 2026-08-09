@@ -32,9 +32,9 @@ export function FormDrawer({
     >
       <SheetContent
         side="right"
-        className="w-full overflow-y-auto sm:max-w-2xl"
+        className="w-full overflow-hidden sm:max-w-2xl"
       >
-        <SheetHeader className="mb-6">
+        <SheetHeader className="shrink-0 border-b pb-4">
           <SheetTitle>{title}</SheetTitle>
 
           {description && (
@@ -44,7 +44,9 @@ export function FormDrawer({
           )}
         </SheetHeader>
 
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5">
+          {children}
+        </div>
       </SheetContent>
     </Sheet>
   )

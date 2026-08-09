@@ -1,14 +1,14 @@
-import { ArrowRight } from "lucide-react"
+import Link from "next/link"
+
+import {
+  ArrowRight,
+} from "lucide-react"
 
 import {
   DashboardCard,
   DashboardCardContent,
   DashboardCardHeader,
 } from "@/components/ui/dashboard-card"
-
-import {
-  formatCurrency,
-} from "@/lib/utils/format-currency"
 
 
 type PipelineStage = {
@@ -17,34 +17,20 @@ type PipelineStage = {
 }
 
 
-type PipelineSummary = {
-  activeClients: number
-  inventoryValue: number
-  inventoryCount: number
-  commissionPotential: number
-}
-
-
 type PipelineCardProps = {
   stages: PipelineStage[]
-  summary: PipelineSummary
 }
-
 
 
 export function PipelineCard({
   stages,
-  summary,
 }: PipelineCardProps) {
-
-
   const totalDeals =
     stages.reduce(
       (sum, stage) =>
         sum + stage.count,
       0
     )
-
 
   const maxCount =
     Math.max(
@@ -54,247 +40,66 @@ export function PipelineCard({
       1
     )
 
-
-
   return (
-
     <DashboardCard className="h-full">
-
-
       <DashboardCardHeader>
-
         <div>
-
           <p className="text-sm font-medium tracking-wide text-muted-foreground">
-            Deals Pipeline
+            Deal pipeline
           </p>
 
-
           <h3 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">
-            {totalDeals} Active Deals
+            {totalDeals} active deals
           </h3>
-
-
         </div>
 
+        <Link
+          href="/deals"
+          className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        >
+          <span className="hidden sm:inline">
+            View deals
+          </span>
 
-
-        <ArrowRight className="h-5 w-5 text-muted-foreground" />
-
-
+          <ArrowRight className="h-4 w-4" />
+        </Link>
       </DashboardCardHeader>
 
-
-
-
-
-      <DashboardCardContent className="space-y-6">
-
-
-        {/* Summary Cards */}
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-
-
-          <SummaryCard
-
-            title="Active Clients"
-
-            value={
-              String(
-                summary.activeClients
-              )
-            }
-
-            subtitle="Total contacts"
-
-          />
-
-
-
-          <SummaryCard
-  title="Live Inventory"
-  value={formatCurrency(
-    summary.inventoryValue
-  )}
-  subtitle={`Across ${summary.inventoryCount} listings`}
-/>
-
-
-
-          <SummaryCard
-  title="Commission Potential"
-  value={formatCurrency(
-    summary.commissionPotential
-  )}
-  subtitle="Pending commission"
-/>
-
-
-        </div>
-
-
-
-
-
-        {/* Pipeline */}
-
+      <DashboardCardContent>
         <div className="space-y-4">
+          {
+            stages.map(
+              stage => {
+                const width =
+                  (stage.count / maxCount) * 100
 
+                return (
+                  <div key={stage.title}>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-sm font-medium">
+                        {stage.title}
+                      </span>
 
-          {stages.map(
-            (stage) => {
+                      <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold">
+                        {stage.count}
+                      </span>
+                    </div>
 
-
-              const width =
-                (stage.count / maxCount) * 100
-
-
-
-              return (
-
-                <div
-                  key={stage.title}
-                >
-
-
-                  <div className="mb-2 flex items-center justify-between">
-
-
-                    <span className="text-sm font-medium">
-                      {stage.title}
-                    </span>
-
-
-
-                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold">
-                      {stage.count}
-                    </span>
-
-
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all duration-700"
+                        style={{
+                          width: `${width}%`,
+                        }}
+                      />
+                    </div>
                   </div>
-
-
-
-
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-
-                    <div
-
-                      className="h-full rounded-full bg-primary transition-all duration-700"
-
-                      style={{
-                        width:`${width}%`,
-                      }}
-
-                    />
-
-
-                  </div>
-
-
-                </div>
-
-              )
-
-
-            }
-
-          )}
-
-
+                )
+              }
+            )
+          }
         </div>
-
-
-
       </DashboardCardContent>
-
-
     </DashboardCard>
-
   )
-
-}
-
-
-
-
-
-
-function SummaryCard({
-  title,
-  value,
-  subtitle,
-}:{
-  title:string
-  value:string
-  subtitle:string
-}){
-
-
-  return (
-
-    <div
-
-      className="
-        rounded-2xl
-        border
-        border-border/60
-        bg-muted/30
-        p-3
-        sm:p-5
-        transition-all
-        duration-200
-        hover:-translate-y-0.5
-        hover:border-primary/20
-        hover:bg-background
-      "
-
-    >
-
-
-      <p className="
-        text-[11px]
-        font-medium
-        uppercase
-        tracking-[0.15em]
-        text-muted-foreground
-      ">
-
-        {title}
-
-      </p>
-
-
-
-      <p className="
-        mt-3
-        text-2xl
-        font-semibold
-        tracking-tight
-        sm:text-3xl
-      ">
-
-        {value}
-
-      </p>
-
-
-
-
-      <p className="
-        mt-1
-        text-sm
-        text-muted-foreground
-      ">
-
-        {subtitle}
-
-      </p>
-
-
-    </div>
-
-  )
-
 }

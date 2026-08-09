@@ -62,6 +62,12 @@ export function ContactActivityDrawer({
   ] =
   useState(false)
 
+  const [
+    error,
+    setError,
+  ] =
+  useState<string | null>(null)
+
 
 
   const [
@@ -120,8 +126,17 @@ export function ContactActivityDrawer({
 
     e.preventDefault()
 
+    if(!form.title.trim()){
+
+      setError("Activity title is required.")
+
+      return
+
+    }
+
 
     setLoading(true)
+    setError(null)
 
 
     try{
@@ -135,9 +150,7 @@ export function ContactActivityDrawer({
           form.type,
 
         title:
-          form.title
-          ||
-          "Activity added",
+          form.title.trim(),
 
         body:
           form.body,
@@ -161,6 +174,12 @@ export function ContactActivityDrawer({
 
       router.refresh()
 
+
+    }
+    catch(error){
+
+      console.error("Unable to save contact activity", error)
+      setError("Unable to save the activity. Please try again.")
 
     }
     finally{
@@ -265,6 +284,8 @@ export function ContactActivityDrawer({
 
           placeholder="Activity title"
 
+          required
+
           value={
             form.title
           }
@@ -351,6 +372,29 @@ export function ContactActivityDrawer({
 
 
 
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <Button
+
+          type="button"
+
+          variant="outline"
+
+          disabled={loading}
+
+          onClick={() => onOpenChange(false)}
+
+        >
+
+          Cancel
+
+        </Button>
+
         <Button
 
           type="submit"
@@ -358,6 +402,8 @@ export function ContactActivityDrawer({
           disabled={
             loading
           }
+
+          className="w-full sm:w-auto"
 
         >
 
@@ -368,6 +414,7 @@ export function ContactActivityDrawer({
           }
 
         </Button>
+        </div>
 
 
 

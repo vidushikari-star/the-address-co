@@ -13,7 +13,6 @@ import {
   Edit,
   Mail,
   MapPin,
-  Phone,
 } from "lucide-react"
 
 import {
@@ -39,7 +38,9 @@ import {
 
 import { WhatsAppButton } from "@/components/communications/whatsapp-button"
 
-import { createActivity } from "@/lib/repositories/activity-repository"
+import {
+  WhatsAppCallButton,
+} from "@/components/communications/whatsapp-call-button"
 
 import {
   ContactActivityDrawer,
@@ -75,49 +76,6 @@ export function RelationshipHeader({
     contact.phone ??
     ""
   ).replace(/\D/g, "")
-
-
-
-
-
-
-  async function logCallActivity() {
-
-    try {
-
-      await createActivity({
-
-        type: "call",
-
-        title: "Call initiated",
-
-        body: `Outgoing call to ${contact.name}`,
-
-        contactId: contact.id,
-
-        date: new Date().toISOString(),
-
-      })
-
-    } catch {
-
-    }
-
-  }
-
-
-
-
-
-  async function handleCall() {
-
-    await logCallActivity()
-
-    window.location.href =
-      `tel:${phone}`
-
-  }
-
 
 
 
@@ -485,24 +443,12 @@ export function RelationshipHeader({
           {
             phone && (
 
-              <Button
+              <WhatsAppCallButton
+                contact={contact}
                 variant="outline"
                 size="sm"
                 className="w-full sm:w-auto"
-                onClick={handleCall}
-              >
-
-                <Phone
-                  className="
-                    mr-2
-                    h-4
-                    w-4
-                  "
-                />
-
-                Call
-
-              </Button>
+              />
 
             )
           }

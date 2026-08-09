@@ -1,12 +1,6 @@
 "use client"
 
 import {
-  useEffect,
-  useState,
-} from "react"
-
-import {
-  Bell,
   Plus,
   UserPlus,
   Building2,
@@ -30,18 +24,8 @@ import {
 
 
 import {
-  Button,
-} from "@/components/ui/button"
-
-
-import {
   useDrawer,
 } from "@/components/providers/drawer-provider"
-
-
-import {
-  getCurrentUserProfile,
-} from "@/lib/auth/user-profile"
 
 
 import {
@@ -52,6 +36,18 @@ import {
 import {
   useRouter,
 } from "next/navigation"
+
+import {
+  NotificationsMenu,
+} from "@/components/app/notifications-menu"
+
+import type {
+  UserProfile,
+} from "@/types/user"
+
+import type {
+  AppNotification,
+} from "@/lib/services/notification-service"
 
 
 
@@ -79,7 +75,16 @@ function getGreeting(){
 
 
 
-export function AppHeader(){
+type AppHeaderProps = {
+  user: UserProfile
+  notifications: AppNotification[]
+}
+
+
+export function AppHeader({
+  user,
+  notifications,
+}: AppHeaderProps){
 
 
   const {
@@ -106,18 +111,6 @@ const today = new Intl.DateTimeFormat(
 
 
 
-  const [
-    userName,
-    setUserName,
-  ] =
-  useState("User")
-
-
-
-
-
-
-
   async function logout(){
 
     await supabase.auth.signOut()
@@ -127,37 +120,6 @@ const today = new Intl.DateTimeFormat(
     router.refresh()
 
   }
-
-
-
-
-
-
-
-  useEffect(() => {
-  let mounted = true
-
-  async function loadUser() {
-    const user = await getCurrentUserProfile()
-
-    if (mounted && user) {
-      setUserName(user.name.split(" ")[0])
-    }
-  }
-
-  loadUser()
-
-  return () => {
-    mounted = false
-  }
-}, [])
-
-
-
-
-
-
-
 
   return (
 
@@ -210,7 +172,7 @@ const today = new Intl.DateTimeFormat(
               {greeting},{" "}
 
               <span>
-                {userName}
+                {user.name.split(" ")[0]}
               </span>
 
 
@@ -352,24 +314,9 @@ const today = new Intl.DateTimeFormat(
 
 
 
-          <Button
-
-            variant="outline"
-
-            size="icon"
-
-            className="
-              hidden
-              h-10
-              rounded-full
-              sm:flex
-            "
-
-          >
-
-            <Bell className="h-5 w-5"/>
-
-          </Button>
+          <NotificationsMenu
+            notifications={notifications}
+          />
 
 
 
@@ -400,7 +347,7 @@ const today = new Intl.DateTimeFormat(
 
 
               <span className="hidden sm:inline">
-                {userName}
+                {user.name.split(" ")[0]}
               </span>
 
 

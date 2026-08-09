@@ -89,6 +89,12 @@ export function AddPropertySourceDrawer({
   ] =
   useState(false)
 
+  const [
+    error,
+    setError,
+  ] =
+  useState<string | null>(null)
+
 
 
 
@@ -100,12 +106,15 @@ export function AddPropertySourceDrawer({
 
     if(!contactId){
 
+      setError("Select a contact before adding a property source.")
+
       return
 
     }
 
 
     setLoading(true)
+    setError(null)
 
 
 
@@ -135,6 +144,12 @@ export function AddPropertySourceDrawer({
       onOpenChange(false)
 
 
+
+    }
+    catch(error){
+
+      console.error("Unable to add property source", error)
+      setError("Unable to add the property source. Please try again.")
 
     }
 
@@ -173,7 +188,14 @@ export function AddPropertySourceDrawer({
       <div className="space-y-4">
 
 
+        <div className="space-y-2">
+          <label htmlFor="property-source-relationship" className="text-sm font-medium">
+            Source relationship
+          </label>
+
         <select
+
+          id="property-source-relationship"
 
           className="w-full rounded-lg border p-3"
 
@@ -210,11 +232,20 @@ export function AddPropertySourceDrawer({
 
         </select>
 
+        </div>
 
 
 
+
+
+        <div className="space-y-2">
+          <label htmlFor="property-source-contact" className="text-sm font-medium">
+            Contact <span className="text-destructive">*</span>
+          </label>
 
         <select
+
+          id="property-source-contact"
 
           className="w-full rounded-lg border p-3"
 
@@ -272,17 +303,42 @@ export function AddPropertySourceDrawer({
 
         </select>
 
+        </div>
 
 
 
+
+
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <Button
+
+          type="button"
+
+          variant="outline"
+
+          disabled={loading}
+
+          onClick={() => onOpenChange(false)}
+
+        >
+
+          Cancel
+
+        </Button>
 
         <Button
 
-          className="w-full"
+          className="w-full sm:w-auto"
 
           onClick={submit}
 
-          disabled={loading}
+          disabled={loading || !contactId}
 
         >
 
@@ -295,6 +351,7 @@ export function AddPropertySourceDrawer({
           }
 
         </Button>
+        </div>
 
 
       </div>

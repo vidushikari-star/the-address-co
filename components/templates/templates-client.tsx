@@ -60,7 +60,7 @@ export function TemplatesClient({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1600px] space-y-6 p-4 md:p-8">
       <PageHeader
         title="Templates"
         description="Create and manage reusable WhatsApp and Email templates."
@@ -102,6 +102,7 @@ export function TemplatesClient({
           <TemplateForm
             template={selectedTemplate}
             onSuccess={closeEditor}
+            onCancel={closeEditor}
           />
         </SheetContent>
       </Sheet>
@@ -164,8 +165,8 @@ export function TemplatesClient({
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border">
-          <table className="w-full">
+        <div className="overflow-x-auto rounded-xl border">
+          <table className="min-w-[760px] w-full">
             <thead className="border-b bg-muted/40">
               <tr>
                 <th className="px-6 py-3 text-left">

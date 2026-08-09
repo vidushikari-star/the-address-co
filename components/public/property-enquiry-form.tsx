@@ -82,6 +82,12 @@ export function PropertyEnquiryForm({
   ] =
   useState(false)
 
+  const [
+    error,
+    setError,
+  ] =
+  useState<string | null>(null)
+
 
 
   const [
@@ -104,9 +110,7 @@ export function PropertyEnquiryForm({
       !phone
     ){
 
-      alert(
-        "Please enter your name and phone number"
-      )
+      setError("Enter your name and phone number to request a viewing.")
 
       return
 
@@ -115,6 +119,7 @@ export function PropertyEnquiryForm({
 
 
     setLoading(true)
+    setError(null)
 
 
 
@@ -245,9 +250,7 @@ ${message}`,
       )
 
 
-      alert(
-        "Unable to submit enquiry"
-      )
+      setError("Unable to submit your enquiry. Please try again.")
 
 
     }
@@ -315,6 +318,12 @@ ${message}`,
 
       <input
 
+        type="text"
+
+        autoComplete="name"
+
+        required
+
         className="w-full rounded-xl border p-3"
 
         placeholder="Your Name"
@@ -336,6 +345,14 @@ ${message}`,
 
       <input
 
+        type="tel"
+
+        inputMode="tel"
+
+        autoComplete="tel"
+
+        required
+
         className="w-full rounded-xl border p-3"
 
         placeholder="Phone Number"
@@ -356,6 +373,10 @@ ${message}`,
 
 
       <input
+
+        type="email"
+
+        autoComplete="email"
 
         className="w-full rounded-xl border p-3"
 
@@ -398,6 +419,12 @@ ${message}`,
 
 
 
+
+      {error && (
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
 
       <Button
 

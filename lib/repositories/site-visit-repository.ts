@@ -9,7 +9,7 @@ import type {
 
 type SiteVisitRow = {
   id: string
-  deal_id: string
+  deal_id: string | null
   contact_id: string
   property_id: string
 
@@ -52,7 +52,7 @@ function mapSiteVisitRow(
       row.id,
 
     dealId:
-      row.deal_id,
+      row.deal_id ?? undefined,
 
     contactId:
       row.contact_id,
@@ -97,7 +97,7 @@ function mapSiteVisitRow(
 
 export async function createSiteVisit(
   data: {
-    dealId: string
+    dealId?: string
     contactId: string
     propertyId: string
     scheduledDate: string
@@ -114,7 +114,7 @@ export async function createSiteVisit(
       .from("site_visits")
       .insert({
         deal_id:
-          data.dealId,
+          data.dealId ?? null,
 
         contact_id:
           data.contactId,
@@ -217,6 +217,98 @@ export async function getSiteVisitsByDealId(
       (advisorData as AdvisorRow[] | null) ??
       []
   }
+
+  return rows.map(
+    (row) => ({
+      ...mapSiteVisitRow(row),
+
+      advisorName:
+        advisors.find(
+          (advisor) =>
+            advisor.id === row.advisor_id
+        )?.name ?? "",
+    })
+  )
+}
+
+
+
+export async function getSiteVisitsByContactId(
+  contactId: string
+): Promise<SiteVisit[]> {
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from("site_visits")
+      .select(`
+        *,
+        contact:contacts(
+          full_name
+        ),
+        property:properties(
+          name
+        )
+      `)
+      .eq(
+        "contact_id",
+        contactId
+      )
+      .order(
+        "scheduled_date",
+        {
+          ascending: true,
+        }
+      )
+
+
+  if (error) {
+    throw error
+  }
+
+
+  const rows =
+    (data as SiteVisitRow[] | null) ??
+    []
+
+
+  const advisorIds = [
+    ...new Set(
+      rows
+        .map(
+          (row) => row.advisor_id
+        )
+        .filter(
+          (
+            id
+          ): id is string => !!id
+        )
+    ),
+  ]
+
+
+  let advisors: AdvisorRow[] = []
+
+  if (advisorIds.length) {
+    const {
+      data: advisorData,
+    } =
+      await supabase
+        .from("user_profiles")
+        .select(
+          "id,name"
+        )
+        .in(
+          "id",
+          advisorIds
+        )
+
+    advisors =
+      (advisorData as AdvisorRow[] | null) ??
+      []
+  }
+
 
   return rows.map(
     (row) => ({

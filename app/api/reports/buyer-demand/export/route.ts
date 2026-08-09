@@ -14,9 +14,7 @@ createServerSupabaseClient,
 
 
 
-export async function GET(
-request: Request
-){
+export async function GET(){
 
 const user =
 await getServerUserProfile()
@@ -76,8 +74,13 @@ locations,
 budget_min,
 budget_max,
 currency,
-timeline
+timeline,
+relationship_types
 `
+)
+.contains(
+"relationship_types",
+["buyer"]
 )
 
 

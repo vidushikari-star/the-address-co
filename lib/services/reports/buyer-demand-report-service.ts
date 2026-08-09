@@ -23,7 +23,8 @@ property_type,
 bedrooms,
 locations,
 budget_min,
-budget_max
+budget_max,
+relationship_types
 `
 )
 
@@ -38,7 +39,10 @@ throw error
 
 
 const contacts =
-data ?? []
+(data ?? []).filter(
+  contact =>
+    contact.relationship_types?.includes("buyer")
+)
 
 
 

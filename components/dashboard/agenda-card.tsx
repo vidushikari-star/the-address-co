@@ -112,12 +112,12 @@ export function AgendaCard({
           <div>
 
             <p className="text-sm text-muted-foreground">
-              Today&apos;s Agenda
+              Task agenda
             </p>
 
 
             <h3 className="mt-2 text-xl font-semibold sm:text-2xl">
-              {items.length} Upcoming Events
+              {items.length} Tasks due soon
             </h3>
 
 
@@ -147,7 +147,7 @@ export function AgendaCard({
           items.length === 0 ? (
 
             <p className="text-sm text-muted-foreground">
-              No upcoming events today.
+              No tasks due soon.
             </p>
 
           )
@@ -328,25 +328,19 @@ export function AgendaCard({
 
 
 
-                          {
-                            href && (
+                          <div className="
+                            mt-3
+                            flex
+                            justify-end
+                          ">
 
-                              <div className="
-                                mt-3
-                                flex
-                                justify-end
-                              ">
+                            <ArrowRight className="
+                              h-4
+                              w-4
+                              text-muted-foreground
+                            "/>
 
-                                <ArrowRight className="
-                                  h-4
-                                  w-4
-                                  text-muted-foreground
-                                "/>
-
-                              </div>
-
-                            )
-                          }
+                          </div>
 
 
                         </div>
@@ -359,13 +353,16 @@ export function AgendaCard({
 
 
 
-                    return href ? (
+                    const itemHref =
+                      href ?? "/tasks"
+
+                    return (
 
                       <Link
 
                         key={`${item.id ?? item.title}-${index}`}
 
-                        href={href}
+                        href={itemHref}
 
                       >
 
@@ -373,21 +370,6 @@ export function AgendaCard({
 
                       </Link>
 
-
-                    )
-
-                    :
-
-
-                    (
-
-                      <div
-                        key={`${item.id ?? item.title}-${index}`}
-                      >
-
-                        {content}
-
-                      </div>
 
                     )
 

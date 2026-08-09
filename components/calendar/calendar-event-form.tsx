@@ -45,6 +45,10 @@ import {
   getDeals,
 } from "@/lib/repositories/deal-repository"
 
+import {
+  getCurrentUser,
+} from "@/lib/auth/current-user"
+
 import type {
   Contact,
 } from "@/types/contact"
@@ -170,6 +174,12 @@ export function CalendarEventForm({
   ] =
   useState(false)
 
+  const [
+    error,
+    setError,
+  ] =
+  useState<string | null>(null)
+
 
 
 
@@ -181,6 +191,8 @@ export function CalendarEventForm({
   useState({
 
     title:"",
+
+    description:"",
 
     eventType:
       "meeting" as CalendarEventType,
@@ -358,6 +370,9 @@ export function CalendarEventForm({
         title:
           event.title,
 
+        description:
+          event.description ?? "",
+
 
         eventType:
           event.eventType,
@@ -414,6 +429,7 @@ export function CalendarEventForm({
       !form.time
     ){
 
+      setError("Add a title, date, and time before saving the event.")
       return
 
     }
@@ -421,6 +437,7 @@ export function CalendarEventForm({
 
 
     setSaving(true)
+    setError(null)
 
 
 
@@ -437,6 +454,9 @@ export function CalendarEventForm({
 
         title:
           form.title,
+
+        description:
+          form.description.trim() || undefined,
 
 
         eventType:
@@ -487,7 +507,13 @@ export function CalendarEventForm({
 
 
         const currentUser =
-          users[0]
+          await getCurrentUser()
+
+        if(!currentUser){
+
+          throw new Error("You need to be signed in to create an event.")
+
+        }
 
 
 
@@ -497,7 +523,7 @@ export function CalendarEventForm({
 
 
           createdBy:
-            currentUser?.id,
+            currentUser.id,
 
         })
 
@@ -513,6 +539,15 @@ export function CalendarEventForm({
         "/calendar"
       )
 
+
+    }
+    catch(error){
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Unable to save the event. Please try again."
+      )
 
     }
     finally{
@@ -597,6 +632,30 @@ export function CalendarEventForm({
 
             placeholder="Client meeting"
 
+            required
+
+          />
+
+        </div>
+
+
+        <div>
+
+          <label className="text-sm">
+            Notes
+          </label>
+
+          <textarea
+            className="mt-1 min-h-24 w-full rounded-md border bg-background px-3 py-2"
+            placeholder="Agenda, requirements, or next steps"
+            value={form.description}
+            onChange={
+              event =>
+                setForm({
+                  ...form,
+                  description: event.target.value,
+                })
+            }
           />
 
         </div>
@@ -945,6 +1004,8 @@ export function CalendarEventForm({
 
               type="date"
 
+              required
+
               value={
                 form.date
               }
@@ -976,6 +1037,8 @@ export function CalendarEventForm({
             <Input
 
               type="time"
+
+              required
 
               value={
                 form.time
@@ -1085,17 +1148,38 @@ export function CalendarEventForm({
 
 
 
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Button
 
-          className="w-full"
+          type="button"
+
+          variant="outline"
+
+          disabled={saving}
+
+          onClick={() => router.back()}
+
+        >
+
+          Cancel
+
+        </Button>
+
+        <Button
+
+          className="w-full sm:w-auto"
 
           disabled={
             saving
           }
 
-          onClick={
-            submit
-          }
+          onClick={submit}
 
         >
 
@@ -1113,6 +1197,7 @@ export function CalendarEventForm({
 
 
         </Button>
+        </div>
 
 
       </div>

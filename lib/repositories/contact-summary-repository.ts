@@ -23,12 +23,51 @@ export type ContactSummary = {
 
 
 export async function getContactSummary(
-  contactId:string
+  contactId:string,
+  {
+    useLinkedPropertyData = false,
+  }:{
+    useLinkedPropertyData?:boolean
+  } = {}
 ):Promise<ContactSummary>{
 
 
+  const propertyResult =
+    useLinkedPropertyData
+      ? await supabase
+          .from("property_contacts")
+          .select("property_id")
+          .eq(
+            "contact_id",
+            contactId
+          )
+      : await supabase
+          .from("property_contacts")
+          .select("property_id")
+          .eq(
+            "contact_id",
+            contactId
+          )
+          .eq(
+            "relationship_type",
+            "owner"
+          )
+
+
+
+  const propertyIds = [
+    ...new Set(
+      (propertyResult.data ?? [])
+        .map(
+          property =>
+            property.property_id
+        )
+    ),
+  ]
+
+
+
   const [
-    propertyResult,
     dealsResult,
     commissionResult,
     activityResult,
@@ -37,46 +76,43 @@ export async function getContactSummary(
 
 
 
-    supabase
-      .from("property_contacts")
-      .select(
-        "id"
-      )
-      .eq(
-        "contact_id",
-        contactId
-      )
-      .eq(
-        "relationship_type",
-        "owner"
-      ),
+    useLinkedPropertyData
+      ? propertyIds.length > 0
+        ? supabase
+            .from("deals")
+            .select("id,stage")
+            .in(
+              "property_id",
+              propertyIds
+            )
+        : Promise.resolve({ data: [] })
+      : supabase
+          .from("deals")
+          .select("id,stage")
+          .eq(
+            "contact_id",
+            contactId
+          ),
 
 
 
-
-    supabase
-      .from("deals")
-      .select(
-        "id,stage"
-      )
-      .eq(
-        "contact_id",
-        contactId
-      ),
-
-
-
-
-    supabase
-      .from("commissions")
-      .select(
-        "amount"
-      )
-      .eq(
-        "contact_id",
-        contactId
-      ),
-
+    useLinkedPropertyData
+      ? propertyIds.length > 0
+        ? supabase
+            .from("commissions")
+            .select("amount")
+            .in(
+              "property_id",
+              propertyIds
+            )
+        : Promise.resolve({ data: [] })
+      : supabase
+          .from("commissions")
+          .select("amount")
+          .eq(
+            "contact_id",
+            contactId
+          ),
 
 
 

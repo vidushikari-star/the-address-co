@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
 import {
@@ -11,6 +12,9 @@ import {
 import { Avatar } from "@/components/shared/avatar"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { WhatsAppButton } from "@/components/communications/whatsapp-button"
+import {
+  WhatsAppCallButton,
+} from "@/components/communications/whatsapp-call-button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { getLeadPriority } from "@/lib/utils/lead-score"
@@ -38,6 +42,16 @@ export function ContactCard({
 
   const router =
     useRouter()
+
+  const [currentTime, setCurrentTime] =
+    useState<number | null>(null)
+
+  useEffect(
+    () => {
+      setCurrentTime(Date.now())
+    },
+    []
+  )
 
 
 
@@ -112,10 +126,14 @@ lastActivityAt?: string
   }
 
 
+  if (currentTime === null) {
+    return null
+  }
+
   const daysSinceActivity =
     Math.floor(
       (
-        Date.now()
+        currentTime
         -
         new Date(
           lastActivityAt
@@ -486,11 +504,11 @@ lastActivityAt?: string
 
 
 
-        {contact.phone && (
+        {phone && (
 
-          <a
-            href={`tel:${contact.phone}`}
-            onClick={(e) => e.stopPropagation()}
+          <WhatsAppCallButton
+            contact={contact}
+            stopPropagation
             className="
               flex
               h-9
@@ -503,16 +521,7 @@ lastActivityAt?: string
               px-3
               text-sm
             "
-          >
-
-            <Phone className="
-              h-4
-              w-4
-            " />
-
-            Call
-
-          </a>
+          />
 
         )}
 

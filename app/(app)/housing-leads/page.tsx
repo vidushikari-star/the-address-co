@@ -27,7 +27,8 @@ export default async function HousingLeadsPage(){
         mx-auto
         max-w-7xl
         space-y-6
-        p-6
+        p-4
+        md:p-8
       "
     >
 
@@ -35,17 +36,27 @@ export default async function HousingLeadsPage(){
       <div
         className="
           flex
-          items-center
-          justify-between
+          flex-col
+          gap-4
+          sm:flex-row
+          sm:items-center
+          sm:justify-between
         "
       >
 
-        <h1 className="
-          text-3xl
-          font-bold
-        ">
-          Housing Leads
-        </h1>
+        <div>
+          <h1 className="
+            text-2xl
+            font-bold
+            sm:text-3xl
+          ">
+            Housing Leads
+          </h1>
+
+          <p className="mt-1 text-sm text-muted-foreground">
+            Import the latest Housing.com enquiries on demand.
+          </p>
+        </div>
 
 
         <HousingSyncButton />
