@@ -22,11 +22,14 @@ import {
 import {
   HousingLeadActions,
 } from "@/components/housing/housing-lead-actions"
+import type {
+  HousingLead,
+} from "@/lib/repositories/housing-lead-repository"
 
 
 
 type Props = {
-  leads:any[]
+  leads:HousingLead[]
 }
 
 
@@ -123,7 +126,7 @@ export function HousingLeadsList({
 
 
       function score(
-        lead:any
+        lead:HousingLead
       ){
 
         let value = 0

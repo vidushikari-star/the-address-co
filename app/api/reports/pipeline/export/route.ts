@@ -9,14 +9,12 @@ getServerUserProfile,
 } from "@/lib/auth/server-user-profile"
 
 import {
-getDeals,
-} from "@/lib/repositories/deal-repository"
+getServerDeals,
+} from "@/lib/repositories/deal-server-repository"
 
 
 
-export async function GET(
-request: Request
-) {
+export async function GET() {
 
 
 const user =
@@ -61,7 +59,7 @@ try {
 
 
 deals =
-await getDeals()
+await getServerDeals()
 
 
 }

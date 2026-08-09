@@ -4,6 +4,10 @@ import {
   redirect,
 } from "next/navigation"
 
+import {
+  requireAdmin,
+} from "@/lib/auth/require-permission"
+
 
 import {
   markCommissionInvoiced,
@@ -23,6 +27,8 @@ import type {
 export async function invoiceCommission(
   id:string
 ){
+
+  await requireAdmin()
 
   await markCommissionInvoiced(
     id
@@ -47,6 +53,8 @@ export async function receiveCommission(
   id:string
 ){
 
+  await requireAdmin()
+
   await markCommissionReceived(
     id
   )
@@ -70,6 +78,8 @@ export async function updateCommissionAction(
   id:string,
   updates:Partial<Commission>
 ){
+
+  await requireAdmin()
 
   await editCommission(
     id,

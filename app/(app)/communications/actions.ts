@@ -23,6 +23,16 @@ export async function qualifyConversation(
   const supabase =
     await createServerSupabaseClient()
 
+  const {
+    data: {
+      user,
+    },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error("Not authenticated")
+  }
+
 
 
   const {
@@ -35,6 +45,10 @@ export async function qualifyConversation(
       .eq(
         "id",
         conversationId
+      )
+      .eq(
+        "owner_id",
+        user.id
       )
       .single()
 
@@ -85,6 +99,10 @@ export async function qualifyConversation(
         "id",
         conversationId
       )
+      .eq(
+        "owner_id",
+        user.id
+      )
       .select()
       .single()
 
@@ -111,6 +129,18 @@ export async function qualifyConversation(
 
 export async function listWhatsAppTemplates() {
 
+  const supabase = await createServerSupabaseClient()
+
+  const {
+    data: {
+      user,
+    },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error("Not authenticated")
+  }
+
   const templates =
     await TemplatesRepository.list()
 
@@ -134,6 +164,18 @@ export async function listWhatsAppTemplates() {
 export async function incrementTemplateUsage(
   id:string
 ) {
+
+  const supabase = await createServerSupabaseClient()
+
+  const {
+    data: {
+      user,
+    },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error("Not authenticated")
+  }
 
   await TemplatesRepository.incrementUsage(id)
 
@@ -176,9 +218,9 @@ export async function getCurrentAdvisor() {
     error,
   } =
     await supabase
-      .from("profiles")
+      .from("user_profiles")
       .select(
-        "id, full_name, email"
+        "id, name, email"
       )
       .eq(
         "id",
@@ -201,7 +243,15 @@ export async function getCurrentAdvisor() {
 
 
 
-  return data
+  if (!data) {
+    return null
+  }
+
+  return {
+    id: data.id,
+    full_name: data.name,
+    email: data.email ?? "",
+  }
 
 }
 
@@ -253,6 +303,10 @@ export async function createContactFromWhatsApp(
       .eq(
         "id",
         conversationId
+      )
+      .eq(
+        "owner_id",
+        user.id
       )
       .single()
 
@@ -330,7 +384,7 @@ export async function createContactFromWhatsApp(
 
 
         lead_source:
-          "WhatsApp",
+          "whatsapp",
 
 
 
@@ -360,7 +414,9 @@ export async function createContactFromWhatsApp(
 
 
         budget_min:
-          qualification.budget ?? null,
+          qualification.budget
+            ? Number(qualification.budget)
+            : null,
 
 
       })
@@ -385,76 +441,6 @@ export async function createContactFromWhatsApp(
 
 
 
-  const {
-    data:deal,
-    error:dealError,
-  } =
-    await supabase
-      .from("deals")
-      .insert({
-
-        name:
-          `${contact.first_name} - ${
-            qualification.intent ??
-            "Property"
-          }`,
-
-
-
-        contact_id:
-          contact.id,
-
-
-
-        stage:
-  "qualification",
-
-
-
-        probability:
-          20,
-
-
-
-        priority:
-          "medium",
-
-
-
-        advisor_id:
-          user.id,
-
-
-
-        whatsapp_conversation_id:
-          conversationId,
-
-
-
-        notes:
-          conversation.last_message,
-
-      })
-      .select()
-      .single()
-
-
-
-
-
-
-  if(dealError){
-
-    throw dealError
-
-  }
-
-
-
-
-
-
-
   await supabase
     .from("whatsapp_conversations")
     .update({
@@ -471,6 +457,10 @@ export async function createContactFromWhatsApp(
       "id",
       conversationId
     )
+    .eq(
+      "owner_id",
+      user.id
+    )
 
 
 
@@ -481,9 +471,6 @@ export async function createContactFromWhatsApp(
   return {
 
     ...contact,
-
-    deal_id:
-      deal.id,
 
   }
 
@@ -504,6 +491,18 @@ export async function rewriteWhatsAppMessage(
     | "concise"
     | "luxury"
 ) {
+
+  const supabase = await createServerSupabaseClient()
+
+  const {
+    data: {
+      user,
+    },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error("Not authenticated")
+  }
 
 
   const instructions = {

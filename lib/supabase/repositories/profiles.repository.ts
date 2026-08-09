@@ -8,8 +8,6 @@ export const ProfilesRepository = {
       data: { user },
     } = await supabase.auth.getUser()
 
-    console.log("Auth user:", user)
-
     if (!user) {
       return null
     }
@@ -19,9 +17,6 @@ export const ProfilesRepository = {
       .select("*")
       .eq("id", user.id)
       .single()
-
-    console.log("Profile:", data)
-    console.log("Profile error:", error)
 
     if (error) {
       return null

@@ -155,26 +155,8 @@ export async function syncHousingLeads()
 :Promise<HousingSyncResult>{
 
 
-  console.log(
-    "1️⃣ Starting Housing sync"
-  )
-
-
-
-  console.log(
-    "2️⃣ Fetching Housing leads..."
-  )
-
-
-
   const leads =
     await fetchHousingLeads()
-
-
-
-  console.log(
-    `3️⃣ Found ${leads.length} leads`
-  )
 
 
 

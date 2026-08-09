@@ -1,8 +1,8 @@
 "use server"
 
 import {
-  createActivity,
-} from "@/lib/repositories/activity-repository"
+  createServerSupabaseClient,
+} from "@/lib/supabase/server"
 
 
 
@@ -11,24 +11,46 @@ export async function logWhatsAppActivity(
   dealId:string
 ){
 
-  await createActivity({
+  const supabase = await createServerSupabaseClient()
 
-    contactId,
+  const {
+    data: {
+      user,
+    },
+  } = await supabase.auth.getUser()
 
-    dealId,
+  if (!user) {
+    throw new Error("Unauthorized")
+  }
 
-    type:
-      "whatsapp",
+  const now = new Date().toISOString()
 
-    title:
-      "WhatsApp message initiated",
+  const { error } = await supabase
+    .from("activities")
+    .insert({
+      contact_id: contactId,
+      deal_id: dealId,
+      type: "whatsapp",
+      title: "WhatsApp message initiated",
+      description: "Lead contacted through WhatsApp",
+      activity_date: now,
+      created_by: user.id,
+      user_id: user.id,
+    })
 
-    description:
-      "Lead contacted through WhatsApp",
+  if (error) {
+    throw error
+  }
 
-    date:
-      new Date().toISOString(),
+  const { error: contactError } = await supabase
+    .from("contacts")
+    .update({
+      last_activity_at: now,
+    })
+    .eq("id", contactId)
 
-  })
+  if (contactError) {
+    throw contactError
+  }
 
 }

@@ -10,10 +10,6 @@ import {
   getBuyerMatches,
 } from "@/lib/services/buyer-matching"
 
-import {
-  getPropertySharesByContactId,
-} from "@/lib/repositories/property-share-repository"
-
 import type {
   Property,
 } from "@/types/property"

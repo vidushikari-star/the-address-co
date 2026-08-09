@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 
 import type {
   Property,
@@ -115,9 +116,12 @@ export function RecommendedPropertyCard({
           {
             property.coverImage ? (
 
-              <img
+              <Image
                 src={property.coverImage}
                 alt={property.name}
+                width={112}
+                height={80}
+                sizes="112px"
                 className="
                   h-full
                   w-full

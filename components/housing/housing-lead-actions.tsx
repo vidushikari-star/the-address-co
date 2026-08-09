@@ -197,8 +197,7 @@ if(duplicateDeal){
       
 
 
-      const deal =
-        await createDeal({
+      await createDeal({
 
           name:
             `${housingLead?.projectName ?? "Housing Lead"} - ${

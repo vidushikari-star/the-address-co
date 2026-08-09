@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 
 import {
   Bath,
@@ -65,6 +66,7 @@ export function PropertyCard({
       autoPlay
       loop
       playsInline
+      preload="metadata"
       className="
         h-full
         w-full
@@ -77,9 +79,12 @@ export function PropertyCard({
 
   ) : (
 
-    <img
+    <Image
       src={property.coverImage}
       alt={property.name}
+      width={960}
+      height={600}
+      sizes="(max-width: 1024px) 100vw, 288px"
       className="
         h-full
         w-full
@@ -360,6 +365,7 @@ export function PropertyCard({
       autoPlay
       loop
       playsInline
+      preload="metadata"
       className="
         h-full
         w-full
@@ -372,9 +378,12 @@ export function PropertyCard({
 
   ) : (
 
-    <img
+    <Image
       src={property.coverImage}
       alt={property.name}
+      width={576}
+      height={448}
+      sizes="288px"
       className="
         h-full
         w-full

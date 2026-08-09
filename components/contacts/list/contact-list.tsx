@@ -103,6 +103,12 @@ export function ContactList({
   ] =
   useState("all")
 
+  const [
+    currentTime,
+    setCurrentTime,
+  ] =
+  useState<number | null>(null)
+
 
 
 
@@ -132,6 +138,16 @@ export function ContactList({
 
 
   },[])
+
+
+
+  useEffect(() => {
+
+    setCurrentTime(
+      Date.now()
+    )
+
+  }, [])
 
 
 
@@ -254,8 +270,12 @@ export function ContactList({
 
               &&
 
+              currentTime !== null
+
+              &&
+
               (
-                Date.now()
+                currentTime
                 -
                 new Date(
                   contact.lastActivityAt
@@ -342,6 +362,8 @@ export function ContactList({
       followUpFilter,
 
       stageFilter,
+
+      currentTime,
 
     ])
 

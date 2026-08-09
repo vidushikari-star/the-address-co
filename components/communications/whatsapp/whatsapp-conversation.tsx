@@ -3,6 +3,7 @@
 import { useState } from "react"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 import { ArrowLeft } from "lucide-react"
 
@@ -16,12 +17,45 @@ import { Button } from "@/components/ui/button"
 import { QualificationCard } from "@/components/communications/whatsapp/qualification-card"
 
 import type { Contact } from "@/types"
+import type {
+  WhatsAppConversationRow,
+  WhatsAppMessageRow,
+} from "@/lib/supabase/repositories/whatsapp.repository"
+import type {
+  WhatsAppQualification,
+} from "@/lib/communications/qualify-whatsapp"
+
+const qualificationIntents = [
+  "BUY",
+  "SELL",
+  "RENT",
+  "LEASE",
+  "UNKNOWN",
+] as const
+
+function parseQualification(
+  value: unknown
+): WhatsAppQualification | null {
+  if (!value || typeof value !== "object") {
+    return null
+  }
+
+  const qualification = value as Partial<WhatsAppQualification>
+
+  if (!qualificationIntents.includes(
+    qualification.intent as WhatsAppQualification["intent"]
+  )) {
+    return null
+  }
+
+  return qualification as WhatsAppQualification
+}
 
 type WhatsAppConversationProps = {
 
-  conversation: any
+  conversation: WhatsAppConversationRow
 
-  messages: any[]
+  messages: WhatsAppMessageRow[]
 
   contact?: Contact
 
@@ -39,6 +73,8 @@ export function WhatsAppConversation({
 
 }: WhatsAppConversationProps) {
 
+  const router = useRouter()
+
 
   const [creating, setCreating] =
     useState(false)
@@ -55,9 +91,12 @@ export function WhatsAppConversation({
 
 
   const [qualification, setQualification] =
-    useState(
-      conversation.qualification ?? null
+    useState<WhatsAppQualification | null>(
+      parseQualification(conversation.qualification)
     )
+
+  const [error, setError] =
+    useState<string | null>(null)
 
 
 
@@ -66,6 +105,7 @@ export function WhatsAppConversation({
   async function handleCreateContact() {
 
     setCreating(true)
+    setError(null)
 
     try {
 
@@ -75,6 +115,12 @@ export function WhatsAppConversation({
 
 
       setCreated(true)
+      router.refresh()
+
+    } catch (createError) {
+
+      console.error("Unable to create WhatsApp contact", createError)
+      setError("Unable to create the contact. Please try again.")
 
     }
     finally {
@@ -92,6 +138,7 @@ export function WhatsAppConversation({
   async function handleQualifyLead() {
 
     setQualifying(true)
+    setError(null)
 
     try {
 
@@ -102,8 +149,14 @@ export function WhatsAppConversation({
 
 
       setQualification(
-        result.qualification
+        parseQualification(result.qualification)
       )
+      router.refresh()
+
+    } catch (qualificationError) {
+
+      console.error("Unable to qualify WhatsApp lead", qualificationError)
+      setError("Unable to qualify this lead. Please try again.")
 
     }
     finally {
@@ -181,6 +234,13 @@ export function WhatsAppConversation({
         </div>
 
       </div>
+
+
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
 
 
 

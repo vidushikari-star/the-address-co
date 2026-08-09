@@ -1,4 +1,5 @@
 import { Building2 } from "lucide-react"
+import Image from "next/image"
 
 type PropertyImageProps = {
   image?: string
@@ -11,9 +12,12 @@ export function PropertyImage({
 }: PropertyImageProps) {
   if (image) {
     return (
-      <img
+      <Image
         src={image}
         alt={name}
+        width={352}
+        height={256}
+        sizes="176px"
         className="h-32 w-44 rounded-2xl object-cover"
       />
     )

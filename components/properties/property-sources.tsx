@@ -1,9 +1,12 @@
 "use client"
 
+import type {
+  PropertySource,
+} from "@/lib/repositories/property-contact-repository"
 
 type Props = {
 
-  sources:any[]
+  sources:PropertySource[]
 
 }
 

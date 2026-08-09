@@ -21,7 +21,7 @@ import {
 
 async function getTable(
   table:string
-){
+): Promise<Record<string, unknown>[]>{
 
 const supabase =
 await createServerSupabaseClient()
@@ -48,7 +48,7 @@ throw error
 }
 
 
-return data ?? []
+return (data ?? []) as Record<string, unknown>[]
 
 }
 
@@ -163,9 +163,9 @@ XLSX.utils.book_new()
 
 
 
-function addSheet(
+function addSheet<Row extends object>(
 name:string,
-rows:any[]
+rows:Row[]
 ){
 
 const sheet =

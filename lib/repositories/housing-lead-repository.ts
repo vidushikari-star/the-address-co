@@ -2,9 +2,43 @@ import {
   createServerSupabaseClient,
 } from "@/lib/supabase/server"
 
+export type HousingLead = {
+  id: string
+  contact: [{
+    id: string
+    first_name: string
+    last_name: string | null
+    phone: string
+    email: string | null
+    locations: string[] | null
+    budget_min: number | null
+    budget_max: number | null
+  }]
+  housingLeadId: string | null
+  name: string
+  stage: string
+  dealId: string | null
+  property: {
+    id: string
+    name: string
+    slug: string
+  } | null
+  converted: boolean
+  lastActivity: {
+    id: string
+    title: string
+    type: string
+    createdAt: string | null
+  } | null
+  commission: {
+    id: string
+    amount: number | string | null
+    status: string
+  } | null
+}
 
 
-export async function getHousingLeads(){
+export async function getHousingLeads(): Promise<HousingLead[]>{
 
   const supabase =
     await createServerSupabaseClient()
@@ -200,10 +234,8 @@ export async function getHousingLeads(){
 
   return (
 
-    contacts ?? []
-
-  )
-  .map(
+    (contacts ?? [])
+    .map(
 
     contact => {
 
@@ -350,6 +382,8 @@ export async function getHousingLeads(){
 
     }
 
-  )
+    )
+
+  ) as HousingLead[]
 
 }

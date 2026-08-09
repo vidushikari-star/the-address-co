@@ -1,6 +1,6 @@
 import {
-  getCurrentUser,
-} from "@/lib/auth/current-user"
+  getServerUserProfile,
+} from "@/lib/auth/server-user-profile"
 
 import {
   isAdmin,
@@ -12,7 +12,7 @@ export async function requireAdmin(){
 
 
   const user =
-    await getCurrentUser()
+    await getServerUserProfile()
 
 
 

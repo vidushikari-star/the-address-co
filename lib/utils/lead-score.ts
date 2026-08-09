@@ -11,33 +11,6 @@ export type LeadPriority =
 
 
 
-function isBuyerContact(
-contact: Contact
-){
-
-const roles =
-contact.relationshipTypes
-?.map(
-  role =>
-    role.toLowerCase()
-)
-?? []
-
-
-
-return roles.some(
-role =>
-[
-"buyer",
-"investor",
-"tenant",
-].includes(role)
-)
-
-}
-
-
-
 function isSellerContact(
 contact: Contact
 ){

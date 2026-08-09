@@ -1,7 +1,5 @@
 "use client"
 
-import Link from "next/link"
-
 import {
   MessageCircle,
 } from "lucide-react"
@@ -30,6 +28,12 @@ export function WhatsAppButton({
   dealId,
 }:Props){
 
+  const normalizedPhone = phone.replace(/\D/g, "")
+
+  if (!normalizedPhone) {
+    return null
+  }
+
 
   async function handleClick(){
 
@@ -47,47 +51,16 @@ export function WhatsAppButton({
 
 
   return (
-
-    <Link
-
-      href={
-        `https://wa.me/${phone.replace(/\D/g,"")}`
-      }
-
+    <a
+      href={`https://wa.me/${normalizedPhone}`}
       target="_blank"
-
-      onClick={
-        handleClick
-      }
-
+      rel="noreferrer"
+      onClick={handleClick}
+      className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted"
     >
-
-      <button
-
-        className="
-          inline-flex
-          items-center
-          gap-2
-          rounded-md
-          border
-          px-3
-          py-2
-          text-sm
-          hover:bg-muted
-        "
-
-      >
-
-        <MessageCircle
-          className="h-4 w-4"
-        />
-
-        WhatsApp
-
-      </button>
-
-    </Link>
-
+      <MessageCircle className="h-4 w-4" />
+      WhatsApp
+    </a>
   )
 
 }

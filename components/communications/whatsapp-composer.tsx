@@ -67,6 +67,16 @@ type Advisor = {
 
 }
 
+const rewriteTones = [
+  "formal",
+  "warm",
+  "concise",
+  "luxury",
+] as const
+
+type RewriteTone =
+  (typeof rewriteTones)[number]
+
 
 
 
@@ -343,11 +353,7 @@ export function WhatsAppComposer({
 
   async function rewriteMessage(
 
-    tone:
-      | "formal"
-      | "warm"
-      | "concise"
-      | "luxury"
+    tone: RewriteTone
 
   ) {
 
@@ -795,12 +801,7 @@ export function WhatsAppComposer({
 
 
                     {
-                      [
-                        "formal",
-                        "warm",
-                        "concise",
-                        "luxury",
-                      ].map(
+                      rewriteTones.map(
                         (tone)=>(
                           <Button
 
@@ -818,7 +819,7 @@ export function WhatsAppComposer({
 
                             onClick={() =>
                               rewriteMessage(
-                                tone as any
+                                tone
                               )
                             }
 

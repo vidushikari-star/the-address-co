@@ -7,12 +7,15 @@ import Link from "next/link"
 import {
   WhatsAppRepository,
 } from "@/lib/supabase/repositories/whatsapp.repository"
+import type {
+  WhatsAppConversationRow,
+} from "@/lib/supabase/repositories/whatsapp.repository"
 
 
 export function WhatsAppInbox() {
 
   const [conversations, setConversations] =
-    useState<any[]>([])
+    useState<WhatsAppConversationRow[]>([])
 
 
   const [loading, setLoading] =

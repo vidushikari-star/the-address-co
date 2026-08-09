@@ -1,4 +1,11 @@
 import { supabase } from "@/lib/supabase/client"
+import type { Database } from "@/types/database"
+
+export type WhatsAppConversationRow =
+  Database["public"]["Tables"]["whatsapp_conversations"]["Row"]
+
+export type WhatsAppMessageRow =
+  Database["public"]["Tables"]["whatsapp_messages"]["Row"]
 
 
 export const WhatsAppRepository = {
@@ -7,21 +14,23 @@ export const WhatsAppRepository = {
   async getConversations() {
 
     const {
+      data: {
+        user,
+      },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return [] as WhatsAppConversationRow[]
+    }
+
+    const {
       data,
       error,
     } =
       await supabase
         .from("whatsapp_conversations")
-        .select(`
-          *,
-          contact:contacts(
-            id,
-            first_name,
-            last_name,
-            phone,
-            email
-          )
-        `)
+        .select("*")
+        .eq("owner_id", user.id)
         .order(
           "last_message_at",
           {
@@ -34,7 +43,7 @@ export const WhatsAppRepository = {
       throw error
 
 
-    return data ?? []
+    return (data ?? []) as WhatsAppConversationRow[]
 
   },
 
@@ -64,7 +73,7 @@ export const WhatsAppRepository = {
     throw error
 
 
-  return data ?? null
+    return (data as WhatsAppConversationRow | null) ?? null
 
 },
 
@@ -99,7 +108,7 @@ export const WhatsAppRepository = {
       throw error
 
 
-    return data ?? []
+    return (data ?? []) as WhatsAppMessageRow[]
 
   },
 

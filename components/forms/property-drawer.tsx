@@ -1,10 +1,12 @@
 "use client"
 
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
 } from "react"
+import Image from "next/image"
 
 import {
   FormDrawer,
@@ -54,6 +56,9 @@ import {
 import {
   addContactRelationshipType,
 } from "@/lib/supabase/repositories/contact-relationship.repository"
+import type {
+  Contact,
+} from "@/types/contact"
 
 
 
@@ -118,7 +123,7 @@ export function PropertyDrawer({
 const [
   contacts,
   setContacts,
-] = useState<any[]>([])
+] = useState<Contact[]>([])
 
 
 const [
@@ -412,7 +417,7 @@ function removeDocument(index:number){
 
 
 
-  function resetForm(){
+  const resetForm = useCallback(() => {
 
   setForm({
 
@@ -533,22 +538,16 @@ function removeDocument(index:number){
 
   }
 
-}
+  }, [housingLead])
 
 
 
-async function loadContacts(){
+const loadContacts = useCallback(async () => {
 
 try {
 
   const data =
     await ContactsRepository.getAll()
-
-
-  console.log(
-    "PROPERTY CONTACTS:",
-    data
-  )
 
 
   setContacts(
@@ -557,6 +556,8 @@ try {
 
 
 }
+
+
 catch(error){
 
   console.error(
@@ -566,7 +567,7 @@ catch(error){
 
 }
 
-}
+}, [])
 
 
   useEffect(()=>{
@@ -575,11 +576,15 @@ if(open){
 
   resetForm()
 
-  loadContacts()
+  void loadContacts()
 
 }
 
-},[open])
+},[
+  open,
+  resetForm,
+  loadContacts,
+])
 
 
 
@@ -1441,9 +1446,17 @@ alert(
 
   ) : (
 
-    <img
+    <Image
 
       src={preview.url}
+
+      alt={`Selected property media ${index + 1}`}
+
+      width={160}
+
+      height={80}
+
+      unoptimized
 
       className="
         h-20
@@ -1744,7 +1757,7 @@ value={contact.id}
 >
 
 {
- contact.fullName ??
+ contact.name ??
  `${contact.firstName} ${contact.lastName ?? ""}`
 }
 

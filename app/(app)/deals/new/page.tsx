@@ -268,33 +268,6 @@ export default function NewDealPage() {
 
 
 
-  function calculateCommission(
-    price:string,
-    percentage:string
-  ){
-
-    if(!price){
-
-      return ""
-
-    }
-
-
-    return String(
-
-      Number(price)
-      *
-      Number(percentage)
-      /
-      100
-
-    )
-
-  }
-
-
-
-
 
 
 

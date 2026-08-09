@@ -23,6 +23,25 @@ type Input = {
 
 }
 
+type CalculatedDealCommission = {
+  dealId: string
+  contactId: string
+  propertyId: string
+  advisorId?: string
+  type: CommissionType
+  commissionRole:
+    | "buyer"
+    | "tenant"
+    | "owner"
+    | "developer"
+    | "broker"
+    | "mou_holder"
+  commissionBasis: "percentage" | "fixed"
+  commissionPercentage: number
+  amount: number
+  notes: string
+}
+
 
 
 
@@ -39,7 +58,7 @@ export function calculateDealCommissions({
 
 
 
-  const commissions:any[] = []
+  const commissions:CalculatedDealCommission[] = []
 
 
 

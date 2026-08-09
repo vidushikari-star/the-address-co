@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { WhatsAppConversation } from "@/components/communications/whatsapp/whatsapp-conversation"
 
 import { WhatsAppServerRepository } from "@/lib/supabase/repositories/whatsapp-server.repository"
+import { mapContactRow } from "@/lib/mappers/contact.mapper"
 
 
 type PageProps = {
@@ -40,6 +41,11 @@ export default async function WhatsAppConversationPage({
     notFound()
   }
 
+  const contact =
+    conversation.contact
+      ? mapContactRow(conversation.contact)
+      : undefined
+
 
 
   return (
@@ -55,7 +61,7 @@ export default async function WhatsAppConversationPage({
   }
 
   contact={
-    conversation.contact
+    contact
   }
 
 />

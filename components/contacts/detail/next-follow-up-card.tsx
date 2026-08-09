@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  useCallback,
   useEffect,
   useState,
 } from "react"
@@ -80,7 +81,7 @@ export function NextFollowUpCard({
 
 
 
-  async function loadTask(){
+  const loadTask = useCallback(async () => {
 
     setLoading(true)
 
@@ -137,7 +138,7 @@ export function NextFollowUpCard({
 
     }
 
-  }
+  }, [contact.id])
 
 
 
@@ -146,10 +147,10 @@ export function NextFollowUpCard({
 
   useEffect(()=>{
 
-    loadTask()
+    void loadTask()
 
   },[
-    contact.id
+    loadTask
   ])
 
 
