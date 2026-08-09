@@ -14,6 +14,10 @@ import type {
   TaskWithContext,
 } from "@/lib/repositories/task-server-repository"
 
+import {
+EditTaskDialog,
+} from "./edit-task-dialog"
+
 
 
 
@@ -237,23 +241,24 @@ export function TaskCard({
 
 
         {
-          task.assignedTo && (
+  task.assignedTo && (
 
-            <div className="
-              flex
-              items-center
-              gap-2
-            ">
+    <div className="
+      flex
+      items-center
+      gap-2
+    ">
 
-              <User className="h-4 w-4"/>
+      <User className="h-4 w-4"/>
 
-              Assigned
+      Assigned:
+      {" "}
+      {task.advisorName || "Advisor"}
 
-            </div>
+    </div>
 
-          )
-
-        }
+  )
+}
 
 
 
@@ -319,6 +324,23 @@ export function TaskCard({
           )
 
         }
+
+        <div className="
+flex
+justify-end
+">
+
+<EditTaskDialog
+
+task={task}
+
+onUpdated={() =>
+window.location.reload()
+}
+
+/>
+
+</div>
 
 
 

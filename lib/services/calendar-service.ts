@@ -1,303 +1,310 @@
 import {
-  getAllTasks,
+getAllTasks,
 } from "@/lib/repositories/task-server-repository"
 
-
 import {
-  getAllSiteVisits,
+getAllSiteVisits,
 } from "@/lib/repositories/site-visit-repository"
 
-
 import {
-  createServerSupabaseClient,
+createServerSupabaseClient,
 } from "@/lib/supabase/server"
 
-
 import type {
-  CalendarItem,
+CalendarItem,
 } from "@/types/calendar"
 
 
 
-
-
-
-
 function formatIndiaTime(
-  value:string
+value:string
 ){
 
-  return new Date(
-    value
-  )
-  .toLocaleTimeString(
-    "en-IN",
-    {
-      timeZone:"Asia/Kolkata",
-      hour:"2-digit",
-      minute:"2-digit",
-      hour12:true,
-    }
-  )
+return new Date(
+value
+)
+.toLocaleTimeString(
+"en-IN",
+{
+timeZone:"Asia/Kolkata",
+hour:"2-digit",
+minute:"2-digit",
+hour12:true,
+}
+)
 
 }
 
 
 
+function combineIndiaDateTime(
+date:string,
+time:string
+){
 
+return new Date(
+`${date}T${time}:00+05:30`
+).toISOString()
+
+}
 
 
 
 export async function getCalendarItems(): Promise<CalendarItem[]> {
 
+const [
 
-  const [
+tasks,
 
-    tasks,
+siteVisits,
 
-    siteVisits,
+calendarEvents,
 
-    calendarEvents,
+] =
+await Promise.all([
 
-  ] =
-  await Promise.all([
+getAllTasks(),
 
+getAllSiteVisits(),
 
-    getAllTasks(),
+getSharedCalendarEvents(),
 
-
-    getAllSiteVisits(),
-
-
-    getSharedCalendarEvents(),
-
-
-  ])
+])
 
 
 
 
 
-
-
-  const taskItems: CalendarItem[] =
+const taskItems: CalendarItem[] =
 
 tasks
 
 .filter(
-  task =>
-    task.dueDate &&
-    task.status !== "completed" &&
-    task.archived !== true
+task =>
+task.dueDate &&
+task.completed !== true &&
+task.archived !== true
 )
 
 .map(
-  task => ({
+task => ({
 
-        id:
-          `task-${task.id}`,
+id:
+`task-${task.id}`,
 
-        title:
-          task.title,
+title:
+task.title,
 
-        date:
-          task.dueDate!.toISOString(),
 
-        type:
-          "task",
+date:
+task.dueDate!.toISOString(),
 
-        status:
-          task.completed
-            ? "completed"
-            : "pending",
 
-        contactId:
-          task.contactId,
+type:
+"task",
 
-        dealId:
-          task.dealId,
 
-        assignedTo:
-          task.assignedTo,
+status:
+task.completed
+? "completed"
+: "pending",
 
-        url:
-          task.dealId
-            ? `/deals/${task.dealId}`
-            : task.contactId
-              ? `/contacts/${task.contactId}`
-              : "/tasks",
 
-      })
-    )
+contactId:
+task.contactId,
 
 
+dealId:
+task.dealId,
 
 
+assignedTo:
+task.advisorName,
 
 
+url:
+task.dealId
+? `/deals/${task.dealId}`
+: task.contactId
+? `/contacts/${task.contactId}`
+: "/tasks",
 
+})
+)
 
 
-  const siteVisitItems: CalendarItem[] =
 
-    siteVisits
 
-    .map(
-      visit => ({
 
-        id:
-          `visit-${visit.id}`,
 
-        title:
-          "Site Visit",
+const siteVisitItems: CalendarItem[] =
 
-        date:
-          visit.scheduledDate,
+siteVisits.map(
+  visit => ({
 
-        time:
-          visit.scheduledTime,
+    id:
+      `visit-${visit.id}`,
 
-        type:
-          "site_visit",
+    title:
+      "Site Visit",
 
-        status:
-          visit.status,
+    date:
+`${visit.scheduledDate}T${visit.scheduledTime}:00+05:30`,
 
-        contactId:
-          visit.contactId,
+time:
+new Date(
+`${visit.scheduledDate}T${visit.scheduledTime}:00+05:30`
+)
+.toLocaleTimeString(
+"en-IN",
+{
+hour:"2-digit",
+minute:"2-digit",
+hour12:true,
+}
+),
 
-        dealId:
-          visit.dealId,
+    type:
+      "site_visit",
 
-        propertyId:
-          visit.propertyId,
+    status:
+      visit.status,
 
-        contactName:
-          visit.contactName,
 
-        propertyName:
-          visit.propertyName,
+    contactId:
+      visit.contactId,
 
-        url:
-          visit.dealId
-            ? `/deals/${visit.dealId}`
-            : "/calendar",
 
-      })
-    )
+    dealId:
+      visit.dealId,
 
 
+    propertyId:
+      visit.propertyId,
 
 
+    contactName:
+      visit.contactName,
 
 
+    propertyName:
+      visit.propertyName,
 
 
+    assignedTo:
+      visit.advisorName || undefined,
 
-  const eventItems: CalendarItem[] =
 
-    calendarEvents.map(
-      event => ({
+    url:
+      visit.dealId
+        ? `/deals/${visit.dealId}`
+        : "/calendar",
 
-        id:
-          `event-${event.id}`,
+  })
+)
 
-        title:
-          event.title,
 
 
-        date:
-          event.start_time,
 
 
-        time:
-          formatIndiaTime(
-            event.start_time
-          ),
 
+const eventItems: CalendarItem[] =
 
-        type:
-          "activity",
+calendarEvents.map(
+event => ({
 
+id:
+`event-${event.id}`,
 
-        status:
-          event.status,
 
+title:
+event.title,
 
-        contactId:
-          event.contact_id ?? undefined,
 
+date:
+event.start_time,
 
-        propertyId:
-          event.property_id ?? undefined,
 
+time:
+formatIndiaTime(
+event.start_time
+),
 
-        dealId:
-          event.deal_id ?? undefined,
 
+type:
+"activity",
 
-        contactName:
-          event.contact_name ?? undefined,
 
+status:
+event.status,
 
-        propertyName:
-          event.property_name ?? undefined,
 
+contactId:
+event.contact_id ?? undefined,
 
-        dealName:
-          event.deal_name ?? undefined,
 
+propertyId:
+event.property_id ?? undefined,
 
-        assignedTo:
-          event.assigned_to ?? undefined,
 
+dealId:
+event.deal_id ?? undefined,
 
-        url:
-          `/calendar/${event.id}`,
 
-      })
+contactName:
+event.contact_name ?? undefined,
 
-    )
 
+propertyName:
+event.property_name ?? undefined,
 
 
+dealName:
+event.deal_name ?? undefined,
 
 
+assignedTo:
+event.assigned_to ?? undefined,
 
 
+url:
+`/calendar/${event.id}`,
 
 
-  return [
+})
+)
 
-    ...eventItems,
 
-    ...taskItems,
 
-    ...siteVisitItems,
 
-  ]
 
-  .sort(
+return [
 
-    (a,b) =>
+...eventItems,
 
-      new Date(
-        a.date
-      ).getTime()
+...taskItems,
 
-      -
+...siteVisitItems,
 
-      new Date(
-        b.date
-      ).getTime()
+]
 
-  )
+.sort(
 
+(a,b)=>
+
+new Date(
+a.date
+).getTime()
+
+-
+
+new Date(
+b.date
+).getTime()
+
+)
 
 }
-
-
-
 
 
 
@@ -306,90 +313,85 @@ tasks
 
 async function getSharedCalendarEvents(){
 
-
-  const supabase =
-    await createServerSupabaseClient()
-
+const supabase =
+await createServerSupabaseClient()
 
 
 
+const {
+data,
+error,
+} =
+await supabase
+.from("calendar_events")
+.select(`
+*,
 
-  const {
-    data,
-    error,
-  } =
-    await supabase
-      .from("calendar_events")
-      .select(`
-        *,
-        
-        contacts:contact_id(
-          full_name
-        ),
+contacts:contact_id(
+full_name
+),
 
-        properties:property_id(
-          name
-        ),
+properties:property_id(
+name
+),
 
-        deals:deal_id(
-          name
-        )
+deals:deal_id(
+name
+)
 
-      `)
-      .order(
-        "start_time",
-        {
-          ascending:true,
-        }
-      )
-
-
-
-  if(error){
-
-    console.error(
-      "Failed loading calendar events",
-      error
-    )
-
-    return []
-
-  }
+`)
+.order(
+"start_time",
+{
+ascending:true,
+}
+)
 
 
 
+if(error){
+
+console.error(
+"Failed loading calendar events",
+error
+)
+
+return []
+
+}
 
 
-  return (
 
-    data ?? []
+return (
 
-  )
+data ?? []
 
-  .map(
-    event => ({
+)
 
-      ...event,
+.map(
+event => ({
 
-      contact_name:
-        event.contacts?.full_name
-        ??
-        null,
+...event,
 
 
-      property_name:
-        event.properties?.name
-        ??
-        null,
+contact_name:
+event.contacts?.full_name
+??
+null,
 
 
-      deal_name:
-        event.deals?.name
-        ??
-        null,
+property_name:
+event.properties?.name
+??
+null,
 
-    })
 
-  )
+deal_name:
+event.deals?.name
+??
+null,
+
+})
+)
 
 }

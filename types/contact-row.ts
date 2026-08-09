@@ -3,9 +3,14 @@ export interface ContactRow {
 
   advisor_id: string | null
 
+  advisor?: {
+    id: string
+    full_name: string
+  } | null
+
   created_at: string
-updated_at: string
-last_activity_at: string | null
+  updated_at: string
+  last_activity_at: string | null
 
   first_name: string
   last_name: string | null
@@ -27,7 +32,6 @@ last_activity_at: string | null
   housing_lead_id: string | null
 
   relationship_types: string[] | null
-  
   lead_stage: string
   lead_temperature: string
 
@@ -36,8 +40,6 @@ last_activity_at: string | null
 
   budget_min: number | null
   budget_max: number | null
-
-  
 
   currency: string | null
 

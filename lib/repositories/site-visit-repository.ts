@@ -267,6 +267,87 @@ export async function updateSiteVisitStatus(
   )
 }
 
+export async function updateSiteVisit(
+id: string,
+data: {
+  scheduledDate?: string
+  scheduledTime?: string
+  advisorId?: string
+  notes?: string
+}
+): Promise<SiteVisit> {
+
+
+const payload: Record<string, unknown> = {}
+
+
+
+if(data.scheduledDate !== undefined){
+
+  payload.scheduled_date =
+    data.scheduledDate
+
+}
+
+
+if(data.scheduledTime !== undefined){
+
+  payload.scheduled_time =
+    data.scheduledTime
+
+}
+
+
+if(data.advisorId !== undefined){
+
+  payload.advisor_id =
+    data.advisorId || null
+
+}
+
+
+if(data.notes !== undefined){
+
+  payload.notes =
+    data.notes || null
+
+}
+
+
+
+payload.updated_at =
+new Date().toISOString()
+
+
+
+const {
+data: row,
+error,
+} =
+await supabase
+.from("site_visits")
+.update(payload)
+.eq(
+"id",
+id
+)
+.select()
+.single()
+
+
+
+if(error){
+throw error
+}
+
+
+
+return mapSiteVisitRow(
+row as SiteVisitRow
+)
+
+}
+
 export async function getAllSiteVisits(): Promise<SiteVisit[]> {
   const {
     data,

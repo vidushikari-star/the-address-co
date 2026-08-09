@@ -2,17 +2,13 @@
 
 import {
 useState,
+useEffect,
 } from "react"
-
-import Link from "next/link"
 
 import {
 Clock,
-Phone,
 AlertCircle,
 CalendarDays,
-RotateCcw,
-X,
 } from "lucide-react"
 
 import {
@@ -42,9 +38,17 @@ import {
 createActivity,
 } from "@/lib/repositories/activity-repository"
 
+import {
+getAllUserProfiles,
+} from "@/lib/repositories/user-profile-repository"
+
 import type {
 Contact,
 } from "@/types/contact"
+
+import type {
+UserProfile,
+} from "@/types/user"
 
 
 
@@ -66,7 +70,8 @@ upcoming: Contact[]
 
 export function FollowUpQueue({
 queue,
-}: Props){
+}:Props){
+
 
 const [
 updating,
@@ -76,8 +81,63 @@ useState(false)
 
 
 
+const [
+advisors,
+setAdvisors,
+] =
+useState<UserProfile[]>([])
+
+
+
+useEffect(()=>{
+
+getAllUserProfiles()
+.then(
+setAdvisors
+)
+
+},[])
+
+
+
+
+async function assignAdvisor(
+contactId:string,
+advisorId:string
+){
+
+try{
+
+setUpdating(true)
+
+
+await ContactsRepository.update(
+contactId,
+{
+advisorId:
+advisorId || undefined,
+}
+)
+
+
+window.location.reload()
+
+
+}
+finally{
+
+setUpdating(false)
+
+}
+
+}
+
+
+
+
+
 async function logCall(
-contact: Contact
+contact:Contact
 ){
 
 await createActivity({
@@ -104,13 +164,90 @@ window.location.reload()
 
 
 
-async function dismissFollowUp(
-contact: Contact
+
+
+
+async function reschedule(
+contact:Contact,
+days:number
 ){
 
-try {
+setUpdating(true)
+
+try{
+
+
+const date =
+new Date()
+
+
+date.setDate(
+date.getDate()+days
+)
+
+
+date.setHours(
+10,
+0,
+0,
+0
+)
+
+
+
+await ContactsRepository.update(
+contact.id,
+{
+
+nextFollowUpAt:
+date.toISOString(),
+
+}
+)
+
+
+
+await createActivity({
+
+type:"note",
+
+title:"Follow up rescheduled",
+
+body:
+`Follow up moved to ${date.toLocaleDateString()}`,
+
+contactId:
+contact.id,
+
+date:
+new Date().toISOString(),
+
+})
+
+
+window.location.reload()
+
+
+}
+finally{
+
+setUpdating(false)
+
+}
+
+}
+
+
+
+
+
+async function dismissFollowUp(
+contact:Contact
+){
 
 setUpdating(true)
+
+try{
 
 
 await ContactsRepository.update(
@@ -143,7 +280,6 @@ new Date().toISOString(),
 })
 
 
-
 window.location.reload()
 
 
@@ -156,99 +292,32 @@ setUpdating(false)
 
 }
 
-async function reschedule(
-contact: Contact,
-days: number
-){
-
-try {
-
-  setUpdating(true)
-
-
-  const date =
-    new Date()
-
-
-  date.setDate(
-    date.getDate() + days
-  )
-
-
-  date.setHours(
-    10,
-    0,
-    0,
-    0
-  )
 
 
 
-  await ContactsRepository.update(
-    contact.id,
-    {
 
-      nextFollowUpAt:
-        date.toISOString(),
-
-    }
-  )
-
-
-
-  await createActivity({
-
-    type:"note",
-
-    title:"Follow up rescheduled",
-
-    body:
-      `Follow up moved to ${date.toLocaleDateString()}`,
-
-    contactId:
-      contact.id,
-
-    date:
-      new Date().toISOString(),
-
-  })
-
-
-
-  window.location.reload()
-
-
-}
-finally {
-
-  setUpdating(false)
-
-}
-
-}
 
 function ContactItem({
 contact,
-}: {
-contact: Contact
+}:{
+contact:Contact
 }){
+
 
 return (
 
 <div className="
-  rounded-xl
-  border
-  p-3
-  space-y-3
+rounded-xl
+border
+p-3
+space-y-3
 ">
 
 
-<Link
-href={`/contacts/${contact.id}`}
->
+<div>
 
 <p className="
-  font-medium
+font-medium
 ">
 
 {contact.name}
@@ -257,8 +326,8 @@ href={`/contacts/${contact.id}`}
 
 
 <p className="
-  text-sm
-  text-muted-foreground
+text-sm
+text-muted-foreground
 ">
 
 {contact.phone}
@@ -266,26 +335,104 @@ href={`/contacts/${contact.id}`}
 </p>
 
 
-</Link>
+</div>
+
+
+
+
+
+<div>
+
+<label className="
+text-xs
+font-medium
+text-muted-foreground
+">
+
+Advisor
+
+</label>
+
+
+<select
+
+className="
+mt-1
+w-full
+rounded-lg
+border
+p-2
+text-sm
+"
+
+value={
+  contact.advisor ?? ""
+}
+
+disabled={
+updating
+}
+
+onChange={
+e =>
+assignAdvisor(
+contact.id,
+e.target.value
+)
+}
+
+>
+
+<option value="">
+
+Unassigned
+
+</option>
+
+
+{
+advisors.map(
+advisor=>(
+
+<option
+
+key={
+advisor.id
+}
+
+value={
+advisor.id
+}
+
+>
+
+{advisor.name}
+
+</option>
+
+)
+
+)
+
+}
+
+
+</select>
+
+
+</div>
+
+
+
+
 
 
 
 <div className="
-  grid
-  grid-cols-1
-  gap-2
-  sm:grid-cols-3
+grid
+grid-cols-2
+gap-2
 ">
-
-
-<div className="w-full">
-
-<WhatsAppButton
-contact={contact}
-/>
-
-</div>
-
 
 
 <Button
@@ -293,8 +440,6 @@ contact={contact}
 size="sm"
 
 variant="outline"
-
-className="w-full"
 
 onClick={() =>
 logCall(contact)
@@ -302,15 +447,18 @@ logCall(contact)
 
 >
 
-<Phone className="
-mr-2
-h-4
-w-4
-"/>
-
 Call
 
 </Button>
+
+
+
+
+<WhatsAppButton
+
+contact={contact}
+
+/>
 
 
 
@@ -319,8 +467,6 @@ Call
 size="sm"
 
 variant="outline"
-
-className="w-full"
 
 disabled={updating}
 
@@ -333,27 +479,10 @@ contact,
 
 >
 
-<RotateCcw className="
-mr-2
-h-4
-w-4
-"/>
-
 Tomorrow
 
 </Button>
 
-
-</div>
-
-
-
-
-<div className="
-grid
-grid-cols-3
-gap-2
-">
 
 
 <Button
@@ -402,6 +531,7 @@ Next Week
 
 
 
+
 <Button
 
 size="sm"
@@ -415,12 +545,6 @@ dismissFollowUp(contact)
 }
 
 >
-
-<X className="
-mr-2
-h-4
-h-4
-"/>
 
 Dismiss
 
@@ -436,33 +560,47 @@ Dismiss
 
 }
 
-  function Section({
+
+
+
+
+
+
+function Section({
 title,
 icon,
 contacts,
 variant,
-}: {
+}:{
+
 title:string
+
 icon:React.ReactNode
+
 contacts:Contact[]
-variant?: "danger" | "normal"
+
+variant?:
+"danger"
+|
+"normal"
+
 }){
 
 
-    return (
+return (
 
-      <section>
+<section>
 
 
-        <div className="
-  mb-3
-  flex
-  items-center
-  justify-between
+<div className="
+mb-3
+flex
+items-center
+justify-between
 ">
 
 
-          <div className="
+<div className="
 flex
 items-center
 gap-2
@@ -470,229 +608,222 @@ gap-2
 
 {icon}
 
-<h3 className="font-medium">
-
 {title}
 
-</h3>
 
 <Badge
+
 variant={
 variant === "danger"
-? "destructive"
-: "secondary"
+?
+"destructive"
+:
+"secondary"
 }
+
 >
 
 {contacts.length}
 
 </Badge>
 
+
+</div>
+
+
 </div>
 
 
 
 
 
-        </div>
+<div className="
+space-y-3
+">
 
 
-
-
-
-        <div className="space-y-3">
-
-
-          {
-            contacts
+{
+contacts
 .slice(0,2)
-              .map(contact => (
+.map(
+contact=>(
 
-                <ContactItem
+<ContactItem
 
-                  key={contact.id}
+key={
+contact.id
+}
 
-                  contact={contact}
+contact={
+contact
+}
 
-                />
+/>
 
-              ))
-          }
+)
 
-
-
-
-          {
-            contacts.length === 0 && (
-
-              <p className="
-                text-sm
-                text-muted-foreground
-              ">
-
-                No follow ups.
-
-              </p>
-
-            )
-          }
-
-
-        </div>
-
-
-      </section>
-
-    )
-
-  }
+)
+}
 
 
 
+{
+contacts.length === 0 && (
 
-
-
-
-  return (
-
-    <Card>
-
-
-      <CardHeader>
-
-        <div className="
-ml-auto
+<p className="
+text-sm
+text-muted-foreground
 ">
 
+No follow ups.
+
+</p>
+
+)
+
+}
 
 
 </div>
 
 
-        <CardTitle className="
-  flex
-  items-center
-  justify-between
+</section>
+
+)
+
+}
+
+
+
+
+
+
+
+return (
+
+<Card>
+
+
+<CardHeader>
+
+<CardTitle className="
+flex
+items-center
+justify-between
 ">
 
-  <div className="
-    flex
-    items-center
-    gap-2
-  ">
 
-    <Clock className="h-5 w-5"/>
+<div className="
+flex
+items-center
+gap-2
+">
 
-    Follow Up Queue
+<Clock className="h-5 w-5"/>
 
-  </div>
+Follow Up Queue
+
+</div>
 
 
-  <Link href="/contacts">
+<Button
 
-    <Button
-      variant="outline"
-      size="sm"
-    >
+variant="outline"
 
-      View All
+size="sm"
 
-    </Button>
+>
 
-  </Link>
+View All
+
+</Button>
 
 
 </CardTitle>
 
 
-      </CardHeader>
+</CardHeader>
 
 
 
 
 
-
-      <CardContent className="
-        space-y-6
-      ">
-
+<CardContent className="
+space-y-6
+">
 
 
-        <Section
+<Section
 
-          title="Overdue"
+title="Overdue"
 
-          contacts={
-            queue.overdue
-          }
+contacts={
+queue.overdue
+}
 
-          variant="danger"
+variant="danger"
 
-          icon={
+icon={
 
-            <AlertCircle className="
-              h-4
-              w-4
-              text-destructive
-            "/>
+<AlertCircle className="
+h-4
+w-4
+text-destructive
+"/>
 
-          }
+}
 
-        />
+/>
 
 
 
+<Section
 
+title="Today"
 
-        <Section
+contacts={
+queue.today
+}
 
-          title="Today"
+icon={
 
-          contacts={
-            queue.today
-          }
+<CalendarDays className="
+h-4
+w-4
+"/>
 
-          icon={
+}
 
-            <CalendarDays className="
-              h-4
-              w-4
-            "/>
-
-          }
-
-        />
-
+/>
 
 
 
+<Section
 
-        <Section
+title="Upcoming"
 
-          title="Upcoming"
+contacts={
+queue.upcoming
+}
 
-          contacts={
-            queue.upcoming
-          }
+icon={
 
-          icon={
+<CalendarDays className="
+h-4
+w-4
+"/>
 
-            <CalendarDays className="
-              h-4
-              w-4
-            "/>
+}
 
-          }
-
-        />
-
+/>
 
 
-      </CardContent>
+
+</CardContent>
 
 
-    </Card>
+</Card>
 
-  )
+)
 
 }

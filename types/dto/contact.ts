@@ -28,6 +28,8 @@ export interface CreateContactDto {
 
   assignedAdvisor?: string
 
+  advisor?: string
+
 
   budgetMin?: number
 

@@ -29,6 +29,10 @@ import {
   Button,
 } from "@/components/ui/button"
 
+import {
+EditSiteVisitDialog,
+} from "./edit-site-visit-dialog"
+
 
 
 type Props = {
@@ -51,6 +55,11 @@ export function SiteVisits({
   dealStage,
 }: Props) {
 
+  const [
+editingVisit,
+setEditingVisit,
+] =
+useState<SiteVisit | null>(null)
 
   const [
     updates,
@@ -362,11 +371,28 @@ ${value.feedback || "No feedback added"}`,
 
                   <p>
 
-                    Time:
-                    {" "}
-                    {visit.scheduledTime}
+Time:
+{" "}
 
-                  </p>
+{
+visit.scheduledTime
+?
+new Date(
+`2000-01-01T${visit.scheduledTime}`
+)
+.toLocaleTimeString(
+"en-IN",
+{
+hour:"2-digit",
+minute:"2-digit",
+hour12:true,
+}
+)
+:
+""
+}
+
+</p>
 
                 </div>
 
@@ -444,19 +470,46 @@ ${value.feedback || "No feedback added"}`,
 
 
 
-                <Button
+                <div className="
+flex
+gap-2
+">
 
-                  onClick={() =>
-                    save(
-                      visit
-                    )
-                  }
 
-                >
+<Button
 
-                  Update Visit
+  variant="outline"
 
-                </Button>
+  onClick={() =>
+    setEditingVisit(
+      visit
+    )
+  }
+
+>
+
+  Edit
+
+</Button>
+
+
+
+<Button
+
+  onClick={() =>
+    save(
+      visit
+    )
+  }
+
+>
+
+  Update Visit
+
+</Button>
+
+
+</div>
 
 
               </div>
@@ -469,6 +522,41 @@ ${value.feedback || "No feedback added"}`,
         )
 
       }
+
+      {
+editingVisit && (
+
+<EditSiteVisitDialog
+
+visit={
+editingVisit
+}
+
+open={
+!!editingVisit
+}
+
+onOpenChange={
+(open)=>{
+
+if(!open){
+
+setEditingVisit(null)
+
+}
+
+}
+
+}
+
+onUpdated={()=>{
+window.location.reload()
+}}
+
+/>
+
+)
+}
 
 
     </div>

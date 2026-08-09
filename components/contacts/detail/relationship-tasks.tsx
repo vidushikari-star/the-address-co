@@ -23,9 +23,6 @@ import {
   createActivity,
 } from "@/lib/repositories/activity-repository"
 
-import {
-  ADVISORS,
-} from "@/lib/config/advisors"
 
 import {
   CalendarClock,
@@ -52,6 +49,14 @@ import {
 import {
   Checkbox,
 } from "@/components/ui/checkbox"
+
+import {
+getAllUserProfiles,
+} from "@/lib/repositories/user-profile-repository"
+
+import type {
+UserProfile,
+} from "@/types/user"
 
 
 
@@ -113,12 +118,16 @@ export function RelationshipTasks({
 
 
   const [
-    assignedTo,
-    setAssignedTo,
-  ] =
-  useState(
-    "Vidushi Kari"
-  )
+assignedTo,
+setAssignedTo,
+] =
+useState("")
+
+const [
+advisors,
+setAdvisors,
+] =
+useState<UserProfile[]>([])
 
 
 
@@ -128,22 +137,54 @@ export function RelationshipTasks({
 
 
   useEffect(() => {
-  let mounted = true
 
-  async function loadTasks() {
-    const data = await getTasksByContactId(contact.id)
+let mounted = true
 
-    if (mounted) {
-      setTasks(data)
-    }
-  }
 
-  loadTasks()
+async function loadTasks() {
 
-  return () => {
-    mounted = false
-  }
-}, [contact.id])
+const [
+taskData,
+advisorData,
+] =
+await Promise.all([
+
+getTasksByContactId(
+contact.id
+),
+
+getAllUserProfiles(),
+
+])
+
+
+if(mounted){
+
+setTasks(
+taskData
+)
+
+setAdvisors(
+advisorData
+)
+
+}
+
+}
+
+
+loadTasks()
+
+
+return () => {
+
+mounted = false
+
+}
+
+},[
+contact.id
+])
 
 
 
@@ -431,7 +472,61 @@ export function RelationshipTasks({
               p-4
             ">
 
+<select
 
+className="
+w-full
+rounded-lg
+border
+p-3
+"
+
+value={
+assignedTo
+}
+
+onChange={
+e =>
+setAssignedTo(
+e.target.value
+)
+}
+
+>
+
+<option value="">
+Unassigned
+</option>
+
+
+{
+advisors.map(
+advisor => (
+
+<option
+
+key={
+advisor.id
+}
+
+value={
+advisor.id
+}
+
+>
+
+{
+advisor.name
+}
+
+</option>
+
+)
+
+)
+}
+
+</select>
 
               <Input
 
@@ -476,59 +571,7 @@ export function RelationshipTasks({
 
 
 
-              <select
-
-                value={
-                  assignedTo
-                }
-
-                onChange={
-                  e =>
-                    setAssignedTo(
-                      e.target.value
-                    )
-                }
-
-                className="
-                  h-11
-                  w-full
-                  rounded-xl
-                  border
-                  px-3
-                  text-sm
-                "
-
-              >
-
-                {
-                  Object.values(
-                    ADVISORS
-                  )
-                  .map(
-                    advisor => (
-
-                      <option
-
-                        key={
-                          advisor.name
-                        }
-
-                        value={
-                          advisor.name
-                        }
-
-                      >
-
-                        {advisor.name}
-
-                      </option>
-
-                    )
-                  )
-                }
-
-
-              </select>
+              
 
 
 

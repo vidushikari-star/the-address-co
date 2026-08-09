@@ -53,19 +53,25 @@ export const ContactsRepository = {
 
   async getAll(): Promise<Contact[]> {
 
-    const {
-      data,
-      error,
-    } =
-      await supabase
-        .from("contacts")
-        .select("*")
-        .order(
-          "created_at",
-          {
-            ascending:false,
-          }
-        )
+const {
+data,
+error,
+} =
+await supabase
+.from("contacts")
+.select(`
+  *,
+  advisor:profiles!contacts_advisor_id_fkey(
+    id,
+    full_name
+  )
+`)
+.order(
+"created_at",
+{
+ascending:false,
+}
+)
 
 
     if(error)
@@ -73,17 +79,30 @@ export const ContactsRepository = {
 
 
     return (
+data ?? []
+).map(
+row => {
 
-      data ?? []
+const contact =
+mapContactRow(
+row as ContactRow
+)
 
-    ).map(
 
-      row =>
-        mapContactRow(
-          row as ContactRow
-        )
+return {
 
-    )
+...contact,
+
+advisorId:
+row.advisor?.id ?? undefined,
+
+assignedAdvisor:
+row.advisor?.full_name ?? undefined,
+
+}
+
+}
+)
 
   },
 
@@ -94,110 +113,113 @@ export const ContactsRepository = {
 
 
   async getById(
-  id: string
-): Promise<Contact> {
+id: string
+): Promise<Contact | null> {
 
-  const { data, error } =
-    await supabase
-      .from("contacts")
-      .select(`
-        *,
-        advisor:profiles!contacts_advisor_id_fkey(
-  full_name
+const {
+data,
+error,
+} =
+await supabase
+.from("contacts")
+.select(`
+  *,
+  advisor:profiles!contacts_advisor_id_fkey(
+    full_name
+  )
+`)
+.eq(
+"id",
+id
 )
-      `)
-      .eq(
-        "id",
-        id
-      )
-      .single()
+.maybeSingle()
 
 
-  if (error) throw error
+if(error){
+throw error
+}
 
 
-  const contact =
-    mapContactRow(
-      data as ContactRow
-    )
+if(!data){
+return null
+}
 
 
-  return {
+const contact =
+mapContactRow(
+data as ContactRow
+)
 
-    ...contact,
 
-    assignedAdvisor:
-      data.advisor?.full_name ??
-      undefined,
+return {
 
-  }
+...contact,
+
+assignedAdvisor:
+data.advisor?.full_name ?? undefined,
+
+}
 
 },
 
+async getByIdWithRelations(
+id: string
+): Promise<Contact | null> {
 
-
-
-
-
-
-
-  async getByIdWithRelations(
-  id: string
-): Promise<Contact> {
-
-  const {
-    data,
-    error,
-  } =
-    await supabase
-      .from("contacts")
-      .select(`
-        *,
-        advisor:profiles!contacts_advisor_id_fkey(
-  full_name
+const {
+data,
+error,
+} =
+await supabase
+.from("contacts")
+.select(`
+  *,
+  advisor:profiles!contacts_advisor_id_fkey(
+    full_name
+  )
+`)
+.eq(
+"id",
+id
 )
-      `)
-      .eq(
-        "id",
-        id
-      )
-      .single()
+.maybeSingle()
 
 
-  if(error){
-    throw error
-  }
+if(error){
+throw error
+}
 
 
-  const contact =
-    mapContactRow(
-      data as ContactRow
-    )
+if(!data){
+return null
+}
 
 
-  return {
-
-    ...contact,
-
-    assignedAdvisor:
-      data.advisor?.full_name ??
-      undefined,
+const contact =
+mapContactRow(
+data as ContactRow
+)
 
 
-    activities:
-      contact.activities ?? [],
+return {
 
-    tasks:
-      contact.tasks ?? [],
+...contact,
 
-    notes:
-      contact.notes ?? [],
+assignedAdvisor:
+data.advisor?.full_name ?? undefined,
 
-  }
+activities:
+contact.activities ?? [],
+
+tasks:
+contact.tasks ?? [],
+
+notes:
+contact.notes ?? [],
+
+}
 
 },
-
-
 
 
 
@@ -492,10 +514,10 @@ export const ContactsRepository = {
 
 
 
-    if(contact.assignedAdvisor !== undefined)
+    if(contact.advisorId !== undefined)
 
-      payload.assigned_advisor =
-        contact.assignedAdvisor ?? null
+  payload.advisor_id =
+    contact.advisorId ?? null
 
         if(contact.leadSource !== undefined)
 

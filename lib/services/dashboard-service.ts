@@ -700,63 +700,101 @@ export async function getNewLeads(){
 
 }
 
-export async function getMyWork(){
+export async function getMyWork(
+  userId?: string
+){
 
-  const [
-    activeDealsResult,
-    upcomingVisitsResult,
-  ] =
-  await Promise.all([
+const [
+activeDealsResult,
+upcomingVisitsResult,
+tasksResult,
+] =
+await Promise.all([
+
+
+  supabase
+    .from("deals")
+    .select(
+      "id",
+      {
+        count:"exact",
+        head:true,
+      }
+    )
+    .not(
+      "stage",
+      "in",
+      "(closed_won,closed_lost)"
+    ),
+
+
+
+
+  supabase
+    .from("site_visits")
+    .select(
+      "id",
+      {
+        count:"exact",
+        head:true,
+      }
+    )
+    .gte(
+      "scheduled_date",
+      new Date()
+        .toISOString()
+        .split("T")[0]
+    )
+    .neq(
+      "status",
+      "cancelled"
+    )
+    .eq(
+      "advisor_id",
+      userId ?? ""
+    ),
 
     supabase
-      .from("deals")
-      .select(
-        "id",
-        {
-          count:"exact",
-          head:true,
-        }
-      )
-      .not(
-        "stage",
-        "in",
-        "(closed_won,closed_lost)"
-      ),
+  .from("tasks")
+  .select(
+    "id",
+    {
+      count:"exact",
+      head:true,
+    }
+  )
+  .eq(
+    "status",
+    "pending"
+  )
+  .eq(
+    "assigned_to",
+    userId ?? ""
+  ),
 
 
-    supabase
-      .from("tasks")
-      .select(
-        "id",
-        {
-          count:"exact",
-          head:true,
-        }
-      )
-      .eq(
-        "status",
-        "pending"
-      )
-      .or(
-        "title.ilike.%visit%,title.ilike.%site%"
-      ),
-
-  ])
+])
 
 
-  return {
 
-    newLeads:0,
+return {
 
-    followUps:0,
+  newLeads:
+    0,
 
-    activeDeals:
-      activeDealsResult.count ?? 0,
+  followUps:
+    0,
 
-    upcomingVisits:
-      upcomingVisitsResult.count ?? 0,
+  myTasks:
+    tasksResult.count ?? 0,
 
-  }
+  activeDeals:
+    activeDealsResult.count ?? 0,
+
+  upcomingVisits:
+    upcomingVisitsResult.count ?? 0,
+
+}
 
 }
 

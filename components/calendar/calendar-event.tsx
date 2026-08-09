@@ -1,87 +1,227 @@
 "use client"
 
 import {
-  CheckCircle2,
-  MapPin,
-  Clock,
-  User,
-  CalendarDays,
-  Home,
-  Handshake,
+CheckCircle2,
+MapPin,
+Clock,
+User,
+CalendarDays,
+Home,
+Handshake,
 } from "lucide-react"
 
 import Link from "next/link"
 
 import type {
-  CalendarItem,
+CalendarItem,
 } from "@/types/calendar"
 
 
 
 type Props = {
 
-  item: CalendarItem
+item: CalendarItem
 
-  mobile?: boolean
+mobile?: boolean
+
+onSelect?: (
+item: CalendarItem
+) => void
 
 }
-
-
 
 
 
 function getTypeLabel(
-  type:string
+type:string
 ){
 
-  switch(type){
+switch(type){
 
-    case "site_visit":
-      return "Site Visit"
+case "site_visit":
+return "Site Visit"
 
-    case "task":
-      return "Task"
+case "task":
+return "Task"
 
-    case "activity":
-      return "Meeting"
+case "activity":
+return "Meeting"
 
-    case "commission":
-      return "Commission"
+case "commission":
+return "Commission"
 
-    default:
-      return type
-
-  }
+default:
+return type
 
 }
 
-
-
-
+}
 
 
 
 function formatIndiaTime(
-  date?:string
+date?:string
 ){
 
-  if(!date){
+if(!date){
 
-    return ""
+return ""
 
-  }
+}
+
+return new Date(date)
+.toLocaleTimeString(
+"en-IN",
+{
+timeZone:"Asia/Kolkata",
+hour:"2-digit",
+minute:"2-digit",
+hour12:true,
+}
+)
+
+}
 
 
-  return new Date(date)
-    .toLocaleTimeString(
-      "en-IN",
-      {
-        timeZone:"Asia/Kolkata",
-        hour:"2-digit",
-        minute:"2-digit",
-        hour12:true,
-      }
-    )
+
+export function CalendarEvent({
+item,
+mobile = false,
+onSelect,
+}:Props){
+
+
+
+const isTask =
+item.type === "task"
+
+const isSiteVisit =
+item.type === "site_visit"
+
+
+
+const displayTime =
+item.date
+? formatIndiaTime(
+item.date
+)
+: item.time ?? ""
+
+
+
+const content = (
+
+<div
+
+onClick={() => {
+
+if(
+isSiteVisit
+){
+
+onSelect?.(
+item
+)
+
+}
+
+}}
+
+className={`
+block
+rounded-xl
+border
+cursor-pointer
+${
+mobile
+? "p-4"
+: "p-3"
+}
+space-y-3
+hover:bg-muted/50
+transition
+`}
+
+>
+
+
+{/* Title */}
+
+<div className="
+flex
+items-start
+gap-2
+font-medium
+">
+
+
+{
+isTask
+?
+<CheckCircle2 className="h-4 w-4 mt-0.5"/>
+:
+isSiteVisit
+?
+<MapPin className="h-4 w-4 mt-0.5"/>
+:
+<CalendarDays className="h-4 w-4 mt-0.5"/>
+}
+
+
+
+<span className="truncate">
+
+{item.title}
+
+</span>
+
+
+</div>
+
+
+
+
+
+{/* Type */}
+
+<div className="
+text-xs
+text-muted-foreground
+capitalize
+">
+
+{
+getTypeLabel(
+item.type
+)
+}
+
+</div>
+
+
+
+
+
+{/* Time */}
+
+{
+displayTime && (
+
+<div className="
+flex
+items-center
+gap-2
+text-sm
+text-muted-foreground
+">
+
+<Clock className="h-4 w-4"/>
+
+{displayTime}
+
+</div>
+
+)
 
 }
 
@@ -89,277 +229,170 @@ function formatIndiaTime(
 
 
 
+{/* Contact */}
 
+{
+item.contactName && (
 
+<div className="
+flex
+items-center
+gap-2
+text-sm
+text-muted-foreground
+">
 
-export function CalendarEvent({
-  item,
-  mobile = false,
-}:Props){
+<User className="h-4 w-4"/>
 
+{item.contactName}
 
+</div>
 
-  const isTask =
-    item.type === "task"
+)
 
+}
 
-  const isSiteVisit =
-    item.type === "site_visit"
 
 
 
 
-  const displayTime =
-    item.date
-      ? formatIndiaTime(
-          item.date
-        )
-      : item.time ?? ""
+{/* Property */}
 
+{
+item.propertyName && (
 
+<div className="
+flex
+items-center
+gap-2
+text-sm
+text-muted-foreground
+">
 
+<Home className="h-4 w-4"/>
 
+{item.propertyName}
 
+</div>
 
+)
 
-  return (
+}
 
-    <Link
 
-      href={
-        item.type === "activity"
-          ? `/calendar/${item.id.replace("event-","")}`
-          : item.url ?? "#"
-      }
 
-      className={`
-        block
-        rounded-xl
-        border
-        ${
-          mobile
-          ? "p-4"
-          : "p-3"
-        }
-        space-y-3
-        hover:bg-muted/50
-        transition
-      `}
 
-    >
 
+{/* Deal */}
 
+{
+item.dealName && (
 
-      {/* Title */}
+<div className="
+flex
+items-center
+gap-2
+text-sm
+text-muted-foreground
+">
 
-      <div className="
-        flex
-        items-start
-        gap-2
-        font-medium
-      ">
+<Handshake className="h-4 w-4"/>
 
+{item.dealName}
 
-        {
-          isTask
-          ?
-          <CheckCircle2 className="h-4 w-4 mt-0.5"/>
-          :
-          isSiteVisit
-          ?
-          <MapPin className="h-4 w-4 mt-0.5"/>
-          :
-          <CalendarDays className="h-4 w-4 mt-0.5"/>
-        }
+</div>
 
+)
 
+}
 
-        <span className="truncate">
 
-          {item.title}
 
-        </span>
 
 
-      </div>
+{/* Assigned */}
 
+{
+item.assignedTo && (
 
+<div className="
+flex
+items-center
+gap-2
+text-sm
+text-muted-foreground
+">
 
+Assigned:
 
+<span className="font-medium">
 
+{item.assignedTo}
 
-      {/* Type */}
+</span>
 
-      <div className="
-        text-xs
-        text-muted-foreground
-        capitalize
-      ">
+</div>
 
-        {
-          getTypeLabel(
-            item.type
-          )
-        }
+)
 
-      </div>
+}
 
 
+</div>
 
+)
 
 
 
+if(
+item.type === "activity"
+){
 
+return (
 
-      {/* Time */}
+<Link
 
-      {
-        displayTime && (
+href={
+`/calendar/${item.id.replace("event-","")}`
+}
 
-          <div className="
-            flex
-            items-center
-            gap-2
-            text-sm
-            text-muted-foreground
-          ">
+>
 
-            <Clock className="h-4 w-4"/>
+{content}
 
-            {displayTime}
+</Link>
 
-          </div>
+)
 
-        )
+}
 
-      }
 
 
+if(
+item.type === "task"
+){
 
+return (
 
+<Link
 
+href={
+item.url ?? "/tasks"
+}
 
+>
 
+{content}
 
-      {/* Contact */}
+</Link>
 
-      {
-        item.contactName && (
+)
 
-          <div className="
-            flex
-            items-center
-            gap-2
-            text-sm
-            text-muted-foreground
-          ">
+}
 
-            <User className="h-4 w-4"/>
 
-            {item.contactName}
 
-          </div>
+return content
 
-        )
-
-      }
-
-
-
-
-
-
-
-
-      {/* Property */}
-
-      {
-        item.propertyName && (
-
-          <div className="
-            flex
-            items-center
-            gap-2
-            text-sm
-            text-muted-foreground
-          ">
-
-            <Home className="h-4 w-4"/>
-
-            {item.propertyName}
-
-          </div>
-
-        )
-
-      }
-
-
-
-
-
-
-
-
-      {/* Deal */}
-
-      {
-        item.dealName && (
-
-          <div className="
-            flex
-            items-center
-            gap-2
-            text-sm
-            text-muted-foreground
-          ">
-
-            <Handshake className="h-4 w-4"/>
-
-            {item.dealName}
-
-          </div>
-
-        )
-
-      }
-
-
-
-
-
-
-
-
-      {/* Assigned */}
-
-      {
-        item.assignedTo && (
-
-          <div className="
-            flex
-            items-center
-            gap-2
-            text-sm
-            text-muted-foreground
-          ">
-
-
-            Assigned:
-            <span className="font-medium">
-              {item.assignedTo}
-            </span>
-
-
-          </div>
-
-        )
-
-      }
-
-
-    </Link>
-
-  )
 
 }

@@ -1,31 +1,33 @@
 import {
-  createServerSupabaseClient,
+createServerSupabaseClient,
 } from "@/lib/supabase/server"
 
 import {
-  mapTaskRow,
+mapTaskRow,
 } from "@/lib/mappers/task.mapper"
 
 import type {
-  Task,
+Task,
 } from "@/types/task"
 
 
 
 export type TaskWithContext =
-  Task & {
+Task & {
 
-    contactId?: string
+contactId?: string
 
-    dealId?: string
+dealId?: string
 
-    contactName?: string
+contactName?: string
 
-    dealName?: string
+dealName?: string
 
-    propertyName?: string
+propertyName?: string
 
-  }
+advisorName?: string
+
+}
 
 
 
@@ -33,82 +35,83 @@ export type TaskWithContext =
 
 export async function getAllTasks(): Promise<TaskWithContext[]> {
 
-
-  const supabase =
-    await createServerSupabaseClient()
-
-
-
-  const {
-    data,
-    error,
-  } =
-    await supabase
-      .from("tasks")
-      .select(`
-        *,
-        contact:contacts (
-          full_name
-        ),
-        deal:deals (
-          name
-        )
-      `)
-      .order(
-        "due_date",
-        {
-          ascending:true,
-        }
-      )
+const supabase =
+await createServerSupabaseClient()
 
 
 
-  if(error){
+const {
+data,
+error,
+} =
+await supabase
+.from("tasks")
+.select(`
+  *,
+  contact:contacts (
+    full_name
+  ),
+  deal:deals (
+    name
+  ),
+  advisor:profiles (
+  full_name
+)
+`)
+.order(
+"due_date",
+{
+ascending:false,
+}
+)
 
-    throw error
-
-  }
 
 
+if(error){
 
-  
+throw error
+
+}
 
 
 
-  return (
+return (
 
-  data ?? []
+data ?? []
 
 ).map(
 
-  row => ({
+row => ({
 
-    ...mapTaskRow(row),
-
-
-    contactId:
-      row.contact_id ?? undefined,
+...mapTaskRow(row),
 
 
-    dealId:
-      row.deal_id ?? undefined,
+contactId:
+row.contact_id ?? undefined,
 
 
-    contactName:
-      row.contact?.full_name ?? "",
+dealId:
+row.deal_id ?? undefined,
 
 
-    dealName:
-      row.deal?.name ?? "",
+contactName:
+row.contact?.full_name ?? "",
 
 
-    propertyName:
-      "",
+dealName:
+row.deal?.name ?? "",
 
 
-  })
+propertyName:
+"",
+
+
+advisorName:
+row.advisor?.full_name ?? "",
+
+
+})
 
 )
-
 
 }

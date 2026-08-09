@@ -1,18 +1,9 @@
 "use client"
 
 import {
-useState,
 useEffect,
+useState,
 } from "react"
-
-import {
-useRouter,
-} from "next/navigation"
-
-import {
-Plus,
-X,
-} from "lucide-react"
 
 import {
 Button,
@@ -27,7 +18,7 @@ Textarea,
 } from "@/components/ui/textarea"
 
 import {
-createTask,
+updateTask,
 } from "@/lib/repositories/task-repository"
 
 import {
@@ -35,8 +26,8 @@ getAllUserProfiles,
 } from "@/lib/repositories/user-profile-repository"
 
 import type {
-TaskPriority,
-} from "@/types/task"
+TaskWithContext,
+} from "@/lib/repositories/task-server-repository"
 
 import type {
 UserProfile,
@@ -46,32 +37,24 @@ UserProfile,
 
 type Props = {
 
-contactId?: string
+task: TaskWithContext
 
-dealId?: string
-
-onCreated?: () => void
+onUpdated?: () => void
 
 }
 
 
 
-export function CreateTaskDialog({
-contactId,
-dealId,
-onCreated,
-}: Props){
-
-
-const router =
-useRouter()
-
+export function EditTaskDialog({
+task,
+onUpdated,
+}:Props){
 
 
 const [
 open,
 setOpen,
-] =
+]=
 useState(false)
 
 
@@ -79,7 +62,7 @@ useState(false)
 const [
 saving,
 setSaving,
-] =
+]=
 useState(false)
 
 
@@ -87,7 +70,7 @@ useState(false)
 const [
 advisors,
 setAdvisors,
-] =
+]=
 useState<UserProfile[]>([])
 
 
@@ -95,53 +78,39 @@ useState<UserProfile[]>([])
 const [
 form,
 setForm,
-] =
-useState<{
+]=
+useState({
 
-title:string
+title:
+task.title,
 
-description:string
+description:
+task.description ?? "",
 
-priority:TaskPriority
+dueDate:
+task.dueDate
+?
+new Date(task.dueDate)
+.toISOString()
+.split("T")[0]
+:
+"",
 
-dueDate:string
-
-assignedTo:string
-
-}>({
-
-title:"",
-
-description:"",
-
-priority:"medium",
-
-dueDate:"",
-
-assignedTo:"",
+assignedTo:
+task.assignedTo ?? "",
 
 })
 
 
 
-
 useEffect(()=>{
-
-async function loadAdvisors(){
-
-const users =
-await getAllUserProfiles()
-
-setAdvisors(
-users
-)
-
-}
-
 
 if(open){
 
-loadAdvisors()
+getAllUserProfiles()
+.then(
+setAdvisors
+)
 
 }
 
@@ -151,17 +120,7 @@ open
 
 
 
-
-async function submit(){
-
-
-if(
-!form.title
-){
-
-return
-
-}
+async function save(){
 
 
 setSaving(true)
@@ -170,19 +129,12 @@ setSaving(true)
 try{
 
 
-await createTask({
+await updateTask(
+task.id,
+{
 
 title:
 form.title,
-
-
-description:
-form.description,
-
-
-priority:
-form.priority,
-
 
 dueDate:
 form.dueDate
@@ -191,43 +143,21 @@ new Date(form.dueDate)
 :
 undefined,
 
-
 assignedTo:
 form.assignedTo || undefined,
 
+completed:
+task.completed,
 
-contactId,
+}
 
-dealId,
-
-})
+)
 
 
 
 setOpen(false)
 
-
-
-setForm({
-
-title:"",
-
-description:"",
-
-priority:"medium",
-
-dueDate:"",
-
-assignedTo:"",
-
-})
-
-
-
-onCreated?.()
-
-router.refresh()
-
+onUpdated?.()
 
 
 }
@@ -242,7 +172,6 @@ setSaving(false)
 
 
 
-
 return (
 
 <>
@@ -250,10 +179,9 @@ return (
 
 <Button
 
-className="
-w-full
-sm:w-auto
-"
+variant="outline"
+
+size="sm"
 
 onClick={()=>
 setOpen(true)
@@ -261,9 +189,7 @@ setOpen(true)
 
 >
 
-<Plus className="mr-2 h-4 w-4"/>
-
-New Task
+Edit
 
 </Button>
 
@@ -278,28 +204,20 @@ fixed
 inset-0
 z-50
 flex
-items-end
+items-center
 justify-center
 bg-black/40
-sm:items-center
+p-4
 ">
 
 
 <div className="
 w-full
-rounded-t-3xl
+max-w-lg
+rounded-2xl
 bg-background
-p-5
-sm:max-w-lg
-sm:rounded-2xl
-">
-
-
-<div className="
-mb-5
-flex
-items-center
-justify-between
+p-6
+space-y-4
 ">
 
 
@@ -308,42 +226,13 @@ text-lg
 font-semibold
 ">
 
-Create Task
+Edit Task
 
 </h2>
 
 
-<Button
-
-variant="ghost"
-
-size="icon"
-
-onClick={()=>
-setOpen(false)
-}
-
->
-
-<X />
-
-</Button>
-
-
-</div>
-
-
-
-
-
-<div className="
-space-y-4
-">
-
 
 <Input
-
-placeholder="Task title"
 
 value={
 form.title
@@ -362,8 +251,6 @@ title:e.target.value
 
 
 <Textarea
-
-placeholder="Description"
 
 value={
 form.description
@@ -402,9 +289,7 @@ dueDate:e.target.value
 
 
 
-
 <div>
-
 
 <label className="
 mb-2
@@ -425,7 +310,6 @@ w-full
 rounded-xl
 border
 p-3
-text-sm
 "
 
 value={
@@ -444,7 +328,7 @@ assignedTo:e.target.value
 
 <option value="">
 
-Select Advisor
+Unassigned
 
 </option>
 
@@ -485,18 +369,36 @@ advisor.id
 
 
 
+<div className="
+flex
+gap-3
+">
+
+
 <Button
 
-className="
-w-full
-"
+variant="outline"
+
+onClick={()=>
+setOpen(false)
+}
+
+>
+
+Cancel
+
+</Button>
+
+
+
+<Button
 
 disabled={
 saving
 }
 
 onClick={
-submit
+save
 }
 
 >
@@ -504,14 +406,12 @@ submit
 {
 saving
 ?
-"Creating..."
+"Saving..."
 :
-"Create Task"
+"Save"
 }
 
-
 </Button>
-
 
 
 </div>

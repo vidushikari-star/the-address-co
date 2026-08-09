@@ -1,4 +1,8 @@
 import {
+getServerUserProfile,
+} from "@/lib/auth/server-user-profile"
+
+import {
   BriefcaseBusiness,
   CircleDollarSign,
   Home,
@@ -52,46 +56,40 @@ export const dynamic = "force-dynamic"
 
 export default async function DashboardPage(){
 
-
-  const [
-
-    stats,
-
-    recentActivities,
-
-    upcomingTasks,
-
-    hotLeads,
-
-    commissionStats,
-
-    myWork,
-
-    dealHealth,
-
-    followUpQueue,
-
-  ] = await Promise.all([
+const user =
+await getServerUserProfile()
 
 
-    getDashboardStats(),
+const [
+stats,
+recentActivities,
+upcomingTasks,
+hotLeads,
+commissionStats,
+myWork,
+dealHealth,
+followUpQueue,
+] = await Promise.all([
 
-    getRecentActivities(),
+getDashboardStats(),
 
-    getUpcomingTasks(),
+getRecentActivities(),
 
-    getHotLeads(),
+getUpcomingTasks(),
 
-    getCommissionStats(),
+getHotLeads(),
 
-    getMyWork(),
+getCommissionStats(),
 
-    getDealHealthSummary(),
+getMyWork(
+  user?.id
+),
 
-    getFollowUpContacts(),
+getDealHealthSummary(),
 
+getFollowUpContacts(),
 
-  ])
+])
 
 
 

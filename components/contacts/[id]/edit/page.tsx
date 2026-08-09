@@ -11,6 +11,14 @@ import {
 } from "next/navigation"
 
 import {
+getAllUserProfiles,
+} from "@/lib/repositories/user-profile-repository"
+
+import type {
+UserProfile,
+} from "@/types/user"
+
+import {
   ContactsRepository,
 } from "@/lib/supabase/repositories/contacts.repository"
 
@@ -25,6 +33,12 @@ import {
 import {
   ContactFormFields,
 } from "@/components/contacts/contact-form-fields"
+
+import {
+notFound
+} from "next/navigation"
+
+
 
 
 
@@ -62,6 +76,12 @@ export default function EditContactPage() {
   ] =
   useState(false)
 
+  const [
+advisors,
+setAdvisors,
+] =
+useState<UserProfile[]>([])
+
 
 
 
@@ -71,6 +91,8 @@ export default function EditContactPage() {
     setForm,
   ] =
   useState({
+
+    advisorId:"",
 
     fullName:"",
 
@@ -151,9 +173,23 @@ export default function EditContactPage() {
           id
         )
 
+        if(!data){
+  notFound()
+}
+
+const advisorProfiles =
+await getAllUserProfiles()
+
+setAdvisors(
+  advisorProfiles
+)
+
 
 
       setForm({
+
+        advisorId:
+data.advisor ?? "",
 
         fullName:
           data.name ?? "",
@@ -376,6 +412,9 @@ export default function EditContactPage() {
       await ContactsRepository.update(
   id,
   {
+
+    advisorId:
+form.advisorId || undefined,
 
 
     fullName:
@@ -660,6 +699,69 @@ export default function EditContactPage() {
           }
 
         />
+
+        <div className="space-y-2">
+
+<p className="text-sm font-medium">
+Advisor
+</p>
+
+<select
+
+className="
+w-full
+rounded-lg
+border
+p-2
+text-sm
+"
+
+value={
+form.advisorId
+}
+
+onChange={
+e =>
+setForm({
+...form,
+advisorId:e.target.value
+})
+}
+
+>
+
+<option value="">
+Unassigned
+</option>
+
+
+{
+advisors.map(
+advisor => (
+
+<option
+key={
+advisor.id
+}
+value={
+advisor.id
+}
+>
+
+{
+advisor.name
+}
+
+</option>
+
+)
+
+)
+}
+
+</select>
+
+</div>
 
 
 

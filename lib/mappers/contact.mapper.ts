@@ -68,7 +68,11 @@ export function mapContactRow(
 
 
     assignedAdvisor:
-      row.assigned_advisor ?? undefined,
+  row.advisor?.full_name ??
+  undefined,
+
+  advisor:
+  row.advisor?.id ?? undefined,
 
 
     budgetMin:

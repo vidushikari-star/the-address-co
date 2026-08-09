@@ -160,6 +160,8 @@ export default async function DealPage({
 
   await Promise.all([
 
+    
+
 
     ContactsRepository.getById(
       deal.contactId
@@ -192,6 +194,10 @@ export default async function DealPage({
 
 
   ])
+
+  if(!contact){
+  notFound()
+}
 
 
 
