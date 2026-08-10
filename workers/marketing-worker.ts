@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process"
+import { dirname, join } from "node:path"
 import { promisify } from "node:util"
 
 import { RENDER_JOB_TYPES, MarketingWorkerService } from "@/lib/marketing/services/marketing-worker-service"
@@ -79,6 +80,14 @@ async function verifyFfmpeg(path: string) {
   })
   const version = stdout.split("\n", 1)[0]?.trim() || "version detected"
   console.info(`[marketing-worker] FFmpeg detected: ${version}`)
+
+  const ffprobe = process.env.FFPROBE_PATH?.trim() || (path.includes("/") ? join(dirname(path), "ffprobe") : "ffprobe")
+  const { stdout: probeStdout } = await execFileAsync(ffprobe, ["-version"], {
+    timeout: 10_000,
+    windowsHide: true,
+  })
+  const probeVersion = probeStdout.split("\n", 1)[0]?.trim() || "version detected"
+  console.info(`[marketing-worker] FFprobe detected: ${probeVersion}`)
 }
 
 function resultSummary(result: Array<{ status: string }>) {

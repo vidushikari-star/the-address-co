@@ -1,8 +1,9 @@
 import { spawn } from "node:child_process"
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 
+import { logRenderStage, renderStageFailure, sanitizeRenderDiagnostic } from "@/lib/marketing/render-diagnostics"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import type { MarketingAsset, ReelComposition } from "@/lib/marketing/types"
 
@@ -113,22 +114,67 @@ function textOverlayFilter(input: {
   return `,drawtext=text='${escapeDrawtext(input.text.trim().slice(0, 120))}':fontcolor=white:fontsize=58:box=1:boxcolor=black@0.48:boxborderw=24:x=(w-text_w)/2:y=${y}`
 }
 
-async function runFfmpeg(args: string[]) {
+async function runFfmpeg(args: string[], inputCount: number, hasAudio: boolean) {
   const executable = process.env.FFMPEG_PATH || "ffmpeg"
+  logRenderStage("ffmpeg", "started", { inputs: inputCount, audio: hasAudio })
 
   await new Promise<void>((resolve, reject) => {
-    const process = spawn(executable, args, {
+    const child = spawn(executable, args, {
       shell: false,
       stdio: ["ignore", "ignore", "pipe"],
     })
     let stderr = ""
-    process.stderr.on("data", data => { stderr += String(data).slice(-4_000) })
-    process.on("error", error => reject(new Error(`FFmpeg could not start: ${error.message}`)))
-    process.on("close", code => {
-      if (code === 0) resolve()
-      else reject(new Error(`FFmpeg render failed (${code}): ${stderr.slice(-1_000)}`))
+    child.stderr.on("data", data => { stderr = `${stderr}${String(data)}`.slice(-4_000) })
+    child.on("error", error => reject(renderStageFailure("ffmpeg", `could not start (${sanitizeRenderDiagnostic(error)})`)))
+    child.on("close", code => {
+      if (code === 0) {
+        logRenderStage("ffmpeg", "ok")
+        resolve()
+      } else {
+        const reason = sanitizeRenderDiagnostic(stderr, 700) || "no FFmpeg stderr was available"
+        logRenderStage("ffmpeg", "failed", { exit_code: code ?? "unknown", reason })
+        reject(renderStageFailure("ffmpeg", `exit_code=${code ?? "unknown"} ${reason}`))
+      }
     })
   })
+}
+
+function ffprobeExecutable() {
+  const configured = process.env.FFPROBE_PATH?.trim()
+  if (configured) return configured
+  const ffmpeg = process.env.FFMPEG_PATH?.trim()
+  return ffmpeg?.includes("/") ? join(dirname(ffmpeg), "ffprobe") : "ffprobe"
+}
+
+async function validateRenderedMp4(path: string) {
+  const executable = ffprobeExecutable()
+  const output = await new Promise<string>((resolve, reject) => {
+    const child = spawn(executable, [
+      "-v", "error",
+      "-show_entries", "format=format_name:stream=codec_type,codec_name,pix_fmt",
+      "-of", "json",
+      path,
+    ], { shell: false, stdio: ["ignore", "pipe", "pipe"] })
+    let stdout = ""
+    let stderr = ""
+    child.stdout.on("data", data => { stdout = `${stdout}${String(data)}`.slice(-4_000) })
+    child.stderr.on("data", data => { stderr = `${stderr}${String(data)}`.slice(-2_000) })
+    child.on("error", error => reject(new Error(`ffprobe could not start (${sanitizeRenderDiagnostic(error)})`)))
+    child.on("close", code => code === 0
+      ? resolve(stdout)
+      : reject(new Error(`ffprobe exited with ${code ?? "unknown"}: ${sanitizeRenderDiagnostic(stderr, 500)}`)))
+  })
+  let parsed: { format?: { format_name?: unknown }; streams?: Array<{ codec_type?: unknown; codec_name?: unknown; pix_fmt?: unknown }> }
+  try {
+    parsed = JSON.parse(output) as typeof parsed
+  } catch {
+    throw new Error("ffprobe returned invalid output.")
+  }
+  const formats = String(parsed.format?.format_name ?? "").split(",")
+  const video = parsed.streams?.find(stream => stream.codec_type === "video")
+  if (!formats.includes("mp4") || video?.codec_name !== "h264" || video.pix_fmt !== "yuv420p") {
+    throw new Error("Rendered output is not an H.264 yuv420p MP4.")
+  }
 }
 
 export class RenderService {
@@ -157,7 +203,7 @@ export class RenderService {
         "-frames:v", "1",
         "-q:v", "2",
         outputPath,
-      ])
+      ], 1, false)
       const rendered = await readFile(outputPath)
       if (rendered.byteLength < 1_024) throw new Error("FFmpeg produced an invalid image asset.")
       const storagePath = `${input.contentId}/rendered/${crypto.randomUUID()}.jpg`
@@ -184,40 +230,51 @@ export class RenderService {
       durationSeconds: number
     } | null
   }) {
-    const compositionAssets = input.composition.scenes.map(scene => {
-      const asset = input.assets.find(candidate => candidate.id === scene.assetId)
-      if (!asset || !["image", "video"].includes(asset.mediaType)) {
-        throw new Error("Composition references an unavailable image or video asset.")
-      }
-      return { scene, asset }
-    })
-
-    if (!compositionAssets.length) {
-      throw new Error("A Reel composition needs at least one scene.")
+    let compositionAssets: Array<{ scene: ReelComposition["scenes"][number]; asset: MarketingAsset }>
+    try {
+      compositionAssets = input.composition.scenes.map(scene => {
+        const asset = input.assets.find(candidate => candidate.id === scene.assetId)
+        if (!asset || !["image", "video"].includes(asset.mediaType)) {
+          throw new Error("Composition references an unavailable image or video asset.")
+        }
+        return { scene, asset }
+      })
+      if (!compositionAssets.length) throw new Error("A Reel composition needs at least one scene.")
+      logRenderStage("input", "ok", { scenes: compositionAssets.length, audio: Boolean(input.audio) })
+    } catch (error) {
+      throw renderStageFailure("input", error)
     }
 
-    // See the image path note above: render workspaces exist only at job runtime.
-    const workspace = await mkdtemp(join(/* turbopackIgnore: true */ tmpdir(), "marketing-render-"))
-    const outputPath = join(/* turbopackIgnore: true */ workspace, "reel.mp4")
-
+    let workspace: string | null = null
     try {
-      const inputPaths = await Promise.all(compositionAssets.map(async ({ asset }, index) => {
-        const path = join(/* turbopackIgnore: true */ workspace, `${index}.${safeExtension(asset)}`)
-        await downloadAsset(asset, path)
-        return path
-      }))
+      try {
+        workspace = await mkdtemp(join(/* turbopackIgnore: true */ tmpdir(), "marketing-render-"))
+        logRenderStage("workspace", "ok")
+      } catch (error) {
+        throw renderStageFailure("workspace", error)
+      }
+      const outputPath = join(/* turbopackIgnore: true */ workspace, "reel.mp4")
+
+      let inputPaths: string[]
       const audioPath = input.audio
         ? join(/* turbopackIgnore: true */ workspace, `audio.${audioExtension(input.audio.mimeType)}`)
         : null
-      if (audioPath && input.audio) await downloadAudio(input.audio, audioPath)
+      try {
+        inputPaths = await Promise.all(compositionAssets.map(async ({ asset }, index) => {
+          const path = join(/* turbopackIgnore: true */ workspace!, `${index}.${safeExtension(asset)}`)
+          await downloadAsset(asset, path)
+          return path
+        }))
+        if (audioPath && input.audio) await downloadAudio(input.audio, audioPath)
+        logRenderStage("download", "ok", { sources: compositionAssets.length, audio: Boolean(input.audio) })
+      } catch (error) {
+        throw renderStageFailure("download", error)
+      }
 
       const args = ["-y"]
       compositionAssets.forEach(({ scene, asset }, index) => {
-        if (asset.mediaType === "image") {
-          args.push("-loop", "1", "-t", String(scene.duration), "-i", inputPaths[index])
-        } else {
-          args.push("-stream_loop", "-1", "-t", String(scene.duration), "-i", inputPaths[index])
-        }
+        if (asset.mediaType === "image") args.push("-loop", "1", "-t", String(scene.duration), "-i", inputPaths[index])
+        else args.push("-stream_loop", "-1", "-t", String(scene.duration), "-i", inputPaths[index])
       })
       if (audioPath) args.push("-i", audioPath)
 
@@ -226,17 +283,13 @@ export class RenderService {
       )
       let previous = "v0"
       let totalDuration = compositionAssets[0].scene.duration
-
       for (let index = 1; index < compositionAssets.length; index += 1) {
         const next = `x${index}`
         const transition = transitionName(compositionAssets[index - 1].scene.transitionOut)
-        filters.push(
-          `[${previous}][v${index}]xfade=transition=${transition}:duration=${TRANSITION_DURATION}:offset=${Math.max(0, totalDuration - TRANSITION_DURATION).toFixed(3)}[${next}]`
-        )
+        filters.push(`[${previous}][v${index}]xfade=transition=${transition}:duration=${TRANSITION_DURATION}:offset=${Math.max(0, totalDuration - TRANSITION_DURATION).toFixed(3)}[${next}]`)
         previous = next
         totalDuration += compositionAssets[index].scene.duration - TRANSITION_DURATION
       }
-
       if (input.audio) {
         // Never loop a short licensed track. `atrim` only caps a long track;
         // FFmpeg leaves a shorter source short while the video continues.
@@ -247,35 +300,44 @@ export class RenderService {
           : ""
         filters.push(`[${compositionAssets.length}:a]atrim=duration=${totalDuration.toFixed(3)},asetpts=N/SR/TB${fade}[a]`)
       }
-
-      args.push(
-        "-filter_complex", filters.join(";"),
-        "-map", `[${previous}]`,
-      )
+      args.push("-filter_complex", filters.join(";"), "-map", `[${previous}]`)
       if (input.audio) args.push("-map", "[a]", "-c:a", "aac", "-b:a", "160k")
       else args.push("-an")
-      args.push(
-        "-c:v", "libx264",
-        "-pix_fmt", "yuv420p",
-        "-movflags", "+faststart",
-        "-r", "30",
-        outputPath
-      )
+      args.push("-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-r", "30", outputPath)
 
-      await runFfmpeg(args)
-      const rendered = await readFile(outputPath)
-      if (rendered.byteLength < 1_024) throw new Error("FFmpeg produced an invalid Reel file.")
+      await runFfmpeg(args, compositionAssets.length, Boolean(input.audio))
+
+      let rendered: Buffer
+      try {
+        rendered = await readFile(outputPath)
+        if (rendered.byteLength < 1_024) throw new Error("FFmpeg produced an invalid Reel file.")
+        await validateRenderedMp4(outputPath)
+        logRenderStage("output", "ok", { bytes: rendered.byteLength, codec: "h264", container: "mp4" })
+      } catch (error) {
+        throw renderStageFailure("output", error)
+      }
 
       const storagePath = `${input.contentId}/rendered/${crypto.randomUUID()}.mp4`
-      const admin = createAdminSupabaseClient()
-      const { error } = await admin.storage
-        .from("marketing-assets")
-        .upload(storagePath, rendered, { contentType: "video/mp4", upsert: false })
-      if (error) throw error
+      try {
+        const admin = createAdminSupabaseClient()
+        const { error } = await admin.storage
+          .from("marketing-assets")
+          .upload(storagePath, rendered, { contentType: "video/mp4", upsert: false })
+        if (error) throw error
+        logRenderStage("upload", "ok", { bytes: rendered.byteLength })
+      } catch (error) {
+        throw renderStageFailure("upload", error)
+      }
 
       return { storagePath, byteLength: rendered.byteLength, duration: totalDuration }
     } finally {
-      await rm(workspace, { recursive: true, force: true })
+      if (workspace) {
+        try {
+          await rm(workspace, { recursive: true, force: true })
+        } catch (error) {
+          logRenderStage("workspace", "failed", { reason: sanitizeRenderDiagnostic(error) })
+        }
+      }
     }
   }
 

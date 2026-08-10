@@ -49,7 +49,7 @@ export function ContentWorkflowActions({
   }
 
   if (content.status === "failed" && requiresRender) {
-    return <section className="space-y-2 rounded-xl border border-red-200 p-4"><p className="text-sm font-semibold">Render failed</p><p className="text-xs text-muted-foreground">Fix copy or audio if needed, then re-approve before retrying. You cannot schedule or publish a failed Reel.</p><Button type="button" size="sm" variant="outline" onClick={render} disabled={isPending}><Clapperboard className="h-4 w-4" />Retry render</Button>{message && <p className="text-xs text-muted-foreground" role="status">{message}</p>}</section>
+    return <section className="space-y-2 rounded-xl border border-red-200 p-4"><p className="text-sm font-semibold">Render failed</p><p className="text-xs text-muted-foreground">{content.lastError ?? "Fix copy or audio if needed, then re-approve before retrying. You cannot schedule or publish a failed Reel."}</p><Button type="button" size="sm" variant="outline" onClick={render} disabled={isPending}><Clapperboard className="h-4 w-4" />Retry render</Button>{message && <p className="text-xs text-muted-foreground" role="status">{message}</p>}</section>
   }
 
   return null

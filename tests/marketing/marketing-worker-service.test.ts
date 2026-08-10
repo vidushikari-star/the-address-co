@@ -158,7 +158,7 @@ describe("MarketingWorkerService render queue", () => {
       source_url: "https://example.com/villa.jpg",
       metadata: {}, sort_order: 0, created_at: "2026-08-10T00:00:00.000Z",
     }], error: null })
-    const assetInsert = { insert: vi.fn() }
+    const assetInsert = { insert: vi.fn().mockResolvedValue({ error: null }) }
     const contentUpdate = terminalUpdateQuery()
     const auditInsert = { insert: vi.fn() }
     const usageInsert = { insert: vi.fn() }
@@ -218,7 +218,7 @@ describe("MarketingWorkerService render queue", () => {
     audioSelect.select.mockReturnValue(audioSelect)
     audioSelect.eq.mockReturnValue(audioSelect)
     audioSelect.maybeSingle.mockResolvedValue({ data: { storage_path: "admin/licensed-piano.m4a", mime_type: "audio/mp4", duration_seconds: 30 }, error: null })
-    const assetInsert = { insert: vi.fn() }
+    const assetInsert = { insert: vi.fn().mockResolvedValue({ error: null }) }
     const contentUpdate = terminalUpdateQuery()
     const auditInsert = { insert: vi.fn() }
     const usageInsert = { insert: vi.fn() }

@@ -107,7 +107,7 @@ Deploy the Railway service from this repository using the root `Dockerfile` and 
 npm run marketing:worker
 ```
 
-The Docker image uses Node 22 and installs FFmpeg at `/usr/bin/ffmpeg`; it verifies `ffmpeg -version` during the image build and worker startup. Do not assign this worker a public domain or healthcheck: Railway supports always-on background workers, and this process intentionally exposes no HTTP server.
+The Docker image uses Node 22 and installs FFmpeg/FFprobe at `/usr/bin/ffmpeg` and `/usr/bin/ffprobe`; it verifies both at worker startup. FFprobe validates that the completed asset is an H.264, yuv420p MP4 before it is uploaded. Do not assign this worker a public domain or healthcheck: Railway supports always-on background workers, and this process intentionally exposes no HTTP server.
 
 Set these variables on the Railway worker service:
 
@@ -119,6 +119,8 @@ NEXT_PUBLIC_SUPABASE_URL=<existing Supabase URL>
 SUPABASE_SERVICE_ROLE_KEY=<server-only Supabase service role key>
 FFMPEG_PATH=/usr/bin/ffmpeg
 ```
+
+`FFPROBE_PATH` is optional; it defaults to the sibling of `FFMPEG_PATH` (therefore `/usr/bin/ffprobe` in the supplied image). Set it only when a custom Railway image puts FFprobe elsewhere.
 
 The worker uses one sequential loop: it calls the protected Vercel endpoint for non-render jobs, verifies that Vercel and Railway identify the same non-secret Supabase project, then claims at most one local render job, waits 60 seconds, and repeats. A long render never overlaps another cycle. Each Railway cycle logs the safe count/type/status summary of eligible render jobs; no property data, URLs, keys, or tokens are logged. Temporary network/5xx failures retry next cycle; 401/403 responses log a configuration warning without exposing secrets. A project mismatch prevents Railway from claiming render jobs rather than rendering against the wrong queue. `SIGTERM`/`SIGINT` stop the worker after its current cycle. Railway native cron is not used because its minimum cadence is five minutes.
 
@@ -162,6 +164,7 @@ Common failures:
 - **Forbidden/404 Marketing** — set `MARKETING_ENABLED=true`, sign in as `user_profiles.role = 'admin'`, and rerun the migration.
 - **Instagram OAuth fails** — verify URI, app ID/secret, state secret and test-user access in Meta.
 - **Render fails to start** — install FFmpeg in the worker and set `FFMPEG_PATH`.
+- **Reel rendering fails** — Railway emits safe `marketing-render` stage logs for `workspace`, `download`, `ffmpeg`, `output`, `upload`, `asset_persistence`, and `content_transition`. The render job and failed content record retain the same URL-sanitized reason. `ffmpeg` failures include an exit code and a short sanitized stderr tail.
 - **Reel stays rendering with no worker job** — deploy and run the atomic Reel-queue migration above; it changes legacy orphaned Reels to `failed` so they can be re-approved and retried.
 - **Railway reports no eligible render jobs** — compare the safe `Supabase project mismatch`/`identities match` worker log with Railway and Vercel environment configuration. Both services must use the same `NEXT_PUBLIC_SUPABASE_URL`; Railway alone needs the matching project’s `SUPABASE_SERVICE_ROLE_KEY`.
 - **Renderer rejects media** — move the source asset into the configured Supabase project; arbitrary external URLs are intentionally blocked.

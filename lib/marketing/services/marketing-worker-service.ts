@@ -1,6 +1,7 @@
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { contentRequiresRendering, publishableAssets } from "@/lib/marketing/content-delivery"
 import { isInstagramPublishingEnabled } from "@/lib/marketing/feature-flags"
+import { logRenderStage, renderStageFailure, sanitizeRenderDiagnostic } from "@/lib/marketing/render-diagnostics"
 import { CompositionService } from "@/lib/marketing/services/composition-service"
 import { CreativeAIService } from "@/lib/marketing/services/creative-ai-service"
 import { InstagramService } from "@/lib/marketing/services/instagram-service"
@@ -111,7 +112,7 @@ function mapSettings(row: Row): MarketingBrandSettings {
 }
 
 function safeError(error: unknown) {
-  return error instanceof Error ? error.message.slice(0, 2_000) : "Marketing job failed."
+  return sanitizeRenderDiagnostic(error, 2_000)
 }
 
 class PublishingDisabledError extends Error {}
@@ -196,6 +197,9 @@ export class MarketingWorkerService {
           locked_at: null,
           locked_by: null,
         }).eq("id", job.id)
+        if (job.contentId && job.type === "render_reel") {
+          await admin.from("marketing_content").update({ last_error: errorMessage }).eq("id", job.contentId)
+        }
         if (!retry && job.contentId) {
           await admin.from("marketing_content").update({ status: "failed", last_error: errorMessage }).eq("id", job.contentId)
         }
@@ -332,35 +336,50 @@ export class MarketingWorkerService {
 
   private static async renderReel(job: MarketingJob) {
     const admin = createAdminSupabaseClient()
-    const { content, assets } = await this.loadContent(job.contentId!)
-    const composition = ReelCompositionSchema.parse(content.composition)
+    let content: MarketingContent
+    let assets: MarketingAsset[]
+    try {
+      ({ content, assets } = await this.loadContent(job.contentId!))
+    } catch (error) {
+      throw renderStageFailure("input", error)
+    }
+    let composition: ReturnType<typeof ReelCompositionSchema.parse>
+    try {
+      composition = ReelCompositionSchema.parse(content.composition)
+    } catch (error) {
+      throw renderStageFailure("input", error)
+    }
     let audio: Parameters<typeof RenderService.renderReel>[0]["audio"] = null
     if (composition.audio.type === "uploaded" && composition.audio.id) {
-      const { data: audioTrack, error: audioError } = await admin
-        .from("marketing_audio_tracks")
-        .select("storage_path, mime_type, duration_seconds")
-        .eq("id", composition.audio.id)
-        .maybeSingle()
-      if (audioError) throw audioError
+      try {
+        const { data: audioTrack, error: audioError } = await admin
+          .from("marketing_audio_tracks")
+          .select("storage_path, mime_type, duration_seconds")
+          .eq("id", composition.audio.id)
+          .maybeSingle()
+        if (audioError) throw audioError
 
-      // Tracks may be removed from the library after a Reel is rendered. Keep
-      // historical content valid and render a later retry silently instead of
-      // failing or attempting to source any third-party music.
-      if (audioTrack) {
-        const audioRow = audioTrack as Row
-        const { data: signed, error: signedError } = await admin.storage
-          .from("marketing-audio")
-          .createSignedUrl(String(audioRow.storage_path), 60 * 60)
-        if (signedError || !signed?.signedUrl) throw signedError ?? new Error("Unable to sign selected audio for rendering.")
-        audio = {
-          sourceUrl: signed.signedUrl,
-          mimeType: audioRow.mime_type as NonNullable<typeof audio>["mimeType"],
-          durationSeconds: Number(audioRow.duration_seconds),
+        // Tracks may be removed from the library after a Reel is rendered. Keep
+        // historical content valid and render a later retry silently instead of
+        // failing or attempting to source any third-party music.
+        if (audioTrack) {
+          const audioRow = audioTrack as Row
+          const { data: signed, error: signedError } = await admin.storage
+            .from("marketing-audio")
+            .createSignedUrl(String(audioRow.storage_path), 60 * 60)
+          if (signedError || !signed?.signedUrl) throw signedError ?? new Error("Unable to sign selected audio for rendering.")
+          audio = {
+            sourceUrl: signed.signedUrl,
+            mimeType: audioRow.mime_type as NonNullable<typeof audio>["mimeType"],
+            durationSeconds: Number(audioRow.duration_seconds),
+          }
         }
+      } catch (error) {
+        throw renderStageFailure("download", error)
       }
     }
     const output = await RenderService.renderReel({ contentId: content.id, composition, assets, audio })
-    await admin.from("marketing_content_assets").insert({
+    const { error: assetError } = await admin.from("marketing_content_assets").insert({
       content_id: content.id,
       kind: "rendered_media",
       media_type: "video",
@@ -368,10 +387,15 @@ export class MarketingWorkerService {
       metadata: { duration: output.duration, byteLength: output.byteLength, format: "1080x1920-h264-mp4" },
       sort_order: 0,
     })
-    await admin.from("marketing_content").update({
+    if (assetError) throw renderStageFailure("asset_persistence", assetError)
+    logRenderStage("asset_persistence", "ok", { bytes: output.byteLength })
+
+    const { error: transitionError } = await admin.from("marketing_content").update({
       status: job.input.resumeApproved === true ? "approved" : "ready_for_review",
       last_error: null,
     }).eq("id", content.id)
+    if (transitionError) throw renderStageFailure("content_transition", transitionError)
+    logRenderStage("content_transition", "ok", { status: job.input.resumeApproved === true ? "approved" : "ready_for_review" })
     await admin.from("marketing_audit_logs").insert({ content_id: content.id, action: "render.completed", metadata: output })
     await admin.from("marketing_usage_events").insert({ content_id: content.id, category: "video_render", quantity: output.duration, unit: "second", metadata: output })
     return output
