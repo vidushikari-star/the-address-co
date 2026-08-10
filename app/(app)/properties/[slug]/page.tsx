@@ -79,6 +79,18 @@ import {
   getBuyerMatches,
 } from "@/lib/services/buyer-matching"
 
+import {
+  hasMarketingAdminPermission,
+} from "@/lib/auth/marketing"
+
+import {
+  MarketingRepository,
+} from "@/lib/marketing/repositories/marketing-repository"
+
+import {
+  MarketingStatusPill,
+} from "@/components/marketing/status-pill"
+
 
 
 
@@ -160,6 +172,9 @@ const {
 
   }
 
+  const canUseMarketing =
+    await hasMarketingAdminPermission()
+
 
 
   const [
@@ -168,6 +183,7 @@ const {
   deals,
   propertySources,
   contacts,
+  marketingHistory,
 ] =
 await Promise.all([
 
@@ -188,6 +204,13 @@ await Promise.all([
   ),
 
   ContactsRepository.getAll(),
+
+  canUseMarketing
+    ? MarketingRepository.listContent({
+        propertyId: property.id,
+        limit: 8,
+      })
+    : Promise.resolve([]),
 
 ])
 
@@ -356,6 +379,17 @@ const propertyValue =
 
               </Link>
 
+              {
+                canUseMarketing && (
+                  <Link
+                    href={`/marketing/create?property=${property.id}`}
+                    className="inline-flex h-11 items-center justify-center rounded-xl border bg-background px-5 text-sm font-medium transition hover:bg-muted"
+                  >
+                    Create Marketing Content
+                  </Link>
+                )
+              }
+
               <ArchivePropertyButton
   propertyId={
     property.id
@@ -487,6 +521,35 @@ const propertyValue =
     property.transactionType
   }
 />
+
+
+      {
+        canUseMarketing && (
+          <section className="rounded-3xl border bg-card p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Marketing History</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Creative drafts, approvals and publications generated from this property.</p>
+              </div>
+              <Link href={`/marketing/content?property=${property.id}`} className="text-sm font-medium text-primary hover:underline">Open content library</Link>
+            </div>
+            {
+              marketingHistory.length ? (
+                <div className="mt-5 divide-y rounded-2xl border">
+                  {marketingHistory.map(item => (
+                    <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                      <div><p className="font-medium">{item.title || item.contentType.replaceAll("_", " ")}</p><p className="mt-1 text-sm text-muted-foreground">{new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(new Date(item.createdAt))}</p></div>
+                      <MarketingStatusPill status={item.status} />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-5 rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">No marketing content has been created for this property.</p>
+              )
+            }
+          </section>
+        )
+      }
 
 
 

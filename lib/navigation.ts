@@ -7,6 +7,7 @@ import {
   ContactRound,
   FolderKanban,
   LayoutDashboard,
+  Megaphone,
   MessageSquareText,
   MessagesSquare,
   Settings,
@@ -25,6 +26,7 @@ export interface NavigationItem {
   href: string
   icon: LucideIcon
   roles: readonly UserRole[]
+  feature?: "marketing"
 }
 
 
@@ -178,6 +180,22 @@ export const navigation: readonly NavigationGroup[] = [
   },
 
 
+
+  {
+    title: "Marketing",
+
+    items: [
+      {
+        title: "Marketing",
+        href: "/marketing",
+        icon: Megaphone,
+        roles: [
+          "admin",
+        ],
+        feature: "marketing",
+      },
+    ],
+  },
 
   {
     title: "Insights",

@@ -29,6 +29,7 @@ type UserRole,
 
 type AppSidebarProps = {
 role?: UserRole
+marketingEnabled?: boolean
 
 user?: {
 name: string
@@ -42,6 +43,7 @@ image?: string
 
 export function AppSidebar({
 role = "admin",
+marketingEnabled = false,
 user,
 }: AppSidebarProps){
 
@@ -69,6 +71,11 @@ items:
 group.items.filter(
 item =>
 item.roles.includes(role)
+&&
+(
+  item.feature !== "marketing" ||
+  marketingEnabled
+)
 ),
 
 })

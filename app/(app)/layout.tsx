@@ -39,6 +39,10 @@ import {
   getAppNotifications,
 } from "@/lib/services/notification-service"
 
+import {
+  isMarketingEnabled,
+} from "@/lib/marketing/feature-flags"
+
 
 
 
@@ -89,6 +93,10 @@ export default async function AppLayout({
 
           role={
             user.role
+          }
+
+          marketingEnabled={
+            isMarketingEnabled()
           }
 
 
