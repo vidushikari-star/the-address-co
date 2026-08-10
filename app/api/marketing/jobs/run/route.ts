@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server"
 
-import { MarketingWorkerService } from "@/lib/marketing/services/marketing-worker-service"
+import { MarketingWorkerService, VERCEL_SAFE_JOB_TYPES } from "@/lib/marketing/services/marketing-worker-service"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-/** Invoke from a protected platform cron every minute; it is never browser callable. */
+/**
+ * Kept as the protected remote runner for API-safe jobs. Render jobs are
+ * deliberately excluded: the Railway worker claims those same Supabase jobs
+ * directly so FFmpeg never runs in this Vercel function.
+ */
 export async function POST(request: Request) {
   const secret = process.env.MARKETING_CRON_SECRET
   const authorization = request.headers.get("authorization")
@@ -14,7 +18,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await MarketingWorkerService.run(3)
+    const result = await MarketingWorkerService.run(3, { jobTypes: VERCEL_SAFE_JOB_TYPES })
     return NextResponse.json({ result })
   } catch (error) {
     console.error("Marketing worker failed:", error)

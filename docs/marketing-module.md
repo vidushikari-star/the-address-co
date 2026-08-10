@@ -93,13 +93,36 @@ Programmatic access to the commercial Instagram music catalogue is not implement
 
 ## Worker and deployment
 
-Deploy the Next app plus a Node-capable worker runtime with FFmpeg. Invoke `POST /api/marketing/jobs/run` every minute from your scheduler with:
+`POST /api/marketing/jobs/run` remains a protected Vercel endpoint for API-safe jobs. It deliberately excludes `render_reel`, `render_image`, and `render_carousel`, so FFmpeg never executes inside the Vercel function. The separate Railway worker claims those existing render jobs directly from `marketing_jobs`, uses the same locking/retry/status logic in `MarketingWorkerService`, and saves completed output to the existing Supabase storage/table records.
+
+Deploy the Railway service from this repository using the root `Dockerfile` and the start command:
+
+```bash
+npm run marketing:worker
+```
+
+The Docker image uses Node 22 and installs FFmpeg at `/usr/bin/ffmpeg`; it verifies `ffmpeg -version` during the image build and worker startup. Do not assign this worker a public domain or healthcheck: Railway supports always-on background workers, and this process intentionally exposes no HTTP server.
+
+Set these variables on the Railway worker service:
+
+```text
+MARKETING_JOB_RUNNER_URL=https://the-address-co-seven.vercel.app/api/marketing/jobs/run
+MARKETING_CRON_SECRET=<same secret configured on Vercel>
+WORKER_INTERVAL_MS=60000
+NEXT_PUBLIC_SUPABASE_URL=<existing Supabase URL>
+SUPABASE_SERVICE_ROLE_KEY=<server-only Supabase service role key>
+FFMPEG_PATH=/usr/bin/ffmpeg
+```
+
+The worker uses one sequential loop: it claims at most one render job locally, then calls the protected Vercel endpoint for non-render jobs, waits 60 seconds, and repeats. A long render never overlaps another cycle. Temporary network/5xx failures retry next cycle; 401/403 responses log a configuration warning without exposing secrets. `SIGTERM`/`SIGINT` stop the worker after its current cycle. Railway native cron is not used because its minimum cadence is five minutes.
+
+The protected endpoint requires this header from the worker:
 
 ```http
 Authorization: Bearer $MARKETING_CRON_SECRET
 ```
 
-The route needs `SUPABASE_SERVICE_ROLE_KEY`; it is cron-only and returns `401` without the secret. It processes the existing `marketing_jobs` queue: `render_reel`, `render_image` and `render_carousel` require the external Node + FFmpeg worker; `publish_instagram` handles due scheduled publishing only when the feature flag is enabled. Keep worker secrets out of public runtime variables. If deploying a pure serverless platform, use a queue/worker service with sufficient disk/time/memory for FFmpeg rather than trying to render inside a short HTTP function.
+On Vercel, keep `SUPABASE_SERVICE_ROLE_KEY` and `MARKETING_CRON_SECRET` server-side: the endpoint returns `401` without the secret. It processes non-render jobs, including scheduled `publish_instagram`, only when the existing publishing feature flag allows it. The Railway worker does not bypass `INSTAGRAM_PUBLISHING_ENABLED`; while the flag is false, render jobs still run but scheduled publication remains deferred.
 
 Enable `MARKETING_ENABLED=true` only after the migration and secrets are in place. Leave `INSTAGRAM_PUBLISHING_ENABLED=false` during testing so drafts, rendering and review work without sending anything to Meta.
 

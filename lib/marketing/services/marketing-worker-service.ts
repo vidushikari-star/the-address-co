@@ -13,10 +13,14 @@ import type {
   MarketingBrandSettings,
   MarketingContent,
   MarketingJob,
+  MarketingJobType,
   PropertyFactSnapshot,
 } from "@/lib/marketing/types"
 
 type Row = Record<string, unknown>
+
+export const RENDER_JOB_TYPES = ["render_image", "render_carousel", "render_reel"] as const satisfies readonly MarketingJobType[]
+export const VERCEL_SAFE_JOB_TYPES = ["analyze_media", "generate_creative", "publish_instagram", "sync_publish_status", "sync_analytics"] as const satisfies readonly MarketingJobType[]
 
 function record(value: unknown): Row {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -113,13 +117,16 @@ function safeError(error: unknown) {
 class PublishingDisabledError extends Error {}
 
 export class MarketingWorkerService {
-  static async run(limit = 3) {
+  static async run(limit = 3, options?: { jobTypes?: readonly MarketingJobType[] }) {
     const admin = createAdminSupabaseClient()
     const workerId = `cron-${crypto.randomUUID()}`
+    const jobTypes = options?.jobTypes ?? [...RENDER_JOB_TYPES, ...VERCEL_SAFE_JOB_TYPES]
+    if (!jobTypes.length) return []
     const { data, error } = await admin
       .from("marketing_jobs")
       .select("*")
       .eq("status", "queued")
+      .in("type", [...jobTypes])
       .lte("run_after", new Date().toISOString())
       .order("created_at", { ascending: true })
       .limit(Math.min(Math.max(limit, 1), 10))
