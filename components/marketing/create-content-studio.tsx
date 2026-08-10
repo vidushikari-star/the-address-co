@@ -53,7 +53,18 @@ export function CreateContentStudio({ properties, initialPropertyId }: { propert
       })
       const payload = await response.json().catch(() => ({})) as { content?: { id: string }; error?: string }
       if (!response.ok || !payload.content) {
-        setError(payload.error || "The creative job could not be queued.")
+        setError(payload.error || "The marketing content item could not be created.")
+        return
+      }
+      const generated = await fetch(`/api/marketing/content/${payload.content.id}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      })
+      const generation = await generated.json().catch(() => ({})) as { error?: string }
+      if (!generated.ok) {
+        router.push(`/marketing/content?selected=${payload.content.id}&generationError=${encodeURIComponent(generation.error || "AI copy generation failed.")}`)
+        router.refresh()
         return
       }
       router.push(`/marketing/content?selected=${payload.content.id}`)
@@ -79,7 +90,7 @@ export function CreateContentStudio({ properties, initialPropertyId }: { propert
       <div className="mt-6"><p className="text-sm font-medium">Creative direction</p><div className="mt-3 flex flex-wrap gap-2">{CREATIVE_DIRECTIONS.map(item => <button type="button" key={item} onClick={() => setDirection(item)} className={`rounded-full border px-3 py-1.5 text-sm transition ${direction === item ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}>{directions[item]}</button>)}</div></div>
       <div className="mt-7 rounded-xl bg-muted/60 p-4"><p className="text-sm font-semibold">{property?.name || "Select a property"}</p><p className="mt-1 text-sm text-muted-foreground">The studio snapshots this property’s facts and original media. It will not change the original inventory record.</p></div>
       {error && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      <Button size="lg" onClick={generate} disabled={isPending || !propertyId} className="mt-6 w-full"><Sparkles className="h-4 w-4" />{isPending ? <><Loader2 className="h-4 w-4 animate-spin" />Queueing creative…</> : `Create ${CONTENT_TYPE_LABELS[contentType]}`}</Button>
+      <Button size="lg" onClick={generate} disabled={isPending || !propertyId} className="mt-6 w-full"><Sparkles className="h-4 w-4" />{isPending ? <><Loader2 className="h-4 w-4 animate-spin" />Generating copy…</> : `Create ${CONTENT_TYPE_LABELS[contentType]}`}</Button>
       <p className="mt-3 text-center text-xs text-muted-foreground">AI creates a draft only. Approval and publishing always remain with you.</p>
     </section>
   </div>

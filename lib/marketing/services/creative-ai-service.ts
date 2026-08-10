@@ -15,13 +15,13 @@ const CREATIVE_SCHEMA = {
     "altText", "suggestedDuration", "transitions", "audioStyle", "factsUsed",
   ],
   properties: {
-    campaignConcept: { type: "string" },
-    hook: { type: "string" },
-    headline: { type: "string" },
-    caption: { type: "string" },
-    shortCaption: { type: "string" },
-    cta: { type: "string" },
-    hashtags: { type: "array", items: { type: "string" } },
+    campaignConcept: { type: "string", minLength: 1 },
+    hook: { type: "string", minLength: 1 },
+    headline: { type: "string", minLength: 1 },
+    caption: { type: "string", minLength: 1 },
+    shortCaption: { type: "string", minLength: 1 },
+    cta: { type: "string", minLength: 1 },
+    hashtags: { type: "array", minItems: 1, items: { type: "string", minLength: 2 } },
     onScreenText: { type: "array", items: { type: "string" } },
     carouselSlides: { type: "array", items: { type: "string" } },
     storyCopy: { type: "array", items: { type: "string" } },
@@ -35,10 +35,6 @@ const CREATIVE_SCHEMA = {
 } as const
 
 type CreativeOutput = ReturnType<typeof CreativeOutputSchema.parse>
-
-function titleCase(value: string) {
-  return value.replaceAll("_", " ").replace(/\b\w/g, letter => letter.toUpperCase())
-}
 
 function factLines(property: PropertyFactSnapshot) {
   return {
@@ -56,47 +52,6 @@ function factLines(property: PropertyFactSnapshot) {
     propertyType: property.propertyType,
     developmentStage: property.developmentStage,
   }
-}
-
-function fallbackCreative(input: {
-  property: PropertyFactSnapshot
-  contentType: MarketingContentType
-  settings: MarketingBrandSettings
-}) {
-  const { property, contentType, settings } = input
-  const location = property.location ? ` in ${property.location}` : ""
-  const bedroomLine = property.bedrooms ? `${property.bedrooms} bedrooms` : null
-  const bathroomLine = property.bathrooms ? `${property.bathrooms} bathrooms` : null
-  const details = [bedroomLine, bathroomLine, property.propertyType].filter(Boolean).join(" · ")
-  const factSentence = details ? `${details}.` : ""
-  const title = property.title
-  const cta = settings.preferredCta || "Arrange a private viewing."
-  const hashtags = [...settings.defaultHashtags].slice(0, 12)
-
-  return CreativeOutputSchema.parse({
-    campaignConcept: `${titleCase(contentType)} for ${title}${location}, with an editorial focus on the property’s available imagery.`,
-    hook: `Discover ${title}${location}.`,
-    headline: title,
-    caption: `${title}${location}. ${factSentence} ${cta}`.replace(/\s+/g, " ").trim(),
-    shortCaption: `${title}${location}. ${cta}`,
-    cta,
-    hashtags,
-    onScreenText: [title, details, cta].filter(Boolean),
-    carouselSlides: [title, details || "Explore the available details", cta],
-    storyCopy: [title, cta],
-    coverText: title,
-    altText: property.location ? `${title} in ${property.location}.` : title,
-    suggestedDuration: contentType === "reel" ? 30 : 15,
-    transitions: ["cross_dissolve", "fade"],
-    audioStyle: "manual_instagram",
-    factsUsed: [
-      "title",
-      ...(property.location ? ["location"] : []),
-      ...(property.bedrooms ? ["bedrooms"] : []),
-      ...(property.bathrooms ? ["bathrooms"] : []),
-      ...(property.propertyType ? ["property_type"] : []),
-    ],
-  })
 }
 
 function validateBrandSafety(output: CreativeOutput, settings: MarketingBrandSettings) {
@@ -125,10 +80,8 @@ export class CreativeAIService {
     settings: MarketingBrandSettings
     recentContent?: Array<{ hook?: string | null; headline?: string | null; creativeDirection?: string | null }>
   }): Promise<CreativeOutput> {
-    const fallback = fallbackCreative(input)
-
     if (!process.env.OPENAI_API_KEY) {
-      return validateBrandSafety(fallback, input.settings)
+      throw new Error("OPENAI_API_KEY is not configured")
     }
 
     const instructions = [
@@ -138,6 +91,10 @@ export class CreativeAIService {
       "When a fact is absent, omit it. Generic stylistic language is allowed only when it does not imply an unsupported property fact.",
       "Use premium, sophisticated, editorial wording. Avoid cheesy sales language and excessive emojis.",
       `Brand tone: ${input.settings.preferredTone}`,
+      input.settings.brandName ? `Brand name: ${input.settings.brandName}` : "",
+      input.settings.instagramHandle ? `Instagram handle: @${input.settings.instagramHandle}` : "",
+      input.settings.website ? `Website: ${input.settings.website}` : "",
+      input.settings.whatsappCta ? `Contact / WhatsApp CTA: ${input.settings.whatsappCta}` : "",
       input.settings.preferredCta ? `Preferred CTA: ${input.settings.preferredCta}` : "",
       input.settings.excludedWords.length ? `Excluded words: ${input.settings.excludedWords.join(", ")}` : "",
       input.recentContent?.length
@@ -161,7 +118,16 @@ export class CreativeAIService {
               requestedContentType: input.contentType,
               creativeDirection: input.creativeDirection,
               propertyFacts: factLines(input.property),
-              defaultHashtags: input.settings.defaultHashtags,
+              brandSettings: {
+                brandName: input.settings.brandName,
+                instagramHandle: input.settings.instagramHandle,
+                website: input.settings.website,
+                whatsappCta: input.settings.whatsappCta,
+                preferredTone: input.settings.preferredTone,
+                preferredCta: input.settings.preferredCta,
+                defaultHashtags: input.settings.defaultHashtags,
+                excludedWords: input.settings.excludedWords,
+              },
             }),
           },
         ],

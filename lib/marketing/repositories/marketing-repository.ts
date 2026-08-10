@@ -296,6 +296,35 @@ export class MarketingRepository {
     return mapContent(data as Row)
   }
 
+  /** Deletes a draft and its generated private media; original property media is only referenced and is never removed. */
+  static async deleteDraftContent(id: string) {
+    const supabase = await createServerSupabaseClient()
+    const { data: assets, error: assetsError } = await supabase
+      .from("marketing_content_assets")
+      .select("storage_path")
+      .eq("content_id", id)
+      .not("storage_path", "is", null)
+    if (assetsError) throw assetsError
+
+    const { data, error } = await supabase
+      .from("marketing_content")
+      .delete()
+      .eq("id", id)
+      .eq("status", "draft")
+      .select("id")
+      .maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error("Only draft content can be deleted.")
+
+    const paths = ((assets ?? []) as Row[])
+      .map(asset => asset.storage_path)
+      .filter((path): path is string => typeof path === "string" && path.length > 0)
+    if (paths.length) {
+      const { error: storageError } = await supabase.storage.from("marketing-assets").remove(paths)
+      if (storageError) console.warn("Draft content was deleted but generated media cleanup failed:", storageError.message)
+    }
+  }
+
   static async transitionContent(input: {
     id: string
     from: MarketingStatus | MarketingStatus[]

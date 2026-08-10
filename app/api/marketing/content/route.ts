@@ -45,16 +45,10 @@ export async function POST(request: Request) {
       idempotencyKey: parsed.data.idempotencyKey,
     })
     await MarketingRepository.addSourceAssets(content.id, property)
-    await MarketingRepository.enqueueJob({
-      contentId: content.id,
-      type: "generate_creative",
-      input: { propertySnapshot: property },
-      idempotencyKey: `generate-creative:${content.id}`,
-    })
     await MarketingRepository.addAuditLog({
       actorId: access.user.id,
       contentId: content.id,
-      action: "content.generation_requested",
+      action: "content.created",
       metadata: { contentType: content.contentType, propertyId: property.id },
     })
 

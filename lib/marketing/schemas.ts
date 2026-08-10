@@ -23,6 +23,10 @@ export const ContentUpdateSchema = z.object({
   composition: z.record(z.string(), z.unknown()).optional(),
 })
 
+export const GenerateContentCopySchema = z.object({
+  fields: z.array(z.enum(["headline", "hook", "caption", "cta", "hashtags"])).min(1).max(5).optional(),
+})
+
 export const ApprovalActionSchema = z.object({
   action: z.enum(["approve", "request_changes", "reject"]),
   note: z.string().max(1_000).optional(),
@@ -74,13 +78,13 @@ export const ReelCompositionSchema = z.object({
 })
 
 export const CreativeOutputSchema = z.object({
-  campaignConcept: z.string().max(350),
-  hook: z.string().max(160),
-  headline: z.string().max(160),
-  caption: z.string().max(2_200),
-  shortCaption: z.string().max(500),
-  cta: z.string().max(240),
-  hashtags: z.array(z.string().max(80)).max(30),
+  campaignConcept: z.string().trim().min(1).max(350),
+  hook: z.string().trim().min(1).max(160),
+  headline: z.string().trim().min(1).max(160),
+  caption: z.string().trim().min(1).max(2_200),
+  shortCaption: z.string().trim().min(1).max(500),
+  cta: z.string().trim().min(1).max(240),
+  hashtags: z.array(z.string().trim().min(2).max(80)).min(1).max(30),
   onScreenText: z.array(z.string().max(120)).max(12),
   carouselSlides: z.array(z.string().max(300)).min(1).max(10),
   storyCopy: z.array(z.string().max(200)).max(8),

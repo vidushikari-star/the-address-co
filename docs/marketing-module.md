@@ -41,7 +41,9 @@ The database function `is_marketing_admin()` checks `user_profiles.role = 'admin
 
 ## Content generation and rendering
 
-`POST /api/marketing/content` creates an idempotent draft with a UUID key, snapshots a property and queues `generate_creative`. The worker records progress in `marketing_jobs`, generates structured creative, creates a working composition, then queues rendering.
+`POST /api/marketing/content` creates an idempotent draft with a UUID key and snapshots the property. The Create screen immediately calls the authenticated `POST /api/marketing/content/:id/generate` route, so copy is present when the review screen opens; it does not depend on a cron worker. The route loads the current property facts and brand settings, calls the server-side OpenAI Responses API with strict JSON Schema, validates the result, then persists headline, hook, caption, CTA and hashtags. Reviewers can use **Generate with AI**, **Regenerate with AI**, or a field-specific regenerate action at any time before approval.
+
+`OPENAI_API_KEY` is mandatory for this on-demand generation route. If it is missing, the UI shows `OPENAI_API_KEY is not configured`; it never leaves an apparently successful blank draft. Campaign and assistant flows may still use the protected background worker for their separate multi-item orchestration.
 
 Reel rendering uses FFmpeg with a 1080×1920 cover crop, H.264, yuv420p, 30 fps and fast-start MP4 output. Structured scene copy is rendered as escaped text overlays, and clip transitions are compiled using FFmpeg `xfade`. Image, carousel and story jobs render JPEG assets with their structured cover/slide text in the appropriate 4:5, 1:1, or 9:16 aspect ratio. All output is previewed from a signed URL.
 
@@ -59,6 +61,8 @@ approved / due scheduled -> publishing -> published    (protected worker only)
 ```
 
 The approval endpoint writes an individual `marketing_approvals` row and audit log. The worker cannot call it. A campaign plan is a separate explicit approval: it starts draft generation only. Each generated child item still needs its own content approval before it can schedule or publish.
+
+Only `draft` content exposes **Delete draft**. The protected delete route removes the content record and generated private `marketing-assets` files, while leaving the original property images/videos untouched. Approved, scheduled, publishing, and published content cannot be deleted through this route.
 
 ## Campaigns and content fatigue
 
@@ -105,7 +109,7 @@ Enable `MARKETING_ENABLED=true` only after the migration and secrets are in plac
 
 ## OpenAI configuration
 
-Set `OPENAI_API_KEY` server-side and optionally `OPENAI_MARKETING_MODEL`. The module uses the Responses API’s strict `text.format` JSON Schema output and then validates with Zod. This follows the [official Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs). Without an API key, the CRM still creates a clearly grounded deterministic draft for development; it does not fabricate unavailable facts.
+Set `OPENAI_API_KEY` server-side and optionally `OPENAI_MARKETING_MODEL`. The module uses the Responses API’s strict `text.format` JSON Schema output and then validates with Zod. This follows the [official Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs). Generation is unavailable without the key and returns the visible error `OPENAI_API_KEY is not configured`; it does not create a seemingly successful blank draft.
 
 ## Testing and troubleshooting
 
