@@ -334,7 +334,32 @@ export class MarketingWorkerService {
     const admin = createAdminSupabaseClient()
     const { content, assets } = await this.loadContent(job.contentId!)
     const composition = ReelCompositionSchema.parse(content.composition)
-    const output = await RenderService.renderReel({ contentId: content.id, composition, assets })
+    let audio: Parameters<typeof RenderService.renderReel>[0]["audio"] = null
+    if (composition.audio.type === "uploaded" && composition.audio.id) {
+      const { data: audioTrack, error: audioError } = await admin
+        .from("marketing_audio_tracks")
+        .select("storage_path, mime_type, duration_seconds")
+        .eq("id", composition.audio.id)
+        .maybeSingle()
+      if (audioError) throw audioError
+
+      // Tracks may be removed from the library after a Reel is rendered. Keep
+      // historical content valid and render a later retry silently instead of
+      // failing or attempting to source any third-party music.
+      if (audioTrack) {
+        const audioRow = audioTrack as Row
+        const { data: signed, error: signedError } = await admin.storage
+          .from("marketing-audio")
+          .createSignedUrl(String(audioRow.storage_path), 60 * 60)
+        if (signedError || !signed?.signedUrl) throw signedError ?? new Error("Unable to sign selected audio for rendering.")
+        audio = {
+          sourceUrl: signed.signedUrl,
+          mimeType: audioRow.mime_type as NonNullable<typeof audio>["mimeType"],
+          durationSeconds: Number(audioRow.duration_seconds),
+        }
+      }
+    }
+    const output = await RenderService.renderReel({ contentId: content.id, composition, assets, audio })
     await admin.from("marketing_content_assets").insert({
       content_id: content.id,
       kind: "rendered_media",

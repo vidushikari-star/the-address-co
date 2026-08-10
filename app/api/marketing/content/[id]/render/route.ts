@@ -11,12 +11,13 @@ type Context = { params: Promise<{ id: string }> }
 function selectedAudio(composition: Record<string, unknown>): ReelComposition["audio"] {
   const audio = composition.audio
   if (audio && typeof audio === "object") {
-    const candidate = audio as { type?: unknown; id?: unknown; label?: unknown }
-    if (["none", "royalty_free", "original", "instagram_manual"].includes(String(candidate.type))) {
+    const candidate = audio as { type?: unknown; id?: unknown; label?: unknown; durationSeconds?: unknown }
+    if (["none", "uploaded", "royalty_free", "original", "instagram_manual"].includes(String(candidate.type))) {
       return {
         type: candidate.type as ReelComposition["audio"]["type"],
         id: typeof candidate.id === "string" ? candidate.id : null,
         label: typeof candidate.label === "string" ? candidate.label : null,
+        durationSeconds: typeof candidate.durationSeconds === "number" ? candidate.durationSeconds : null,
       }
     }
   }

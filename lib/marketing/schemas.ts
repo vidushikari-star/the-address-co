@@ -75,9 +75,14 @@ export const ReelCompositionSchema = z.object({
   cta: z.string().max(240),
   coverText: z.string().max(120),
   audio: z.object({
-    type: z.enum(["none", "royalty_free", "original", "instagram_manual"]),
-    id: z.string().nullable().optional(),
+    type: z.enum(["none", "uploaded", "royalty_free", "original", "instagram_manual"]),
+    id: z.string().uuid().nullable().optional(),
     label: z.string().max(120).nullable().optional(),
+    durationSeconds: z.number().positive().max(3_600).nullable().optional(),
+  }).superRefine((audio, context) => {
+    if (audio.type === "uploaded" && !audio.id) {
+      context.addIssue({ code: "custom", message: "Uploaded audio must reference an Audio Library track.", path: ["id"] })
+    }
   }),
 })
 

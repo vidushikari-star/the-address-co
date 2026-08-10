@@ -30,7 +30,7 @@ Services are deliberately separate:
 
 ## Data migration
 
-Run `supabase/migrations/20260810120000_create_marketing_module.sql` and then `supabase/migrations/20260810130000_queue_marketing_reel_render.sql` after the project’s existing migrations. The latter atomically creates a queued `render_reel` job while moving content to `rendering`, and safely returns any legacy Reel left without a runnable job to `failed` with a retry message. The migration creates:
+Run `supabase/migrations/20260810120000_create_marketing_module.sql`, then `supabase/migrations/20260810130000_queue_marketing_reel_render.sql`, then `supabase/migrations/20260810140000_create_marketing_audio_library.sql` after the project’s existing migrations. The render migration atomically creates a queued `render_reel` job while moving content to `rendering`, and safely returns any legacy Reel left without a runnable job to `failed` with a retry message. The Audio Library migration adds its own private bucket and administrator-only track metadata. The migrations create:
 
 - accounts, brand settings, content, source-property links, original/working/rendered asset rows;
 - jobs, approvals, schedules, publications, analytics, audit logs and usage events;
@@ -46,6 +46,12 @@ The database function `is_marketing_admin()` checks `user_profiles.role = 'admin
 `OPENAI_API_KEY` is mandatory for this on-demand generation route. If it is missing, the UI shows `OPENAI_API_KEY is not configured`; it never leaves an apparently successful blank draft. Campaign and assistant flows may still use the protected background worker for their separate multi-item orchestration.
 
 Reels are the only on-demand content type that currently requires FFmpeg rendering. The render job creates a 1080×1920 H.264, yuv420p, 30 fps, fast-start MP4; structured scene copy is rendered as escaped text overlays and transitions use FFmpeg `xfade`. An approved single-image post uses its selected original CRM image directly and does not wait for FFmpeg. The existing image/carousel renderer remains available for a future explicitly branded-derivative workflow, but it is not a prerequisite for scheduling a normal approved post.
+
+## Audio Library
+
+**Marketing → Settings → Audio Library** accepts only administrator-uploaded MP3, M4A, and WAV files that the business owns or has permission to use. Files are limited to 25 MB, stored in the private `marketing-audio` bucket, and tracked with title, optional artist/source, filename, MIME type, size, duration, creator, and timestamps. Admins can preview, rename, and delete tracks. Signed preview URLs are short-lived and are issued only to authenticated Marketing administrators.
+
+An editable Reel can explicitly remain **Silent** or select one Audio Library track. The selection is validated server-side and persisted in its composition; no external URL or Instagram/Meta music identifier is accepted. During Railway rendering, a selected private track is signed server-side, mixed as AAC audio, trimmed to the Reel duration when it is longer, and faded out briefly near its usable end. A shorter track is never looped; the video continues after the audio ends. If no track is selected—or it was later deleted—the Reel renders successfully without embedded audio. Deleting a library track never changes an already-rendered Reel.
 
 Install FFmpeg in the render-worker image/package and set `FFMPEG_PATH`. The current local environment does not include FFmpeg, so actual rendering waits for a worker host that provides it.
 
@@ -89,7 +95,7 @@ Publishing is disabled unless `INSTAGRAM_PUBLISHING_ENABLED=true`. While disable
 
 Meta requires a professional account. The current Meta Instagram API supports content publishing for professional accounts, with Stories limited to business accounts in the documented flows. Meta fetches supplied media URLs during publishing, which is why the worker creates a short-lived signed URL. See Meta’s [Instagram API Postman collection](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api) and its [content publishing guide](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/content-publishing) before enabling production publishing.
 
-Programmatic access to the commercial Instagram music catalogue is not implemented and must not be assumed. The Reel review panel clearly shows that no uploaded audio tracks are available and allows a technically valid silent Reel (`No audio selected`); it does not claim to attach licensed or trending Instagram music. An uploaded, rights-cleared audio library would be required before royalty-free/original track selection can be offered.
+Programmatic access to the commercial Instagram music catalogue is not implemented and must not be assumed. The Reel review panel exposes only the private, user-uploaded Audio Library and an explicit Silent Reel option; it never claims to attach licensed or trending Instagram music from Meta.
 
 ## Worker and deployment
 

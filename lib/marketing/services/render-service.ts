@@ -7,6 +7,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import type { MarketingAsset, ReelComposition } from "@/lib/marketing/types"
 
 const MAX_RENDER_INPUT_BYTES = 75 * 1024 * 1024
+const MAX_AUDIO_INPUT_BYTES = 25 * 1024 * 1024
 const TRANSITION_DURATION = 0.4
 
 function allowedMediaOrigin(url: URL) {
@@ -53,6 +54,31 @@ async function downloadAsset(asset: MarketingAsset, destination: string) {
     throw new Error("A render asset exceeds the 75 MB safety limit.")
   }
 
+  await writeFile(destination, bytes)
+}
+
+function audioExtension(mimeType: string) {
+  if (mimeType === "audio/mpeg") return "mp3"
+  if (mimeType === "audio/wav") return "wav"
+  return "m4a"
+}
+
+async function downloadAudio(input: { sourceUrl: string; mimeType: string }, destination: string) {
+  const url = new URL(input.sourceUrl)
+  if (!allowedMediaOrigin(url)) {
+    throw new Error("Renderer rejected audio outside of configured Supabase storage.")
+  }
+
+  const response = await fetch(url, { signal: AbortSignal.timeout(30_000) })
+  if (!response.ok) throw new Error(`Unable to fetch selected audio (${response.status}).`)
+  const mimeType = (response.headers.get("content-type") ?? "").split(";", 1)[0]?.toLocaleLowerCase()
+  if (!mimeType || !["audio/mpeg", "audio/mp4", "audio/wav"].includes(mimeType)) {
+    throw new Error("Renderer received an unsupported audio MIME type.")
+  }
+  const contentLength = Number(response.headers.get("content-length") ?? 0)
+  if (contentLength > MAX_AUDIO_INPUT_BYTES) throw new Error("Selected audio exceeds the 25 MB safety limit.")
+  const bytes = new Uint8Array(await response.arrayBuffer())
+  if (bytes.byteLength > MAX_AUDIO_INPUT_BYTES) throw new Error("Selected audio exceeds the 25 MB safety limit.")
   await writeFile(destination, bytes)
 }
 
@@ -152,6 +178,11 @@ export class RenderService {
     contentId: string
     composition: ReelComposition
     assets: MarketingAsset[]
+    audio?: {
+      sourceUrl: string
+      mimeType: "audio/mpeg" | "audio/mp4" | "audio/wav"
+      durationSeconds: number
+    } | null
   }) {
     const compositionAssets = input.composition.scenes.map(scene => {
       const asset = input.assets.find(candidate => candidate.id === scene.assetId)
@@ -175,6 +206,10 @@ export class RenderService {
         await downloadAsset(asset, path)
         return path
       }))
+      const audioPath = input.audio
+        ? join(/* turbopackIgnore: true */ workspace, `audio.${audioExtension(input.audio.mimeType)}`)
+        : null
+      if (audioPath && input.audio) await downloadAudio(input.audio, audioPath)
 
       const args = ["-y"]
       compositionAssets.forEach(({ scene, asset }, index) => {
@@ -184,6 +219,7 @@ export class RenderService {
           args.push("-stream_loop", "-1", "-t", String(scene.duration), "-i", inputPaths[index])
         }
       })
+      if (audioPath) args.push("-i", audioPath)
 
       const filters = compositionAssets.map(({ scene }, index) =>
         `[${index}:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1${textOverlayFilter({ text: scene.overlay?.text, position: scene.overlay?.position })}[v${index}]`
@@ -201,14 +237,28 @@ export class RenderService {
         totalDuration += compositionAssets[index].scene.duration - TRANSITION_DURATION
       }
 
+      if (input.audio) {
+        // Never loop a short licensed track. `atrim` only caps a long track;
+        // FFmpeg leaves a shorter source short while the video continues.
+        const audibleDuration = Math.min(totalDuration, input.audio.durationSeconds)
+        const fadeDuration = audibleDuration > 0.4 ? Math.min(1.5, audibleDuration / 4) : 0
+        const fade = fadeDuration > 0
+          ? `,afade=t=out:st=${Math.max(0, audibleDuration - fadeDuration).toFixed(3)}:d=${fadeDuration.toFixed(3)}`
+          : ""
+        filters.push(`[${compositionAssets.length}:a]atrim=duration=${totalDuration.toFixed(3)},asetpts=N/SR/TB${fade}[a]`)
+      }
+
       args.push(
         "-filter_complex", filters.join(";"),
         "-map", `[${previous}]`,
+      )
+      if (input.audio) args.push("-map", "[a]", "-c:a", "aac", "-b:a", "160k")
+      else args.push("-an")
+      args.push(
         "-c:v", "libx264",
         "-pix_fmt", "yuv420p",
         "-movflags", "+faststart",
         "-r", "30",
-        "-an",
         outputPath
       )
 

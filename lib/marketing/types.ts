@@ -65,6 +65,21 @@ export type MarketingAsset = {
   createdAt: string
 }
 
+/** Metadata for private, administrator-uploaded music the business owns or is licensed to use. */
+export type MarketingAudioTrack = {
+  id: string
+  title: string
+  artistSource?: string | null
+  filename: string
+  mimeType: "audio/mpeg" | "audio/mp4" | "audio/wav"
+  fileSize: number
+  durationSeconds: number
+  createdAt: string
+  createdBy?: string | null
+  /** Short-lived URL for an authenticated CRM preview only. */
+  signedUrl?: string | null
+}
+
 export type MarketingContent = {
   id: string
   campaignId?: string | null
@@ -146,9 +161,10 @@ export type ReelComposition = {
   cta: string
   coverText: string
   audio: {
-    type: "none" | "royalty_free" | "original" | "instagram_manual"
+    type: "none" | "uploaded" | "royalty_free" | "original" | "instagram_manual"
     id?: string | null
     label?: string | null
+    durationSeconds?: number | null
   }
 }
 

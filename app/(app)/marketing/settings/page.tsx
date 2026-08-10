@@ -3,6 +3,7 @@ import { CheckCircle2, ExternalLink, ShieldCheck } from "lucide-react"
 
 import { saveMarketingBrandSettings } from "@/app/(app)/marketing/settings/actions"
 import { InstagramConnectionActions } from "@/components/marketing/instagram-connection-actions"
+import { MarketingAudioLibrary } from "@/components/marketing/marketing-audio-library"
 import { MarketingPageHeader } from "@/components/marketing/marketing-page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,9 +15,10 @@ type Props = { searchParams: Promise<{ instagram?: string; reason?: string }> }
 
 export default async function MarketingSettingsPage({ searchParams }: Props) {
   await requireMarketingAdminPage()
-  const [settings, account, params] = await Promise.all([
+  const [settings, account, tracks, params] = await Promise.all([
     MarketingRepository.getBrandSettings(),
     MarketingRepository.getInstagramAccount(),
+    MarketingRepository.listAudioTracks(),
     searchParams,
   ])
   const connected = account?.status === "connected" || account?.status === "expiring"
@@ -29,7 +31,7 @@ export default async function MarketingSettingsPage({ searchParams }: Props) {
       description="Brand settings guide every draft. Instagram access tokens remain encrypted on the server and never enter an AI request."
     />
     <main className="mx-auto grid w-full max-w-7xl gap-6 p-4 sm:p-6 lg:grid-cols-[1fr_0.75fr] lg:p-8">
-      <form action={saveMarketingBrandSettings} className="rounded-2xl border bg-card p-5 sm:p-6">
+      <div className="space-y-6"><form action={saveMarketingBrandSettings} className="rounded-2xl border bg-card p-5 sm:p-6">
         <div><h2 className="font-semibold">Brand voice</h2><p className="mt-1 text-sm text-muted-foreground">Applied to structured creative generation, never used to alter source property facts.</p></div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <label className="grid gap-1.5 text-sm font-medium">Brand name<Input name="brandName" defaultValue={settings.brandName ?? ""} /></label>
@@ -50,7 +52,7 @@ export default async function MarketingSettingsPage({ searchParams }: Props) {
         </div>
         <input type="hidden" name="timezone" value={settings.timezone} />
         <Button className="mt-6" type="submit">Save brand settings</Button>
-      </form>
+      </form><MarketingAudioLibrary tracks={tracks} /></div>
 
       <aside className="space-y-6">
         <section className="rounded-2xl border bg-card p-5 sm:p-6">

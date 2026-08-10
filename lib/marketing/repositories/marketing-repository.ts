@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import type {
   InstagramAccount,
   MarketingAsset,
+  MarketingAudioTrack,
   MarketingBrandSettings,
   MarketingContent,
   MarketingContentType,
@@ -90,6 +91,21 @@ function mapAsset(row: Row): MarketingAsset {
   }
 }
 
+function mapAudioTrack(row: Row, signedUrl?: string | null): MarketingAudioTrack {
+  return {
+    id: String(row.id),
+    title: String(row.title),
+    artistSource: row.artist_source as string | null,
+    filename: String(row.filename),
+    mimeType: row.mime_type as MarketingAudioTrack["mimeType"],
+    fileSize: Number(row.file_size),
+    durationSeconds: Number(row.duration_seconds),
+    createdAt: String(row.created_at),
+    createdBy: row.created_by as string | null,
+    signedUrl: signedUrl ?? null,
+  }
+}
+
 function mapJob(row: Row): MarketingJob {
   return {
     id: String(row.id),
@@ -136,6 +152,89 @@ async function signedAssetUrl(storagePath: string | null | undefined) {
 }
 
 export class MarketingRepository {
+  static async listAudioTracks(): Promise<MarketingAudioTrack[]> {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from("marketing_audio_tracks")
+      .select("*")
+      .order("created_at", { ascending: false })
+    if (error) throw error
+
+    return Promise.all(((data ?? []) as Row[]).map(async row => {
+      const { data: signed } = await supabase.storage
+        .from("marketing-audio")
+        .createSignedUrl(String(row.storage_path), 60 * 20)
+      return mapAudioTrack(row, signed?.signedUrl ?? null)
+    }))
+  }
+
+  static async createAudioTrack(input: {
+    title: string
+    artistSource?: string | null
+    storagePath: string
+    filename: string
+    mimeType: MarketingAudioTrack["mimeType"]
+    fileSize: number
+    durationSeconds: number
+    createdBy: string
+  }) {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from("marketing_audio_tracks")
+      .insert({
+        title: input.title,
+        artist_source: input.artistSource ?? null,
+        storage_path: input.storagePath,
+        filename: input.filename,
+        mime_type: input.mimeType,
+        file_size: input.fileSize,
+        duration_seconds: input.durationSeconds,
+        created_by: input.createdBy,
+      })
+      .select("*")
+      .single()
+    if (error) throw error
+    return mapAudioTrack(data as Row)
+  }
+
+  static async updateAudioTrack(id: string, input: { title: string; artistSource?: string | null }) {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from("marketing_audio_tracks")
+      .update({ title: input.title, artist_source: input.artistSource ?? null })
+      .eq("id", id)
+      .select("*")
+      .maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error("Audio track not found.")
+    return mapAudioTrack(data as Row)
+  }
+
+  static async getAudioTrackById(id: string) {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from("marketing_audio_tracks")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle()
+    if (error) throw error
+    return data ? mapAudioTrack(data as Row) : null
+  }
+
+  static async deleteAudioTrack(id: string) {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from("marketing_audio_tracks")
+      .delete()
+      .eq("id", id)
+      .select("id, storage_path")
+      .maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error("Audio track not found.")
+    const row = data as Row
+    return { id: String(row.id), storagePath: String(row.storage_path) }
+  }
+
   static async getContentByIdempotencyKey(idempotencyKey: string) {
     const supabase = await createServerSupabaseClient()
     const { data, error } = await supabase

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { MarketingJob } from "@/lib/marketing/types"
 
-const admin = vi.hoisted(() => ({ client: { from: vi.fn(), rpc: vi.fn() } }))
+const admin = vi.hoisted(() => ({ client: { from: vi.fn(), rpc: vi.fn(), storage: { from: vi.fn() } } }))
 const renderService = vi.hoisted(() => ({ renderReel: vi.fn() }))
 
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabaseClient: () => admin.client }))
@@ -189,7 +189,63 @@ describe("MarketingWorkerService render queue", () => {
     })
 
     expect(renderService.renderReel).toHaveBeenCalledOnce()
+    expect(renderService.renderReel).toHaveBeenCalledWith(expect.objectContaining({ audio: null }))
     expect(contentUpdate.update).toHaveBeenCalledWith({ status: "approved", last_error: null })
+  })
+
+  it("resolves a selected private audio track and passes it to the Reel renderer", async () => {
+    const contentRow = {
+      id: contentId,
+      content_type: "reel",
+      status: "rendering",
+      property_snapshot: { id: contentId },
+      creative_direction: "surprise_me",
+      hashtags: [],
+      creative: {},
+      composition: { ...reelComposition(), audio: { type: "uploaded", id: assetId, label: "Licensed piano", durationSeconds: 30 } },
+      created_at: "2026-08-10T00:00:00.000Z",
+      updated_at: "2026-08-10T00:00:00.000Z",
+    }
+    const contentSelect = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn() }
+    contentSelect.select.mockReturnValue(contentSelect)
+    contentSelect.eq.mockReturnValue(contentSelect)
+    contentSelect.maybeSingle.mockResolvedValue({ data: contentRow, error: null })
+    const assetsSelect = { select: vi.fn(), eq: vi.fn(), order: vi.fn() }
+    assetsSelect.select.mockReturnValue(assetsSelect)
+    assetsSelect.eq.mockReturnValue(assetsSelect)
+    assetsSelect.order.mockResolvedValue({ data: [{ id: assetId, content_id: contentId, kind: "original_reference", media_type: "image", source_url: "https://example.com/villa.jpg", metadata: {}, sort_order: 0, created_at: "2026-08-10T00:00:00.000Z" }], error: null })
+    const audioSelect = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn() }
+    audioSelect.select.mockReturnValue(audioSelect)
+    audioSelect.eq.mockReturnValue(audioSelect)
+    audioSelect.maybeSingle.mockResolvedValue({ data: { storage_path: "admin/licensed-piano.m4a", mime_type: "audio/mp4", duration_seconds: 30 }, error: null })
+    const assetInsert = { insert: vi.fn() }
+    const contentUpdate = terminalUpdateQuery()
+    const auditInsert = { insert: vi.fn() }
+    const usageInsert = { insert: vi.fn() }
+    const signed = { createSignedUrl: vi.fn().mockResolvedValue({ data: { signedUrl: "https://project.supabase.co/storage/audio" }, error: null }) }
+    admin.client.storage.from.mockReturnValue(signed)
+    let contentCalls = 0
+    let assetCalls = 0
+    admin.client.from.mockImplementation((table: string) => {
+      if (table === "marketing_content") return [contentSelect, contentUpdate][contentCalls++]
+      if (table === "marketing_content_assets") return [assetsSelect, assetInsert][assetCalls++]
+      if (table === "marketing_audio_tracks") return audioSelect
+      if (table === "marketing_audit_logs") return auditInsert
+      if (table === "marketing_usage_events") return usageInsert
+      throw new Error(`Unexpected table: ${table}`)
+    })
+    renderService.renderReel.mockResolvedValue({ storagePath: `${contentId}/rendered/reel.mp4`, duration: 15, byteLength: 1234 })
+
+    await privateWorker().renderReel({
+      id: "job-1", contentId, type: "render_reel", status: "running", progress: 5,
+      input: { resumeApproved: true }, output: {}, attempts: 1, maxAttempts: 3,
+      runAfter: "2026-08-10T00:00:00.000Z", createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z",
+    })
+
+    expect(signed.createSignedUrl).toHaveBeenCalledWith("admin/licensed-piano.m4a", 60 * 60)
+    expect(renderService.renderReel).toHaveBeenCalledWith(expect.objectContaining({
+      audio: { sourceUrl: "https://project.supabase.co/storage/audio", mimeType: "audio/mp4", durationSeconds: 30 },
+    }))
   })
 
   it("marks a terminal FFmpeg failure as failed and records its useful error", async () => {
