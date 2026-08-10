@@ -47,9 +47,31 @@ const creative = {
 
 const originalApiKey = process.env.OPENAI_API_KEY
 const originalFetch = global.fetch
+const originalModel = process.env.OPENAI_MARKETING_MODEL
+
+function response(payload: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "content-type": "application/json" },
+  })
+}
+
+function completedResponse(content: Record<string, unknown> = creative) {
+  return response({
+    id: "resp_test_123",
+    status: "completed",
+    output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(content) }] }],
+  })
+}
+
+function restoreEnvironmentValue(name: string, value: string | undefined) {
+  if (value === undefined) delete process.env[name]
+  else process.env[name] = value
+}
 
 afterEach(() => {
-  process.env.OPENAI_API_KEY = originalApiKey
+  restoreEnvironmentValue("OPENAI_API_KEY", originalApiKey)
+  restoreEnvironmentValue("OPENAI_MARKETING_MODEL", originalModel)
   global.fetch = originalFetch
   vi.restoreAllMocks()
 })
@@ -65,9 +87,9 @@ describe("CreativeAIService", () => {
     })).rejects.toThrow("OPENAI_API_KEY is not configured")
   })
 
-  it("sends only structured property facts and brand settings to the server-side Responses API", async () => {
+  it("uses native Responses structured parsing and returns validated creative output", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ output_text: JSON.stringify(creative) }), { status: 200 }))
+    const fetchMock = vi.fn().mockResolvedValue(completedResponse())
     global.fetch = fetchMock
 
     const output = await CreativeAIService.generate({
@@ -78,20 +100,83 @@ describe("CreativeAIService", () => {
     })
 
     expect(output).toMatchObject({ headline: creative.headline, hook: creative.hook, caption: creative.caption, cta: creative.cta, hashtags: creative.hashtags })
-    expect(fetchMock).toHaveBeenCalledWith("https://api.openai.com/v1/responses", expect.objectContaining({
-      method: "POST",
-      headers: expect.objectContaining({ Authorization: "Bearer server-only-test-key" }),
-    }))
+    expect(fetchMock).toHaveBeenCalledWith("https://api.openai.com/v1/responses", expect.objectContaining({ method: "POST" }))
     const request = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
     const input = JSON.parse(request.input[1].content)
     expect(input.propertyFacts).toMatchObject({ title: "Villa Verde", location: "Parra, Goa", bedrooms: 4 })
     expect(input.brandSettings).toMatchObject({ brandName: "The Address Co", instagramHandle: "theaddressco", website: "https://theaddressco.example" })
-    expect(request.text.format).toMatchObject({ type: "json_schema", strict: true })
+    expect(request).toMatchObject({ model: "gpt-5.2", max_output_tokens: 1_200 })
+    expect(request.text.format).toMatchObject({ type: "json_schema", strict: true, name: "marketing_creative" })
+  })
+
+  it("returns an actionable error for an empty completed response", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    global.fetch = vi.fn().mockResolvedValue(response({
+      id: "resp_empty",
+      status: "completed",
+      output: [],
+    }))
+
+    await expect(CreativeAIService.generate({
+      property,
+      contentType: "reel",
+      creativeDirection: "minimal",
+      settings,
+    })).rejects.toThrow("OpenAI returned no generated content")
+  })
+
+  it("returns an actionable error when the response is incomplete due to token limits", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    global.fetch = vi.fn().mockResolvedValue(response({
+      id: "resp_incomplete",
+      status: "incomplete",
+      incomplete_details: { reason: "max_output_tokens" },
+      output: [],
+    }))
+
+    await expect(CreativeAIService.generate({
+      property,
+      contentType: "reel",
+      creativeDirection: "minimal",
+      settings,
+    })).rejects.toThrow("OpenAI output exceeded configured token limit")
+  })
+
+  it("returns an actionable error for malformed structured output", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    global.fetch = vi.fn().mockResolvedValue(response({
+      id: "resp_malformed",
+      status: "completed",
+      output: [{ type: "message", content: [{ type: "output_text", text: "{not json" }] }],
+    }))
+
+    await expect(CreativeAIService.generate({
+      property,
+      contentType: "reel",
+      creativeDirection: "minimal",
+      settings,
+    })).rejects.toThrow("OpenAI structured output could not be parsed")
+  })
+
+  it("returns an actionable refusal instead of treating it as missing output", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    global.fetch = vi.fn().mockResolvedValue(response({
+      id: "resp_refusal",
+      status: "completed",
+      output: [{ type: "message", content: [{ type: "refusal", refusal: "I cannot help with that." }] }],
+    }))
+
+    await expect(CreativeAIService.generate({
+      property,
+      contentType: "reel",
+      creativeDirection: "minimal",
+      settings,
+    })).rejects.toThrow("OpenAI refused the request")
   })
 
   it("rejects excluded language from otherwise valid AI output", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
-    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ output_text: JSON.stringify({ ...creative, caption: "Guaranteed returns at Villa Verde." }) }), { status: 200 }))
+    global.fetch = vi.fn().mockResolvedValue(completedResponse({ ...creative, caption: "Guaranteed returns at Villa Verde." }))
     await expect(CreativeAIService.generate({
       property,
       contentType: "reel",

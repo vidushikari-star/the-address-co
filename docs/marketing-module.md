@@ -20,7 +20,7 @@ CRM properties + original property_images
 
 Services are deliberately separate:
 
-- `CreativeAIService` accepts only the snapshot and brand settings, requests strict JSON Schema output, validates it with Zod, and applies excluded-word protection.
+- `CreativeAIService` accepts only the snapshot and brand settings, uses the OpenAI SDK's `responses.parse` and Zod-backed strict Structured Outputs, validates the parsed object, and applies excluded-word protection.
 - `MediaAnalysisService` selects explicit asset IDs without changing original media.
 - `CompositionService` produces a typed 9:16 Reel timeline.
 - `RenderService` invokes FFmpeg without a shell, downloads only files from the configured Supabase origin, limits inputs to 75 MB, and uploads an H.264 MP4 or JPEG to private storage.
@@ -41,7 +41,7 @@ The database function `is_marketing_admin()` checks `user_profiles.role = 'admin
 
 ## Content generation and rendering
 
-`POST /api/marketing/content` creates an idempotent draft with a UUID key and snapshots the property. The Create screen immediately calls the authenticated `POST /api/marketing/content/:id/generate` route, so copy is present when the review screen opens; it does not depend on a cron worker. The route loads the current property facts and brand settings, calls the server-side OpenAI Responses API with strict JSON Schema, validates the result, then persists headline, hook, caption, CTA and hashtags. Reviewers can use **Generate with AI**, **Regenerate with AI**, or a field-specific regenerate action at any time before approval.
+`POST /api/marketing/content` creates an idempotent draft with a UUID key and snapshots the property. The Create screen immediately calls the authenticated `POST /api/marketing/content/:id/generate` route, so copy is present when the review screen opens; it does not depend on a cron worker. The route loads the current property facts and brand settings, calls the server-side OpenAI Responses API with the SDK's `responses.parse`, validates `output_parsed`, then persists headline, hook, caption, CTA and hashtags. Reviewers can use **Generate with AI**, **Regenerate with AI**, or a field-specific regenerate action at any time before approval.
 
 `OPENAI_API_KEY` is mandatory for this on-demand generation route. If it is missing, the UI shows `OPENAI_API_KEY is not configured`; it never leaves an apparently successful blank draft. Campaign and assistant flows may still use the protected background worker for their separate multi-item orchestration.
 
@@ -111,7 +111,7 @@ Enable `MARKETING_ENABLED=true` only after the migration and secrets are in plac
 
 ## OpenAI configuration
 
-Set `OPENAI_API_KEY` server-side and optionally `OPENAI_MARKETING_MODEL`. The module uses the Responses API’s strict `text.format` JSON Schema output and then validates with Zod. This follows the [official Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs). Generation is unavailable without the key and returns the visible error `OPENAI_API_KEY is not configured`; it does not create a seemingly successful blank draft.
+Set `OPENAI_API_KEY` server-side and optionally `OPENAI_MARKETING_MODEL`. The default model is `gpt-5.2`; any override must support the Responses API’s strict Structured Outputs. The module uses `openai@7.4` and requires Node.js 22 or later. It calls the SDK’s `responses.parse` with `zodTextFormat`, then reads the SDK-provided `response.output_parsed` rather than assuming a top-level REST field. `max_output_tokens` is 1,200, enough for the complete creative schema while still bounded. This follows the [official Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs). Safe server logs record only response metadata (ID, state, output item types, parsed/text/refusal flags and incomplete reason). The UI receives actionable errors for unavailable keys, incomplete/truncated output, malformed structured output, refusals, and empty output; it does not create a seemingly successful blank draft.
 
 ## Testing and troubleshooting
 

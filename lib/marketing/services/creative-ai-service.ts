@@ -1,3 +1,6 @@
+import OpenAI from "openai"
+import { zodTextFormat } from "openai/helpers/zod"
+
 import { CreativeOutputSchema } from "@/lib/marketing/schemas"
 import type {
   CreativeDirection,
@@ -6,35 +9,10 @@ import type {
   PropertyFactSnapshot,
 } from "@/lib/marketing/types"
 
-const CREATIVE_SCHEMA = {
-  type: "object",
-  additionalProperties: false,
-  required: [
-    "campaignConcept", "hook", "headline", "caption", "shortCaption", "cta",
-    "hashtags", "onScreenText", "carouselSlides", "storyCopy", "coverText",
-    "altText", "suggestedDuration", "transitions", "audioStyle", "factsUsed",
-  ],
-  properties: {
-    campaignConcept: { type: "string", minLength: 1 },
-    hook: { type: "string", minLength: 1 },
-    headline: { type: "string", minLength: 1 },
-    caption: { type: "string", minLength: 1 },
-    shortCaption: { type: "string", minLength: 1 },
-    cta: { type: "string", minLength: 1 },
-    hashtags: { type: "array", minItems: 1, items: { type: "string", minLength: 2 } },
-    onScreenText: { type: "array", items: { type: "string" } },
-    carouselSlides: { type: "array", items: { type: "string" } },
-    storyCopy: { type: "array", items: { type: "string" } },
-    coverText: { type: "string" },
-    altText: { type: "string" },
-    suggestedDuration: { type: "integer", enum: [15, 20, 30, 45, 60] },
-    transitions: { type: "array", items: { type: "string", enum: ["fade", "cross_dissolve", "slide", "zoom", "blur"] } },
-    audioStyle: { type: "string", enum: ["cinematic", "luxury_lounge", "tropical", "upbeat", "ambient", "architectural", "emotional", "trending_style", "manual_instagram"] },
-    factsUsed: { type: "array", items: { type: "string", enum: ["title", "location", "price", "bedrooms", "bathrooms", "carpet_area", "built_up_area", "plot_area", "description", "amenities", "features", "property_type", "development_stage"] } },
-  },
-} as const
-
 type CreativeOutput = ReturnType<typeof CreativeOutputSchema.parse>
+
+const DEFAULT_MARKETING_MODEL = "gpt-5.2"
+const MARKETING_MAX_OUTPUT_TOKENS = 1_200
 
 function factLines(property: PropertyFactSnapshot) {
   return {
@@ -72,6 +50,53 @@ function validateBrandSafety(output: CreativeOutput, settings: MarketingBrandSet
   return output
 }
 
+function logResponseDiagnostics(response: {
+  id: string
+  status?: string
+  output: Array<{ type: string; content?: Array<{ type: string; text?: string; parsed?: unknown }> }>
+  output_parsed: unknown
+  incomplete_details?: { reason?: string | null } | null
+}) {
+  const content = response.output.flatMap(item => item.type === "message" ? item.content ?? [] : [])
+  const hasText = content.some(item => item.type === "output_text" && Boolean(item.text?.trim()))
+  const parsed = response.output_parsed !== null || content.some(item => item.parsed !== null && item.parsed !== undefined)
+  const refused = content.some(item => item.type === "refusal")
+
+  // Keep this deliberately metadata-only: the response can contain property data and generated copy.
+  console.info("OpenAI response received:", JSON.stringify({
+    id: response.id,
+    status: response.status,
+    outputItems: response.output.length,
+    outputTypes: response.output.map(item => item.type),
+    parsed,
+    text: hasText,
+    refused,
+    incompleteReason: response.incomplete_details?.reason ?? null,
+  }))
+
+  return { hasText, parsed, refused }
+}
+
+function isStructuredOutputParseError(error: unknown) {
+  if (error instanceof SyntaxError) return true
+  if (!error || typeof error !== "object") return false
+  const candidate = error as { name?: unknown; issues?: unknown; message?: unknown }
+  return Array.isArray(candidate.issues) || candidate.name === "ZodError" ||
+    (typeof candidate.message === "string" && candidate.message.includes("JSON"))
+}
+
+function logRequestFailure(error: unknown) {
+  const details = error && typeof error === "object"
+    ? error as { name?: unknown; status?: unknown; requestID?: unknown; message?: unknown }
+    : {}
+  console.error("OpenAI generation request failed:", JSON.stringify({
+    name: typeof details.name === "string" ? details.name : "UnknownError",
+    status: typeof details.status === "number" ? details.status : null,
+    requestId: typeof details.requestID === "string" ? details.requestID : null,
+    parseFailure: isStructuredOutputParseError(error),
+  }))
+}
+
 export class CreativeAIService {
   static async generate(input: {
     property: PropertyFactSnapshot
@@ -86,7 +111,7 @@ export class CreativeAIService {
 
     const instructions = [
       "You are the private editorial marketing assistant for a luxury real-estate CRM.",
-      "Return only structured JSON matching the supplied schema.",
+      "Return the structured output that matches the supplied schema.",
       "Use only the supplied inventory facts. Never invent amenities, views, ROI, availability, room counts, size, price, location facts, or urgency.",
       "When a fact is absent, omit it. Generic stylistic language is allowed only when it does not imply an unsupported property fact.",
       "Use premium, sophisticated, editorial wording. Avoid cheesy sales language and excessive emojis.",
@@ -102,14 +127,17 @@ export class CreativeAIService {
         : "",
     ].filter(Boolean).join("\n")
 
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MARKETING_MODEL ?? "gpt-5.2",
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      timeout: 45_000,
+      maxRetries: 1,
+    })
+
+    let response
+    try {
+      response = await openai.responses.parse({
+        model: process.env.OPENAI_MARKETING_MODEL ?? DEFAULT_MARKETING_MODEL,
+        max_output_tokens: MARKETING_MAX_OUTPUT_TOKENS,
         input: [
           { role: "system", content: instructions },
           {
@@ -132,27 +160,35 @@ export class CreativeAIService {
           },
         ],
         text: {
-          format: {
-            type: "json_schema",
-            name: "marketing_creative",
-            strict: true,
-            schema: CREATIVE_SCHEMA,
-          },
+          format: zodTextFormat(CreativeOutputSchema, "marketing_creative"),
         },
-      }),
-      signal: AbortSignal.timeout(45_000),
-    })
-
-    if (!response.ok) {
-      throw new Error(`OpenAI generation failed (${response.status}).`)
+      })
+    } catch (error) {
+      logRequestFailure(error)
+      if (isStructuredOutputParseError(error)) {
+        throw new Error("OpenAI structured output could not be parsed.")
+      }
+      throw new Error("OpenAI generation request failed.")
     }
 
-    const payload = await response.json() as { output_text?: string }
-    if (!payload.output_text) {
-      throw new Error("OpenAI did not return creative output.")
+    const diagnostics = logResponseDiagnostics(response)
+    if (diagnostics.refused) throw new Error("OpenAI refused the request.")
+    if (response.status === "incomplete") {
+      if (response.incomplete_details?.reason === "max_output_tokens") {
+        throw new Error("OpenAI output exceeded configured token limit.")
+      }
+      throw new Error("OpenAI response was incomplete.")
+    }
+    if (response.status && response.status !== "completed") {
+      throw new Error("OpenAI response was not completed.")
+    }
+    if (!response.output_parsed) {
+      if (diagnostics.hasText) throw new Error("OpenAI structured output could not be parsed.")
+      throw new Error("OpenAI returned no generated content.")
     }
 
-    const output = CreativeOutputSchema.parse(JSON.parse(payload.output_text))
+    // responses.parse validates with this same Zod schema before exposing output_parsed.
+    const output = CreativeOutputSchema.parse(response.output_parsed)
     return validateBrandSafety(output, input.settings)
   }
 }
