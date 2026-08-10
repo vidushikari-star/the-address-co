@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { MarketingWorkerService, VERCEL_SAFE_JOB_TYPES } from "@/lib/marketing/services/marketing-worker-service"
+import { supabaseProjectRef } from "@/lib/marketing/supabase-project"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -19,7 +20,9 @@ export async function POST(request: Request) {
 
   try {
     const result = await MarketingWorkerService.run(3, { jobTypes: VERCEL_SAFE_JOB_TYPES })
-    return NextResponse.json({ result })
+    // Safe, non-secret queue identity for the Railway worker's deployment
+    // diagnostic. This catches accidental cross-project configuration.
+    return NextResponse.json({ result, supabaseProjectRef: supabaseProjectRef() })
   } catch (error) {
     console.error("Marketing worker failed:", error)
     return NextResponse.json({ error: "Marketing worker failed." }, { status: 500 })

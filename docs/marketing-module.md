@@ -30,7 +30,7 @@ Services are deliberately separate:
 
 ## Data migration
 
-Run `supabase/migrations/20260810120000_create_marketing_module.sql` after the project’s existing migrations. It creates:
+Run `supabase/migrations/20260810120000_create_marketing_module.sql` and then `supabase/migrations/20260810130000_queue_marketing_reel_render.sql` after the project’s existing migrations. The latter atomically creates a queued `render_reel` job while moving content to `rendering`, and safely returns any legacy Reel left without a runnable job to `failed` with a retry message. The migration creates:
 
 - accounts, brand settings, content, source-property links, original/working/rendered asset rows;
 - jobs, approvals, schedules, publications, analytics, audit logs and usage events;
@@ -114,7 +114,7 @@ SUPABASE_SERVICE_ROLE_KEY=<server-only Supabase service role key>
 FFMPEG_PATH=/usr/bin/ffmpeg
 ```
 
-The worker uses one sequential loop: it claims at most one render job locally, then calls the protected Vercel endpoint for non-render jobs, waits 60 seconds, and repeats. A long render never overlaps another cycle. Temporary network/5xx failures retry next cycle; 401/403 responses log a configuration warning without exposing secrets. `SIGTERM`/`SIGINT` stop the worker after its current cycle. Railway native cron is not used because its minimum cadence is five minutes.
+The worker uses one sequential loop: it calls the protected Vercel endpoint for non-render jobs, verifies that Vercel and Railway identify the same non-secret Supabase project, then claims at most one local render job, waits 60 seconds, and repeats. A long render never overlaps another cycle. Each Railway cycle logs the safe count/type/status summary of eligible render jobs; no property data, URLs, keys, or tokens are logged. Temporary network/5xx failures retry next cycle; 401/403 responses log a configuration warning without exposing secrets. A project mismatch prevents Railway from claiming render jobs rather than rendering against the wrong queue. `SIGTERM`/`SIGINT` stop the worker after its current cycle. Railway native cron is not used because its minimum cadence is five minutes.
 
 The protected endpoint requires this header from the worker:
 
@@ -156,6 +156,8 @@ Common failures:
 - **Forbidden/404 Marketing** — set `MARKETING_ENABLED=true`, sign in as `user_profiles.role = 'admin'`, and rerun the migration.
 - **Instagram OAuth fails** — verify URI, app ID/secret, state secret and test-user access in Meta.
 - **Render fails to start** — install FFmpeg in the worker and set `FFMPEG_PATH`.
+- **Reel stays rendering with no worker job** — deploy and run the atomic Reel-queue migration above; it changes legacy orphaned Reels to `failed` so they can be re-approved and retried.
+- **Railway reports no eligible render jobs** — compare the safe `Supabase project mismatch`/`identities match` worker log with Railway and Vercel environment configuration. Both services must use the same `NEXT_PUBLIC_SUPABASE_URL`; Railway alone needs the matching project’s `SUPABASE_SERVICE_ROLE_KEY`.
 - **Renderer rejects media** — move the source asset into the configured Supabase project; arbitrary external URLs are intentionally blocked.
 - **Publish stays queued** — confirm the protected cron runs and `INSTAGRAM_PUBLISHING_ENABLED=true`.
 - **Publish is ambiguous** — inspect the Instagram account first; the duplicate guard intentionally requires human confirmation instead of retrying blindly.

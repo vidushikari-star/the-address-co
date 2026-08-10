@@ -2,6 +2,7 @@ import { execFile } from "node:child_process"
 import { promisify } from "node:util"
 
 import { RENDER_JOB_TYPES, MarketingWorkerService } from "@/lib/marketing/services/marketing-worker-service"
+import { supabaseProjectRef } from "@/lib/marketing/supabase-project"
 
 const execFileAsync = promisify(execFile)
 const DEFAULT_INTERVAL_MS = 60_000
@@ -13,10 +14,12 @@ type WorkerConfig = {
   cronSecret: string
   intervalMs: number
   ffmpegPath: string
+  supabaseProjectRef: string
 }
 
 let stopping = false
 let wakeSleep: (() => void) | null = null
+let remoteProjectVerified = false
 
 function required(name: string) {
   const value = process.env[name]?.trim()
@@ -48,14 +51,17 @@ function readConfig(): WorkerConfig {
 
   // Render jobs use the existing Supabase queue directly, so these are the
   // only additional credentials genuinely required by this process.
-  required("NEXT_PUBLIC_SUPABASE_URL")
+  const supabaseUrl = required("NEXT_PUBLIC_SUPABASE_URL")
   required("SUPABASE_SERVICE_ROLE_KEY")
+  const projectRef = supabaseProjectRef(supabaseUrl)
+  if (!projectRef) throw new Error("NEXT_PUBLIC_SUPABASE_URL must identify a valid Supabase project.")
 
   return {
     runnerUrl: runnerUrl.toString(),
     cronSecret: required("MARKETING_CRON_SECRET"),
     intervalMs: interval(),
     ffmpegPath: process.env.FFMPEG_PATH?.trim() || "ffmpeg",
+    supabaseProjectRef: projectRef,
   }
 }
 
@@ -83,7 +89,10 @@ function resultSummary(result: Array<{ status: string }>) {
 }
 
 async function runRenderJobs() {
-  const result = await MarketingWorkerService.run(RENDER_BATCH_SIZE, { jobTypes: RENDER_JOB_TYPES })
+  const result = await MarketingWorkerService.run(RENDER_BATCH_SIZE, {
+    jobTypes: RENDER_JOB_TYPES,
+    diagnosticsLabel: "Railway render",
+  })
   console.info(`[marketing-worker] render jobs processed: ${JSON.stringify(resultSummary(result))}`)
 }
 
@@ -94,34 +103,54 @@ async function invokeRemoteRunner(config: WorkerConfig) {
     redirect: "error",
     signal: AbortSignal.timeout(45_000),
   })
-  const payload = await response.json().catch(() => null) as { result?: unknown } | null
+  const payload = await response.json().catch(() => null) as { result?: unknown; supabaseProjectRef?: unknown } | null
   const processed = Array.isArray(payload?.result) ? payload.result.length : undefined
   const suffix = processed === undefined ? "" : ` jobs_processed=${processed}`
   console.info(`[marketing-worker] job runner response status=${response.status}${suffix}`)
 
   if (response.status === 401 || response.status === 403) {
     console.error("[marketing-worker] job runner authentication failed. Check MARKETING_CRON_SECRET and endpoint access.")
-    return
+    return false
   }
   if (!response.ok) {
     console.warn(`[marketing-worker] temporary job runner error (HTTP ${response.status}); retrying next cycle.`)
+    return remoteProjectVerified
   }
+
+  const remoteProjectRef = typeof payload?.supabaseProjectRef === "string" ? payload.supabaseProjectRef : null
+  if (!remoteProjectRef) {
+    console.error("[marketing-worker] Vercel runner did not return its Supabase project identity; render jobs will not be claimed.")
+    return false
+  }
+  if (remoteProjectRef !== config.supabaseProjectRef) {
+    console.error("[marketing-worker] Supabase project mismatch between Railway and Vercel; render jobs will not be claimed.")
+    return false
+  }
+  if (!remoteProjectVerified) {
+    console.info("[marketing-worker] Railway and Vercel Supabase project identities match.")
+    remoteProjectVerified = true
+  }
+  return true
 }
 
 async function cycle(config: WorkerConfig) {
   console.info("[marketing-worker] job cycle started")
-  try {
-    await runRenderJobs()
-  } catch {
-    console.warn("[marketing-worker] temporary render-worker error; retrying next cycle.")
-  }
-
+  let queueIdentityConfirmed = remoteProjectVerified
   if (!stopping) {
     try {
-      await invokeRemoteRunner(config)
+      queueIdentityConfirmed = await invokeRemoteRunner(config)
     } catch {
       console.warn("[marketing-worker] temporary job runner network error; retrying next cycle.")
     }
+  }
+  if (queueIdentityConfirmed && !stopping) {
+    try {
+      await runRenderJobs()
+    } catch {
+      console.warn("[marketing-worker] temporary render-worker error; retrying next cycle.")
+    }
+  } else if (!stopping) {
+    console.warn("[marketing-worker] render job claim skipped until the shared Supabase project is confirmed.")
   }
   console.info("[marketing-worker] cycle completed")
 }

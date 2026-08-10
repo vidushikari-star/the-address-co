@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const access = vi.hoisted(() => ({ requireMarketingApiAccess: vi.fn() }))
 const flags = vi.hoisted(() => ({ isInstagramPublishingEnabled: vi.fn() }))
-const repository = vi.hoisted(() => ({ getContentById: vi.fn(), enqueueJob: vi.fn(), addAuditLog: vi.fn() }))
+const repository = vi.hoisted(() => ({ getContentById: vi.fn(), enqueueJob: vi.fn(), queueReelRender: vi.fn(), addAuditLog: vi.fn() }))
 
 vi.mock("@/lib/auth/marketing", () => access)
 vi.mock("@/lib/marketing/feature-flags", () => flags)
@@ -12,6 +12,7 @@ vi.mock("@/lib/marketing/services/approval-service", () => ({ ApprovalService: {
 import { POST as approve } from "@/app/api/marketing/content/[id]/approval/route"
 import { PATCH as edit } from "@/app/api/marketing/content/route"
 import { POST as publish } from "@/app/api/marketing/publish/[id]/route"
+import { POST as render } from "@/app/api/marketing/content/[id]/render/route"
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -66,5 +67,45 @@ describe("Marketing workflow API guards", () => {
 
     expect(response.status).toBe(409)
     await expect(response.json()).resolves.toEqual({ error: "Approved, scheduled, and published content is locked. Request changes before editing." })
+  })
+
+  it("queues an approved Reel through the atomic render-job operation", async () => {
+    const contentId = "1e149a39-7321-42d1-900c-7389c0da37a3"
+    const assetId = "b2041f1f-89e9-4a59-a8de-00169502f523"
+    repository.getContentById.mockResolvedValue({
+      content: {
+        id: contentId,
+        contentType: "reel",
+        status: "approved",
+        composition: {
+          propertyId: contentId,
+          format: "reel",
+          aspectRatio: "9:16",
+          duration: 15,
+          scenes: [{ assetId, start: 0, duration: 15, crop: "cover", motion: "none", transitionOut: "fade" }],
+          caption: "A considered introduction.",
+          hashtags: ["#NorthGoa"],
+          cta: "Arrange a viewing.",
+          coverText: "Villa Verde",
+          audio: { type: "none", label: "No audio selected" },
+        },
+      },
+      assets: [],
+    })
+    repository.queueReelRender.mockResolvedValue({ id: "job-1", type: "render_reel", status: "queued" })
+
+    const response = await render(
+      new Request(`http://localhost/api/marketing/content/${contentId}/render`, { method: "POST" }),
+      { params: Promise.resolve({ id: contentId }) }
+    )
+
+    expect(response.status).toBe(202)
+    expect(repository.queueReelRender).toHaveBeenCalledWith(expect.objectContaining({
+      contentId,
+      updatedBy: "admin-1",
+      jobInput: { resumeApproved: true },
+      idempotencyKey: expect.stringMatching(new RegExp(`^render-reel:${contentId}:`)),
+    }))
+    expect(repository.addAuditLog).toHaveBeenCalledWith(expect.objectContaining({ action: "render.requested" }))
   })
 })

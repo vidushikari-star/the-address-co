@@ -59,16 +59,10 @@ export async function POST(_request: Request, context: Context) {
       await MarketingRepository.updateContent(id, { composition }, access.user.id)
     }
 
-    await MarketingRepository.transitionContent({
-      id,
-      from: ["approved", "failed"],
-      to: "rendering",
-      updatedBy: access.user.id,
-    })
-    await MarketingRepository.enqueueJob({
+    await MarketingRepository.queueReelRender({
       contentId: id,
-      type: "render_reel",
-      input: { resumeApproved: true },
+      updatedBy: access.user.id,
+      jobInput: { resumeApproved: true },
       idempotencyKey: `render-reel:${id}:${crypto.randomUUID()}`,
     })
     await MarketingRepository.addAuditLog({ actorId: access.user.id, contentId: id, action: "render.requested" })

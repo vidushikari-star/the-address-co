@@ -117,7 +117,7 @@ function safeError(error: unknown) {
 class PublishingDisabledError extends Error {}
 
 export class MarketingWorkerService {
-  static async run(limit = 3, options?: { jobTypes?: readonly MarketingJobType[] }) {
+  static async run(limit = 3, options?: { jobTypes?: readonly MarketingJobType[]; diagnosticsLabel?: string }) {
     const admin = createAdminSupabaseClient()
     const workerId = `cron-${crypto.randomUUID()}`
     const jobTypes = options?.jobTypes ?? [...RENDER_JOB_TYPES, ...VERCEL_SAFE_JOB_TYPES]
@@ -131,6 +131,21 @@ export class MarketingWorkerService {
       .order("created_at", { ascending: true })
       .limit(Math.min(Math.max(limit, 1), 10))
     if (error) throw error
+
+    if (options?.diagnosticsLabel) {
+      const rows = (data ?? []) as Row[]
+      const byType = rows.reduce<Record<string, number>>((counts, row) => {
+        const type = String(row.type ?? "unknown")
+        counts[type] = (counts[type] ?? 0) + 1
+        return counts
+      }, {})
+      const byStatus = rows.reduce<Record<string, number>>((counts, row) => {
+        const status = String(row.status ?? "unknown")
+        counts[status] = (counts[status] ?? 0) + 1
+        return counts
+      }, {})
+      console.info(`[marketing-worker] eligible ${options.diagnosticsLabel} jobs: ${JSON.stringify({ count: rows.length, types: byType, statuses: byStatus })}`)
+    }
 
     const results: Array<{ id: string; status: "completed" | "failed" | "skipped" }> = []
     for (const row of (data ?? []) as Row[]) {
@@ -269,7 +284,7 @@ export class MarketingWorkerService {
     const requiresRender = contentRequiresRendering(content)
     const renderType = requiresRender ? "render_reel" : null
     await admin.from("marketing_content").update({
-      status: requiresRender ? "rendering" : "ready_for_review",
+      ...(requiresRender ? {} : { status: "ready_for_review" }),
       creative,
       composition,
       caption: creative.caption,
@@ -281,12 +296,10 @@ export class MarketingWorkerService {
       alt_text: creative.altText,
     }).eq("id", content.id)
     if (renderType) {
-      await admin.from("marketing_jobs").upsert({
-        content_id: content.id,
-        type: renderType,
-        input: {},
-        idempotency_key: `${renderType}:${content.id}`,
-      }, { onConflict: "idempotency_key", ignoreDuplicates: true })
+      await this.queueGeneratedReelRender({
+        contentId: content.id,
+        idempotencyKey: `${renderType}:${content.id}`,
+      })
     }
     await admin.from("marketing_audit_logs").insert({
       content_id: content.id,
@@ -301,6 +314,20 @@ export class MarketingWorkerService {
       metadata: { provider: process.env.OPENAI_API_KEY ? "openai" : "fallback" },
     })
     return { renderJobType: renderType, selectedAssetCount: selected.length }
+  }
+
+  private static async queueGeneratedReelRender(input: { contentId: string; idempotencyKey: string }) {
+    const admin = createAdminSupabaseClient()
+    const { data, error } = await admin
+      .rpc("queue_marketing_reel_render", {
+        p_content_id: input.contentId,
+        p_updated_by: null,
+        p_idempotency_key: input.idempotencyKey,
+        p_input: {},
+      })
+      .maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error("Render job could not be queued after creative generation.")
   }
 
   private static async renderReel(job: MarketingJob) {

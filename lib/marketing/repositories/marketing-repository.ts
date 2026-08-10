@@ -444,6 +444,32 @@ export class MarketingRepository {
     return data ? mapJob(data as Row) : null
   }
 
+  /**
+   * Transitions an approved Reel and inserts its runnable job in one database
+   * transaction. This prevents a queue write failure from stranding content in
+   * `rendering` with nothing for Railway to claim.
+   */
+  static async queueReelRender(input: {
+    contentId: string
+    updatedBy: string
+    idempotencyKey: string
+    jobInput?: Record<string, unknown>
+  }) {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase
+      .rpc("queue_marketing_reel_render", {
+        p_content_id: input.contentId,
+        p_updated_by: input.updatedBy,
+        p_idempotency_key: input.idempotencyKey,
+        p_input: input.jobInput ?? {},
+      })
+      .maybeSingle()
+
+    if (error) throw error
+    if (!data) throw new Error("Render job could not be queued.")
+    return mapJob(data as Row)
+  }
+
   static async claimRunnableJobs(workerId: string, limit = 5) {
     const supabase = await createServerSupabaseClient()
     const { data, error } = await supabase
