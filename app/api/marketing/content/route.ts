@@ -86,6 +86,12 @@ export async function PATCH(request: Request) {
   const changes = Object.fromEntries(Object.entries(parsed.data)
     .map(([key, value]) => [fieldMap[key as keyof typeof fieldMap], value])
     .filter(([key]) => Boolean(key)))
+  // A failed item may have a prior approval. Any subsequent material edit must
+  // restart the human-review path rather than allowing that old approval to be reused.
+  if (current.content.status === "failed") {
+    changes.status = "draft"
+    changes.last_error = null
+  }
 
   const content = await MarketingRepository.updateContent(body.id, changes, access.user.id)
   await MarketingRepository.addAuditLog({

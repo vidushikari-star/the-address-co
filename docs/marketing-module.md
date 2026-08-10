@@ -45,7 +45,7 @@ The database function `is_marketing_admin()` checks `user_profiles.role = 'admin
 
 `OPENAI_API_KEY` is mandatory for this on-demand generation route. If it is missing, the UI shows `OPENAI_API_KEY is not configured`; it never leaves an apparently successful blank draft. Campaign and assistant flows may still use the protected background worker for their separate multi-item orchestration.
 
-Reel rendering uses FFmpeg with a 1080×1920 cover crop, H.264, yuv420p, 30 fps and fast-start MP4 output. Structured scene copy is rendered as escaped text overlays, and clip transitions are compiled using FFmpeg `xfade`. Image, carousel and story jobs render JPEG assets with their structured cover/slide text in the appropriate 4:5, 1:1, or 9:16 aspect ratio. All output is previewed from a signed URL.
+Reels are the only on-demand content type that currently requires FFmpeg rendering. The render job creates a 1080×1920 H.264, yuv420p, 30 fps, fast-start MP4; structured scene copy is rendered as escaped text overlays and transitions use FFmpeg `xfade`. An approved single-image post uses its selected original CRM image directly and does not wait for FFmpeg. The existing image/carousel renderer remains available for a future explicitly branded-derivative workflow, but it is not a prerequisite for scheduling a normal approved post.
 
 Install FFmpeg in the render-worker image/package and set `FFMPEG_PATH`. The current local environment does not include FFmpeg, so actual rendering waits for a worker host that provides it.
 
@@ -54,13 +54,15 @@ Install FFmpeg in the render-worker image/package and set `FFMPEG_PATH`. The cur
 The only accepted state transitions are enforced server-side:
 
 ```text
-draft / changes_requested -> rendering -> ready_for_review
-ready_for_review / changes_requested -> approved       (authenticated admin only)
-approved -> scheduled                                  (authenticated admin only)
-approved / due scheduled -> publishing -> published    (protected worker only)
+draft / ready_for_review / changes_requested -> approved   (authenticated admin only)
+approved single-image -> scheduled                         (authenticated admin only)
+approved Reel -> rendering -> approved (render ready)      (protected worker completes render)
+approved with ready publish media -> scheduled              (authenticated admin only)
+due scheduled -> publishing -> published                    (protected worker only)
+failed + material edit -> draft -> explicit approval again
 ```
 
-The approval endpoint writes an individual `marketing_approvals` row and audit log. The worker cannot call it. A campaign plan is a separate explicit approval: it starts draft generation only. Each generated child item still needs its own content approval before it can schedule or publish.
+The review panel has **Save edits** and **Approve** controls. Approval validates complete copy, transitions the item server-side, and writes an individual `marketing_approvals` row containing the administrator ID and decision timestamp, plus an audit entry. The worker cannot call it. Approved copy is locked: an administrator must use **Return to edits**, which transitions it to `changes_requested`, before changing it. A failed item that is edited returns to `draft` and needs a new approval.
 
 Only `draft` content exposes **Delete draft**. The protected delete route removes the content record and generated private `marketing-assets` files, while leaving the original property images/videos untouched. Approved, scheduled, publishing, and published content cannot be deleted through this route.
 
@@ -79,15 +81,15 @@ The CRM permits one active Instagram connection. **Marketing → Settings → In
 The worker:
 
 1. verifies the feature flag, approval state, due time, active connection, media, caption and publication idempotency record;
-2. signs rendered private media for the brief period Meta needs to fetch it;
+2. signs private rendered media when needed, or uses the approved original CRM-media URL for a normal single-image post;
 3. creates an Instagram media container (including carousel children), polls container status, then calls `media_publish`;
 4. stores container/publication IDs, permalink and safe diagnostics.
 
-Publishing is disabled unless `INSTAGRAM_PUBLISHING_ENABLED=true`. A pre-persisted `publish_attempted_at` protects against retrying an ambiguous network failure and accidentally creating a duplicate post; that situation requires a human to check Instagram before retrying.
+Publishing is disabled unless `INSTAGRAM_PUBLISHING_ENABLED=true`. While disabled, scheduled publish jobs remain queued and are deferred by the worker; they do not call Meta and do not mark the content failed. The review screen states this explicitly, while still allowing create, generate, approve, render and schedule testing. A pre-persisted `publish_attempted_at` protects against retrying an ambiguous network failure and accidentally creating a duplicate post; that situation requires a human to check Instagram before retrying.
 
 Meta requires a professional account. The current Meta Instagram API supports content publishing for professional accounts, with Stories limited to business accounts in the documented flows. Meta fetches supplied media URLs during publishing, which is why the worker creates a short-lived signed URL. See Meta’s [Instagram API Postman collection](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api) and its [content publishing guide](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/content-publishing) before enabling production publishing.
 
-Programmatic access to the commercial Instagram music catalogue should not be assumed. The editor records royalty-free/original choices when implemented; otherwise it explicitly says “Add music in Instagram after publishing.”
+Programmatic access to the commercial Instagram music catalogue is not implemented and must not be assumed. The Reel review panel clearly shows that no uploaded audio tracks are available and allows a technically valid silent Reel (`No audio selected`); it does not claim to attach licensed or trending Instagram music. An uploaded, rights-cleared audio library would be required before royalty-free/original track selection can be offered.
 
 ## Worker and deployment
 
@@ -97,7 +99,7 @@ Deploy the Next app plus a Node-capable worker runtime with FFmpeg. Invoke `POST
 Authorization: Bearer $MARKETING_CRON_SECRET
 ```
 
-The route needs `SUPABASE_SERVICE_ROLE_KEY`; it is cron-only and returns `401` without the secret. Keep it out of public runtime variables. If deploying a pure serverless platform, use a queue/worker service with sufficient disk/time/memory for FFmpeg rather than trying to render inside a short HTTP function.
+The route needs `SUPABASE_SERVICE_ROLE_KEY`; it is cron-only and returns `401` without the secret. It processes the existing `marketing_jobs` queue: `render_reel`, `render_image` and `render_carousel` require the external Node + FFmpeg worker; `publish_instagram` handles due scheduled publishing only when the feature flag is enabled. Keep worker secrets out of public runtime variables. If deploying a pure serverless platform, use a queue/worker service with sufficient disk/time/memory for FFmpeg rather than trying to render inside a short HTTP function.
 
 Enable `MARKETING_ENABLED=true` only after the migration and secrets are in place. Leave `INSTAGRAM_PUBLISHING_ENABLED=false` during testing so drafts, rendering and review work without sending anything to Meta.
 

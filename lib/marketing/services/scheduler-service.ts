@@ -1,3 +1,4 @@
+import { hasPublishableMedia } from "@/lib/marketing/content-delivery"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 
 export class SchedulerService {
@@ -10,6 +11,15 @@ export class SchedulerService {
     const scheduledFor = new Date(input.scheduledFor)
     if (Number.isNaN(scheduledFor.valueOf()) || scheduledFor <= new Date()) {
       throw new Error("Choose a future publication time.")
+    }
+
+    const record = await MarketingRepository.getContentById(input.contentId)
+    if (!record) throw new Error("Content not found.")
+    if (record.content.status !== "approved") {
+      throw new Error("Only approved content can be scheduled.")
+    }
+    if (!hasPublishableMedia(record.content, record.assets)) {
+      throw new Error("Required publish media is not ready. Render the approved Reel before scheduling.")
     }
 
     const content = await MarketingRepository.transitionContent({

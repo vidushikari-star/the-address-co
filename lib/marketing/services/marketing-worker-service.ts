@@ -1,4 +1,5 @@
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { contentRequiresRendering, publishableAssets } from "@/lib/marketing/content-delivery"
 import { isInstagramPublishingEnabled } from "@/lib/marketing/feature-flags"
 import { CompositionService } from "@/lib/marketing/services/composition-service"
 import { CreativeAIService } from "@/lib/marketing/services/creative-ai-service"
@@ -109,6 +110,8 @@ function safeError(error: unknown) {
   return error instanceof Error ? error.message.slice(0, 2_000) : "Marketing job failed."
 }
 
+class PublishingDisabledError extends Error {}
+
 export class MarketingWorkerService {
   static async run(limit = 3) {
     const admin = createAdminSupabaseClient()
@@ -150,6 +153,18 @@ export class MarketingWorkerService {
         results.push({ id: job.id, status: "completed" })
       } catch (caught) {
         const errorMessage = safeError(caught)
+        if (caught instanceof PublishingDisabledError) {
+          await admin.from("marketing_jobs").update({
+            status: "queued",
+            error: errorMessage,
+            progress: 0,
+            run_after: new Date(Date.now() + 5 * 60_000).toISOString(),
+            locked_at: null,
+            locked_by: null,
+          }).eq("id", job.id)
+          results.push({ id: job.id, status: "skipped" })
+          continue
+        }
         const retry = job.attempts < job.maxAttempts
         await admin.from("marketing_jobs").update({
           status: retry ? "queued" : "failed",
@@ -241,14 +256,13 @@ export class MarketingWorkerService {
           hashtags: creative.hashtags,
           cta: creative.cta,
           coverText: creative.coverText,
-          audio: { type: "instagram_manual", label: "Add music in Instagram after publishing" },
+          audio: { type: "none", label: "No audio selected" },
         }
 
-    const renderType = shouldRenderReel
-      ? "render_reel"
-      : content.contentType === "carousel" ? "render_carousel" : "render_image"
+    const requiresRender = contentRequiresRendering(content)
+    const renderType = requiresRender ? "render_reel" : null
     await admin.from("marketing_content").update({
-      status: "rendering",
+      status: requiresRender ? "rendering" : "ready_for_review",
       creative,
       composition,
       caption: creative.caption,
@@ -259,12 +273,14 @@ export class MarketingWorkerService {
       hashtags: creative.hashtags,
       alt_text: creative.altText,
     }).eq("id", content.id)
-    await admin.from("marketing_jobs").upsert({
-      content_id: content.id,
-      type: renderType,
-      input: {},
-      idempotency_key: `${renderType}:${content.id}`,
-    }, { onConflict: "idempotency_key", ignoreDuplicates: true })
+    if (renderType) {
+      await admin.from("marketing_jobs").upsert({
+        content_id: content.id,
+        type: renderType,
+        input: {},
+        idempotency_key: `${renderType}:${content.id}`,
+      }, { onConflict: "idempotency_key", ignoreDuplicates: true })
+    }
     await admin.from("marketing_audit_logs").insert({
       content_id: content.id,
       action: "content.generated",
@@ -293,7 +309,10 @@ export class MarketingWorkerService {
       metadata: { duration: output.duration, byteLength: output.byteLength, format: "1080x1920-h264-mp4" },
       sort_order: 0,
     })
-    await admin.from("marketing_content").update({ status: "ready_for_review", last_error: null }).eq("id", content.id)
+    await admin.from("marketing_content").update({
+      status: job.input.resumeApproved === true ? "approved" : "ready_for_review",
+      last_error: null,
+    }).eq("id", content.id)
     await admin.from("marketing_audit_logs").insert({ content_id: content.id, action: "render.completed", metadata: output })
     await admin.from("marketing_usage_events").insert({ content_id: content.id, category: "video_render", quantity: output.duration, unit: "second", metadata: output })
     return output
@@ -334,7 +353,9 @@ export class MarketingWorkerService {
   }
 
   private static async publishInstagram(job: MarketingJob) {
-    if (!isInstagramPublishingEnabled()) throw new Error("Instagram publishing is disabled by feature flag.")
+    if (!isInstagramPublishingEnabled()) {
+      throw new PublishingDisabledError("Instagram publishing is disabled by feature flag.")
+    }
     const admin = createAdminSupabaseClient()
     const { content, assets } = await this.loadContent(job.contentId!)
     if (!["approved", "scheduled", "publishing"].includes(content.status)) {
@@ -343,8 +364,8 @@ export class MarketingWorkerService {
     if (content.status === "scheduled" && (!content.proposedPublishAt || new Date(content.proposedPublishAt) > new Date())) {
       throw new Error("Publishing safety check failed: scheduled time has not arrived.")
     }
-    const rendered = assets.filter(asset => asset.kind === "rendered_media")
-    if (!rendered.length) throw new Error("Publishing safety check failed: rendered media is missing.")
+    const media = publishableAssets(content, assets)
+    if (!media.length) throw new Error("Publishing safety check failed: approved publish media is missing.")
 
     let accountQuery = admin
       .from("marketing_accounts")
@@ -386,7 +407,7 @@ export class MarketingWorkerService {
     if (upsertError) throw upsertError
     const publicationRow = publication as Row
 
-    const withSignedUrls = await Promise.all(rendered.map(async asset => {
+    const withSignedUrls = await Promise.all(media.map(async asset => {
       if (!asset.storagePath) return asset
       const { data, error } = await admin.storage.from("marketing-assets").createSignedUrl(asset.storagePath, 60 * 60)
       if (error || !data?.signedUrl) throw error ?? new Error("Unable to sign rendered media for Instagram.")
@@ -398,7 +419,7 @@ export class MarketingWorkerService {
       await admin.from("marketing_content").update({ status: "publishing" }).eq("id", content.id)
       const container = await InstagramService.createContainer({
         content,
-        renderedAssets: withSignedUrls,
+        mediaAssets: withSignedUrls,
         accessToken,
         instagramAccountId: String(accountRow.external_account_id),
       })

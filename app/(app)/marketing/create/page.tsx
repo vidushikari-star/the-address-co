@@ -17,5 +17,5 @@ export default async function MarketingCreatePage({ searchParams }: Props) {
   })
   const { property } = await searchParams
 
-  return <><MarketingPageHeader pathname="/marketing/create" eyebrow="Create content" title="Start with the inventory you trust." description="Select an existing property, choose a content type and direction, and the studio will queue a grounded creative draft and render." /><main className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8"><CreateContentStudio properties={properties} initialPropertyId={property} /></main></>
+  return <><MarketingPageHeader pathname="/marketing/create" eyebrow="Create content" title="Start with the inventory you trust." description="Select an existing property, choose a content type and direction, and the studio will create a grounded creative draft. Reels can be rendered after approval." /><main className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8"><CreateContentStudio properties={properties} initialPropertyId={property} /></main></>
 }

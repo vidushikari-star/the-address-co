@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
+import { hasPublishableMedia } from "@/lib/marketing/content-delivery"
 import { isInstagramPublishingEnabled } from "@/lib/marketing/feature-flags"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 
@@ -20,8 +21,8 @@ export async function POST(_request: Request, context: Context) {
   if (content.content.status !== "approved") {
     return NextResponse.json({ error: "Only explicitly approved content can be published." }, { status: 409 })
   }
-  if (!content.assets.some(asset => asset.kind === "rendered_media")) {
-    return NextResponse.json({ error: "A rendered asset is required before publishing." }, { status: 409 })
+  if (!hasPublishableMedia(content.content, content.assets)) {
+    return NextResponse.json({ error: "Required approved media is not ready for publishing." }, { status: 409 })
   }
 
   await MarketingRepository.enqueueJob({

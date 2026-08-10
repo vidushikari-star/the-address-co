@@ -67,10 +67,11 @@ async function requestGraph(input: {
 }
 
 function mediaUrl(asset: MarketingAsset) {
-  if (!asset.signedUrl) {
-    throw new Error("A time-limited rendered-media URL is required for Instagram publishing.")
+  const url = asset.signedUrl ?? asset.sourceUrl
+  if (!url || !/^https:\/\//i.test(url)) {
+    throw new Error("A publicly reachable approved-media URL is required for Instagram publishing.")
   }
-  return asset.signedUrl
+  return url
 }
 
 export class InstagramService {
@@ -193,7 +194,7 @@ export class InstagramService {
 
   static async createContainer(input: {
     content: MarketingContent
-    renderedAssets: MarketingAsset[]
+    mediaAssets: MarketingAsset[]
     accessToken: string
     instagramAccountId: string
   }) {
@@ -205,7 +206,7 @@ export class InstagramService {
 
     const endpoint = `/${encodeURIComponent(input.instagramAccountId)}/media`
     const body = new URLSearchParams({ caption })
-    const assets = input.renderedAssets
+    const assets = input.mediaAssets
 
     if (input.content.contentType === "reel") {
       const reel = assets.find(asset => asset.mediaType === "video")
@@ -215,7 +216,7 @@ export class InstagramService {
       body.set("share_to_feed", "true")
     } else if (input.content.contentType === "carousel") {
       if (assets.length < 2 || assets.length > 10) {
-        throw new Error("An Instagram carousel requires 2–10 rendered items.")
+        throw new Error("An Instagram carousel requires 2–10 approved media items.")
       }
       const children = await Promise.all(assets.map(async asset => {
         const child = new URLSearchParams({ is_carousel_item: "true" })
@@ -228,12 +229,12 @@ export class InstagramService {
       body.set("children", children.join(","))
     } else if (input.content.contentType === "story") {
       const story = assets[0]
-      if (!story) throw new Error("An Instagram Story requires rendered media.")
+      if (!story) throw new Error("An Instagram Story requires approved media.")
       body.set("media_type", "STORIES")
       body.set(story.mediaType === "video" ? "video_url" : "image_url", mediaUrl(story))
     } else {
       const image = assets.find(asset => asset.mediaType === "image")
-      if (!image) throw new Error("An image post requires a rendered image.")
+      if (!image) throw new Error("An image post requires an approved image.")
       body.set("image_url", mediaUrl(image))
       if (input.content.altText) body.set("alt_text", input.content.altText.slice(0, 1_000))
     }

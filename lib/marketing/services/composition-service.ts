@@ -17,6 +17,7 @@ export class CompositionService {
     propertyId: string
     assetIds: string[]
     creative: Creative
+    audio?: ReelComposition["audio"]
   }): ReelComposition {
     const selected = input.assetIds.slice(0, 10)
     if (!selected.length) {
@@ -58,12 +59,9 @@ export class CompositionService {
       hashtags: input.creative.hashtags,
       cta: input.creative.cta,
       coverText: input.creative.coverText,
-      audio: {
-        type: "instagram_manual",
-        label: input.creative.audioStyle === "manual_instagram"
-          ? "Add music in Instagram after publishing"
-          : `Suggested: ${input.creative.audioStyle.replaceAll("_", " ")}`,
-      },
+      // The API does not attach Instagram's licensed music catalogue. Reels
+      // are silent by default until an actual uploaded/audio asset workflow is added.
+      audio: input.audio ?? { type: "none", label: "No audio selected" },
     })
   }
 }
