@@ -325,6 +325,50 @@ export class MarketingRepository {
     }
   }
 
+  /** Bulk counterpart to deleteDraftContent. The status preflight prevents partial deletion of mixed selections. */
+  static async deleteDraftContents(ids: string[]) {
+    const uniqueIds = [...new Set(ids)]
+    const supabase = await createServerSupabaseClient()
+    const { data: records, error: recordsError } = await supabase
+      .from("marketing_content")
+      .select("id, status")
+      .in("id", uniqueIds)
+    if (recordsError) throw recordsError
+
+    const found = (records ?? []) as Row[]
+    const ineligible = found.filter(record => record.status !== "draft").map(record => String(record.id))
+    if (found.length !== uniqueIds.length || ineligible.length) {
+      throw new Error("Only draft content can be deleted. Clear any ineligible items and try again.")
+    }
+
+    const { data: assets, error: assetsError } = await supabase
+      .from("marketing_content_assets")
+      .select("storage_path")
+      .in("content_id", uniqueIds)
+      .not("storage_path", "is", null)
+    if (assetsError) throw assetsError
+
+    const { data: deleted, error: deleteError } = await supabase
+      .from("marketing_content")
+      .delete()
+      .in("id", uniqueIds)
+      .eq("status", "draft")
+      .select("id")
+    if (deleteError) throw deleteError
+    if ((deleted ?? []).length !== uniqueIds.length) {
+      throw new Error("One or more drafts changed before deletion. Refresh and try again.")
+    }
+
+    const paths = ((assets ?? []) as Row[])
+      .map(asset => asset.storage_path)
+      .filter((path): path is string => typeof path === "string" && path.length > 0)
+    if (paths.length) {
+      const { error: storageError } = await supabase.storage.from("marketing-assets").remove(paths)
+      if (storageError) console.warn("Drafts were deleted but generated media cleanup failed:", storageError.message)
+    }
+    return (deleted ?? []).map(row => String((row as Row).id))
+  }
+
   static async transitionContent(input: {
     id: string
     from: MarketingStatus | MarketingStatus[]

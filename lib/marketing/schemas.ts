@@ -27,6 +27,10 @@ export const GenerateContentCopySchema = z.object({
   fields: z.array(z.enum(["headline", "hook", "caption", "cta", "hashtags"])).min(1).max(5).optional(),
 })
 
+export const BulkDeleteDraftsSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(100),
+})
+
 export const ApprovalActionSchema = z.object({
   action: z.enum(["approve", "request_changes", "reject"]),
   note: z.string().max(1_000).optional(),

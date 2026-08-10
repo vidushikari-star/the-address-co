@@ -64,6 +64,8 @@ The approval endpoint writes an individual `marketing_approvals` row and audit l
 
 Only `draft` content exposes **Delete draft**. The protected delete route removes the content record and generated private `marketing-assets` files, while leaving the original property images/videos untouched. Approved, scheduled, publishing, and published content cannot be deleted through this route.
 
+The Content library also supports selecting visible draft cards and **Delete Drafts**. The bulk endpoint preflights all requested IDs and rejects a mixed/non-draft selection instead of silently deleting only part of it. `changes_requested` and `failed` remain recoverable review states and are intentionally not bulk-deletable.
+
 ## Campaigns and content fatigue
 
 The campaign planner produces a low-cost plan first. It rotates properties and content formats, filters paused properties, stores the plan, and waits in `plan_ready`. `Approve plan & generate drafts` starts queued generation for each child item; a failure records only that item and does not stop the others. Publishing history, structured creative and campaign links are stored for future repetition/fatigue scoring; the first release uses deterministic rotation rather than automated “best performer” claims.
