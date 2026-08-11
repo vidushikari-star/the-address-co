@@ -1,8 +1,9 @@
 import { createClient } from "@supabase/supabase-js"
 
 /**
- * Only background workers may use this client. Never import it from a Client
- * Component or return its credentials to a Route Handler response.
+ * Server-only code (background workers and authenticated integration routes)
+ * may use this client. Never import it from a Client Component or return its
+ * credentials in a Route Handler response.
  */
 export function createAdminSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL

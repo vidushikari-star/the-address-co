@@ -14,6 +14,8 @@ import {
 
 import { StatusBadge } from "@/components/shared/status-badge"
 
+import { PropertyLabelBadges } from "@/components/properties/property-label-badges"
+
 import {
   formatExactPropertyPrice,
 } from "@/lib/utils/format-currency"
@@ -118,7 +120,7 @@ export function PropertyCard({
 
         </div>
 
-        <div className="space-y-5 p-5">
+          <div className="space-y-5 p-5">
 
           <div className="space-y-2">
 
@@ -174,6 +176,8 @@ export function PropertyCard({
     property.transactionType
   )}
 </p>
+
+            <PropertyLabelBadges property={property} />
 
           </div>
 
@@ -443,6 +447,8 @@ export function PropertyCard({
                 <span>{property.location}</span>
 
               </div>
+
+              <PropertyLabelBadges property={property} className="mt-3" />
 
             </div>
 

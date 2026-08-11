@@ -8,6 +8,8 @@ import {
 
 import { StatusBadge } from "@/components/shared/status-badge"
 
+import { PropertyLabelBadges } from "@/components/properties/property-label-badges"
+
 import { SharePropertyButton } from "@/components/properties/share-property-button"
 
 import {
@@ -89,6 +91,8 @@ export function PropertyHero({
                 {property.propertyType}
 
               </span>
+
+              <PropertyLabelBadges property={property} />
 
             </div>
 

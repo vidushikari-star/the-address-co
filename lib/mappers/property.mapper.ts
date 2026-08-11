@@ -67,6 +67,8 @@ type PropertyRow = {
 
   housing_sync_error:string | null
 
+  housing_enabled:boolean | null
+
 
 
   price:
@@ -370,6 +372,10 @@ export function mapPropertyRow(
 
     housingSyncError:
       row.housing_sync_error ?? undefined,
+
+
+    housingEnabled:
+      row.housing_enabled ?? false,
 
 
 

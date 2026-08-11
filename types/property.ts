@@ -195,6 +195,9 @@ export interface Property {
 
   housingSyncError?: string
 
+  /** Explicit opt-in for external property portals such as Housing.com. */
+  housingEnabled?: boolean
+
 
 
   // Identity

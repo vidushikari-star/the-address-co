@@ -1,986 +1,180 @@
 "use client"
 
-import {
-  useState,
-} from "react"
-
-import {
-  useRouter,
-} from "next/navigation"
-
-import {
-  Building2,
-} from "lucide-react"
-
-import {
-  Input,
-} from "@/components/ui/input"
-
-import {
-  Textarea,
-} from "@/components/ui/textarea"
-
-import {
-  Button,
-} from "@/components/ui/button"
-
-import {
-  createProperty,
-} from "@/lib/repositories/property-repository"
-
-
-
-
-
-const transactionTypes = [
-  "Sale",
-  "Rental",
-]
-
-
-
-const listingTypes = [
-  "Primary",
-  "Resale",
-  "Rental",
-]
-
-
-
-const developmentStages = [
-  "under_construction",
-  "ready_to_move",
-  "resale",
-]
-
-
-
-const propertyTypes = [
-  "Villa",
-  "Apartment",
-  "Plot",
-  "Penthouse",
-  "Commercial",
-]
-
-
-
-const statuses = [
-  "available",
-  "viewed",
-  "shortlisted",
-  "offer",
-  "purchased",
-  "rejected",
-]
-
-
-
-
-
-const dropdowns = [
-  {
-    key: "transactionType",
-    options: transactionTypes,
-  },
-  {
-    key: "listingType",
-    options: listingTypes,
-  },
-  {
-    key: "propertyType",
-    options: propertyTypes,
-  },
-  {
-    key: "developmentStage",
-    options: developmentStages,
-  },
-  {
-    key: "status",
-    options: statuses,
-  },
-] as const
-
-
-
-
-
-export default function NewPropertyPage(){
-
-
-  const router =
-    useRouter()
-
-
-
-
-
-  const [
-    saving,
-    setSaving,
-  ] =
-  useState(false)
-
-
-
-
-
-
-
-  const [
-    form,
-    setForm,
-  ] =
-  useState({
-
-    name:"",
-
-    slug:"",
-
-    developer:"",
-
-    transactionType:"Sale",
-
-    listingType:"Primary",
-
-    developmentStage:"ready_to_move",
-
-    propertyType:"Villa",
-
-    status:"available",
-
-    location:"",
-
-    locality:"",
-
-    googleMapLink:"",
-
-    price:"",
-
-    bedrooms:"",
-
-    bathrooms:"",
-
-    carpetArea:"",
-
-    plotArea:"",
-
-    builtUpArea:"",
-
-    furnishing:"",
-
-    amenities:"",
-
-    description:"",
-
-    tags:"",
-
-    coverImage:"",
-
-    advisor:"",
-
-    note:"",
-
+import { useRef, useState } from "react"
+import { useRouter } from "next/navigation"
+import { Building2 } from "lucide-react"
+
+import { createPropertyAction } from "@/lib/actions/property-actions"
+import { getCreatedPropertyPath } from "@/lib/properties/property-schema"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+
+const propertyTypes = ["Villa", "Apartment", "Plot", "Penthouse", "Commercial"]
+const statuses = ["available", "viewed", "shortlisted", "offer", "purchased", "rejected", "archived"]
+
+function optionalNumber(value: string) {
+  const trimmed = value.trim()
+  return trimmed ? Number(trimmed) : undefined
+}
+
+function splitList(value: string) {
+  return value.split(",").map(item => item.trim()).filter(Boolean)
+}
+
+export default function NewPropertyPage() {
+  const router = useRouter()
+  const requestIdRef = useRef<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [form, setForm] = useState({
+    name: "",
+    slug: "",
+    developer: "",
+    transactionType: "Sale",
+    listingType: "Primary",
+    developmentStage: "ready_to_move",
+    propertyType: "Villa",
+    status: "available",
+    location: "",
+    locality: "",
+    googleMapLink: "",
+    price: "",
+    rent: "",
+    securityDeposit: "",
+    bedrooms: "",
+    bathrooms: "",
+    carpetArea: "",
+    plotArea: "",
+    builtUpArea: "",
+    furnishing: "",
+    amenities: "",
+    description: "",
+    tags: "",
+    coverImage: "",
+    advisor: "",
+    note: "",
+    housingEnabled: false,
   })
 
-
-
-
-
-
-
-
-  function update(
-    key:string,
-    value:string
-  ){
-
-    setForm(
-      current => ({
-
-        ...current,
-
-        [key]:
-          value,
-
-      })
-    )
-
+  function update(key: keyof typeof form, value: string | boolean) {
+    setForm(current => ({ ...current, [key]: value }))
   }
 
-
-
-
-
-
-
-
-
-  async function saveProperty(
-    event:React.FormEvent
-  ){
-
+  async function saveProperty(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
-
     setSaving(true)
-
-
-
-    try {
-
-
-      const property =
-        await createProperty({
-
-          name:
-            form.name,
-
-
-          slug:
-            form.slug,
-
-
-          developer:
-            form.developer,
-
-
-          transactionType:
-            form.transactionType,
-
-
-          listingType:
-            form.listingType,
-
-
-          developmentStage:
-            form.developmentStage,
-
-
-          propertyType:
-            form.propertyType,
-
-
-          status:
-            form.status,
-
-
-          location:
-            form.location,
-
-
-          locality:
-            form.locality,
-
-
-          price:
-            Number(
-              form.price
-            ),
-
-
-          bedrooms:
-            Number(
-              form.bedrooms
-            ),
-
-
-          bathrooms:
-            Number(
-              form.bathrooms
-            ),
-
-
-          carpetArea:
-            Number(
-              form.carpetArea
-            ),
-
-
-          plotArea:
-            Number(
-              form.plotArea
-            ),
-
-
-          builtUpArea:
-            Number(
-              form.builtUpArea
-            ),
-
-
-          description:
-            form.description,
-
-
-          amenities:
-            form.amenities
-              .split(",")
-              .map(
-                item =>
-                  item.trim()
-              )
-              .filter(Boolean),
-
-
-          furnishing:
-            form.furnishing,
-
-
-          googleMapLink:
-            form.googleMapLink,
-
-
-          tags:
-            form.tags
-              .split(",")
-              .map(
-                item =>
-                  item.trim()
-              )
-              .filter(Boolean),
-
-
-          coverImage:
-            form.coverImage,
-
-
-          advisor:
-            form.advisor,
-
-
-          note:
-            form.note,
-
-
-        })
-
-
-
-
-      router.push(
-  `/properties/${property.slug}?created=true`
-)
-
-
-    }
-    catch(error){
-
-
-      console.error(
-        "Failed creating property",
-        error
-      )
-
-
-      alert(
-        "Unable to create property"
-      )
-
-
-    }
-    finally{
-
-
+    setError(null)
+
+    const requestId = requestIdRef.current ?? crypto.randomUUID()
+    requestIdRef.current = requestId
+
+    const result = await createPropertyAction({
+      requestId,
+      name: form.name,
+      slug: form.slug || undefined,
+      developer: form.developer || undefined,
+      transactionType: form.transactionType as "Sale" | "Rental",
+      listingType: form.listingType as "Primary" | "Resale",
+      developmentStage: form.developmentStage as "ready_to_move" | "under_construction" | "resale",
+      propertyType: form.propertyType as "Apartment" | "Villa" | "Plot" | "Penthouse" | "Commercial",
+      status: form.status as "available" | "viewed" | "shortlisted" | "offer" | "purchased" | "rejected" | "archived",
+      location: form.location || undefined,
+      locality: form.locality || undefined,
+      googleMapLink: form.googleMapLink || undefined,
+      price: form.transactionType === "Sale" ? optionalNumber(form.price) : undefined,
+      rent: form.transactionType === "Rental" ? optionalNumber(form.rent) : undefined,
+      securityDeposit: form.transactionType === "Rental" ? optionalNumber(form.securityDeposit) : undefined,
+      bedrooms: optionalNumber(form.bedrooms),
+      bathrooms: optionalNumber(form.bathrooms),
+      carpetArea: optionalNumber(form.carpetArea),
+      plotArea: optionalNumber(form.plotArea),
+      builtUpArea: optionalNumber(form.builtUpArea),
+      furnishing: (form.furnishing || undefined) as "furnished" | "semi_furnished" | "unfurnished" | undefined,
+      amenities: splitList(form.amenities),
+      description: form.description || undefined,
+      tags: splitList(form.tags),
+      coverImage: form.coverImage || undefined,
+      advisor: form.advisor || undefined,
+      note: form.note || undefined,
+      housingEnabled: form.housingEnabled,
+    })
+
+    if (!result.ok) {
+      setError(result.error)
       setSaving(false)
-
-
+      return
     }
 
-
+    router.push(getCreatedPropertyPath(result.property.slug))
+    router.refresh()
   }
-    return (
 
-    <div className="
-      mx-auto
-      max-w-4xl
-      space-y-8
-      p-4
-      sm:p-8
-    ">
-
-
+  return (
+    <div className="mx-auto max-w-4xl space-y-8 p-4 sm:p-8">
       <div className="flex items-center gap-3">
-
-
         <div className="rounded-xl bg-primary/10 p-3">
-
-          <Building2 className="h-6 w-6 text-primary"/>
-
+          <Building2 className="h-6 w-6 text-primary" />
         </div>
-
-
-
-
         <div>
-
-          <h1 className="text-3xl font-bold">
-
-            New Property
-
-          </h1>
-
-
-          <p className="text-muted-foreground">
-
-            Add a property to your inventory.
-
-          </p>
-
+          <h1 className="text-3xl font-bold">New Property</h1>
+          <p className="text-muted-foreground">Add a property to your inventory.</p>
         </div>
-
-
       </div>
 
-
-
-
-
-
-
-      <form
-
-        onSubmit={saveProperty}
-
-        className="
-          space-y-5
-          rounded-2xl
-          border
-          bg-card
-          p-4
-          sm:p-8
-        "
-
-      >
-
-
-
-
-        <Input
-
-          placeholder="Property Name"
-
-          value={form.name}
-
-          onChange={
-            e =>
-              update(
-                "name",
-                e.target.value
-              )
-          }
-
-        />
-
-
-
-
-
-        <Input
-
-          placeholder="Slug (example: casa-brilhante)"
-
-          value={form.slug}
-
-          onChange={
-            e =>
-              update(
-                "slug",
-                e.target.value
-              )
-          }
-
-        />
-
-
-
-
-
-        <Input
-
-          placeholder="Developer"
-
-          value={form.developer}
-
-          onChange={
-            e =>
-              update(
-                "developer",
-                e.target.value
-              )
-          }
-
-        />
-
-
-
-
-
-
-        {
-          dropdowns.map(
-            dropdown => (
-
-              <select
-
-                key={dropdown.key}
-
-                className="
-                  w-full
-                  rounded-lg
-                  border
-                  p-3
-                "
-
-                value={
-                  form[
-                    dropdown.key
-                  ]
-                }
-
-                onChange={
-                  e =>
-                    update(
-                      dropdown.key,
-                      e.target.value
-                    )
-                }
-
-              >
-
-                {
-                  dropdown.options.map(
-                    option => (
-
-                      <option
-
-                        key={option}
-
-                        value={option}
-
-                      >
-
-                        {option}
-
-                      </option>
-
-                    )
-                  )
-                }
-
-
-              </select>
-
-
-            )
-          )
-        }
-
-
-
-
-
-
-
-        <div className="
-          grid
-          gap-4
-          md:grid-cols-2
-        ">
-
-
-          <Input
-
-            placeholder="Location"
-
-            value={form.location}
-
-            onChange={
-              e =>
-                update(
-                  "location",
-                  e.target.value
-                )
-            }
-
-          />
-
-
-
-          <Input
-
-            placeholder="Locality"
-
-            value={form.locality}
-
-            onChange={
-              e =>
-                update(
-                  "locality",
-                  e.target.value
-                )
-            }
-
-          />
-
-
+      <form onSubmit={saveProperty} className="space-y-5 rounded-2xl border bg-card p-4 sm:p-8">
+        {error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="space-y-2"><span className="text-sm font-medium">Property name</span><Input required placeholder="Property Name" value={form.name} onChange={event => update("name", event.target.value)} /></label>
+          <label className="space-y-2"><span className="text-sm font-medium">Slug</span><Input placeholder="Generated from the name if blank" value={form.slug} onChange={event => update("slug", event.target.value)} /></label>
+          <label className="space-y-2"><span className="text-sm font-medium">Developer</span><Input placeholder="Developer (optional)" value={form.developer} onChange={event => update("developer", event.target.value)} /></label>
+          <label className="space-y-2"><span className="text-sm font-medium">Advisor</span><Input placeholder="Advisor (optional)" value={form.advisor} onChange={event => update("advisor", event.target.value)} /></label>
         </div>
 
-
-
-
-
-
-
-        <Input
-
-          placeholder="Google Map Link"
-
-          value={
-            form.googleMapLink
-          }
-
-          onChange={
-            e =>
-              update(
-                "googleMapLink",
-                e.target.value
-              )
-          }
-
-        />
-
-
-
-
-
-
-
-
-        <Input
-
-          placeholder="Asking Price"
-
-          value={form.price}
-
-          onChange={
-            e =>
-              update(
-                "price",
-                e.target.value
-              )
-          }
-
-        />
-
-
-
-
-
-
-
-
-        <div className="
-          grid
-          gap-4
-          md:grid-cols-3
-        ">
-
-
-          <Input
-
-            placeholder="Bedrooms"
-
-            value={form.bedrooms}
-
-            onChange={
-              e =>
-                update(
-                  "bedrooms",
-                  e.target.value
-                )
-            }
-
-          />
-
-
-
-          <Input
-
-            placeholder="Bathrooms"
-
-            value={form.bathrooms}
-
-            onChange={
-              e =>
-                update(
-                  "bathrooms",
-                  e.target.value
-                )
-            }
-
-          />
-
-
-
-          <Input
-
-            placeholder="Carpet Area sqft"
-
-            value={form.carpetArea}
-
-            onChange={
-              e =>
-                update(
-                  "carpetArea",
-                  e.target.value
-                )
-            }
-
-          />
-
-
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <label className="space-y-2"><span className="text-sm font-medium">Transaction</span><select className="w-full rounded-lg border bg-background p-3" value={form.transactionType} onChange={event => update("transactionType", event.target.value)}><option value="Sale">Sale</option><option value="Rental">Rent</option></select></label>
+          <label className="space-y-2"><span className="text-sm font-medium">Construction / possession</span><select className="w-full rounded-lg border bg-background p-3" value={form.developmentStage} onChange={event => update("developmentStage", event.target.value)}><option value="ready_to_move">Ready to Move</option><option value="under_construction">Under Construction</option><option value="resale">Resale</option></select></label>
+          <label className="space-y-2"><span className="text-sm font-medium">Furnishing</span><select className="w-full rounded-lg border bg-background p-3" value={form.furnishing} onChange={event => update("furnishing", event.target.value)}><option value="">Not specified</option><option value="furnished">Furnished</option><option value="semi_furnished">Semi-furnished</option><option value="unfurnished">Unfurnished</option></select></label>
+          <label className="space-y-2"><span className="text-sm font-medium">Listing type</span><select className="w-full rounded-lg border bg-background p-3" value={form.listingType} onChange={event => update("listingType", event.target.value)}><option value="Primary">Primary</option><option value="Resale">Resale</option></select></label>
+          <label className="space-y-2"><span className="text-sm font-medium">Property type</span><select className="w-full rounded-lg border bg-background p-3" value={form.propertyType} onChange={event => update("propertyType", event.target.value)}>{propertyTypes.map(type => <option key={type} value={type}>{type}</option>)}</select></label>
+          <label className="space-y-2"><span className="text-sm font-medium">CRM status</span><select className="w-full rounded-lg border bg-background p-3" value={form.status} onChange={event => update("status", event.target.value)}>{statuses.map(status => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}</select></label>
         </div>
 
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="space-y-2"><span className="text-sm font-medium">City / location</span><Input placeholder="Location (optional)" value={form.location} onChange={event => update("location", event.target.value)} /></label>
+          <label className="space-y-2"><span className="text-sm font-medium">Locality</span><Input placeholder="Locality (optional)" value={form.locality} onChange={event => update("locality", event.target.value)} /></label>
+        </div>
+        <label className="space-y-2"><span className="text-sm font-medium">Google Maps link</span><Input type="url" placeholder="https://… (optional)" value={form.googleMapLink} onChange={event => update("googleMapLink", event.target.value)} /></label>
 
+        {form.transactionType === "Rental" ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-2"><span className="text-sm font-medium">Monthly rent</span><Input type="number" min="0" placeholder="Optional" value={form.rent} onChange={event => update("rent", event.target.value)} /></label>
+            <label className="space-y-2"><span className="text-sm font-medium">Security deposit</span><Input type="number" min="0" placeholder="Optional" value={form.securityDeposit} onChange={event => update("securityDeposit", event.target.value)} /></label>
+          </div>
+        ) : <label className="space-y-2"><span className="text-sm font-medium">Asking price</span><Input type="number" min="0" placeholder="Optional" value={form.price} onChange={event => update("price", event.target.value)} /></label>}
 
-
-
-
-
-        <div className="
-          grid
-          gap-4
-          md:grid-cols-2
-        ">
-
-
-          <Input
-
-            placeholder="Plot Area sqm"
-
-            value={form.plotArea}
-
-            onChange={
-              e =>
-                update(
-                  "plotArea",
-                  e.target.value
-                )
-            }
-
-          />
-
-
-
-          <Input
-
-            placeholder="Built Up Area sqft"
-
-            value={form.builtUpArea}
-
-            onChange={
-              e =>
-                update(
-                  "builtUpArea",
-                  e.target.value
-                )
-            }
-
-          />
-
-
+        <div className="grid gap-4 md:grid-cols-3">
+          <label className="space-y-2"><span className="text-sm font-medium">Bedrooms</span><Input type="number" min="0" placeholder="Optional" value={form.bedrooms} onChange={event => update("bedrooms", event.target.value)} /></label>
+          <label className="space-y-2"><span className="text-sm font-medium">Bathrooms</span><Input type="number" min="0" placeholder="Optional" value={form.bathrooms} onChange={event => update("bathrooms", event.target.value)} /></label>
+          <label className="space-y-2"><span className="text-sm font-medium">Carpet area (sq ft)</span><Input type="number" min="0" placeholder="Optional" value={form.carpetArea} onChange={event => update("carpetArea", event.target.value)} /></label>
+          <label className="space-y-2"><span className="text-sm font-medium">Plot area (sq m)</span><Input type="number" min="0" placeholder="Optional" value={form.plotArea} onChange={event => update("plotArea", event.target.value)} /></label>
+          <label className="space-y-2"><span className="text-sm font-medium">Built-up area (sq ft)</span><Input type="number" min="0" placeholder="Optional" value={form.builtUpArea} onChange={event => update("builtUpArea", event.target.value)} /></label>
         </div>
 
-
-
-
-
-
-
-
-        <Input
-
-          placeholder="Furnishing"
-
-          value={form.furnishing}
-
-          onChange={
-            e =>
-              update(
-                "furnishing",
-                e.target.value
-              )
-          }
-
-        />
-
-
-
-
-
-
-
-
-        <Input
-
-          placeholder="Amenities (comma separated)"
-
-          value={form.amenities}
-
-          onChange={
-            e =>
-              update(
-                "amenities",
-                e.target.value
-              )
-          }
-
-        />
-
-
-
-
-
-
-
-
-        <Input
-
-          placeholder="Tags (comma separated)"
-
-          value={form.tags}
-
-          onChange={
-            e =>
-              update(
-                "tags",
-                e.target.value
-              )
-          }
-
-        />
-
-
-
-
-
-
-
-
-        <Input
-
-          placeholder="Cover Image URL"
-
-          value={form.coverImage}
-
-          onChange={
-            e =>
-              update(
-                "coverImage",
-                e.target.value
-              )
-          }
-
-        />
-
-
-
-
-
-
-
-
-        <Input
-
-          placeholder="Advisor"
-
-          value={form.advisor}
-
-          onChange={
-            e =>
-              update(
-                "advisor",
-                e.target.value
-              )
-          }
-
-        />
-
-
-
-
-
-
-
-
-        <Textarea
-
-          placeholder="Property Description"
-
-          value={form.description}
-
-          onChange={
-            e =>
-              update(
-                "description",
-                e.target.value
-              )
-          }
-
-        />
-
-
-
-
-
-
-
-
-        <Textarea
-
-          placeholder="Internal Notes"
-
-          value={form.note}
-
-          onChange={
-            e =>
-              update(
-                "note",
-                e.target.value
-              )
-          }
-
-        />
-
-
-
-
-
-
-
-
-        <Button
-
-          disabled={saving}
-
-        >
-
-          {
-            saving
-            ? "Saving..."
-            : "Create Property"
-          }
-
-        </Button>
-
-
-
+        <label className="space-y-2"><span className="text-sm font-medium">Amenities</span><Input placeholder="Comma separated (optional)" value={form.amenities} onChange={event => update("amenities", event.target.value)} /></label>
+        <label className="space-y-2"><span className="text-sm font-medium">Tags</span><Input placeholder="Comma separated (optional)" value={form.tags} onChange={event => update("tags", event.target.value)} /></label>
+        <label className="space-y-2"><span className="text-sm font-medium">Cover image URL</span><Input type="url" placeholder="Optional; more media can be uploaded after saving" value={form.coverImage} onChange={event => update("coverImage", event.target.value)} /></label>
+        <label className="space-y-2"><span className="text-sm font-medium">Description</span><Textarea placeholder="Property description (optional)" value={form.description} onChange={event => update("description", event.target.value)} /></label>
+        <label className="space-y-2"><span className="text-sm font-medium">Internal note</span><Textarea placeholder="Optional; never sent to external portals" value={form.note} onChange={event => update("note", event.target.value)} /></label>
+
+        <label className="flex items-start gap-3 rounded-xl border p-4">
+          <input className="mt-1 h-4 w-4" type="checkbox" checked={form.housingEnabled} onChange={event => update("housingEnabled", event.target.checked)} />
+          <span><span className="block text-sm font-medium">Syndicate to Housing.com</span><span className="block text-sm text-muted-foreground">Only enabled, active, complete listings appear in the Housing inventory feed.</span></span>
+        </label>
+
+        <Button type="submit" disabled={saving} className="w-full sm:w-auto">{saving ? "Saving property…" : "Save Property"}</Button>
       </form>
-
-
     </div>
-
   )
-
 }

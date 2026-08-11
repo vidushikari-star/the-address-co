@@ -93,11 +93,11 @@ export interface CreatePropertyDto {
 
 
 
-  bedrooms:number
+  bedrooms?:number
 
-  bathrooms:number
+  bathrooms?:number
 
-  carpetArea:number
+  carpetArea?:number
 
   plotArea?:number
 
@@ -118,7 +118,7 @@ export interface CreatePropertyDto {
   coverImage?:string
 
 
-  advisor:string
+  advisor?:string
 
   note?:string
 
@@ -128,7 +128,9 @@ housingSyncStatus?: string
 
 housingLastSyncedAt?: string
 
-housingSyncError?: string
+  housingSyncError?: string
+
+  housingEnabled?: boolean
 
 }
 
@@ -497,10 +499,13 @@ const payload = {
       housing_listing_id:
   property.housingListingId ?? null,
 
-  housing_sync_status:
+      housing_sync_status:
   property.housingListingId
     ? "needs_update"
     : null,
+
+  housing_enabled:
+    property.housingEnabled ?? false,
 
   }
 
@@ -826,6 +831,12 @@ if(property.housingSyncError !== undefined)
 
   payload.housing_sync_error =
     property.housingSyncError
+
+
+if(property.housingEnabled !== undefined)
+
+  payload.housing_enabled =
+    property.housingEnabled
 
 
   if(

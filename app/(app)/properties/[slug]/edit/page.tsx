@@ -41,7 +41,6 @@ const transactionTypes = [
 const listingTypes = [
   "Primary",
   "Resale",
-  "Rental",
 ]
 
 
@@ -71,7 +70,12 @@ const statuses = [
   "offer",
   "purchased",
   "rejected",
+  "archived",
 ]
+
+function numberOrUndefined(value:string){
+  return value.trim() ? Number(value) : undefined
+}
 
 
 
@@ -231,6 +235,8 @@ export default function EditPropertyPage(){
 
 
     note:"",
+
+    housingEnabled:false,
 
 
   })
@@ -433,6 +439,10 @@ export default function EditPropertyPage(){
             property.note
             ?? "",
 
+          housingEnabled:
+            property.housingEnabled
+            ?? false,
+
 
         })
 
@@ -478,7 +488,7 @@ export default function EditPropertyPage(){
 
   function update(
     key:string,
-    value:string
+    value:string | boolean
   ){
 
     setForm(
@@ -572,63 +582,47 @@ export default function EditPropertyPage(){
           price:
   form.transactionType === "Rental"
     ? undefined
-    : Number(
-        form.price
-      ),
+    : numberOrUndefined(form.price),
 
 rent:
   form.transactionType === "Rental"
-    ? Number(
-        form.price
-      )
+    ? numberOrUndefined(form.price)
     : undefined,
 
     securityDeposit:
   form.transactionType === "Rental"
-    ? Number(
-        form.securityDeposit
-      )
+    ? numberOrUndefined(form.securityDeposit)
     : undefined,
 
 
 
           bedrooms:
-            Number(
-              form.bedrooms
-            ),
+            numberOrUndefined(form.bedrooms),
 
 
 
           bathrooms:
-            Number(
-              form.bathrooms
-            ),
+            numberOrUndefined(form.bathrooms),
 
 
 
           carpetArea:
-            Number(
-              form.carpetArea
-            ),
+            numberOrUndefined(form.carpetArea),
 
 
 
           plotArea:
-            Number(
-              form.plotArea
-            ),
+            numberOrUndefined(form.plotArea),
 
 
 
           builtUpArea:
-            Number(
-              form.builtUpArea
-            ),
+            numberOrUndefined(form.builtUpArea),
 
 
 
           furnishing:
-            form.furnishing,
+            form.furnishing || undefined,
 
 
 
@@ -671,6 +665,9 @@ rent:
 
           note:
             form.note,
+
+          housingEnabled:
+            form.housingEnabled,
 
 
         }
@@ -876,7 +873,7 @@ rent:
                   value={item}
                 >
 
-                  {item}
+                  {item === "Rental" ? "Rent" : item}
 
                 </option>
 
@@ -1003,7 +1000,11 @@ rent:
                   value={item}
                 >
 
-                  {item}
+                  {item === "ready_to_move"
+                    ? "Ready to Move"
+                    : item === "under_construction"
+                      ? "Under Construction"
+                      : "Resale"}
 
                 </option>
 
@@ -1339,21 +1340,29 @@ rent:
 
 
 
-        <Input
-
-          placeholder="Furnishing"
-
+        <select
+          className="w-full rounded-xl border p-3"
           value={form.furnishing}
+          onChange={event => update("furnishing", event.target.value)}
+        >
+          <option value="">Furnishing not specified</option>
+          <option value="furnished">Furnished</option>
+          <option value="semi_furnished">Semi-furnished</option>
+          <option value="unfurnished">Unfurnished</option>
+        </select>
 
-          onChange={
-            e =>
-              update(
-                "furnishing",
-                e.target.value
-              )
-          }
-
-        />
+        <label className="flex items-start gap-3 rounded-xl border p-4">
+          <input
+            className="mt-1 h-4 w-4"
+            type="checkbox"
+            checked={form.housingEnabled}
+            onChange={event => update("housingEnabled", event.target.checked)}
+          />
+          <span>
+            <span className="block text-sm font-medium">Syndicate to Housing.com</span>
+            <span className="block text-sm text-muted-foreground">Only enabled active listings are published to Housing.com.</span>
+          </span>
+        </label>
 
 
 

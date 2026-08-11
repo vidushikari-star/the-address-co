@@ -52,6 +52,12 @@ export default async function SettingsPage() {
           description="Export backups and manage your CRM data."
           href="/settings/data"
         />
+
+        <SettingsCard
+          title="Integrations"
+          description="Configure and review secure external platform connections."
+          href="/settings/integrations"
+        />
       </div>
     </div>
   )

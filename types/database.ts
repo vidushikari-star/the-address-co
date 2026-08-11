@@ -820,6 +820,7 @@ export type Database = {
           buyer_matches: Json | null
           carpet_area: number | null
           cover_image: string | null
+          creation_request_id: string | null
           created_at: string | null
           description: string | null
           developer: string | null
@@ -828,6 +829,7 @@ export type Database = {
           google_map_link: string | null
           housing_last_synced_at: string | null
           housing_listing_id: string | null
+          housing_enabled: boolean
           housing_sync_error: string | null
           housing_sync_status: string | null
           id: string
@@ -857,6 +859,7 @@ export type Database = {
           buyer_matches?: Json | null
           carpet_area?: number | null
           cover_image?: string | null
+          creation_request_id?: string | null
           created_at?: string | null
           description?: string | null
           developer?: string | null
@@ -865,6 +868,7 @@ export type Database = {
           google_map_link?: string | null
           housing_last_synced_at?: string | null
           housing_listing_id?: string | null
+          housing_enabled?: boolean
           housing_sync_error?: string | null
           housing_sync_status?: string | null
           id?: string
@@ -894,6 +898,7 @@ export type Database = {
           buyer_matches?: Json | null
           carpet_area?: number | null
           cover_image?: string | null
+          creation_request_id?: string | null
           created_at?: string | null
           description?: string | null
           developer?: string | null
@@ -902,6 +907,7 @@ export type Database = {
           google_map_link?: string | null
           housing_last_synced_at?: string | null
           housing_listing_id?: string | null
+          housing_enabled?: boolean
           housing_sync_error?: string | null
           housing_sync_status?: string | null
           id?: string
@@ -1350,7 +1356,39 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_property_for_user: {
+        Args: {
+          p_request_id: string
+          property_payload: Json
+        }
+        Returns: {
+          property_id: string
+          property_slug: string
+        }[]
+      }
+      upsert_housing_inventory_submission: {
+        Args: {
+          p_external_id: string
+          p_payload: Json
+          p_payload_hash: string
+          p_status: string
+          p_validation_errors: Json
+        }
+        Returns: {
+          crm_property_id: string | null
+          external_id: string
+          id: string
+          payload: Json
+          payload_hash: string
+          processed_at: string | null
+          received_at: string
+          status: string
+          updated_at: string
+          validation_errors: Json
+          version: number
+          was_updated: boolean
+        }[]
+      }
     }
     Enums: {
       bedroom_count: "1" | "2" | "3" | "4" | "5+"

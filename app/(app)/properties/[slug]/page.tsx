@@ -39,6 +39,10 @@ import {
 } from "@/components/shared/status-badge"
 
 import {
+  PropertyLabelBadges,
+} from "@/components/properties/property-label-badges"
+
+import {
   DeletePropertyButton,
 } from "@/components/properties/delete-property-button"
 
@@ -271,6 +275,8 @@ const propertyValue =
                   {property.propertyType}
 
                 </span>
+
+                <PropertyLabelBadges property={property} />
 
 
               </div>
