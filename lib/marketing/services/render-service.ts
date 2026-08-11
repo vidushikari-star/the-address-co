@@ -10,6 +10,12 @@ import type { MarketingAsset, ReelComposition } from "@/lib/marketing/types"
 const MAX_RENDER_INPUT_BYTES = 75 * 1024 * 1024
 const MAX_AUDIO_INPUT_BYTES = 25 * 1024 * 1024
 const TRANSITION_DURATION = 0.4
+export const REEL_ENCODER_THREADS = 2
+export const REEL_FILTER_THREADS = 2
+export const REEL_RENDER_TIMEOUT_MS = 4 * 60_000
+const REEL_RENDER_PRESET = "veryfast"
+const REEL_RESOLUTION = "1080x1920"
+const REEL_FPS = 30
 
 function allowedMediaOrigin(url: URL) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -114,9 +120,20 @@ function textOverlayFilter(input: {
   return `,drawtext=text='${escapeDrawtext(input.text.trim().slice(0, 120))}':fontcolor=white:fontsize=58:box=1:boxcolor=black@0.48:boxborderw=24:x=(w-text_w)/2:y=${y}`
 }
 
-async function runFfmpeg(args: string[], inputCount: number, hasAudio: boolean) {
+async function runFfmpeg(args: string[], inputCount: number, hasAudio: boolean, targetDuration: number) {
   const executable = process.env.FFMPEG_PATH || "ffmpeg"
-  logRenderStage("ffmpeg", "started", { inputs: inputCount, audio: hasAudio })
+  const startedAt = Date.now()
+  logRenderStage("ffmpeg", "started", {
+    input_assets: inputCount,
+    target_duration_seconds: targetDuration.toFixed(3),
+    resolution: REEL_RESOLUTION,
+    fps: REEL_FPS,
+    encoder_threads: REEL_ENCODER_THREADS,
+    filter_threads: REEL_FILTER_THREADS,
+    preset: REEL_RENDER_PRESET,
+    timeout_seconds: REEL_RENDER_TIMEOUT_MS / 1_000,
+    audio: hasAudio,
+  })
 
   await new Promise<void>((resolve, reject) => {
     const child = spawn(executable, args, {
@@ -124,16 +141,42 @@ async function runFfmpeg(args: string[], inputCount: number, hasAudio: boolean) 
       stdio: ["ignore", "ignore", "pipe"],
     })
     let stderr = ""
+    let timedOut = false
+    const timeout = setTimeout(() => {
+      timedOut = true
+      child.kill("SIGKILL")
+    }, REEL_RENDER_TIMEOUT_MS)
+    timeout.unref?.()
     child.stderr.on("data", data => { stderr = `${stderr}${String(data)}`.slice(-4_000) })
-    child.on("error", error => reject(renderStageFailure("ffmpeg", `could not start (${sanitizeRenderDiagnostic(error)})`)))
-    child.on("close", code => {
+    child.on("error", error => {
+      clearTimeout(timeout)
+      reject(renderStageFailure("ffmpeg", `could not start (${sanitizeRenderDiagnostic(error)})`))
+    })
+    child.on("close", (code, signal) => {
+      clearTimeout(timeout)
+      const elapsedMs = Date.now() - startedAt
+      const exitCode = child.exitCode ?? code
+      const terminationSignal = child.signalCode ?? signal
       if (code === 0) {
-        logRenderStage("ffmpeg", "ok")
+        logRenderStage("ffmpeg", "ok", { exit_code: exitCode ?? 0, elapsed_ms: elapsedMs, timed_out: timedOut })
         resolve()
       } else {
         const reason = sanitizeRenderDiagnostic(stderr, 700) || "no FFmpeg stderr was available"
-        logRenderStage("ffmpeg", "failed", { exit_code: code ?? "unknown", reason })
-        reject(renderStageFailure("ffmpeg", `exit_code=${code ?? "unknown"} ${reason}`))
+        const terminationReason = timedOut
+          ? `Render timed out after ${REEL_RENDER_TIMEOUT_MS / 1_000} seconds`
+          : exitCode === null && (terminationSignal === "SIGKILL" || terminationSignal === "SIGTERM")
+            ? `FFmpeg was terminated by ${terminationSignal}`
+            : exitCode === null
+              ? `FFmpeg exited without a numeric exit code${terminationSignal ? ` (signal=${terminationSignal})` : ""}`
+              : `exit_code=${exitCode}`
+        logRenderStage("ffmpeg", "failed", {
+          exit_code: exitCode ?? "null",
+          signal: terminationSignal ?? "none",
+          elapsed_ms: elapsedMs,
+          timed_out: timedOut,
+          reason,
+        })
+        reject(renderStageFailure("ffmpeg", `${terminationReason}; ${reason}`))
       }
     })
   })
@@ -203,7 +246,7 @@ export class RenderService {
         "-frames:v", "1",
         "-q:v", "2",
         outputPath,
-      ], 1, false)
+      ], 1, false, 0)
       const rendered = await readFile(outputPath)
       if (rendered.byteLength < 1_024) throw new Error("FFmpeg produced an invalid image asset.")
       const storagePath = `${input.contentId}/rendered/${crypto.randomUUID()}.jpg`
@@ -271,7 +314,11 @@ export class RenderService {
         throw renderStageFailure("download", error)
       }
 
-      const args = ["-y"]
+      const args = [
+        "-y",
+        "-filter_threads", String(REEL_FILTER_THREADS),
+        "-filter_complex_threads", String(REEL_FILTER_THREADS),
+      ]
       compositionAssets.forEach(({ scene, asset }, index) => {
         if (asset.mediaType === "image") args.push("-loop", "1", "-t", String(scene.duration), "-i", inputPaths[index])
         else args.push("-stream_loop", "-1", "-t", String(scene.duration), "-i", inputPaths[index])
@@ -303,9 +350,17 @@ export class RenderService {
       args.push("-filter_complex", filters.join(";"), "-map", `[${previous}]`)
       if (input.audio) args.push("-map", "[a]", "-c:a", "aac", "-b:a", "160k")
       else args.push("-an")
-      args.push("-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-r", "30", outputPath)
+      args.push(
+        "-c:v", "libx264",
+        "-preset", REEL_RENDER_PRESET,
+        "-threads", String(REEL_ENCODER_THREADS),
+        "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
+        "-r", String(REEL_FPS),
+        outputPath
+      )
 
-      await runFfmpeg(args, compositionAssets.length, Boolean(input.audio))
+      await runFfmpeg(args, compositionAssets.length, Boolean(input.audio), totalDuration)
 
       let rendered: Buffer
       try {

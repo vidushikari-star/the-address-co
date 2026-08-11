@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { MarketingJob } from "@/lib/marketing/types"
+import { RenderStageError } from "@/lib/marketing/render-diagnostics"
 
 const admin = vi.hoisted(() => ({ client: { from: vi.fn(), rpc: vi.fn(), storage: { from: vi.fn() } } }))
 const renderService = vi.hoisted(() => ({ renderReel: vi.fn() }))
@@ -248,13 +249,13 @@ describe("MarketingWorkerService render queue", () => {
     }))
   })
 
-  it("marks a terminal FFmpeg failure as failed and records its useful error", async () => {
-    const candidate = queuedJob({ attempts: 2 })
+  it("marks a SIGKILL FFmpeg termination failed without retrying and records it on the content", async () => {
+    const candidate = queuedJob()
     const discovery = queryWithRows([candidate])
-    const lock = lockQuery(queuedJob({ status: "running", attempts: 3, progress: 5 }))
+    const lock = lockQuery(queuedJob({ status: "running", attempts: 1, progress: 5 }))
     const jobFailure = terminalUpdateQuery()
     const contentFailure = terminalUpdateQuery()
-    vi.spyOn(privateWorker(), "process").mockRejectedValue(new Error("FFmpeg render failed (1): input media is unavailable."))
+    vi.spyOn(privateWorker(), "process").mockRejectedValue(new RenderStageError("ffmpeg", "FFmpeg was terminated by SIGKILL"))
     let jobTableCalls = 0
     admin.client.from.mockImplementation((table: string) => {
       if (table === "marketing_jobs") return [discovery, lock, jobFailure][jobTableCalls++]
@@ -267,11 +268,11 @@ describe("MarketingWorkerService render queue", () => {
 
     expect(jobFailure.update).toHaveBeenCalledWith(expect.objectContaining({
       status: "failed",
-      error: "FFmpeg render failed (1): input media is unavailable.",
+      error: "Render ffmpeg failed: FFmpeg was terminated by SIGKILL",
     }))
     expect(contentFailure.update).toHaveBeenCalledWith({
       status: "failed",
-      last_error: "FFmpeg render failed (1): input media is unavailable.",
+      last_error: "Render ffmpeg failed: FFmpeg was terminated by SIGKILL",
     })
   })
 })

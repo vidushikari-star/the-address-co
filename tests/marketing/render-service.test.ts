@@ -10,6 +10,7 @@ vi.mock("node:fs/promises", () => files)
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabaseClient: () => admin.client }))
 
 import { RenderService } from "@/lib/marketing/services/render-service"
+import { REEL_ENCODER_THREADS, REEL_FILTER_THREADS, REEL_RENDER_TIMEOUT_MS } from "@/lib/marketing/services/render-service"
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -27,7 +28,7 @@ beforeEach(() => {
   childProcess.spawn.mockImplementation((executable: string) => {
     const stderr = new EventEmitter()
     const stdout = new EventEmitter()
-    const child = new EventEmitter() as EventEmitter & { stderr: EventEmitter; stdout: EventEmitter }
+    const child = new EventEmitter() as EventEmitter & { stderr: EventEmitter; stdout: EventEmitter; exitCode?: number | null; signalCode?: string | null; kill?: (signal?: string) => boolean }
     child.stderr = stderr
     child.stdout = stdout
     queueMicrotask(() => {
@@ -62,6 +63,12 @@ describe("RenderService audio mixing", () => {
     expect(filters).toContain("[1:a]atrim=duration=15.000")
     expect(filters).toContain("afade=t=out:st=13.500:d=1.500")
     expect(args).toEqual(expect.arrayContaining(["-map", "[a]", "-c:a", "aac"]))
+    expect(args).toEqual(expect.arrayContaining([
+      "-filter_threads", String(REEL_FILTER_THREADS),
+      "-filter_complex_threads", String(REEL_FILTER_THREADS),
+      "-preset", "veryfast",
+      "-threads", String(REEL_ENCODER_THREADS),
+    ]))
     expect(args).not.toContain("-stream_loop")
     expect(args).not.toContain("-an")
   })
@@ -76,7 +83,7 @@ describe("RenderService audio mixing", () => {
     childProcess.spawn.mockImplementation((executable: string) => {
       const stderr = new EventEmitter()
       const stdout = new EventEmitter()
-      const child = new EventEmitter() as EventEmitter & { stderr: EventEmitter; stdout: EventEmitter }
+      const child = new EventEmitter() as EventEmitter & { stderr: EventEmitter; stdout: EventEmitter; exitCode?: number | null; signalCode?: string | null; kill?: (signal?: string) => boolean }
       child.stderr = stderr
       child.stdout = stdout
       queueMicrotask(() => {
@@ -88,7 +95,7 @@ describe("RenderService audio mixing", () => {
       return child
     })
 
-    await expect(RenderService.renderReel(renderInput())).rejects.toThrow("Render ffmpeg failed: exit_code=1 Invalid filter drawtext=text='[redacted]' [url]")
+    await expect(RenderService.renderReel(renderInput())).rejects.toThrow("Render ffmpeg failed: exit_code=1; Invalid filter drawtext=text='[redacted]' [url]")
   })
 
   it("reports an output-stage failure when FFmpeg produces no readable MP4", async () => {
@@ -101,5 +108,58 @@ describe("RenderService audio mixing", () => {
     admin.client.storage.from.mockReturnValue({ upload: vi.fn().mockResolvedValue({ error: new Error("Bucket not found") }) })
 
     await expect(RenderService.renderReel(renderInput())).rejects.toThrow("Render upload failed: Bucket not found")
+  })
+
+  it("persists a null exit code with SIGKILL as an external FFmpeg termination", async () => {
+    childProcess.spawn.mockImplementation((executable: string) => {
+      const stderr = new EventEmitter()
+      const stdout = new EventEmitter()
+      const child = new EventEmitter() as EventEmitter & { stderr: EventEmitter; stdout: EventEmitter; exitCode?: number | null; signalCode?: string | null }
+      child.stderr = stderr
+      child.stdout = stdout
+      queueMicrotask(() => {
+        if (!executable.endsWith("ffprobe")) {
+          child.exitCode = null
+          child.signalCode = "SIGKILL"
+          child.emit("close", null, "SIGKILL")
+        }
+      })
+      return child
+    })
+
+    await expect(RenderService.renderReel(renderInput())).rejects.toThrow("Render ffmpeg failed: FFmpeg was terminated by SIGKILL; no FFmpeg stderr was available")
+  })
+
+  it("reports an explicit renderer timeout when its timeout terminates FFmpeg", async () => {
+    vi.useFakeTimers()
+    try {
+      let killedWith: string | undefined
+      childProcess.spawn.mockImplementation((executable: string) => {
+        const stderr = new EventEmitter()
+        const stdout = new EventEmitter()
+        const child = new EventEmitter() as EventEmitter & { stderr: EventEmitter; stdout: EventEmitter; exitCode?: number | null; signalCode?: string | null; kill: (signal?: string) => boolean }
+        child.stderr = stderr
+        child.stdout = stdout
+        child.kill = signal => {
+          killedWith = signal
+          child.exitCode = null
+          child.signalCode = signal ?? null
+          queueMicrotask(() => child.emit("close", null, signal))
+          return true
+        }
+        if (executable.endsWith("ffprobe")) queueMicrotask(() => child.emit("close", 0))
+        return child
+      })
+
+      const rendering = RenderService.renderReel(renderInput())
+      const rejection = expect(rendering).rejects.toThrow(`Render ffmpeg failed: Render timed out after ${REEL_RENDER_TIMEOUT_MS / 1_000} seconds; no FFmpeg stderr was available`)
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(REEL_RENDER_TIMEOUT_MS)
+
+      await rejection
+      expect(killedWith).toBe("SIGKILL")
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

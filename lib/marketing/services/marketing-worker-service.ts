@@ -1,7 +1,7 @@
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { contentRequiresRendering, publishableAssets } from "@/lib/marketing/content-delivery"
 import { isInstagramPublishingEnabled } from "@/lib/marketing/feature-flags"
-import { logRenderStage, renderStageFailure, sanitizeRenderDiagnostic } from "@/lib/marketing/render-diagnostics"
+import { logRenderStage, RenderStageError, renderStageFailure, sanitizeRenderDiagnostic } from "@/lib/marketing/render-diagnostics"
 import { CompositionService } from "@/lib/marketing/services/composition-service"
 import { CreativeAIService } from "@/lib/marketing/services/creative-ai-service"
 import { InstagramService } from "@/lib/marketing/services/instagram-service"
@@ -117,6 +117,13 @@ function safeError(error: unknown) {
 
 class PublishingDisabledError extends Error {}
 
+function isTerminalRenderTermination(job: MarketingJob, error: unknown) {
+  return job.type === "render_reel" &&
+    error instanceof RenderStageError &&
+    error.stage === "ffmpeg" &&
+    /(Render timed out after|terminated by SIGKILL|terminated by SIGTERM)/.test(error.message)
+}
+
 export class MarketingWorkerService {
   static async run(limit = 3, options?: { jobTypes?: readonly MarketingJobType[]; diagnosticsLabel?: string }) {
     const admin = createAdminSupabaseClient()
@@ -188,7 +195,7 @@ export class MarketingWorkerService {
           results.push({ id: job.id, status: "skipped" })
           continue
         }
-        const retry = job.attempts < job.maxAttempts
+        const retry = !isTerminalRenderTermination(job, caught) && job.attempts < job.maxAttempts
         await admin.from("marketing_jobs").update({
           status: retry ? "queued" : "failed",
           error: errorMessage,

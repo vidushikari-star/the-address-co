@@ -5,7 +5,7 @@ export function sanitizeRenderDiagnostic(value: unknown, limit = 700) {
   const message = value instanceof Error ? value.message : String(value ?? "Unknown render failure.")
   return message
     .replace(/https?:\/\/[^\s'"\])]+/gi, "[url]")
-    .replace(/(authorization|api[_-]?key|token|signature|sig)=?[^\s,;]*/gi, "$1=[redacted]")
+    .replace(/\b(authorization|api[_-]?key|token|signature|sig)(?:=|:)\s*[^\s,;]*/gi, "$1=[redacted]")
     .replace(/drawtext=text='(?:\\.|[^'])*'/gi, "drawtext=text='[redacted]'")
     .replace(/\s+/g, " ")
     .trim()
