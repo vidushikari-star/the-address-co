@@ -1,8 +1,8 @@
-import Link from "next/link"
-import { CheckCircle2, ExternalLink, ShieldCheck } from "lucide-react"
+import { CheckCircle2, ShieldCheck } from "lucide-react"
 
 import { saveMarketingBrandSettings } from "@/app/(app)/marketing/settings/actions"
 import { InstagramConnectionActions } from "@/components/marketing/instagram-connection-actions"
+import { InstagramConnectLink } from "@/components/marketing/instagram-connect-link"
 import { MarketingAudioLibrary } from "@/components/marketing/marketing-audio-library"
 import { MarketingBrandAssets } from "@/components/marketing/marketing-brand-assets"
 import { MarketingPageHeader } from "@/components/marketing/marketing-page-header"
@@ -69,9 +69,7 @@ export default async function MarketingSettingsPage({ searchParams }: Props) {
           </div>
           {params.instagram === "error" && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">Instagram connection failed{params.reason ? `: ${params.reason}` : ". Check your Meta configuration and try again."}</p>}
           {params.instagram === "connected" && <p className="mt-4 flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800"><CheckCircle2 className="h-4 w-4" />Instagram is connected.</p>}
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Link href="/api/marketing/instagram/connect?returnTo=/marketing/settings" className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90">{connected ? "Reconnect Instagram" : "Connect Instagram"}<ExternalLink className="h-3.5 w-3.5" /></Link>
-          </div>
+          <div className="mt-5 flex flex-wrap gap-2"><InstagramConnectLink connected={connected} /></div>
           <InstagramConnectionActions connected={connected} />
           {account && <dl className="mt-5 space-y-2 border-t pt-4 text-sm">
             <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Account type</dt><dd className="font-medium">{account.accountType || "Professional"}</dd></div>

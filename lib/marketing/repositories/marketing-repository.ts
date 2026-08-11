@@ -499,6 +499,18 @@ export class MarketingRepository {
     return data ? mapAudioTrack(data as Row) : null
   }
 
+  /** Used by signed-upload finalization to make client retries idempotent. */
+  static async getAudioTrackByStoragePath(storagePath: string) {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from("marketing_audio_tracks")
+      .select("*")
+      .eq("storage_path", storagePath)
+      .maybeSingle()
+    if (error) throw error
+    return data ? mapAudioTrack(data as Row) : null
+  }
+
   static async deleteAudioTrack(id: string) {
     const supabase = await createServerSupabaseClient()
     const { data, error } = await supabase
@@ -775,7 +787,21 @@ export class MarketingRepository {
       p_action: input.action,
       p_updated_by: input.updatedBy,
     })
-    if (error) throw error
+    if (error) {
+      const diagnostic = {
+        code: typeof error.code === "string" ? error.code : "unknown",
+        message: String(error.message ?? "Scheduled-content RPC failed.")
+          .replace(/https?:\/\/[^\s]+/gi, "[url]")
+          .replace(/\b(token|key|secret|signature)\b\s*[:=]\s*[^\s,;]+/gi, "$1=[redacted]")
+          .slice(0, 500),
+      }
+      console.error("Marketing scheduled-content RPC failed:", JSON.stringify(diagnostic))
+      if (diagnostic.code === "PGRST202" || diagnostic.code === "42883") {
+        throw new Error("Scheduled-content controls are unavailable. Apply the latest Supabase migration and retry.")
+      }
+      if (diagnostic.code === "42501") throw new Error("You do not have permission to update scheduled Marketing content.")
+      throw new Error("Scheduled-content action failed in the database. Refresh and retry; if it continues, contact an administrator.")
+    }
     const outcomes = ((data ?? []) as Row[]).map(row => ({
       id: String(row.content_id),
       outcome: String(row.outcome),

@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   const error = url.searchParams.get("error")
   if (error) {
     fallback.searchParams.set("reason", error)
-    return NextResponse.redirect(fallback)
+    return NextResponse.redirect(fallback, 303)
   }
 
   try {
@@ -46,11 +46,11 @@ export async function GET(request: Request) {
       metadata: { accountId: connection.instagramAccountId, username: connection.username ?? null },
     })
 
-    return NextResponse.redirect(new URL(`${returnTo}?instagram=connected`, request.url))
+    return NextResponse.redirect(new URL(`${returnTo}?instagram=connected`, request.url), 303)
   } catch {
     // OAuth providers can include request-specific data in failures. Keep
     // browser redirects and logs free of authorization codes and tokens.
     console.error("Instagram callback failed.")
-    return NextResponse.redirect(fallback)
+    return NextResponse.redirect(fallback, 303)
   }
 }

@@ -18,7 +18,9 @@ export async function GET(request: Request) {
       returnTo,
       expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
     })
-    return NextResponse.redirect(InstagramService.createAuthorizationUrl(state))
+    // This response is consumed by an anchor/document navigation, never by
+    // fetch. A 303 makes the OAuth hand-off unambiguous to browsers.
+    return NextResponse.redirect(InstagramService.createAuthorizationUrl(state), 303)
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to start Instagram connection." }, { status: 503 })
   }

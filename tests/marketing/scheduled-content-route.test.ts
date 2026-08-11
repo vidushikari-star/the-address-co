@@ -9,6 +9,8 @@ vi.mock("@/lib/marketing/repositories/marketing-repository", () => ({ MarketingR
 import { POST } from "@/app/api/marketing/content/scheduled/route"
 
 const id = "1e149a39-7321-42d1-900c-7389c0da37a3"
+const secondId = "b2041f1f-89e9-4a59-a8de-00169502f523"
+const thirdId = "ba3fe72a-dfb7-43e5-9d81-964c6602ea6a"
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -29,6 +31,44 @@ describe("scheduled content controls", () => {
     expect(response.status).toBe(200)
     expect(repository.manageScheduledContents).toHaveBeenCalledWith({ action: "unschedule", ids: [id], updatedBy: "admin-1" })
     await expect(response.json()).resolves.toMatchObject({ message: "1 scheduled items unscheduled" })
+  })
+
+  it("returns all three successful outcomes for a bulk unschedule and records each audit event", async () => {
+    repository.manageScheduledContents.mockResolvedValue([
+      { id, outcome: "unscheduled" }, { id: secondId, outcome: "unscheduled" }, { id: thirdId, outcome: "unscheduled" },
+    ])
+    const response = await POST(new Request("http://localhost/api/marketing/content/scheduled", {
+      method: "POST", body: JSON.stringify({ action: "unschedule", ids: [id, secondId, thirdId] }),
+    }))
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({ message: "3 scheduled items unscheduled" })
+    expect(repository.addAuditLog).toHaveBeenCalledTimes(3)
+  })
+
+  it("returns all three successful outcomes for a bulk delete", async () => {
+    repository.manageScheduledContents.mockResolvedValue([
+      { id, outcome: "deleted" }, { id: secondId, outcome: "deleted" }, { id: thirdId, outcome: "deleted" },
+    ])
+    const response = await POST(new Request("http://localhost/api/marketing/content/scheduled", {
+      method: "POST", body: JSON.stringify({ action: "delete", ids: [id, secondId, thirdId] }),
+    }))
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({ message: "3 items deleted" })
+    expect(repository.addAuditLog).toHaveBeenCalledWith(expect.objectContaining({ action: "content.scheduled_deleted" }))
+  })
+
+  it("returns mixed per-item outcomes for stale or published selections", async () => {
+    repository.manageScheduledContents.mockResolvedValue([
+      { id, outcome: "deleted" }, { id: secondId, outcome: "skipped_not_scheduled" }, { id: thirdId, outcome: "skipped_publication_history" },
+    ])
+    const response = await POST(new Request("http://localhost/api/marketing/content/scheduled", {
+      method: "POST", body: JSON.stringify({ action: "delete", ids: [id, secondId, thirdId] }),
+    }))
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      outcomes: [{ id, outcome: "deleted" }, { id: secondId, outcome: "skipped_not_scheduled" }, { id: thirdId, outcome: "skipped_publication_history" }],
+      message: "1 items deleted. 2 skipped because they were no longer safely deletable.",
+    })
   })
 
   it("reports a publishing race as skipped rather than pretending deletion succeeded", async () => {
