@@ -7,7 +7,7 @@ import { Readable, Transform } from "node:stream"
 import { pipeline } from "node:stream/promises"
 
 import { logRenderStage, renderStageFailure, sanitizeRenderDiagnostic } from "@/lib/marketing/render-diagnostics"
-import { layoutReelOverlay, logoLayout } from "@/lib/marketing/reel-layout"
+import { layoutReelOverlay, logoLayout, type ReelOverlayLayout } from "@/lib/marketing/reel-layout"
 import { normalizeReelTypographyStyle, reelTypographyFontFile } from "@/lib/marketing/reel-typography"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import type { MarketingAsset, ReelComposition } from "@/lib/marketing/types"
@@ -107,27 +107,28 @@ async function downloadAudio(input: { sourceUrl: string; mimeType: string }, des
   await saveResponseToFile(response, destination, MAX_AUDIO_INPUT_BYTES, "Selected audio exceeds the 25 MB safety limit.")
 }
 
-function escapeDrawtext(value: string) {
+function escapeDrawtextFilePath(value: string) {
   return value
     .replaceAll("\\", "\\\\")
     .replaceAll("'", "\\'")
     .replaceAll(":", "\\:")
     .replaceAll(",", "\\,")
-    .replaceAll("%", "\\%")
-    .replaceAll("\n", "\\n")
 }
 
+/**
+ * Drawtext reads the normalized visual text from a local file. This avoids
+ * filtergraph escaping of content (especially logical line breaks) entirely;
+ * only our generated temporary file path needs filter escaping.
+ */
 function textOverlayFilter(input: {
-  text?: string
-  position?: NonNullable<ReelComposition["scenes"][number]["overlay"]>["position"]
-  type?: NonNullable<ReelComposition["scenes"][number]["overlay"]>["type"]
+  layout: ReelOverlayLayout | null
+  textFilePath: string | null
   typographyStyle?: ReelComposition["typographyStyle"]
 }) {
-  const layout = layoutReelOverlay(input)
-  if (!layout) return ""
-  const x = layout.alignment === "center" ? "(w-text_w)/2" : String(layout.x)
+  if (!input.layout || !input.textFilePath) return ""
+  const x = input.layout.alignment === "center" ? "(w-text_w)/2" : String(input.layout.x)
   const fontFile = reelTypographyFontFile(input.typographyStyle)
-  return `,drawtext=fontfile='${fontFile}':text='${escapeDrawtext(layout.text)}':fontcolor=white:fontsize=${layout.fontSize}:line_spacing=${layout.lineSpacing}:box=1:boxcolor=black@${layout.boxOpacity.toFixed(2)}:boxborderw=${layout.boxPadding}:shadowcolor=black@0.65:shadowx=2:shadowy=2:x=${x}:y=${layout.y}`
+  return `,drawtext=fontfile='${fontFile}':textfile='${escapeDrawtextFilePath(input.textFilePath)}':expansion=none:fontcolor=white:fontsize=${input.layout.fontSize}:line_spacing=${input.layout.lineSpacing}:box=1:boxcolor=black@${input.layout.boxOpacity.toFixed(2)}:boxborderw=${input.layout.boxPadding}:shadowcolor=black@0.65:shadowx=2:shadowy=2:x=${x}:y=${input.layout.y}`
 }
 
 async function downloadLogo(input: { sourceUrl: string; mimeType: "image/png" | "image/webp" }, destination: string) {
@@ -276,8 +277,8 @@ function sceneInputArgs(asset: MarketingAsset, sourcePath: string, duration: num
     : ["-stream_loop", "-1", "-t", duration.toFixed(3), "-i", sourcePath]
 }
 
-function sceneVideoFilter(scene: ReelComposition["scenes"][number], typographyStyle: ReelComposition["typographyStyle"]) {
-  return `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=${REEL_FPS},setsar=1${textOverlayFilter({ text: scene.overlay?.text, position: scene.overlay?.position, type: scene.overlay?.type, typographyStyle })}`
+function sceneVideoFilter(layout: ReelOverlayLayout | null, overlayTextPath: string | null, typographyStyle: ReelComposition["typographyStyle"]) {
+  return `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=${REEL_FPS},setsar=1${textOverlayFilter({ layout, textFilePath: overlayTextPath, typographyStyle })}`
 }
 
 function sceneRenderArgs(input: {
@@ -286,6 +287,8 @@ function sceneRenderArgs(input: {
   outputPath: string
   scene: ReelComposition["scenes"][number]
   typographyStyle: ReelComposition["typographyStyle"]
+  overlayLayout: ReelOverlayLayout | null
+  overlayTextPath: string | null
   logo?: { path: string; x: number; y: number; size: number; opacity: number } | null
 }) {
   const args = [
@@ -294,7 +297,7 @@ function sceneRenderArgs(input: {
     "-filter_complex_threads", String(REEL_FILTER_THREADS),
     ...sceneInputArgs(input.asset, input.sourcePath, input.scene.duration),
   ]
-  const filter = sceneVideoFilter(input.scene, input.typographyStyle)
+  const filter = sceneVideoFilter(input.overlayLayout, input.overlayTextPath, input.typographyStyle)
   if (input.logo) {
     args.push("-loop", "1", "-i", input.logo.path)
     args.push(
@@ -365,6 +368,10 @@ export class RenderService {
     const workspace = await mkdtemp(join(/* turbopackIgnore: true */ tmpdir(), "marketing-image-"))
     const sourcePath = join(/* turbopackIgnore: true */ workspace, `source.${safeExtension(input.asset)}`)
     const outputPath = join(/* turbopackIgnore: true */ workspace, "rendered.jpg")
+    const overlayLayout = layoutReelOverlay({ text: input.overlayText, position: "bottom" })
+    const overlayTextPath = overlayLayout
+      ? join(/* turbopackIgnore: true */ workspace, "overlay.txt")
+      : null
     const dimensions = input.aspectRatio === "1:1"
       ? { width: 1080, height: 1080 }
       : input.aspectRatio === "4:5"
@@ -373,9 +380,10 @@ export class RenderService {
 
     try {
       await downloadAsset(input.asset, sourcePath)
+      if (overlayLayout && overlayTextPath) await writeFile(overlayTextPath, overlayLayout.text, "utf8")
       await runFfmpeg([
         "-y", "-i", sourcePath,
-        "-vf", `scale=${dimensions.width}:${dimensions.height}:force_original_aspect_ratio=increase,crop=${dimensions.width}:${dimensions.height}${textOverlayFilter({ text: input.overlayText, position: "bottom" })}`,
+        "-vf", `scale=${dimensions.width}:${dimensions.height}:force_original_aspect_ratio=increase,crop=${dimensions.width}:${dimensions.height}${textOverlayFilter({ layout: overlayLayout, textFilePath: overlayTextPath })}`,
         "-frames:v", "1",
         "-q:v", "2",
         outputPath,
@@ -460,6 +468,14 @@ export class RenderService {
       for (const [index, { scene, asset }] of compositionAssets.entries()) {
         const sourcePath = join(/* turbopackIgnore: true */ workspace, `source-${index}.${safeExtension(asset)}`)
         const scenePath = join(/* turbopackIgnore: true */ workspace, `scene-${index}.mp4`)
+        const overlayLayout = layoutReelOverlay({
+          text: scene.overlay?.text,
+          position: scene.overlay?.position,
+          type: scene.overlay?.type,
+        })
+        const overlayTextPath = overlayLayout
+          ? join(/* turbopackIgnore: true */ workspace, `overlay-${index}.txt`)
+          : null
         const shouldApplyLogo = Boolean(logoPath && logo && (
           input.logo?.placement !== "end_card_only" || index === compositionAssets.length - 1
         ))
@@ -467,10 +483,28 @@ export class RenderService {
           ? { path: logoPath, x: logo.x, y: logo.y, size: logo.size, opacity: Math.max(0.1, Math.min(1, input.logo?.opacity ?? 0.65)) }
           : null
         try {
-          logRenderStage("scene", "started", { render_strategy: "per_scene", scene_index: index + 1, target_duration_seconds: scene.duration.toFixed(3), rss_mb: approxProcessRssMb() })
+          logRenderStage("scene", "started", {
+            render_strategy: "per_scene",
+            scene_index: index + 1,
+            target_duration_seconds: scene.duration.toFixed(3),
+            overlay_lines: overlayLayout?.lines.length ?? 0,
+            font_size: overlayLayout?.fontSize ?? 0,
+            layout_status: overlayLayout?.status ?? "empty",
+            rss_mb: approxProcessRssMb(),
+          })
           await downloadAsset(asset, sourcePath)
           logRenderStage("download", "ok", { render_strategy: "per_scene", scene_index: index + 1 })
-          const elapsedMs = await runFfmpeg(sceneRenderArgs({ asset, sourcePath, outputPath: scenePath, scene, typographyStyle, logo: sceneLogo }), 1 + Number(Boolean(sceneLogo)), false, scene.duration, { strategy: "per_scene", phase: "scene", sceneIndex: index + 1 })
+          if (overlayLayout && overlayTextPath) await writeFile(overlayTextPath, overlayLayout.text, "utf8")
+          const elapsedMs = await runFfmpeg(sceneRenderArgs({
+            asset,
+            sourcePath,
+            outputPath: scenePath,
+            scene,
+            typographyStyle,
+            overlayLayout,
+            overlayTextPath,
+            logo: sceneLogo,
+          }), 1 + Number(Boolean(sceneLogo)), false, scene.duration, { strategy: "per_scene", phase: "scene", sceneIndex: index + 1 })
           scenePaths.push(scenePath)
           logRenderStage("scene", "ok", { render_strategy: "per_scene", scene_index: index + 1, elapsed_ms: elapsedMs, rss_mb: approxProcessRssMb() })
         } catch (error) {
@@ -480,6 +514,7 @@ export class RenderService {
           throw renderStageFailure("scene", `Scene ${index + 1}: ${sanitizeRenderDiagnostic(error)}`)
         } finally {
           await rm(sourcePath, { force: true })
+          if (overlayTextPath) await rm(overlayTextPath, { force: true })
         }
       }
 

@@ -1,5 +1,6 @@
 import { Music2, VolumeX } from "lucide-react"
 
+import { reelOverlayPreviewText } from "@/lib/marketing/reel-layout"
 import { currentRenderedReelVersion, editableReelVersion } from "@/lib/marketing/reel-version-state"
 import type { MarketingAsset, MarketingAudioTrack, MarketingContent, MarketingReelVersion } from "@/lib/marketing/types"
 
@@ -42,10 +43,19 @@ export function ReelPreviewPanel({
     {draft && <section className="rounded-xl border border-primary/20 bg-card p-3 shadow-xs">
       <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-semibold tracking-[0.12em] text-primary uppercase">Draft preview · Version {draft.versionNumber}</p><p className="mt-1 text-xs text-muted-foreground">Saved storyboard inputs — not yet a rendered video.</p></div><span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Re-render required</span></div>
       <div className="mt-3 space-y-2">
-        {draft.composition.scenes.map((scene, index) => <div key={`${scene.assetId}-${scene.start}-${index}`} className="rounded-lg bg-muted/55 px-3 py-2">
-          <div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold">Scene {index + 1}</p><p className="text-[11px] capitalize text-muted-foreground">{titleCase(scene.overlay?.position)} · {Math.round(scene.duration)}s</p></div>
-          <p className="mt-1 line-clamp-3 text-xs leading-5 text-muted-foreground">{scene.overlay?.text?.trim() || "No overlay text"}</p>
-        </div>)}
+        {draft.composition.scenes.map((scene, index) => {
+          // Reuse the renderer's exact word-aware plan so a draft cannot
+          // promise a different line layout from the generated Reel.
+          const overlayText = reelOverlayPreviewText({
+            text: scene.overlay?.text,
+            position: scene.overlay?.position,
+            type: scene.overlay?.type,
+          })
+          return <div key={`${scene.assetId}-${scene.start}-${index}`} className="rounded-lg bg-muted/55 px-3 py-2">
+            <div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold">Scene {index + 1}</p><p className="text-[11px] capitalize text-muted-foreground">{titleCase(scene.overlay?.position)} · {Math.round(scene.duration)}s</p></div>
+            <p className="mt-1 whitespace-pre-line text-xs leading-5 text-muted-foreground">{overlayText}</p>
+          </div>
+        })}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-muted/55 px-3 py-2 text-xs">
         {selectedAudio?.type === "uploaded" && selectedTrack ? <><Music2 className="h-3.5 w-3.5 text-primary" /><span className="font-medium">{selectedTrack.title}</span><span className="text-muted-foreground">· {formatDuration(selectedTrack.durationSeconds)}</span>{selectedTrack.signedUrl && <audio controls className="h-7 max-w-44" preload="metadata" src={selectedTrack.signedUrl}>Audio preview unavailable.</audio>}</> : selectedAudio?.type === "uploaded" ? <><Music2 className="h-3.5 w-3.5 text-amber-700" /><span className="text-amber-800">Selected audio is no longer in the library. This draft will render silently.</span></> : <><VolumeX className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-muted-foreground">Silent Reel</span></>}

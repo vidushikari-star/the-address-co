@@ -120,6 +120,30 @@ describe("RenderService audio mixing", () => {
     expect(filter).not.toContain("DejaVuSans.ttf")
   })
 
+  it("passes normalized overlay lines through a local drawtext textfile without escaping visible copy", async () => {
+    const input = renderInput()
+    input.composition.typographyStyle = "refined_serif"
+    input.composition.scenes[0].overlay = {
+      text: "Fully furnished • Premium interiors\\nIndo-Portuguese • Tuscan • Japandi",
+      position: "lower_left",
+      type: "key_fact",
+    }
+
+    await RenderService.renderReel(input)
+
+    const textWrite = files.writeFile.mock.calls.find(([path]) => String(path).endsWith("overlay-0.txt"))
+    const drawnText = String(textWrite?.[1] ?? "")
+    const args = ffmpegArgs(candidate => candidate.includes("-preset"))!
+    const filter = args[args.indexOf("-vf") + 1]
+    expect(drawnText).not.toContain("Premiumninteriors")
+    expect(drawnText).not.toContain("•n")
+    expect(drawnText).not.toContain("\\n")
+    expect(filter).toContain("textfile='/tmp/marketing-render-test/overlay-0.txt'")
+    expect(filter).toContain("expansion=none")
+    expect(filter).toContain("LiberationSerif-Regular.ttf")
+    expect(filter).not.toContain("text='Fully furnished")
+  })
+
   it("reports a source media download failure without exposing the source URL", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 403, headers: new Headers() })))
 

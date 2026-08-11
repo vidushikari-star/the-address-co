@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { REEL_LAYOUT, layoutReelOverlay, logoLayout } from "@/lib/marketing/reel-layout"
+import { REEL_LAYOUT, layoutReelOverlay, logoLayout, normalizeReelOverlayText, reelOverlayPreviewText } from "@/lib/marketing/reel-layout"
 
 describe("Reel safe-zone layout", () => {
   it("uses an explicit 1080 by 1920 mobile canvas", () => {
@@ -45,6 +45,51 @@ describe("Reel safe-zone layout", () => {
     const layout = layoutReelOverlay({ text: "Discover Villa Verde\nArrange a private viewing", type: "end_card", position: "center" })
     expect(layout).toMatchObject({ alignment: "center" })
     expect(layout?.y).toBeGreaterThan(REEL_LAYOUT.safe.top)
+  })
+
+  it("normalizes bullets, whitespace, and escaped logical line breaks before wrapping", () => {
+    expect(normalizeReelOverlayText(" Indo-Portuguese  •  Tuscan  •\\nJapandi "))
+      .toBe("Indo-Portuguese • Tuscan • Japandi")
+    expect(normalizeReelOverlayText("Fully furnished • Premium interiors"))
+      .toBe("Fully furnished • Premium interiors")
+  })
+
+  it("never merges words or leaks an escaped newline when wrapping bullet copy", () => {
+    const furnished = layoutReelOverlay({ text: "Fully furnished • Premium interiors", type: "key_fact", position: "lower_left" })!
+    const styles = layoutReelOverlay({ text: "Indo-Portuguese • Tuscan • Japandi", type: "key_fact", position: "lower_left" })!
+
+    expect(furnished.text).not.toContain("Premiumninteriors")
+    expect(furnished.text.replaceAll("\n", " ")).toContain("Premium interiors")
+    expect(styles.text).not.toContain("•n")
+    expect(styles.text).not.toContain("\\n")
+    expect(styles.lines.every(line => !line.endsWith("•"))).toBe(true)
+  })
+
+  it("preserves intended two- and three-line layouts", () => {
+    const twoLines = layoutReelOverlay({ text: "Quietly considered\nInteriors", type: "end_card", position: "center" })!
+    const threeLines = layoutReelOverlay({ text: "Parra\nNorth Goa\nIndia", type: "end_card", position: "center" })!
+
+    expect(twoLines.lines).toEqual(["Quietly considered", "Interiors"])
+    expect(threeLines.lines).toEqual(["Parra", "North Goa", "India"])
+  })
+
+  it("preserves supported editorial punctuation and Unicode without splitting words", () => {
+    const input = "D'Souza's ₹4.5 Cr home & pool-side retreat in São Tomé–North Goa"
+    const normalized = normalizeReelOverlayText(input)
+    const layout = layoutReelOverlay({ text: input, type: "key_fact", position: "lower_left" })!
+
+    expect(normalized).toBe(input)
+    expect(layout.text).toContain("D'Souza's")
+    expect(layout.text).toContain("₹4.5")
+    expect(layout.text).toContain("&")
+    expect(layout.text).toContain("pool-side")
+    expect(layout.text).toContain("São")
+    expect(layout.lines.join(" ")).not.toContain("GoanNorth")
+  })
+
+  it("uses the same resolved lines in preview and renderer layout", () => {
+    const input = { text: "Indo-Portuguese • Tuscan • Japandi", type: "key_fact" as const, position: "lower_left" as const }
+    expect(reelOverlayPreviewText(input)).toBe(layoutReelOverlay(input)?.text)
   })
 
   it("returns no overlay plan for blank visual text", () => {
