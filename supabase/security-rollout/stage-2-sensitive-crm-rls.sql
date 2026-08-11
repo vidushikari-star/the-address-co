@@ -1,0 +1,36 @@
+-- PENDING SECURITY ROLLOUT — DESIGN TEMPLATE, NOT APPROVED SQL.
+--
+-- This stage intentionally has no executable DDL. The tables below currently
+-- have RLS disabled and are queried directly by browser repositories. Existing
+-- code has only admin/sales roles and no organization column, but it has not
+-- established an authoritative row-ownership model for every table. Enabling
+-- RLS with guessed predicates would break active CRM workflows or leak data.
+--
+-- Before converting this template into a timestamped migration, add and test
+-- one reviewed policy per table/action:
+--
+--   contacts                 CRM users read/write; owner/advisor scope needs verification
+--   property_contacts        admin-only mutation; CRM-read policy needs verification
+--   property_commissions     admin-only; financial relationship data
+--   commissions              admin all; sales own rows only by advisor_id
+--   commission_distributions admin-only
+--   expenses                 admin-only
+--   company_settings         admin-only
+--   profiles                 authenticated self only; public advisor projection replaces anon read
+--   user_profiles            authenticated CRM directory only; public advisor projection replaces anon read
+--   calendar_events          assigned/creator scope needs verification
+--   communications_templates authenticated read, admin mutation (verify sales editing workflow)
+--   property_images          authenticated CRM metadata; public listing projection only for intentional media
+--   property_documents       authenticated CRM access; no generic public document metadata
+--
+-- Required forward shape after the predicates have been approved:
+--
+-- begin;
+-- alter table public.<table> enable row level security;
+-- revoke all on table public.<table> from anon;
+-- create policy <reviewed name> on public.<table> ...;
+-- commit;
+--
+-- Rollback must restore only the exact previous grants/policies captured by
+-- catalog-audit.sql. Never use `alter table ... disable row level security` as
+-- an operational rollback.

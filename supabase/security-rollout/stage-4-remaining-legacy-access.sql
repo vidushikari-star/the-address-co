@@ -1,0 +1,16 @@
+-- PENDING SECURITY ROLLOUT — DESIGN TEMPLATE, NOT APPROVED SQL.
+--
+-- Complete only after Stages 1–3 and after a CRM ownership review. This stage
+-- covers calendar_events, communications_templates, company_settings,
+-- expenses, profiles, user_profiles, property_images and the finance/property
+-- relationship tables. It must also revoke broad table grants for anon after
+-- the corresponding RLS policy has been exercised in a disposable project.
+--
+-- The deliberate property-image decision is separate from documents:
+-- property-images remains public-read for now because current property cards,
+-- public share pages, Housing ingestion and Instagram source references use
+-- durable public object URLs. A later private-image project must first add an
+-- intentional public-media projection or signed-URL renewal for each consumer.
+--
+-- Do not put this file in supabase/migrations until per-table predicates,
+-- smoke tests and exact rollback SQL have been approved.
