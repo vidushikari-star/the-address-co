@@ -1,12 +1,11 @@
 -- Completes the legacy CRM schema that existed before migrations were tracked.
+-- Run this script after the normal migration chain using
+-- scripts/bootstrap-supabase-fresh.sh.
 --
--- This is a fresh-environment baseline companion to
--- 00000000000000_legacy_crm_prerequisites.sql. It intentionally does not
--- mutate an existing linked production project: the changes that alter legacy
--- tables and access controls run only while the fresh marker exists.
---
--- Do not use this migration as a substitute for a reviewed production RLS
--- hardening rollout. See docs/supabase-schema-reconciliation.md.
+-- This is deliberately outside supabase/migrations. It is a fresh-schema
+-- snapshot, not a production migration and not an RLS hardening rollout.
+-- The legacy RLS and storage state below mirrors the linked production project
+-- so that security remediation can be designed and reviewed separately.
 
 create table if not exists public.whatsapp_conversations (
   id uuid primary key default gen_random_uuid(),
@@ -215,18 +214,8 @@ create table if not exists public.whatsapp_messages (
   created_at timestamptz default now()
 );
 
--- The rest of this migration intentionally applies only to an empty project
--- that was marked by the prerequisite migration. It never changes existing
--- production defaults, data, or policies.
 do $$
-declare
-  table_name text;
 begin
-  if to_regclass('public._schema_reconciliation_fresh_marker') is null then
-    raise notice 'Skipping fresh-only legacy CRM reconciliation on an existing schema';
-    return;
-  end if;
-
   alter type public.lead_stage add value if not exists 'active';
   alter type public.lead_stage add value if not exists 'inactive';
 
@@ -271,83 +260,145 @@ begin
     alter table public.contacts add constraint contacts_assigned_advisor_fkey foreign key (assigned_advisor) references public.user_profiles(id);
   end if;
 
-  foreach table_name in array array[
-    'profiles', 'contacts', 'properties', 'property_images', 'property_documents',
-    'property_contacts', 'property_commissions', 'communications_templates',
-    'activities', 'calendar_events', 'commission_distributions', 'commissions',
-    'company_settings', 'deals', 'expenses', 'notes', 'property_shares',
-    'site_visits', 'tasks'
-  ] loop
-    execute format('alter table public.%I enable row level security', table_name);
-    execute format(
-      'create policy %I on public.%I for all to authenticated using (true) with check (true)',
-      table_name || '_authenticated_full_access',
-      table_name
-    );
-  end loop;
+  -- The following policies mirror live production. Their breadth is documented
+  -- as a future security concern, but is not silently changed by this baseline.
+  alter table public.activities enable row level security;
+  create policy "Allow public create activities"
+    on public.activities for insert to anon, authenticated with check (true);
+  create policy "Allow public view activities"
+    on public.activities for select to anon, authenticated using (true);
+  create policy "Authenticated users can delete activities"
+    on public.activities for delete to authenticated using (true);
+  create policy "Authenticated users can update activities"
+    on public.activities for update to authenticated using (true);
+
+  -- Policies exist in production even though this table has RLS disabled.
+  create policy "Allow anonymous commission insert"
+    on public.commissions for insert to anon with check (true);
+  create policy "Allow authenticated users to insert commissions"
+    on public.commissions for insert to authenticated with check (true);
+  create policy "Allow authenticated users to update commissions"
+    on public.commissions for update to authenticated using (true) with check (true);
+  create policy "Allow authenticated users to view commissions"
+    on public.commissions for select to authenticated using (true);
+
+  alter table public.deals enable row level security;
+  create policy "Allow public deal deletes"
+    on public.deals for delete to anon using (true);
+  create policy "Allow public deal inserts"
+    on public.deals for insert to anon with check (true);
+  create policy "Allow public deal reads"
+    on public.deals for select to anon using (true);
+  create policy "Allow public deal updates"
+    on public.deals for update to anon using (true) with check (true);
+  create policy "Authenticated users can create deals"
+    on public.deals for insert to authenticated with check (true);
+  create policy "Authenticated users can delete deals"
+    on public.deals for delete to authenticated using (true);
+  create policy "Authenticated users can update deals"
+    on public.deals for update to authenticated using (true);
+  create policy "Authenticated users can view deals"
+    on public.deals for select to authenticated using (true);
+
+  alter table public.notes enable row level security;
+  create policy "Authenticated users can create notes"
+    on public.notes for insert to authenticated with check (true);
+  create policy "Authenticated users can delete notes"
+    on public.notes for delete to authenticated using (true);
+  create policy "Authenticated users can update notes"
+    on public.notes for update to authenticated using (true);
+  create policy "Authenticated users can view notes"
+    on public.notes for select to authenticated using (true);
+
+  alter table public.properties enable row level security;
+  create policy "Allow public property deletes"
+    on public.properties for delete to anon using (true);
+  create policy "Allow public property inserts"
+    on public.properties for insert to anon with check (true);
+  create policy "Allow public property reads"
+    on public.properties for select to anon using (true);
+  create policy "Allow public property updates"
+    on public.properties for update to anon using (true) with check (true);
+  create policy "Authenticated users can create properties"
+    on public.properties for insert to authenticated with check (true);
+  create policy "Authenticated users can delete properties"
+    on public.properties for delete to authenticated using (true);
+  create policy "Authenticated users can update properties"
+    on public.properties for update to authenticated using (true);
+  create policy "Authenticated users can view properties"
+    on public.properties for select to authenticated using (true);
+
+  alter table public.property_shares enable row level security;
+  create policy "Allow authenticated property share management"
+    on public.property_shares for all to authenticated using (true) with check (true);
+
+  alter table public.site_visits enable row level security;
+  create policy "Allow authenticated users"
+    on public.site_visits for all to public using (true) with check (true);
+
+  alter table public.tasks enable row level security;
+  create policy "Authenticated users can create tasks"
+    on public.tasks for insert to authenticated with check (true);
+  create policy "Authenticated users can delete tasks"
+    on public.tasks for delete to authenticated using (true);
+  create policy "Authenticated users can update tasks"
+    on public.tasks for update to authenticated using (true);
+  create policy "Authenticated users can view tasks"
+    on public.tasks for select to authenticated using (true);
 
   alter table public.user_profiles enable row level security;
-  create policy user_profiles_authenticated_read
+  create policy "Allow public read profiles"
+    on public.user_profiles for select to anon using (true);
+  create policy "Users can read profiles"
     on public.user_profiles for select to authenticated using (true);
-  create policy user_profiles_self_update
-    on public.user_profiles for update to authenticated
-    using (id = auth.uid()) with check (id = auth.uid());
 
   alter table public.whatsapp_conversations enable row level security;
-  create policy whatsapp_conversations_own_read
-    on public.whatsapp_conversations for select to authenticated using (owner_id = auth.uid());
-  create policy whatsapp_conversations_own_insert
-    on public.whatsapp_conversations for insert to authenticated with check (owner_id = auth.uid());
-  create policy whatsapp_conversations_own_update
-    on public.whatsapp_conversations for update to authenticated
+  create policy "Users create own WhatsApp conversations"
+    on public.whatsapp_conversations for insert to public with check (owner_id = auth.uid());
+  create policy "Users see own WhatsApp conversations"
+    on public.whatsapp_conversations for select to public using (owner_id = auth.uid());
+  create policy "Users update own WhatsApp conversations"
+    on public.whatsapp_conversations for update to public
     using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 
   alter table public.whatsapp_messages enable row level security;
-  create policy whatsapp_messages_own_read
-    on public.whatsapp_messages for select to authenticated
-    using (conversation_id in (
-      select id from public.whatsapp_conversations where owner_id = auth.uid()
-    ));
-  create policy whatsapp_messages_own_insert
-    on public.whatsapp_messages for insert to authenticated
+  create policy "Users insert own WhatsApp messages"
+    on public.whatsapp_messages for insert to public
     with check (conversation_id in (
       select id from public.whatsapp_conversations where owner_id = auth.uid()
     ));
-  create policy whatsapp_messages_own_update
-    on public.whatsapp_messages for update to authenticated
+  create policy "Users see own WhatsApp messages"
+    on public.whatsapp_messages for select to public
     using (conversation_id in (
       select id from public.whatsapp_conversations where owner_id = auth.uid()
-    ))
-    with check (conversation_id in (
+    ));
+  create policy "Users update own WhatsApp messages"
+    on public.whatsapp_messages for update to public
+    using (conversation_id in (
       select id from public.whatsapp_conversations where owner_id = auth.uid()
     ));
-
-  -- Integration inboxes stay service-role-only. Enabling RLS without a policy
-  -- denies anon/authenticated access while the service role continues to bypass RLS.
-  alter table public.housing_inventory_submissions enable row level security;
-  alter table public.integration_request_logs enable row level security;
-  revoke all on table public.housing_inventory_submissions from anon, authenticated;
-  revoke all on table public.integration_request_logs from anon, authenticated;
 
   insert into storage.buckets (id, name, public)
   values
-    ('property-documents', 'property-documents', false),
+    ('property-documents', 'property-documents', true),
     ('property-images', 'property-images', true)
   on conflict (id) do update set public = excluded.public;
 
-  create policy property_documents_authenticated_access
-    on storage.objects for all to authenticated
-    using (bucket_id = 'property-documents')
-    with check (bucket_id = 'property-documents');
-  create policy property_images_public_read
-    on storage.objects for select to public
-    using (bucket_id = 'property-images');
-  create policy property_images_authenticated_write
-    on storage.objects for insert to authenticated
-    with check (bucket_id = 'property-images');
-  create policy property_images_authenticated_delete
+  create policy "Allow authenticated document deletes"
     on storage.objects for delete to authenticated
-    using (bucket_id = 'property-images');
+    using (bucket_id = 'property-documents' and auth.role() = 'authenticated');
+  create policy "Allow authenticated document reads"
+    on storage.objects for select to authenticated
+    using (bucket_id = 'property-documents' and auth.role() = 'authenticated');
+  create policy "Allow authenticated document uploads"
+    on storage.objects for insert to authenticated
+    with check (bucket_id = 'property-documents' and auth.role() = 'authenticated');
+  create policy "Allow authenticated users to delete property images"
+    on storage.objects for delete to authenticated using (bucket_id = 'property-images');
+  create policy "Allow authenticated users to upload property images"
+    on storage.objects for insert to authenticated with check (bucket_id = 'property-images');
+  create policy "Allow public viewing of property images"
+    on storage.objects for select to public using (bucket_id = 'property-images');
 end
 $$;
 
@@ -367,5 +418,3 @@ create index if not exists tasks_deal_id_idx on public.tasks (deal_id);
 create index if not exists idx_whatsapp_conversations_owner on public.whatsapp_conversations (owner_id);
 create index if not exists idx_whatsapp_messages_conversation on public.whatsapp_messages (conversation_id);
 create index if not exists idx_whatsapp_messages_created on public.whatsapp_messages (created_at);
-
-drop table if exists public._schema_reconciliation_fresh_marker;

@@ -6,14 +6,24 @@ Scope: `public` schema, `storage.buckets`, `storage.objects` policies, migration
 
 ## Result
 
-Production has all 14 pre-existing repository migrations recorded as applied; the two fresh-baseline migrations added by this reconciliation are intentionally absent from the production ledger. The historical ledger is therefore aligned, but it is not a complete baseline: 16 of 43 live `public` tables predate the recorded migration history. Two recorded tables also have unrecorded legacy additions.
+Production has all 14 repository migrations recorded as applied. The historical ledger is aligned, but it is not a complete baseline: 16 of 43 live `public` tables predate the recorded migration history. Two recorded tables also have unrecorded legacy additions.
 
-The reconciliation adds a fresh-environment-only, two-phase baseline:
+The reconciliation adds a fresh-environment-only, two-phase baseline outside the production migration chain:
 
-1. `00000000000000_legacy_crm_prerequisites.sql` creates the objects that historical migrations already assume: `user_profiles`, `properties`, and `property_images`.
-2. `20260811150000_reconcile_legacy_crm_schema.sql` completes the remaining legacy CRM objects after the historical migrations, then removes its temporary fresh-project marker.
+1. `supabase/baseline/pre-migrations-legacy-crm.sql` creates the objects that historical migrations already assume: `user_profiles`, `properties`, and `property_images`.
+2. `supabase/baseline/post-migrations-legacy-crm.sql` completes the remaining legacy CRM objects after the normal migration chain.
 
-Neither migration was run against production. They do not export or replay production rows. The final phase changes defaults, legacy columns, RLS, and storage only when the marker created in a genuinely empty project is present.
+Neither script was run against production. They do not export or replay production rows. `scripts/bootstrap-supabase-fresh.sh` rejects a target with recorded migrations or pre-existing core CRM tables before it can run either script.
+
+## Migration-chain safety decision
+
+**Recommendation: B — keep the fresh baseline outside `supabase/migrations`.**
+
+The baseline initially used versions `00000000000000` and `20260811150000` in the normal migration directory. Against the linked production ledger, `supabase migration list --linked` showed both as local-only, with `00000000000000` sorting before remote version `001`.
+
+`npx supabase db push --linked --dry-run` then exited with: “Found local migration files to be inserted before the last migration on remote database,” and required `--include-all` for `00000000000000_legacy_crm_prerequisites.sql`. `npx supabase db push --linked --dry-run --include-all` would stage **both** baseline files for production.
+
+That makes normal production migration behavior non-monotonic and invites an unsafe `--include-all`. The scripts now live in `supabase/baseline/`, so the normal migration chain contains only production-targeted migrations. A fresh database is reproducible through the explicit bootstrap script, not a hidden marker or a special production-push flag.
 
 ## How the live schema was inspected
 
@@ -37,7 +47,7 @@ Checked metadata:
 | Contacts | `contacts` | `001_initial_schema.sql` | Partial: 10 legacy columns, three FKs, `idx_contacts_housing_lead_id`; `lead_stage` also has live-only `active`/`inactive` values | Final baseline adds these only in fresh environments. Do not rewrite the historical migration. |
 | Properties | `properties` | Assumed by `002`/`003`; altered by later migrations | Missing base table, unique slug, indexes, and legacy columns | Prerequisite baseline defines the pre-existing table; recorded migrations retain ownership of later columns/constraints. |
 | Properties | `property_images` | None | Missing table and FK; required by marketing assets | Prerequisite baseline creates it before marketing. |
-| Properties | `property_documents`, `property_contacts`, `property_commissions` | `002`/`003` | Table/index coverage complete; legacy access controls were never captured | Fresh baseline supplies RLS; no production table rewrite. |
+| Properties | `property_documents`, `property_contacts`, `property_commissions` | `002`/`003` | Table/index coverage complete; legacy access controls were never captured | Fresh baseline records the observed legacy access state; no production table rewrite. |
 | Properties | `property_shares` | None | Missing table and FKs | Final baseline defines it. |
 | Deals | `deals`, `site_visits`, `commissions`, `commission_distributions` | None | Missing tables, `deals_stage_check`, commission uniqueness, and indexes | Final baseline defines them before the existing transition RPC is used. |
 | Marketing | 19 `marketing_*` tables | `20260810120000` through `20260810160000` | Complete for live tables, constraints, indexes, functions, triggers, RLS, and three bucket policies | No baseline duplication. |
@@ -97,9 +107,9 @@ This is the material production risk discovered by the reconciliation.
 - `commissions` has policies but RLS is disabled, so those policies currently do not protect it.
 - The 19 marketing RLS policies and three marketing storage policies are migration-covered and use `is_marketing_admin()`.
 
-For a fresh project, the baseline intentionally does **not** reproduce anonymous CRM write access. It enables RLS and gives authenticated CRM staff full access to the legacy internal tables, uses owner-scoped WhatsApp policies, and leaves the Housing inbox and integration request log service-role-only. It also revokes `anon`/`authenticated` table privileges on those two service-only integration tables.
+The fresh baseline mirrors the observed legacy RLS and storage configuration, including its permissive policies, so it can reproduce the current schema without bundling an unreviewed security redesign. It does **not** grant or revoke anything in production because it is outside the normal migration chain.
 
-This is a deliberate safe-baseline divergence from the live legacy policy set. It means public-property pages must use a narrowly scoped server endpoint or public projection rather than direct anonymous access to `properties`, `user_profiles`, documents, or internal CRM tables. Production currently uses direct anonymous policies and requires an explicit, tested rollout before they are removed.
+RLS and storage hardening are separate future work. Before production removes anonymous CRM access, public-property pages must move to an allowlisted server endpoint or public projection, and the direct browser access patterns must be tested against the reviewed replacement policies.
 
 ### Storage
 
@@ -108,26 +118,26 @@ This is a deliberate safe-baseline divergence from the live legacy policy set. I
 | `marketing-assets` | private | Covered | None |
 | `marketing-audio` | private, 25 MB, MP3/M4A/WAV | Covered | None |
 | `marketing-brand-assets` | private, 5 MB, PNG/WebP | Covered | None |
-| `property-documents` | live is public | Missing bucket and three policies | Fresh baseline creates it **private** with authenticated access. |
+| `property-documents` | public | Missing bucket and three policies | Fresh baseline mirrors it as public; hardening is deferred. |
 | `property-images` | public | Missing bucket and three policies | Fresh baseline creates it public-read with authenticated writes. |
 
 The production `property-documents` bucket’s `public = true` setting makes its object-read policy ineffective for confidentiality. That should be changed only as a separately tested production security rollout, after checking generated URLs and public share behavior.
 
 ## Fresh-environment provisioning strategy
 
-Use a new Supabase project or local project database only:
+Use a new Supabase project or local project database only. From the repository root, run:
 
-1. Run the repository migrations from an empty database.
-2. The `000...` prerequisite establishes only the objects needed by historical migrations; it creates a temporary marker only when `properties` is absent.
-3. Existing migrations `001` through `20260811140000` run unchanged, preserving their recorded history and ownership.
-4. The `20260811150000` final phase creates the rest of the legacy schema, adds the live-only columns/types/indexes, applies secure fresh-project RLS/storage rules, and drops the marker.
-5. Seed users only after the schema is complete; no production data operation is part of this process.
+```sh
+scripts/bootstrap-supabase-fresh.sh '<fresh-postgres-connection-url>'
+```
 
-Do not run `supabase db push` for these baseline migrations against the linked production project. The production migration ledger is already aligned, while production RLS remediation needs a separate approval and behavior test plan.
+The bootstrap script uses `supabase db query --file` to run the pre-baseline, performs an ordinary `supabase db push --db-url` for the normal migration history, then runs the post-baseline. It first rejects any target with recorded migrations or existing `properties`, `contacts`, or `user_profiles`; it has no marker/environment bypass and never uses `--include-all`.
+
+Seed users only after the schema is complete. Routine production deployment remains the ordinary `npx supabase db push` and must never use the fresh bootstrap script.
 
 ## Production decision and risks
 
-Production does **not** require a structural migration merely to add the missing legacy tables: they already exist. It **does require** a reviewed RLS/storage hardening migration if the goal is to remove anonymous CRM access and make document storage private. That migration is intentionally not included as an automatically applied production change here.
+Production does **not** require a structural migration merely to add the missing legacy tables: they already exist. It also receives no migration from this baseline move. It **will require** a separately reviewed RLS/storage-hardening migration if the goal is to remove anonymous CRM access and make document storage private; that migration is intentionally not included here.
 
 Remaining risks to resolve before a production hardening rollout:
 

@@ -1,20 +1,14 @@
 -- Fresh-environment prerequisite for legacy CRM objects that predate the
--- repository migration history. This migration deliberately runs before 001.
+-- repository migration history. Run this script before the normal migration
+-- chain using scripts/bootstrap-supabase-fresh.sh.
 --
--- It is not a production deployment migration. On the linked production
--- project `properties` already exists, so the temporary marker is not created
--- and the final reconciliation migration will leave existing objects alone.
+-- This is deliberately outside supabase/migrations. Never run it against an
+-- existing environment; the bootstrap script first proves the target is fresh.
 
 create extension if not exists "pgcrypto";
 
 do $$
 begin
-  if to_regclass('public.properties') is null then
-    create table public._schema_reconciliation_fresh_marker (
-      id boolean primary key default true check (id)
-    );
-  end if;
-
   if not exists (
     select 1
     from pg_type type_row
