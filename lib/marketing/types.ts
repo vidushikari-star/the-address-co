@@ -80,6 +80,33 @@ export type MarketingAudioTrack = {
   signedUrl?: string | null
 }
 
+export const REEL_LOGO_PLACEMENTS = [
+  "none",
+  "top_left",
+  "top_right",
+  "bottom_left",
+  "bottom_right",
+  "end_card_only",
+] as const
+
+export type ReelLogoPlacement = (typeof REEL_LOGO_PLACEMENTS)[number]
+export type ReelLogoScale = "small" | "medium" | "large"
+
+/** A private, administrator-uploaded brand asset. It is never source property media. */
+export type MarketingBrandAsset = {
+  id: string
+  kind: "logo"
+  storagePath: string
+  filename: string
+  mimeType: "image/png" | "image/webp"
+  width?: number | null
+  height?: number | null
+  active: boolean
+  createdAt: string
+  createdBy?: string | null
+  signedUrl?: string | null
+}
+
 export type MarketingContent = {
   id: string
   campaignId?: string | null
@@ -103,6 +130,7 @@ export type MarketingContent = {
   publishedAt?: string | null
   rejectionReason?: string | null
   lastError?: string | null
+  activeReelVersionId?: string | null
   createdAt: string
   updatedAt: string
   propertyName?: string | null
@@ -145,7 +173,9 @@ export type ReelScene = {
   motion: "none" | "slow_zoom" | "pan_left" | "pan_right"
   overlay?: {
     text: string
-    position: "top" | "center" | "bottom"
+    /** Legacy positions are kept so existing compositions remain renderable. */
+    position: "top" | "center" | "bottom" | "top_left" | "top_right" | "lower_left" | "lower_right"
+    type?: "hook" | "property_label" | "key_fact" | "price" | "cta" | "end_card"
   }
   transitionOut: "fade" | "cross_dissolve" | "slide" | "zoom" | "blur"
 }
@@ -166,6 +196,44 @@ export type ReelComposition = {
     label?: string | null
     durationSeconds?: number | null
   }
+  logo?: {
+    placement: ReelLogoPlacement
+    scale: ReelLogoScale
+    opacity: number
+    margin?: number
+    assetId?: string | null
+  }
+}
+
+export type ReelStoryboard = {
+  hook: string
+  scenes: Array<{
+    assetId: string
+    overlayText: string
+    durationSeconds: number
+    overlayPosition: "top_left" | "top_right" | "center" | "lower_left" | "lower_right"
+    overlayType: "hook" | "property_label" | "key_fact" | "price" | "cta"
+  }>
+  endCard: { headline: string; cta: string }
+}
+
+export type MarketingReelVersion = {
+  id: string
+  contentId: string
+  versionNumber: number
+  status: "draft" | "approved" | "rendering" | "rendered" | "failed"
+  isCurrent: boolean
+  composition: ReelComposition
+  sourceAssetIds: string[]
+  logoSettings: ReelComposition["logo"] | null
+  audioSettings: ReelComposition["audio"] | null
+  renderedAssetId?: string | null
+  userPrompt?: string | null
+  lastError?: string | null
+  createdAt: string
+  createdBy?: string | null
+  approvedAt?: string | null
+  renderedAt?: string | null
 }
 
 export type InstagramAccount = {
@@ -233,6 +301,9 @@ export type MarketingBrandSettings = {
   fontFamily?: string | null
   brandColors: { primary?: string; accent?: string }
   timezone: string
+  defaultReelLogoPlacement: ReelLogoPlacement
+  defaultReelLogoOpacity: number
+  defaultReelLogoScale: ReelLogoScale
 }
 
 export type CampaignStatus =

@@ -14,16 +14,18 @@ export function contentRequiresRendering(content: Pick<MarketingContent, "conten
     composition.audio?.type === "royalty_free" || composition.audio?.type === "original"
 }
 
-export function publishableAssets(content: Pick<MarketingContent, "contentType" | "composition">, assets: MarketingAsset[]) {
+export function publishableAssets(content: Pick<MarketingContent, "contentType" | "composition" | "activeReelVersionId">, assets: MarketingAsset[]) {
   return contentRequiresRendering(content)
     // Railway validates the encoded output with FFprobe before creating this
     // asset. Publishing only accepts that private, completed MP4; it never
     // uploads an original property video as a substitute for a Reel render.
-    ? assets.filter(asset => asset.kind === "rendered_media" && asset.mediaType === "video" && asset.storagePath?.toLowerCase().endsWith(".mp4"))
+    ? assets.filter(asset => asset.kind === "rendered_media" && asset.mediaType === "video" && asset.storagePath?.toLowerCase().endsWith(".mp4") && (
+        !content.activeReelVersionId || asset.metadata.reelVersionId === content.activeReelVersionId
+      ))
     : assets.filter(asset => asset.kind === "original_reference" && Boolean(asset.sourceUrl))
 }
 
-export function hasPublishableMedia(content: Pick<MarketingContent, "contentType" | "composition">, assets: MarketingAsset[]) {
+export function hasPublishableMedia(content: Pick<MarketingContent, "contentType" | "composition" | "activeReelVersionId">, assets: MarketingAsset[]) {
   const media = publishableAssets(content, assets)
   if (contentRequiresRendering(content)) return media.some(asset => asset.mediaType === "video")
   if (content.contentType === "carousel") return media.length >= 2 && media.length <= 10

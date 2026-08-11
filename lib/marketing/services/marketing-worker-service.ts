@@ -77,6 +77,7 @@ function mapContent(row: Row): MarketingContent {
     publishedAt: row.published_at as string | null,
     rejectionReason: row.rejection_reason as string | null,
     lastError: row.last_error as string | null,
+    activeReelVersionId: row.active_reel_version_id as string | null,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   }
@@ -113,6 +114,9 @@ function mapSettings(row: Row): MarketingBrandSettings {
     fontFamily: row.font_family as string | null,
     brandColors: record(row.brand_colors),
     timezone: String(row.timezone ?? "Asia/Kolkata"),
+    defaultReelLogoPlacement: (row.default_reel_logo_placement as MarketingBrandSettings["defaultReelLogoPlacement"]) ?? "none",
+    defaultReelLogoOpacity: Number(row.default_reel_logo_opacity ?? 0.65),
+    defaultReelLogoScale: (row.default_reel_logo_scale as MarketingBrandSettings["defaultReelLogoScale"]) ?? "small",
   }
 }
 
@@ -281,6 +285,12 @@ export class MarketingWorkerService {
         }).eq("id", job.id)
         if (job.contentId && job.type === "render_reel") {
           await admin.from("marketing_content").update({ last_error: errorMessage }).eq("id", job.contentId)
+          const reelVersionId = typeof job.input.reelVersionId === "string" ? job.input.reelVersionId : null
+          if (reelVersionId && !retry) {
+            await admin.from("marketing_reel_versions")
+              .update({ status: "failed", last_error: errorMessage })
+              .eq("id", reelVersionId)
+          }
         }
         if (job.contentId && job.type === "publish_instagram") {
           await admin.from("marketing_content").update({ last_error: errorMessage }).eq("id", job.contentId)
@@ -349,11 +359,12 @@ export class MarketingWorkerService {
       .in("status", ["approved", "scheduled", "publishing", "published"])
       .order("created_at", { ascending: false })
       .limit(8)
+    const brandSettings = mapSettings(record(settings))
     const creative = await CreativeAIService.generate({
       property,
       contentType: content.contentType,
       creativeDirection: content.creativeDirection,
-      settings: mapSettings(record(settings)),
+      settings: brandSettings,
       recentContent: ((recent ?? []) as Row[]).map(item => ({
         hook: item.hook as string | null,
         headline: item.headline as string | null,
@@ -364,8 +375,22 @@ export class MarketingWorkerService {
       .filter(analysis => analysis.recommendedForReel)
       .map(analysis => analysis.assetId)
     const shouldRenderReel = content.contentType === "reel"
+    const { data: activeLogo, error: activeLogoError } = shouldRenderReel && brandSettings.defaultReelLogoPlacement !== "none"
+      ? await admin.from("marketing_brand_assets").select("id").eq("kind", "logo").eq("active", true).maybeSingle()
+      : { data: null, error: null }
+    if (activeLogoError) throw activeLogoError
     const composition = shouldRenderReel
-      ? CompositionService.composeReel({ propertyId: property.id, assetIds: selected, creative })
+      ? CompositionService.composeReel({
+          propertyId: property.id,
+          assetIds: selected,
+          creative,
+          logo: {
+            placement: brandSettings.defaultReelLogoPlacement,
+            scale: brandSettings.defaultReelLogoScale,
+            opacity: brandSettings.defaultReelLogoOpacity,
+            assetId: activeLogo ? String((activeLogo as Row).id) : null,
+          },
+        })
       : {
           propertyId: property.id,
           format: content.contentType === "carousel" ? "carousel" : content.contentType === "story" ? "story" : "single_image",
@@ -436,9 +461,18 @@ export class MarketingWorkerService {
     } catch (error) {
       throw renderStageFailure("input", error)
     }
+    const reelVersionId = typeof job.input.reelVersionId === "string" ? job.input.reelVersionId : null
     let composition: ReturnType<typeof ReelCompositionSchema.parse>
     try {
-      composition = ReelCompositionSchema.parse(content.composition)
+      if (reelVersionId) {
+        const { data: version, error } = await admin.from("marketing_reel_versions")
+          .select("composition, content_id").eq("id", reelVersionId).eq("content_id", content.id).maybeSingle()
+        if (error) throw error
+        if (!version) throw new Error("Requested Reel version was not found.")
+        composition = ReelCompositionSchema.parse((version as Row).composition)
+      } else {
+        composition = ReelCompositionSchema.parse(content.composition)
+      }
     } catch (error) {
       throw renderStageFailure("input", error)
     }
@@ -471,17 +505,56 @@ export class MarketingWorkerService {
         throw renderStageFailure("download", error)
       }
     }
-    const output = await RenderService.renderReel({ contentId: content.id, composition, assets, audio })
+    let logo: Parameters<typeof RenderService.renderReel>[0]["logo"] = null
+    if (composition.logo?.placement && composition.logo.placement !== "none") {
+      try {
+        let query = admin.from("marketing_brand_assets").select("storage_path, mime_type")
+        query = composition.logo.assetId ? query.eq("id", composition.logo.assetId) : query.eq("active", true)
+        const { data: brandAsset, error: logoError } = await query.maybeSingle()
+        if (logoError) throw logoError
+        // Removing/replacing a logo must not corrupt an already-created Reel
+        // version. A later render without that private asset simply omits it.
+        if (brandAsset) {
+          const logoRow = brandAsset as Row
+          const { data: signed, error: signedError } = await admin.storage.from("marketing-brand-assets")
+            .createSignedUrl(String(logoRow.storage_path), 60 * 60)
+          if (signedError || !signed?.signedUrl) throw signedError ?? new Error("Unable to sign selected logo for rendering.")
+          logo = {
+            sourceUrl: signed.signedUrl,
+            mimeType: logoRow.mime_type as NonNullable<typeof logo>["mimeType"],
+            placement: composition.logo.placement,
+            scale: composition.logo.scale,
+            opacity: composition.logo.opacity,
+            margin: composition.logo.margin,
+          }
+        } else {
+          logRenderStage("logo", "ok", { applied: false, reason: "logo_not_available" })
+        }
+      } catch (error) {
+        throw renderStageFailure("download", error)
+      }
+    }
+    const output = await RenderService.renderReel({ contentId: content.id, composition, assets, audio, logo })
     const { error: assetError } = await admin.from("marketing_content_assets").insert({
       content_id: content.id,
       kind: "rendered_media",
       media_type: "video",
       storage_path: output.storagePath,
-      metadata: { duration: output.duration, byteLength: output.byteLength, format: "1080x1920-h264-mp4" },
+      metadata: { duration: output.duration, byteLength: output.byteLength, format: "1080x1920-h264-mp4", reelVersionId },
       sort_order: 0,
     })
     if (assetError) throw renderStageFailure("asset_persistence", assetError)
     logRenderStage("asset_persistence", "ok", { bytes: output.byteLength })
+
+    if (reelVersionId) {
+      const { data: renderedAsset, error: lookupError } = await admin.from("marketing_content_assets")
+        .select("id").eq("content_id", content.id).eq("storage_path", output.storagePath).maybeSingle()
+      if (lookupError || !renderedAsset) throw renderStageFailure("version_persistence", lookupError ?? new Error("Rendered version asset was not found."))
+      const { error: versionError } = await admin.from("marketing_reel_versions").update({
+        status: "rendered", rendered_asset_id: (renderedAsset as Row).id, rendered_at: new Date().toISOString(), last_error: null,
+      }).eq("id", reelVersionId).eq("status", "rendering")
+      if (versionError) throw renderStageFailure("version_persistence", versionError)
+    }
 
     const { error: transitionError } = await admin.from("marketing_content").update({
       status: job.input.resumeApproved === true ? "approved" : "ready_for_review",
@@ -489,7 +562,7 @@ export class MarketingWorkerService {
     }).eq("id", content.id)
     if (transitionError) throw renderStageFailure("content_transition", transitionError)
     logRenderStage("content_transition", "ok", { status: job.input.resumeApproved === true ? "approved" : "ready_for_review" })
-    await admin.from("marketing_audit_logs").insert({ content_id: content.id, action: "render.completed", metadata: output })
+    await admin.from("marketing_audit_logs").insert({ content_id: content.id, action: "render.completed", metadata: { ...output, reelVersionId } })
     await admin.from("marketing_usage_events").insert({ content_id: content.id, category: "video_render", quantity: output.duration, unit: "second", metadata: output })
     return output
   }

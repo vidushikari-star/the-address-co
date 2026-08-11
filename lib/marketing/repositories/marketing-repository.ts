@@ -3,6 +3,7 @@ import type {
   InstagramAccount,
   MarketingAsset,
   MarketingAudioTrack,
+  MarketingBrandAsset,
   MarketingBrandSettings,
   MarketingContent,
   MarketingContentType,
@@ -13,6 +14,8 @@ import type {
   MarketingJobType,
   MarketingStatus,
   PropertyFactSnapshot,
+  MarketingReelVersion,
+  ReelComposition,
 } from "@/lib/marketing/types"
 
 type Row = Record<string, unknown>
@@ -35,7 +38,10 @@ function mapContent(row: Row): MarketingContent {
     ? row.marketing_content_assets.map(object)
     : []
 
-  const renderedAsset = assets.find(asset => asset.kind === "rendered_media")
+  const activeReelVersionId = row.active_reel_version_id as string | null
+  const renderedAsset = assets.find(asset => asset.kind === "rendered_media" && (
+    !activeReelVersionId || object(asset.metadata).reelVersionId === activeReelVersionId
+  ))
   const coverAsset = assets.find(asset => asset.kind === "cover")
 
   return {
@@ -61,6 +67,7 @@ function mapContent(row: Row): MarketingContent {
     publishedAt: row.published_at as string | null,
     rejectionReason: row.rejection_reason as string | null,
     lastError: row.last_error as string | null,
+    activeReelVersionId,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
     propertyName:
@@ -104,6 +111,43 @@ function mapAudioTrack(row: Row, signedUrl?: string | null): MarketingAudioTrack
     createdAt: String(row.created_at),
     createdBy: row.created_by as string | null,
     signedUrl: signedUrl ?? null,
+  }
+}
+
+function mapBrandAsset(row: Row, signedUrl?: string | null): MarketingBrandAsset {
+  return {
+    id: String(row.id),
+    kind: "logo",
+    storagePath: String(row.storage_path),
+    filename: String(row.filename),
+    mimeType: row.mime_type as MarketingBrandAsset["mimeType"],
+    width: typeof row.width === "number" ? row.width : null,
+    height: typeof row.height === "number" ? row.height : null,
+    active: Boolean(row.active),
+    createdAt: String(row.created_at),
+    createdBy: row.created_by as string | null,
+    signedUrl: signedUrl ?? null,
+  }
+}
+
+function mapReelVersion(row: Row): MarketingReelVersion {
+  return {
+    id: String(row.id),
+    contentId: String(row.content_id),
+    versionNumber: Number(row.version_number),
+    status: row.status as MarketingReelVersion["status"],
+    isCurrent: Boolean(row.is_current),
+    composition: object(row.composition) as ReelComposition,
+    sourceAssetIds: stringArray(row.source_asset_ids),
+    logoSettings: object(row.logo_settings) as MarketingReelVersion["logoSettings"],
+    audioSettings: object(row.audio_settings) as MarketingReelVersion["audioSettings"],
+    renderedAssetId: row.rendered_asset_id as string | null,
+    userPrompt: row.user_prompt as string | null,
+    lastError: row.last_error as string | null,
+    createdAt: String(row.created_at),
+    createdBy: row.created_by as string | null,
+    approvedAt: row.approved_at as string | null,
+    renderedAt: row.rendered_at as string | null,
   }
 }
 
@@ -172,7 +216,220 @@ async function signedAssetUrl(storagePath: string | null | undefined) {
   return data?.signedUrl ?? null
 }
 
+async function signedBrandAssetUrl(storagePath: string | null | undefined) {
+  if (!storagePath) return null
+  const supabase = await createServerSupabaseClient()
+  const { data } = await supabase.storage
+    .from("marketing-brand-assets")
+    .createSignedUrl(storagePath, 60 * 20)
+  return data?.signedUrl ?? null
+}
+
 export class MarketingRepository {
+  static async getActiveBrandLogo(): Promise<MarketingBrandAsset | null> {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from("marketing_brand_assets")
+      .select("*")
+      .eq("kind", "logo")
+      .eq("active", true)
+      .maybeSingle()
+    if (error) throw error
+    if (!data) return null
+    const row = data as Row
+    return mapBrandAsset(row, await signedBrandAssetUrl(String(row.storage_path)))
+  }
+
+  static async createBrandLogo(input: {
+    storagePath: string
+    filename: string
+    mimeType: MarketingBrandAsset["mimeType"]
+    width?: number | null
+    height?: number | null
+    createdBy: string
+  }) {
+    const supabase = await createServerSupabaseClient()
+    // Keep old files as inactive records so prior rendered versions remain
+    // historically attributable even when the current logo is replaced.
+    const { error: deactivateError } = await supabase
+      .from("marketing_brand_assets")
+      .update({ active: false })
+      .eq("kind", "logo")
+      .eq("active", true)
+    if (deactivateError) throw deactivateError
+    const { data, error } = await supabase
+      .from("marketing_brand_assets")
+      .insert({
+        kind: "logo",
+        storage_path: input.storagePath,
+        filename: input.filename,
+        mime_type: input.mimeType,
+        width: input.width ?? null,
+        height: input.height ?? null,
+        active: true,
+        created_by: input.createdBy,
+      })
+      .select("*")
+      .single()
+    if (error) throw error
+    return mapBrandAsset(data as Row)
+  }
+
+  static async removeActiveBrandLogo() {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from("marketing_brand_assets")
+      .delete()
+      .eq("kind", "logo")
+      .eq("active", true)
+      .select("id, storage_path")
+      .maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error("No active brand logo was found.")
+    return { id: String((data as Row).id), storagePath: String((data as Row).storage_path) }
+  }
+
+  static async listReelVersions(contentId: string): Promise<MarketingReelVersion[]> {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from("marketing_reel_versions")
+      .select("*")
+      .eq("content_id", contentId)
+      .order("version_number", { ascending: false })
+    if (error) throw error
+    return ((data ?? []) as Row[]).map(mapReelVersion)
+  }
+
+  static async getReelVersion(id: string) {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from("marketing_reel_versions")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle()
+    if (error) throw error
+    return data ? mapReelVersion(data as Row) : null
+  }
+
+  static async createReelVersion(input: {
+    contentId: string
+    composition: ReelComposition
+    sourceAssetIds: string[]
+    logoSettings?: ReelComposition["logo"] | null
+    audioSettings?: ReelComposition["audio"] | null
+    userPrompt?: string | null
+    createdBy: string
+    status?: MarketingReelVersion["status"]
+    isCurrent?: boolean
+  }) {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase.rpc("create_marketing_reel_version", {
+      p_content_id: input.contentId,
+      p_composition: input.composition,
+      p_source_asset_ids: input.sourceAssetIds,
+      p_logo_settings: input.logoSettings ?? null,
+      p_audio_settings: input.audioSettings ?? null,
+      p_user_prompt: input.userPrompt ?? null,
+      p_created_by: input.createdBy,
+      p_status: input.status ?? "draft",
+      p_is_current: input.isCurrent ?? false,
+    }).maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error("Reel version could not be created.")
+    return mapReelVersion(data as Row)
+  }
+
+  static async approveNewestDraftReelVersion(contentId: string, adminId: string) {
+    const supabase = await createServerSupabaseClient()
+    const { data: version, error: versionError } = await supabase
+      .from("marketing_reel_versions")
+      .select("id")
+      .eq("content_id", contentId)
+      .eq("status", "draft")
+      .order("version_number", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (versionError) throw versionError
+    if (!version) return null
+    const { data, error } = await supabase
+      .from("marketing_reel_versions")
+      .update({ status: "approved", approved_by: adminId, approved_at: new Date().toISOString(), last_error: null })
+      .eq("id", (version as Row).id as string)
+      .eq("status", "draft")
+      .select("*")
+      .maybeSingle()
+    if (error) throw error
+    return data ? mapReelVersion(data as Row) : null
+  }
+
+  static async markReelVersionRendering(id: string) {
+    const supabase = await createServerSupabaseClient()
+    const { error } = await supabase.from("marketing_reel_versions")
+      .update({ status: "rendering", last_error: null })
+      .eq("id", id)
+      .eq("status", "approved")
+    if (error) throw error
+  }
+
+  static async markReelVersionRendered(input: { id: string; renderedAssetId: string; makeCurrent?: boolean }) {
+    const supabase = await createServerSupabaseClient()
+    const { data: version, error: versionError } = await supabase
+      .from("marketing_reel_versions").select("content_id").eq("id", input.id).maybeSingle()
+    if (versionError) throw versionError
+    if (!version) throw new Error("Reel version not found.")
+    if (input.makeCurrent) {
+      const { error } = await supabase.from("marketing_reel_versions")
+        .update({ is_current: false })
+        .eq("content_id", (version as Row).content_id as string)
+        .eq("is_current", true)
+      if (error) throw error
+    }
+    const { error } = await supabase.from("marketing_reel_versions").update({
+      status: "rendered", rendered_asset_id: input.renderedAssetId, rendered_at: new Date().toISOString(),
+      is_current: input.makeCurrent ?? false, last_error: null,
+    }).eq("id", input.id)
+    if (error) throw error
+    if (input.makeCurrent) {
+      const { error: contentError } = await supabase.from("marketing_content")
+        .update({ active_reel_version_id: input.id })
+        .eq("id", (version as Row).content_id as string)
+      if (contentError) throw contentError
+    }
+  }
+
+  static async failReelVersion(id: string, reason: string) {
+    const supabase = await createServerSupabaseClient()
+    const { error } = await supabase.from("marketing_reel_versions")
+      .update({ status: "failed", last_error: reason.slice(0, 2000) })
+      .eq("id", id)
+    if (error) throw error
+  }
+
+  static async makeReelVersionCurrent(id: string) {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase.from("marketing_reel_versions")
+      .select("content_id, composition").eq("id", id).eq("status", "rendered").maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error("Only a rendered Reel version can be made current.")
+    const contentId = String((data as Row).content_id)
+    const { error: clearError } = await supabase.from("marketing_reel_versions")
+      .update({ is_current: false }).eq("content_id", contentId).eq("is_current", true)
+    if (clearError) throw clearError
+    const { error: setError } = await supabase.from("marketing_reel_versions").update({ is_current: true }).eq("id", id)
+    if (setError) throw setError
+    const { error: contentError } = await supabase.from("marketing_content")
+      .update({ active_reel_version_id: id, composition: (data as Row).composition })
+      .eq("id", contentId)
+    if (contentError) throw contentError
+  }
+
+  static async deleteDraftReelVersion(id: string) {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase.from("marketing_reel_versions")
+      .delete().eq("id", id).eq("status", "draft").eq("is_current", false).select("id").maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error("Only an unused draft Reel version can be deleted.")
+  }
   static async listAudioTracks(): Promise<MarketingAudioTrack[]> {
     const supabase = await createServerSupabaseClient()
     const { data, error } = await supabase
@@ -421,8 +678,9 @@ export class MarketingRepository {
     const supabase = await createServerSupabaseClient()
     const { data: assets, error: assetsError } = await supabase
       .from("marketing_content_assets")
-      .select("storage_path")
+      .select("storage_path, kind")
       .eq("content_id", id)
+      .in("kind", ["working_composition", "rendered_media", "cover", "audio"])
       .not("storage_path", "is", null)
     if (assetsError) throw assetsError
 
@@ -463,8 +721,9 @@ export class MarketingRepository {
 
     const { data: assets, error: assetsError } = await supabase
       .from("marketing_content_assets")
-      .select("storage_path")
+      .select("storage_path, kind")
       .in("content_id", uniqueIds)
+      .in("kind", ["working_composition", "rendered_media", "cover", "audio"])
       .not("storage_path", "is", null)
     if (assetsError) throw assetsError
 
@@ -487,6 +746,52 @@ export class MarketingRepository {
       if (storageError) console.warn("Drafts were deleted but generated media cleanup failed:", storageError.message)
     }
     return (deleted ?? []).map(row => String((row as Row).id))
+  }
+
+  /**
+   * Uses a row-locking database function so a stale selected card can never
+   * unschedule or delete content that has already started publishing.
+   */
+  static async manageScheduledContents(input: {
+    ids: string[]
+    action: "unschedule" | "delete"
+    updatedBy: string
+  }) {
+    const uniqueIds = [...new Set(input.ids)]
+    const supabase = await createServerSupabaseClient()
+    // Only Marketing-owned derivative paths are candidates for cleanup. The
+    // original CRM images/videos are source_url references and are excluded.
+    const { data: ownedAssets, error: assetError } = input.action === "delete"
+      ? await supabase.from("marketing_content_assets")
+        .select("content_id, storage_path, kind")
+        .in("content_id", uniqueIds)
+        .in("kind", ["working_composition", "rendered_media", "cover", "audio"])
+        .not("storage_path", "is", null)
+      : { data: [], error: null }
+    if (assetError) throw assetError
+
+    const { data, error } = await supabase.rpc("manage_scheduled_marketing_content", {
+      p_ids: uniqueIds,
+      p_action: input.action,
+      p_updated_by: input.updatedBy,
+    })
+    if (error) throw error
+    const outcomes = ((data ?? []) as Row[]).map(row => ({
+      id: String(row.content_id),
+      outcome: String(row.outcome),
+    }))
+    const deletedIds = outcomes.filter(item => item.outcome === "deleted").map(item => item.id)
+    if (input.action === "delete" && deletedIds.length) {
+      const paths = ((ownedAssets ?? []) as Row[])
+        .filter(asset => deletedIds.includes(String(asset.content_id)))
+        .map(asset => asset.storage_path)
+        .filter((path): path is string => typeof path === "string" && path.length > 0)
+      if (paths.length) {
+        const { error: storageError } = await supabase.storage.from("marketing-assets").remove(paths)
+        if (storageError) console.warn("Scheduled content was deleted but derived-media cleanup failed:", storageError.message)
+      }
+    }
+    return outcomes
   }
 
   static async transitionContent(input: {
@@ -740,6 +1045,9 @@ export class MarketingRepository {
       fontFamily: row.font_family as string | null,
       brandColors: object(row.brand_colors) as MarketingBrandSettings["brandColors"],
       timezone: String(row.timezone ?? "Asia/Kolkata"),
+      defaultReelLogoPlacement: (row.default_reel_logo_placement as MarketingBrandSettings["defaultReelLogoPlacement"]) ?? "none",
+      defaultReelLogoOpacity: Number(row.default_reel_logo_opacity ?? 0.65),
+      defaultReelLogoScale: (row.default_reel_logo_scale as MarketingBrandSettings["defaultReelLogoScale"]) ?? "small",
     }
   }
 
@@ -758,6 +1066,9 @@ export class MarketingRepository {
       font_family: settings.fontFamily ?? null,
       brand_colors: settings.brandColors ?? {},
       timezone: settings.timezone ?? "Asia/Kolkata",
+      default_reel_logo_placement: settings.defaultReelLogoPlacement ?? "none",
+      default_reel_logo_opacity: settings.defaultReelLogoOpacity ?? 0.65,
+      default_reel_logo_scale: settings.defaultReelLogoScale ?? "small",
     })
     if (error) throw error
   }

@@ -22,7 +22,7 @@ beforeEach(() => {
   admin.client.storage.from.mockReturnValue({ upload: vi.fn().mockResolvedValue({ error: null }) })
   vi.stubGlobal("fetch", vi.fn(async (url: URL | string) => ({
     ok: true,
-    headers: new Headers({ "content-type": String(url).includes("licensed") ? "audio/mp4" : "image/jpeg", "content-length": "2048" }),
+    headers: new Headers({ "content-type": String(url).includes("licensed") ? "audio/mp4" : String(url).includes("logo") ? "image/png" : "image/jpeg", "content-length": "2048" }),
     arrayBuffer: async () => new ArrayBuffer(2_048),
   })))
   childProcess.spawn.mockImplementation((executable: string) => {
@@ -39,7 +39,7 @@ beforeEach(() => {
   })
 })
 
-function renderInput() {
+function renderInput(): Parameters<typeof RenderService.renderReel>[0] {
   return {
     contentId: "1e149a39-7321-42d1-900c-7389c0da37a3",
     composition: {
@@ -71,6 +71,31 @@ describe("RenderService audio mixing", () => {
     ]))
     expect(args).not.toContain("-stream_loop")
     expect(args).not.toContain("-an")
+  })
+
+  it("mixes a private logo with safe placement and opacity without changing MP4 encoding", async () => {
+    const input = renderInput()
+    await RenderService.renderReel({
+      ...input,
+      logo: { sourceUrl: "https://project.supabase.co/storage/v1/object/sign/logo.png", mimeType: "image/png", placement: "top_right", scale: "small", opacity: 0.65 },
+    })
+    const args = childProcess.spawn.mock.calls[0]?.[1] as string[]
+    const filters = args[args.indexOf("-filter_complex") + 1]
+    expect(filters).toContain("colorchannelmixer=aa=0.65")
+    expect(filters).toContain("overlay=")
+    expect(args).toEqual(expect.arrayContaining(["-c:v", "libx264", "-pix_fmt", "yuv420p"]))
+  })
+
+  it("applies an end-card-only logo on the final visual scene", async () => {
+    const input = renderInput()
+    input.composition.scenes.push({ assetId: input.assets[0].id, start: 15, duration: 3, crop: "cover", motion: "none", transitionOut: "fade", overlay: { text: "Discover more", position: "center", type: "end_card" } })
+    await RenderService.renderReel({
+      ...input,
+      logo: { sourceUrl: "https://project.supabase.co/storage/v1/object/sign/logo.png", mimeType: "image/png", placement: "end_card_only", scale: "small", opacity: 0.65 },
+    })
+    const args = childProcess.spawn.mock.calls[0]?.[1] as string[]
+    const filters = args[args.indexOf("-filter_complex") + 1]
+    expect(filters).toContain("[s1][logo]overlay=")
   })
 
   it("reports a source media download failure without exposing the source URL", async () => {

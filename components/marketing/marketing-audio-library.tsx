@@ -83,37 +83,37 @@ export function MarketingAudioLibrary({ tracks }: { tracks: MarketingAudioTrack[
   const fileInput = useRef<HTMLInputElement>(null)
   const [title, setTitle] = useState("")
   const [artistSource, setArtistSource] = useState("")
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [message, setMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   function upload() {
-    if (!file) return setMessage("Choose an MP3, M4A, or WAV file first.")
+    if (!files.length) return setMessage("Choose one or more MP3, M4A, or WAV files first.")
     setMessage(null)
     startTransition(async () => {
       try {
-        const durationSeconds = await durationFor(file)
+        const durations = await Promise.all(files.map(async file => ({ file, durationSeconds: await durationFor(file) })))
         const formData = new FormData()
-        formData.set("file", file)
-        formData.set("title", title || file.name.replace(/\.[^.]+$/, ""))
+        durations.forEach(({ file, durationSeconds }) => { formData.append("files", file); formData.append("durationSeconds", String(durationSeconds)) })
+        if (files.length === 1) formData.set("title", title || files[0].name.replace(/\.[^.]+$/, ""))
         formData.set("artistSource", artistSource)
-        formData.set("durationSeconds", String(durationSeconds))
         const response = await fetch("/api/marketing/audio", { method: "POST", body: formData })
         const data = await response.json().catch(() => ({})) as { error?: string }
         if (!response.ok) return setMessage(data.error ?? "Could not upload this track.")
-        setTitle(""); setArtistSource(""); setFile(null)
+        setTitle(""); setArtistSource(""); setFiles([])
         if (fileInput.current) fileInput.current.value = ""
         router.refresh()
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Could not read this audio file.")
+        setMessage(error instanceof Error ? `Upload was not started: ${error.message}` : "Upload was not started because a selected audio file could not be read.")
       }
     })
   }
 
   return <section className="rounded-2xl border bg-card p-5 sm:p-6">
     <div><h2 className="font-semibold">Audio Library</h2><p className="mt-1 text-sm text-muted-foreground">Upload music your business owns or has permission to use. These private tracks can be embedded in Railway-rendered Reels; this never accesses Instagram’s licensed or trending catalogue.</p></div>
-    <div className="mt-5 grid gap-3 sm:grid-cols-2"><label className="grid gap-1.5 text-sm font-medium">Track name<Input value={title} onChange={event => setTitle(event.target.value)} maxLength={160} placeholder="Defaults to filename" /></label><label className="grid gap-1.5 text-sm font-medium">Artist / source <Input value={artistSource} onChange={event => setArtistSource(event.target.value)} maxLength={240} placeholder="Optional licensing reference" /></label><label className="grid gap-1.5 text-sm font-medium sm:col-span-2">Audio file <Input ref={fileInput} type="file" accept=".mp3,.m4a,.wav,audio/mpeg,audio/mp4,audio/wav" onChange={event => setFile(event.target.files?.[0] ?? null)} /></label></div>
-    <div className="mt-4 flex flex-wrap items-center gap-3"><Button type="button" onClick={upload} disabled={isPending || !file}>{isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}Upload licensed audio</Button><span className="text-xs text-muted-foreground">MP3, M4A, or WAV · up to 25 MB</span></div>
+    <div className="mt-5 grid gap-3 sm:grid-cols-2"><label className="grid gap-1.5 text-sm font-medium">Track name <span className="text-xs font-normal text-muted-foreground">Optional; used only for a single upload</span><Input value={title} onChange={event => setTitle(event.target.value)} maxLength={160} placeholder="Defaults to filename" /></label><label className="grid gap-1.5 text-sm font-medium">Artist / source <Input value={artistSource} onChange={event => setArtistSource(event.target.value)} maxLength={240} placeholder="Optional licensing reference" /></label><label className="grid gap-1.5 text-sm font-medium sm:col-span-2">Audio files <Input ref={fileInput} type="file" multiple accept=".mp3,.m4a,.wav,audio/mpeg,audio/mp4,audio/wav" onChange={event => setFiles(Array.from(event.target.files ?? []))} /><span className="text-xs font-normal text-muted-foreground">Select up to 25 files. We validate the format, duration and 25 MB per-file limit before any upload begins.</span></label></div>
+    <div className="mt-4 flex flex-wrap items-center gap-3"><Button type="button" onClick={upload} disabled={isPending || !files.length}>{isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}Upload {files.length > 1 ? `${files.length} licensed tracks` : "licensed audio"}</Button><span className="text-xs text-muted-foreground">MP3, M4A, or WAV · up to 25 MB each</span></div>
+    {files.length > 0 && <p className="mt-2 text-xs text-muted-foreground">Ready: {files.map(file => file.name).join(", ")}</p>}
     {message && <p className="mt-3 text-sm text-red-700" role="status">{message}</p>}
     <div className="mt-6 space-y-3">{tracks.map(track => <AudioTrackRow key={track.id} track={track} />)}{!tracks.length && <div className="rounded-xl bg-muted/60 p-4 text-sm text-muted-foreground">Your private Audio Library is empty.</div>}</div>
   </section>

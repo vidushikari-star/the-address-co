@@ -4,11 +4,13 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 
 import { logRenderStage, renderStageFailure, sanitizeRenderDiagnostic } from "@/lib/marketing/render-diagnostics"
+import { layoutReelOverlay, logoLayout } from "@/lib/marketing/reel-layout"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import type { MarketingAsset, ReelComposition } from "@/lib/marketing/types"
 
 const MAX_RENDER_INPUT_BYTES = 75 * 1024 * 1024
 const MAX_AUDIO_INPUT_BYTES = 25 * 1024 * 1024
+const MAX_LOGO_INPUT_BYTES = 5 * 1024 * 1024
 const TRANSITION_DURATION = 0.4
 export const REEL_ENCODER_THREADS = 2
 export const REEL_FILTER_THREADS = 2
@@ -111,13 +113,27 @@ function escapeDrawtext(value: string) {
 
 function textOverlayFilter(input: {
   text?: string
-  position?: "top" | "center" | "bottom"
+  position?: NonNullable<ReelComposition["scenes"][number]["overlay"]>["position"]
+  type?: NonNullable<ReelComposition["scenes"][number]["overlay"]>["type"]
 }) {
-  if (!input.text?.trim()) return ""
-  const y = input.position === "top"
-    ? "150"
-    : input.position === "center" ? "(h-text_h)/2" : "h-text_h-160"
-  return `,drawtext=text='${escapeDrawtext(input.text.trim().slice(0, 120))}':fontcolor=white:fontsize=58:box=1:boxcolor=black@0.48:boxborderw=24:x=(w-text_w)/2:y=${y}`
+  const layout = layoutReelOverlay(input)
+  if (!layout) return ""
+  const x = layout.alignment === "center" ? "(w-text_w)/2" : String(layout.x)
+  return `,drawtext=text='${escapeDrawtext(layout.text)}':fontcolor=white:fontsize=${layout.fontSize}:line_spacing=${layout.lineSpacing}:box=1:boxcolor=black@${layout.boxOpacity.toFixed(2)}:boxborderw=${layout.boxPadding}:shadowcolor=black@0.65:shadowx=2:shadowy=2:x=${x}:y=${layout.y}`
+}
+
+async function downloadLogo(input: { sourceUrl: string; mimeType: "image/png" | "image/webp" }, destination: string) {
+  const url = new URL(input.sourceUrl)
+  if (!allowedMediaOrigin(url)) throw new Error("Renderer rejected a logo outside of configured Supabase storage.")
+  const response = await fetch(url, { signal: AbortSignal.timeout(30_000) })
+  if (!response.ok) throw new Error(`Unable to fetch selected logo (${response.status}).`)
+  const mime = (response.headers.get("content-type") ?? "").split(";", 1)[0]?.toLocaleLowerCase()
+  if (!mime || !["image/png", "image/webp"].includes(mime)) throw new Error("Renderer received an unsupported logo MIME type.")
+  const contentLength = Number(response.headers.get("content-length") ?? 0)
+  if (contentLength > MAX_LOGO_INPUT_BYTES) throw new Error("Selected logo exceeds the 5 MB safety limit.")
+  const bytes = new Uint8Array(await response.arrayBuffer())
+  if (bytes.byteLength > MAX_LOGO_INPUT_BYTES) throw new Error("Selected logo exceeds the 5 MB safety limit.")
+  await writeFile(destination, bytes)
 }
 
 async function runFfmpeg(args: string[], inputCount: number, hasAudio: boolean, targetDuration: number) {
@@ -272,6 +288,14 @@ export class RenderService {
       mimeType: "audio/mpeg" | "audio/mp4" | "audio/wav"
       durationSeconds: number
     } | null
+    logo?: {
+      sourceUrl: string
+      mimeType: "image/png" | "image/webp"
+      placement: Exclude<NonNullable<ReelComposition["logo"]>["placement"], "none">
+      scale: NonNullable<ReelComposition["logo"]>["scale"]
+      opacity: number
+      margin?: number
+    } | null
   }) {
     let compositionAssets: Array<{ scene: ReelComposition["scenes"][number]; asset: MarketingAsset }>
     try {
@@ -283,7 +307,7 @@ export class RenderService {
         return { scene, asset }
       })
       if (!compositionAssets.length) throw new Error("A Reel composition needs at least one scene.")
-      logRenderStage("input", "ok", { scenes: compositionAssets.length, audio: Boolean(input.audio) })
+      logRenderStage("input", "ok", { scenes: compositionAssets.length, audio: Boolean(input.audio), logo: Boolean(input.logo) })
     } catch (error) {
       throw renderStageFailure("input", error)
     }
@@ -302,6 +326,9 @@ export class RenderService {
       const audioPath = input.audio
         ? join(/* turbopackIgnore: true */ workspace, `audio.${audioExtension(input.audio.mimeType)}`)
         : null
+      const logoPath = input.logo
+        ? join(/* turbopackIgnore: true */ workspace, `logo.${input.logo.mimeType === "image/webp" ? "webp" : "png"}`)
+        : null
       try {
         inputPaths = await Promise.all(compositionAssets.map(async ({ asset }, index) => {
           const path = join(/* turbopackIgnore: true */ workspace!, `${index}.${safeExtension(asset)}`)
@@ -309,7 +336,8 @@ export class RenderService {
           return path
         }))
         if (audioPath && input.audio) await downloadAudio(input.audio, audioPath)
-        logRenderStage("download", "ok", { sources: compositionAssets.length, audio: Boolean(input.audio) })
+        if (logoPath && input.logo) await downloadLogo(input.logo, logoPath)
+        logRenderStage("download", "ok", { sources: compositionAssets.length, audio: Boolean(input.audio), logo: Boolean(input.logo) })
       } catch (error) {
         throw renderStageFailure("download", error)
       }
@@ -324,10 +352,21 @@ export class RenderService {
         else args.push("-stream_loop", "-1", "-t", String(scene.duration), "-i", inputPaths[index])
       })
       if (audioPath) args.push("-i", audioPath)
+      if (logoPath) args.push("-i", logoPath)
 
-      const filters = compositionAssets.map(({ scene }, index) =>
-        `[${index}:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1${textOverlayFilter({ text: scene.overlay?.text, position: scene.overlay?.position })}[v${index}]`
-      )
+      const logo = input.logo ? logoLayout(input.logo.placement, input.logo.scale, input.logo.margin) : null
+      const logoInputIndex = compositionAssets.length + (audioPath ? 1 : 0)
+      const filters: string[] = []
+      if (logoPath && logo) {
+        filters.push(`[${logoInputIndex}:v]format=rgba,colorchannelmixer=aa=${Math.max(0.1, Math.min(1, input.logo?.opacity ?? 0.65)).toFixed(2)},scale=${logo.size}:-1[logo]`)
+      }
+      compositionAssets.forEach(({ scene }, index) => {
+        const base = `s${index}`
+        const sceneFilter = `[${index}:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1${textOverlayFilter({ text: scene.overlay?.text, position: scene.overlay?.position, type: scene.overlay?.type })}[${base}]`
+        filters.push(sceneFilter)
+        const useEndCardLogo = Boolean(logo && input.logo?.placement === "end_card_only" && index === compositionAssets.length - 1)
+        filters.push(useEndCardLogo ? `[${base}][logo]overlay=${logo?.x}:${logo?.y}:format=auto[v${index}]` : `[${base}]null[v${index}]`)
+      })
       let previous = "v0"
       let totalDuration = compositionAssets[0].scene.duration
       for (let index = 1; index < compositionAssets.length; index += 1) {
@@ -336,6 +375,11 @@ export class RenderService {
         filters.push(`[${previous}][v${index}]xfade=transition=${transition}:duration=${TRANSITION_DURATION}:offset=${Math.max(0, totalDuration - TRANSITION_DURATION).toFixed(3)}[${next}]`)
         previous = next
         totalDuration += compositionAssets[index].scene.duration - TRANSITION_DURATION
+      }
+      if (logo && input.logo?.placement !== "end_card_only") {
+        const branded = "branded"
+        filters.push(`[${previous}][logo]overlay=${logo.x}:${logo.y}:format=auto[${branded}]`)
+        previous = branded
       }
       if (input.audio) {
         // Never loop a short licensed track. `atrim` only caps a long track;

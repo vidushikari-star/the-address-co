@@ -4,6 +4,7 @@ import { CheckCircle2, ExternalLink, ShieldCheck } from "lucide-react"
 import { saveMarketingBrandSettings } from "@/app/(app)/marketing/settings/actions"
 import { InstagramConnectionActions } from "@/components/marketing/instagram-connection-actions"
 import { MarketingAudioLibrary } from "@/components/marketing/marketing-audio-library"
+import { MarketingBrandAssets } from "@/components/marketing/marketing-brand-assets"
 import { MarketingPageHeader } from "@/components/marketing/marketing-page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,10 +16,11 @@ type Props = { searchParams: Promise<{ instagram?: string; reason?: string }> }
 
 export default async function MarketingSettingsPage({ searchParams }: Props) {
   await requireMarketingAdminPage()
-  const [settings, account, tracks, params] = await Promise.all([
+  const [settings, account, tracks, logo, params] = await Promise.all([
     MarketingRepository.getBrandSettings(),
     MarketingRepository.getInstagramAccount(),
     MarketingRepository.listAudioTracks(),
+    MarketingRepository.getActiveBrandLogo(),
     searchParams,
   ])
   const connected = account?.status === "connected" || account?.status === "expiring"
@@ -50,9 +52,14 @@ export default async function MarketingSettingsPage({ searchParams }: Props) {
           <label className="grid gap-1.5 text-sm font-medium">Primary color<Input name="primaryColor" defaultValue={settings.brandColors.primary ?? "#1f4d3b"} /></label>
           <label className="grid gap-1.5 text-sm font-medium">Accent color<Input name="accentColor" defaultValue={settings.brandColors.accent ?? "#c9a96a"} /></label>
         </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <label className="grid gap-1.5 text-sm font-medium">Default Reel logo placement<select name="defaultReelLogoPlacement" defaultValue={settings.defaultReelLogoPlacement} className="h-10 rounded-md border bg-background px-3 text-sm"><option value="none">None</option><option value="top_left">Top Left</option><option value="top_right">Top Right</option><option value="bottom_left">Bottom Left</option><option value="bottom_right">Bottom Right</option><option value="end_card_only">End Card Only</option></select></label>
+          <label className="grid gap-1.5 text-sm font-medium">Default logo opacity<select name="defaultReelLogoOpacity" defaultValue={String(settings.defaultReelLogoOpacity)} className="h-10 rounded-md border bg-background px-3 text-sm"><option value="0.45">Subtle</option><option value="0.65">Balanced</option><option value="0.85">Prominent</option></select></label>
+          <label className="grid gap-1.5 text-sm font-medium">Default logo scale<select name="defaultReelLogoScale" defaultValue={settings.defaultReelLogoScale} className="h-10 rounded-md border bg-background px-3 text-sm"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label>
+        </div>
         <input type="hidden" name="timezone" value={settings.timezone} />
         <Button className="mt-6" type="submit">Save brand settings</Button>
-      </form><MarketingAudioLibrary tracks={tracks} /></div>
+      </form><MarketingBrandAssets logo={logo} /><MarketingAudioLibrary tracks={tracks} /></div>
 
       <aside className="space-y-6">
         <section className="rounded-2xl border bg-card p-5 sm:p-6">

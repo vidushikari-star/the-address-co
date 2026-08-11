@@ -1,4 +1,4 @@
-type RenderStage = "input" | "workspace" | "download" | "ffmpeg" | "output" | "upload" | "asset_persistence" | "content_transition"
+type RenderStage = "input" | "workspace" | "download" | "logo" | "ffmpeg" | "output" | "upload" | "asset_persistence" | "version_persistence" | "content_transition"
 
 /** Removes URLs, credentials and drawtext payloads before logs or job records. */
 export function sanitizeRenderDiagnostic(value: unknown, limit = 700) {

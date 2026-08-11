@@ -36,6 +36,9 @@ export class ApprovalService {
       note,
       decidedBy: adminId,
     })
+    if (content.contentType === "reel") {
+      await MarketingRepository.approveNewestDraftReelVersion(contentId, adminId)
+    }
     await MarketingRepository.addAuditLog({
       actorId: adminId,
       contentId,

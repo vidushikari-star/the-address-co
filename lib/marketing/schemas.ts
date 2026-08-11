@@ -31,6 +31,11 @@ export const BulkDeleteDraftsSchema = z.object({
   ids: z.array(z.string().uuid()).min(1).max(100),
 })
 
+export const ScheduledContentActionSchema = z.object({
+  action: z.enum(["unschedule", "delete"]),
+  ids: z.array(z.string().uuid()).min(1).max(100),
+})
+
 export const ApprovalActionSchema = z.object({
   action: z.enum(["approve", "request_changes", "reject"]),
   note: z.string().max(1_000).optional(),
@@ -59,7 +64,8 @@ export const ReelSceneSchema = z.object({
   motion: z.enum(["none", "slow_zoom", "pan_left", "pan_right"]),
   overlay: z.object({
     text: z.string().max(120),
-    position: z.enum(["top", "center", "bottom"]),
+    position: z.enum(["top", "center", "bottom", "top_left", "top_right", "lower_left", "lower_right"]),
+    type: z.enum(["hook", "property_label", "key_fact", "price", "cta", "end_card"]).optional(),
   }).optional(),
   transitionOut: z.enum(["fade", "cross_dissolve", "slide", "zoom", "blur"]),
 })
@@ -84,6 +90,32 @@ export const ReelCompositionSchema = z.object({
       context.addIssue({ code: "custom", message: "Uploaded audio must reference an Audio Library track.", path: ["id"] })
     }
   }),
+  logo: z.object({
+    placement: z.enum(["none", "top_left", "top_right", "bottom_left", "bottom_right", "end_card_only"]),
+    scale: z.enum(["small", "medium", "large"]),
+    opacity: z.number().min(0.1).max(1),
+    margin: z.number().int().min(0).max(160).optional(),
+    assetId: z.string().uuid().nullable().optional(),
+  }).optional(),
+})
+
+export const ReelStoryboardSchema = z.object({
+  hook: z.string().trim().min(1).max(100),
+  scenes: z.array(z.object({
+    assetId: z.string().uuid(),
+    overlayText: z.string().trim().max(120),
+    durationSeconds: z.number().min(1.5).max(12),
+    overlayPosition: z.enum(["top_left", "top_right", "center", "lower_left", "lower_right"]),
+    overlayType: z.enum(["hook", "property_label", "key_fact", "price", "cta"]),
+  })).min(1).max(10),
+  endCard: z.object({
+    headline: z.string().trim().min(1).max(120),
+    cta: z.string().trim().min(1).max(160),
+  }),
+})
+
+export const ImproveReelSchema = z.object({
+  prompt: z.string().trim().min(3).max(600),
 })
 
 export const CreativeOutputSchema = z.object({

@@ -60,6 +60,23 @@ export async function POST(_request: Request, context: Context) {
       await MarketingRepository.updateContent(id, { composition }, access.user.id)
     }
 
+    if (!composition.logo) {
+      const [settings, logo] = await Promise.all([
+        MarketingRepository.getBrandSettings(),
+        MarketingRepository.getActiveBrandLogo(),
+      ])
+      composition = {
+        ...composition,
+        logo: {
+          placement: settings.defaultReelLogoPlacement,
+          scale: settings.defaultReelLogoScale,
+          opacity: settings.defaultReelLogoOpacity,
+          assetId: logo?.id ?? null,
+        },
+      }
+      await MarketingRepository.updateContent(id, { composition }, access.user.id)
+    }
+
     await MarketingRepository.queueReelRender({
       contentId: id,
       updatedBy: access.user.id,

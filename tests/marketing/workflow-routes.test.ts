@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const access = vi.hoisted(() => ({ requireMarketingApiAccess: vi.fn() }))
 const flags = vi.hoisted(() => ({ isInstagramPublishingEnabled: vi.fn() }))
-const repository = vi.hoisted(() => ({ getContentById: vi.fn(), enqueueJob: vi.fn(), queueReelRender: vi.fn(), addAuditLog: vi.fn() }))
+const repository = vi.hoisted(() => ({ getContentById: vi.fn(), enqueueJob: vi.fn(), queueReelRender: vi.fn(), addAuditLog: vi.fn(), getBrandSettings: vi.fn(), getActiveBrandLogo: vi.fn(), updateContent: vi.fn() }))
 
 vi.mock("@/lib/auth/marketing", () => access)
 vi.mock("@/lib/marketing/feature-flags", () => flags)
@@ -18,6 +18,9 @@ beforeEach(() => {
   vi.clearAllMocks()
   access.requireMarketingApiAccess.mockResolvedValue({ user: { id: "admin-1" }, error: null, status: null })
   flags.isInstagramPublishingEnabled.mockReturnValue(false)
+  repository.getBrandSettings.mockResolvedValue({ defaultReelLogoPlacement: "none", defaultReelLogoScale: "small", defaultReelLogoOpacity: 0.65 })
+  repository.getActiveBrandLogo.mockResolvedValue(null)
+  repository.updateContent.mockResolvedValue({})
 })
 
 describe("Marketing workflow API guards", () => {

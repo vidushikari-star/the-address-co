@@ -1,15 +1,17 @@
 import OpenAI from "openai"
 import { zodTextFormat } from "openai/helpers/zod"
 
-import { CreativeOutputSchema } from "@/lib/marketing/schemas"
+import { CreativeOutputSchema, ReelStoryboardSchema } from "@/lib/marketing/schemas"
 import type {
   CreativeDirection,
   MarketingBrandSettings,
   MarketingContentType,
   PropertyFactSnapshot,
+  ReelStoryboard,
 } from "@/lib/marketing/types"
 
 type CreativeOutput = ReturnType<typeof CreativeOutputSchema.parse>
+type ReelStoryboardOutput = ReturnType<typeof ReelStoryboardSchema.parse>
 
 const DEFAULT_MARKETING_MODEL = "gpt-5.2"
 const MARKETING_MAX_OUTPUT_TOKENS = 1_200
@@ -32,11 +34,16 @@ function factLines(property: PropertyFactSnapshot) {
   }
 }
 
-function validateBrandSafety(output: CreativeOutput, settings: MarketingBrandSettings) {
+function validateBrandSafety<T extends CreativeOutput | ReelStoryboardOutput>(output: T, settings: MarketingBrandSettings): T {
+  const outputValues = "scenes" in output
+    ? [output.hook, ...output.scenes.map(scene => scene.overlayText), output.endCard.headline, output.endCard.cta]
+    : [
+        output.campaignConcept, output.hook, output.headline, output.caption,
+        output.shortCaption, output.cta, output.coverText, output.altText,
+        ...output.onScreenText, ...output.carouselSlides, ...output.storyCopy,
+      ]
   const copy = [
-    output.campaignConcept, output.hook, output.headline, output.caption,
-    output.shortCaption, output.cta, output.coverText, output.altText,
-    ...output.onScreenText, ...output.carouselSlides, ...output.storyCopy,
+    ...outputValues,
   ].join(" ").toLocaleLowerCase()
 
   const excluded = settings.excludedWords.find(word =>
@@ -48,6 +55,35 @@ function validateBrandSafety(output: CreativeOutput, settings: MarketingBrandSet
   }
 
   return output
+}
+
+function openAiClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    timeout: 45_000,
+    maxRetries: 1,
+  })
+}
+
+function storyboardInstructions(input: {
+  settings: MarketingBrandSettings
+  creativeDirection: CreativeDirection | string
+  userPrompt: string
+}) {
+  return [
+    "You are the private visual-storyboard editor for a luxury real-estate CRM.",
+    "Return only the supplied structured storyboard schema.",
+    "Use only the provided CRM property facts. Never invent price, location, amenities, area, ROI, availability, developer, completion, views, or lifestyle claims.",
+    "Use only a supplied source asset ID in every scene. Do not create, omit, or alter asset IDs.",
+    "Overlay text is visual copy, not the long Instagram caption: keep it concise, legible, and fact-grounded. Use no more than one short idea per scene.",
+    "Use the end card for the concise CTA. Respect excluded words and brand tone.",
+    `Creative direction: ${input.creativeDirection}`,
+    `Brand tone: ${input.settings.preferredTone}`,
+    input.settings.brandName ? `Brand name: ${input.settings.brandName}` : "",
+    input.settings.preferredCta ? `Preferred CTA: ${input.settings.preferredCta}` : "",
+    input.settings.excludedWords.length ? `Excluded words: ${input.settings.excludedWords.join(", ")}` : "",
+    `Creative instruction: ${input.userPrompt}`,
+  ].filter(Boolean).join("\n")
 }
 
 function logResponseDiagnostics(response: {
@@ -127,11 +163,7 @@ export class CreativeAIService {
         : "",
     ].filter(Boolean).join("\n")
 
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      timeout: 45_000,
-      maxRetries: 1,
-    })
+    const openai = openAiClient()
 
     let response
     try {
@@ -190,5 +222,71 @@ export class CreativeAIService {
     // responses.parse validates with this same Zod schema before exposing output_parsed.
     const output = CreativeOutputSchema.parse(response.output_parsed)
     return validateBrandSafety(output, input.settings)
+  }
+
+  /**
+   * Generates a new editable Reel storyboard. The existing approved render is
+   * deliberately an input only; this method never mutates it.
+   */
+  static async improveReelStoryboard(input: {
+    property: PropertyFactSnapshot
+    creativeDirection: CreativeDirection | string
+    settings: MarketingBrandSettings
+    sourceAssetIds: string[]
+    currentStoryboard?: ReelStoryboard | null
+    userPrompt: string
+  }): Promise<ReelStoryboard> {
+    if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured")
+    if (!input.sourceAssetIds.length) throw new Error("A Reel needs at least one selected property asset.")
+
+    let response
+    try {
+      response = await openAiClient().responses.parse({
+        model: process.env.OPENAI_MARKETING_MODEL ?? DEFAULT_MARKETING_MODEL,
+        max_output_tokens: MARKETING_MAX_OUTPUT_TOKENS,
+        input: [
+          { role: "system", content: storyboardInstructions(input) },
+          {
+            role: "user",
+            content: JSON.stringify({
+              propertyFacts: factLines(input.property),
+              sourceAssetIds: input.sourceAssetIds,
+              currentStoryboard: input.currentStoryboard ?? null,
+              brandSettings: {
+                brandName: input.settings.brandName,
+                preferredTone: input.settings.preferredTone,
+                preferredCta: input.settings.preferredCta,
+                defaultHashtags: input.settings.defaultHashtags,
+                excludedWords: input.settings.excludedWords,
+              },
+            }),
+          },
+        ],
+        text: { format: zodTextFormat(ReelStoryboardSchema, "marketing_reel_storyboard") },
+      })
+    } catch (error) {
+      logRequestFailure(error)
+      if (isStructuredOutputParseError(error)) throw new Error("OpenAI structured storyboard could not be parsed.")
+      throw new Error("OpenAI storyboard generation request failed.")
+    }
+
+    const diagnostics = logResponseDiagnostics(response)
+    if (diagnostics.refused) throw new Error("OpenAI refused the storyboard request.")
+    if (response.status === "incomplete") {
+      if (response.incomplete_details?.reason === "max_output_tokens") throw new Error("OpenAI storyboard output exceeded configured token limit.")
+      throw new Error("OpenAI storyboard response was incomplete.")
+    }
+    if (response.status && response.status !== "completed") throw new Error("OpenAI storyboard response was not completed.")
+    if (!response.output_parsed) {
+      if (diagnostics.hasText) throw new Error("OpenAI structured storyboard could not be parsed.")
+      throw new Error("OpenAI returned no generated storyboard.")
+    }
+
+    const storyboard = ReelStoryboardSchema.parse(response.output_parsed)
+    const knownAssets = new Set(input.sourceAssetIds)
+    if (storyboard.scenes.some(scene => !knownAssets.has(scene.assetId))) {
+      throw new Error("OpenAI storyboard referenced an unavailable source asset.")
+    }
+    return validateBrandSafety(storyboard, input.settings)
   }
 }

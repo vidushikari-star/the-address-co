@@ -23,6 +23,9 @@ export async function saveMarketingBrandSettings(formData: FormData) {
     fontFamily: String(formData.get("fontFamily") ?? "").trim() || null,
     brandColors: { primary: String(formData.get("primaryColor") ?? "").trim(), accent: String(formData.get("accentColor") ?? "").trim() },
     timezone: String(formData.get("timezone") ?? "Asia/Kolkata"),
+    defaultReelLogoPlacement: (String(formData.get("defaultReelLogoPlacement") ?? "none") as "none" | "top_left" | "top_right" | "bottom_left" | "bottom_right" | "end_card_only"),
+    defaultReelLogoOpacity: Math.min(1, Math.max(0.1, Number(formData.get("defaultReelLogoOpacity") ?? 0.65))),
+    defaultReelLogoScale: (String(formData.get("defaultReelLogoScale") ?? "small") as "small" | "medium" | "large"),
   })
   revalidatePath("/marketing")
   revalidatePath("/marketing/settings")

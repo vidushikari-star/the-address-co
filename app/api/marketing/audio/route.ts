@@ -46,50 +46,58 @@ export async function POST(request: Request) {
 
   try {
     const formData = await request.formData()
-    const file = formData.get("file")
-    if (!(file instanceof File) || !file.size) {
+    const files = formData.getAll("files").filter((value): value is File => value instanceof File && Boolean(value.size))
+    // Retain the original single-file form shape for integrations already in use.
+    const legacyFile = formData.get("file")
+    if (!files.length && legacyFile instanceof File && legacyFile.size) files.push(legacyFile)
+    if (!files.length) {
       return NextResponse.json({ error: "Choose an MP3, M4A, or WAV audio file." }, { status: 400 })
     }
-    if (file.size > MAX_AUDIO_BYTES) {
-      return NextResponse.json({ error: "Audio files must be 25 MB or smaller." }, { status: 400 })
-    }
-    const parsed = AudioUploadSchema.safeParse({
-      title: formData.get("title") || file.name.replace(/\.[^.]+$/, ""),
-      artistSource: formData.get("artistSource") || undefined,
-      durationSeconds: formData.get("durationSeconds"),
+    if (files.length > 25) return NextResponse.json({ error: "Upload up to 25 audio files at a time." }, { status: 400 })
+    const durations = formData.getAll("durationSeconds")
+    const validation = files.map((file, index) => {
+      if (file.size > MAX_AUDIO_BYTES) throw new Error(`${file.name}: audio files must be 25 MB or smaller.`)
+      const parsed = AudioUploadSchema.safeParse({
+        title: files.length === 1 ? formData.get("title") || file.name.replace(/\.[^.]+$/, "") : file.name.replace(/\.[^.]+$/, ""),
+        artistSource: formData.get("artistSource") || undefined,
+        durationSeconds: durations[index],
+      })
+      if (!parsed.success) throw new Error(`${file.name}: the browser could not read a valid duration. Try a standard MP3, M4A, or WAV file.`)
+      return { file, parsed: parsed.data, format: fileFormat(file) }
     })
-    if (!parsed.success) return NextResponse.json({ error: "Provide a title and a valid audio duration." }, { status: 400 })
 
-    const format = fileFormat(file)
-    const storagePath = `${access.user.id}/${crypto.randomUUID()}.${format.extension}`
     const supabase = await createServerSupabaseClient()
-    const bytes = new Uint8Array(await file.arrayBuffer())
-    const { error: uploadError } = await supabase.storage
-      .from("marketing-audio")
-      .upload(storagePath, bytes, { contentType: format.mimeType, upsert: false })
-    if (uploadError) throw uploadError
-
-    try {
-      const track = await MarketingRepository.createAudioTrack({
-        title: parsed.data.title,
-        artistSource: parsed.data.artistSource || null,
-        storagePath,
-        filename: file.name.slice(0, 255),
-        mimeType: format.mimeType,
-        fileSize: file.size,
-        durationSeconds: parsed.data.durationSeconds,
-        createdBy: access.user.id,
-      })
-      await MarketingRepository.addAuditLog({
-        actorId: access.user.id,
-        action: "audio_library.uploaded",
-        metadata: { audioTrackId: track.id, mimeType: track.mimeType, fileSize: track.fileSize },
-      })
-      return NextResponse.json({ track }, { status: 201 })
-    } catch (error) {
-      await supabase.storage.from("marketing-audio").remove([storagePath])
-      throw error
+    const tracks = []
+    for (const item of validation) {
+      const storagePath = `${access.user.id}/${crypto.randomUUID()}.${item.format.extension}`
+      const bytes = new Uint8Array(await item.file.arrayBuffer())
+      const { error: uploadError } = await supabase.storage
+        .from("marketing-audio")
+        .upload(storagePath, bytes, { contentType: item.format.mimeType, upsert: false })
+      if (uploadError) throw new Error(`${item.file.name}: storage upload failed (${uploadError.message}).`)
+      try {
+        const track = await MarketingRepository.createAudioTrack({
+          title: item.parsed.title,
+          artistSource: item.parsed.artistSource || null,
+          storagePath,
+          filename: item.file.name.slice(0, 255),
+          mimeType: item.format.mimeType,
+          fileSize: item.file.size,
+          durationSeconds: item.parsed.durationSeconds,
+          createdBy: access.user.id,
+        })
+        tracks.push(track)
+      } catch (error) {
+        await supabase.storage.from("marketing-audio").remove([storagePath])
+        throw new Error(`${item.file.name}: ${error instanceof Error ? error.message : "could not be saved in the Audio Library."}`)
+      }
     }
+    await Promise.all(tracks.map(track => MarketingRepository.addAuditLog({
+      actorId: access.user.id,
+      action: "audio_library.uploaded",
+      metadata: { audioTrackId: track.id, mimeType: track.mimeType, fileSize: track.fileSize },
+    })))
+    return NextResponse.json({ tracks, track: tracks[0] }, { status: 201 })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to upload the audio track." }, { status: 400 })
   }

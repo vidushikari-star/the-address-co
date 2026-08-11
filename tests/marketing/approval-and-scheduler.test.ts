@@ -8,6 +8,7 @@ const repository = vi.hoisted(() => ({
   upsertSchedule: vi.fn().mockResolvedValue(undefined),
   enqueueJob: vi.fn().mockResolvedValue(undefined),
   getInstagramAccount: vi.fn().mockResolvedValue(null),
+  approveNewestDraftReelVersion: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock("@/lib/marketing/repositories/marketing-repository", () => ({ MarketingRepository: repository }))
@@ -55,6 +56,15 @@ describe("approval and scheduling guards", () => {
       decision: "approved",
       decidedBy: "admin-1",
     }))
+  })
+
+  it("approves the newest regenerated Reel version only after the content review succeeds", async () => {
+    repository.getContentById.mockResolvedValue(record("ready_for_review", "reel"))
+    repository.transitionContent.mockResolvedValue({ id: "content-1", status: "approved", contentType: "reel" })
+
+    await ApprovalService.approve("content-1", "admin-1")
+
+    expect(repository.approveNewestDraftReelVersion).toHaveBeenCalledWith("content-1", "admin-1")
   })
 
   it("schedules an approved single-image item using its original CRM image without FFmpeg rendering", async () => {

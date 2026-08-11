@@ -14,6 +14,9 @@ const settings: MarketingBrandSettings = {
   excludedWords: ["guaranteed"],
   brandColors: {},
   timezone: "Asia/Kolkata",
+  defaultReelLogoPlacement: "none",
+  defaultReelLogoOpacity: 0.65,
+  defaultReelLogoScale: "small",
 }
 
 const property: PropertyFactSnapshot = {
