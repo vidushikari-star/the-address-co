@@ -11,7 +11,7 @@ import {
   InstagramService,
 } from "@/lib/marketing/services/instagram-service"
 import { MediaAnalysisService } from "@/lib/marketing/services/media-analysis-service"
-import { RenderService } from "@/lib/marketing/services/render-service"
+import { RenderDeferredError, RenderService } from "@/lib/marketing/services/render-service"
 import { normalizeReelTypographyStyle } from "@/lib/marketing/reel-typography"
 import { TokenCryptoService } from "@/lib/marketing/services/token-crypto-service"
 import { ReelCompositionSchema } from "@/lib/marketing/schemas"
@@ -152,7 +152,7 @@ function isTerminalRenderTermination(job: MarketingJob, error: unknown) {
   return job.type === "render_reel" &&
     error instanceof RenderStageError &&
     error.stage === "ffmpeg" &&
-    /(Render timed out after|terminated by SIGKILL|terminated by SIGTERM)/.test(error.message)
+    /(Render timed out after|terminated(?: externally)? by SIGKILL|terminated(?: externally)? by SIGTERM)/.test(error.message)
 }
 
 function isTerminalPublishingFailure(job: MarketingJob, error: unknown) {
@@ -231,6 +231,23 @@ export class MarketingWorkerService {
             locked_at: null,
             locked_by: null,
           }).eq("id", job.id)
+          results.push({ id: job.id, status: "skipped" })
+          continue
+        }
+        if (caught instanceof RenderDeferredError && job.type === "render_reel") {
+          await admin.from("marketing_jobs").update({
+            status: "queued",
+            error: safeError(caught),
+            progress: 0,
+            run_after: new Date(Date.now() + 2 * 60_000).toISOString(),
+            locked_at: null,
+            locked_by: null,
+          }).eq("id", job.id)
+          if (job.contentId) {
+            await admin.from("marketing_content")
+              .update({ last_error: safeError(caught) })
+              .eq("id", job.contentId)
+          }
           results.push({ id: job.id, status: "skipped" })
           continue
         }

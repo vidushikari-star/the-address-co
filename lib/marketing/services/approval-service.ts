@@ -1,4 +1,5 @@
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
+import { carouselAssetValidationError } from "@/lib/marketing/content-delivery"
 import type { MarketingStatus } from "@/lib/marketing/types"
 
 const APPROVABLE: MarketingStatus[] = ["draft", "ready_for_review", "changes_requested"]
@@ -22,6 +23,10 @@ export class ApprovalService {
     if (!record) throw new Error("Content not found.")
     if (!hasReviewableCopy(record.content)) {
       throw new Error("Generate or complete headline, hook, caption, CTA, and hashtags before approval.")
+    }
+    if (record.content.contentType === "carousel") {
+      const mediaError = carouselAssetValidationError(record.content, record.assets)
+      if (mediaError) throw new Error(mediaError)
     }
 
     const content = await MarketingRepository.transitionContent({

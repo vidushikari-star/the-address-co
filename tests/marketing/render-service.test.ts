@@ -4,9 +4,22 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const childProcess = vi.hoisted(() => ({ spawn: vi.fn() }))
 const files = vi.hoisted(() => ({ mkdtemp: vi.fn(), readFile: vi.fn(), rm: vi.fn(), writeFile: vi.fn() }))
 const admin = vi.hoisted(() => ({ client: { storage: { from: vi.fn() } } }))
+const runtime = vi.hoisted(() => ({
+  readFileSync: vi.fn(() => "max"),
+  freemem: vi.fn(() => 1024 * 1024 * 1024),
+  totalmem: vi.fn(() => 2 * 1024 * 1024 * 1024),
+}))
 
 vi.mock("node:child_process", () => childProcess)
 vi.mock("node:fs/promises", () => files)
+vi.mock("node:fs", async importOriginal => {
+  const actual = await importOriginal<typeof import("node:fs")>()
+  return { ...actual, readFileSync: runtime.readFileSync }
+})
+vi.mock("node:os", async importOriginal => {
+  const actual = await importOriginal<typeof import("node:os")>()
+  return { ...actual, freemem: runtime.freemem, totalmem: runtime.totalmem }
+})
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabaseClient: () => admin.client }))
 
 import { RenderService } from "@/lib/marketing/services/render-service"
@@ -32,7 +45,7 @@ beforeEach(() => {
     child.stderr = stderr
     child.stdout = stdout
     queueMicrotask(() => {
-      if (executable.endsWith("ffprobe")) stdout.emit("data", JSON.stringify({ format: { format_name: "mp4" }, streams: [{ codec_type: "video", codec_name: "h264", pix_fmt: "yuv420p" }] }))
+      if (executable.endsWith("ffprobe")) stdout.emit("data", JSON.stringify({ format: { format_name: "mp4", duration: "8.2" }, streams: [{ codec_type: "video", codec_name: "h264", pix_fmt: "yuv420p", width: 1920, height: 1080, avg_frame_rate: "30/1" }] }))
       child.emit("close", 0)
     })
     return child
@@ -72,7 +85,7 @@ describe("RenderService audio mixing", () => {
     expect(sceneArgs).toEqual(expect.arrayContaining([
       "-filter_threads", String(REEL_FILTER_THREADS),
       "-filter_complex_threads", String(REEL_FILTER_THREADS),
-      "-preset", "veryfast",
+      "-preset", "ultrafast",
       "-threads", String(REEL_ENCODER_THREADS),
     ]))
     expect(args).not.toContain("-stream_loop")
@@ -101,7 +114,7 @@ describe("RenderService audio mixing", () => {
     })
     const sceneFilters = childProcess.spawn.mock.calls
       .map(([, args]) => args as string[])
-      .filter(args => args.includes("-filter_complex") && args.includes("-preset"))
+      .filter(args => args.includes("-filter_complex") && args.includes("-preset") && !args.includes("concat"))
     expect(sceneFilters).toHaveLength(1)
     const filters = sceneFilters[0][sceneFilters[0].indexOf("-filter_complex") + 1]
     expect(filters).toContain("[base][logo]overlay=")
@@ -161,10 +174,13 @@ describe("RenderService audio mixing", () => {
       child.stderr = stderr
       child.stdout = stdout
       queueMicrotask(() => {
-        if (!executable.endsWith("ffprobe")) {
+        if (executable.endsWith("ffprobe")) {
+          stdout.emit("data", JSON.stringify({ format: { duration: "8.2" }, streams: [{ codec_type: "video", codec_name: "h264", pix_fmt: "yuv420p", width: 1920, height: 1080, avg_frame_rate: "30/1" }] }))
+          child.emit("close", 0)
+        } else {
           stderr.emit("data", "Invalid filter drawtext=text='Private property copy' https://secret.example/token")
           child.emit("close", 1)
-        } else child.emit("close", 0)
+        }
       })
       return child
     })
@@ -192,7 +208,10 @@ describe("RenderService audio mixing", () => {
       child.stderr = stderr
       child.stdout = stdout
       queueMicrotask(() => {
-        if (!executable.endsWith("ffprobe")) {
+        if (executable.endsWith("ffprobe")) {
+          stdout.emit("data", JSON.stringify({ format: { duration: "8.2" }, streams: [{ codec_type: "video", codec_name: "h264", pix_fmt: "yuv420p", width: 1920, height: 1080, avg_frame_rate: "30/1" }] }))
+          child.emit("close", 0)
+        } else {
           child.exitCode = null
           child.signalCode = "SIGKILL"
           child.emit("close", null, "SIGKILL")
@@ -201,7 +220,7 @@ describe("RenderService audio mixing", () => {
       return child
     })
 
-    await expect(RenderService.renderReel(renderInput())).rejects.toThrow("Render ffmpeg failed: Scene 1: FFmpeg was terminated by SIGKILL; no FFmpeg stderr was available")
+    await expect(RenderService.renderReel(renderInput())).rejects.toThrow("Render ffmpeg failed: Scene 1: FFmpeg process was terminated externally by SIGKILL")
   })
 
   it("reports an explicit renderer timeout when its timeout terminates FFmpeg", async () => {
@@ -221,7 +240,10 @@ describe("RenderService audio mixing", () => {
           queueMicrotask(() => child.emit("close", null, signal))
           return true
         }
-        if (executable.endsWith("ffprobe")) queueMicrotask(() => child.emit("close", 0))
+        if (executable.endsWith("ffprobe")) queueMicrotask(() => {
+          stdout.emit("data", JSON.stringify({ format: { duration: "8.2" }, streams: [{ codec_type: "video", codec_name: "h264", pix_fmt: "yuv420p", width: 1920, height: 1080, avg_frame_rate: "30/1" }] }))
+          child.emit("close", 0)
+        })
         return child
       })
 
@@ -235,6 +257,40 @@ describe("RenderService audio mixing", () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it("normalizes a 4K 60fps HEVC source to a silent 720x1280 proxy before rendering its scene", async () => {
+    childProcess.spawn.mockImplementation((executable: string, args: string[]) => {
+      const stderr = new EventEmitter()
+      const stdout = new EventEmitter()
+      const child = new EventEmitter() as EventEmitter & { stderr: EventEmitter; stdout: EventEmitter; exitCode?: number | null; signalCode?: string | null }
+      child.stderr = stderr
+      child.stdout = stdout
+      queueMicrotask(() => {
+        if (executable.endsWith("ffprobe")) {
+          const sourceProbe = args.some(argument => String(argument).endsWith("source-0.mp4"))
+          stdout.emit("data", JSON.stringify(sourceProbe
+            ? { format: { duration: "8.2" }, streams: [{ codec_type: "video", codec_name: "hevc", pix_fmt: "yuv420p10le", width: 3840, height: 2160, avg_frame_rate: "60/1", color_transfer: "smpte2084" }] }
+            : { format: { format_name: "mp4" }, streams: [{ codec_type: "video", codec_name: "h264", pix_fmt: "yuv420p" }] }))
+        }
+        child.emit("close", 0)
+      })
+      return child
+    })
+    const input = renderInput()
+    input.assets[0] = { ...input.assets[0], mediaType: "video", sourceUrl: "https://project.supabase.co/storage/v1/object/sign/property.mp4" }
+
+    await RenderService.renderReel(input)
+
+    const ffmpegCalls = childProcess.spawn.mock.calls
+      .filter(([executable]) => !String(executable).endsWith("ffprobe"))
+      .map(([, args]) => args as string[])
+    const normalized = ffmpegCalls.find(args => args.some(argument => String(argument).endsWith("normalized-0.mp4")))!
+    const scene = ffmpegCalls.find(args => args.some(argument => String(argument).endsWith("scene-0.mp4")))!
+    expect(normalized).toEqual(expect.arrayContaining(["-an", "-preset", "ultrafast", "-threads", "1", "-vf", "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,fps=30,setsar=1,format=yuv420p"]))
+    expect(scene).toEqual(expect.arrayContaining(["-preset", "ultrafast", "-threads", "1", "-pix_fmt", "yuv420p"]))
+    expect(scene).toContain("/tmp/marketing-render-test/normalized-0.mp4")
+    expect(files.rm).toHaveBeenCalledWith("/tmp/marketing-render-test/normalized-0.mp4", { force: true })
   })
 
   it("renders complex Reels as isolated scene MP4s before a lightweight concat", async () => {
@@ -254,12 +310,12 @@ describe("RenderService audio mixing", () => {
       .filter(([executable]) => !String(executable).endsWith("ffprobe"))
       .map(([, args]) => args as string[])
     expect(ffmpegCalls).toHaveLength(11)
-    const sceneCalls = ffmpegCalls.filter(args => args.includes("-preset"))
+    const sceneCalls = ffmpegCalls.filter(args => args.includes("-preset") && !args.includes("concat"))
     expect(sceneCalls).toHaveLength(10)
     expect(sceneCalls.every(args => !args.includes("xfade"))).toBe(true)
     expect(sceneCalls.every(args => args.filter(arg => arg === "-i").length <= 1)).toBe(true)
     const concat = ffmpegCalls.find(args => args.includes("concat"))!
-    expect(concat).toEqual(expect.arrayContaining(["-f", "concat", "-c:v", "copy", "-an"]))
+    expect(concat).toEqual(expect.arrayContaining(["-f", "concat", "-c:v", "libx264", "-an", "-vf", "scale=1080:1920:flags=lanczos,format=yuv420p"]))
   })
 
   it("identifies the scene when an externally killed renderer stops a complex Reel", async () => {
@@ -272,6 +328,7 @@ describe("RenderService audio mixing", () => {
       child.stdout = stdout
       queueMicrotask(() => {
         if (executable.endsWith("ffprobe")) {
+          stdout.emit("data", JSON.stringify({ format: { duration: "8.2" }, streams: [{ codec_type: "video", codec_name: "h264", pix_fmt: "yuv420p", width: 1920, height: 1080, avg_frame_rate: "30/1" }] }))
           child.emit("close", 0)
           return
         }
@@ -296,6 +353,6 @@ describe("RenderService audio mixing", () => {
       })
     }
 
-    await expect(RenderService.renderReel(input)).rejects.toThrow("Render ffmpeg failed: Scene 7: FFmpeg was terminated by SIGKILL")
+    await expect(RenderService.renderReel(input)).rejects.toThrow("Render ffmpeg failed: Scene 7: FFmpeg process was terminated externally by SIGKILL")
   })
 })

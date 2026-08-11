@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { revalidatePath } from "next/cache"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
 import { ScheduleSchema } from "@/lib/marketing/schemas"
@@ -20,6 +21,8 @@ export async function POST(request: Request, context: Context) {
       timezone: parsed.data.timezone,
       adminId: access.user.id,
     })
+    revalidatePath("/marketing/content")
+    revalidatePath("/marketing/calendar")
     return NextResponse.json({ content })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Scheduling failed." }, { status: 409 })

@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process"
-import { createWriteStream } from "node:fs"
+import { createWriteStream, readFileSync, statfsSync } from "node:fs"
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
+import { freemem, tmpdir, totalmem } from "node:os"
 import { dirname, join } from "node:path"
 import { Readable, Transform } from "node:stream"
 import { pipeline } from "node:stream/promises"
@@ -15,12 +15,19 @@ import type { MarketingAsset, ReelComposition } from "@/lib/marketing/types"
 const MAX_RENDER_INPUT_BYTES = 75 * 1024 * 1024
 const MAX_AUDIO_INPUT_BYTES = 25 * 1024 * 1024
 const MAX_LOGO_INPUT_BYTES = 5 * 1024 * 1024
-export const REEL_ENCODER_THREADS = 2
-export const REEL_FILTER_THREADS = 2
+/** Disposable scene proxies are deliberately single-threaded on Railway. */
+export const REEL_ENCODER_THREADS = 1
+export const REEL_FILTER_THREADS = 1
 export const REEL_RENDER_TIMEOUT_MS = 4 * 60_000
-const REEL_RENDER_PRESET = "veryfast"
+const REEL_RENDER_PRESET = "ultrafast"
+const REEL_FINAL_PRESET = "veryfast"
+export const REEL_SCENE_WIDTH = 720
+export const REEL_SCENE_HEIGHT = 1280
 const REEL_RESOLUTION = "1080x1920"
 const REEL_FPS = 30
+const NORMALIZE_MAX_SOURCE_PIXELS = 4_000_000
+const MIN_AVAILABLE_RENDER_MEMORY_MB = 96
+const MIN_AVAILABLE_NORMALIZATION_MEMORY_MB = 192
 
 function allowedMediaOrigin(url: URL) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -49,7 +56,7 @@ async function saveResponseToFile(response: Response, destination: string, maxim
     const bytes = new Uint8Array(await response.arrayBuffer())
     if (bytes.byteLength > maximumBytes) throw new Error(limitMessage)
     await writeFile(destination, bytes)
-    return
+    return bytes.byteLength
   }
 
   let written = 0
@@ -64,6 +71,7 @@ async function saveResponseToFile(response: Response, destination: string, maxim
     },
   })
   await pipeline(Readable.fromWeb(response.body as unknown as import("node:stream/web").ReadableStream), guard, createWriteStream(destination))
+  return written
 }
 
 async function downloadAsset(asset: MarketingAsset, destination: string) {
@@ -83,7 +91,7 @@ async function downloadAsset(asset: MarketingAsset, destination: string) {
     throw new Error("Renderer received an unsupported asset MIME type.")
   }
 
-  await saveResponseToFile(response, destination, MAX_RENDER_INPUT_BYTES, "A render asset exceeds the 75 MB safety limit.")
+  return { byteLength: await saveResponseToFile(response, destination, MAX_RENDER_INPUT_BYTES, "A render asset exceeds the 75 MB safety limit.") }
 }
 
 function audioExtension(mimeType: string) {
@@ -143,8 +151,31 @@ async function downloadLogo(input: { sourceUrl: string; mimeType: "image/png" | 
 
 type FfmpegRenderContext = {
   strategy?: "per_scene" | "single_graph"
-  phase?: "scene" | "concat" | "image"
+  phase?: "scene" | "concat" | "image" | "normalize"
   sceneIndex?: number
+  source?: SourceInspection
+  resources?: WorkerResources
+}
+
+type SourceInspection = {
+  sourceType: "image" | "video"
+  fileSizeMb: number
+  width: number
+  height: number
+  fps: number
+  codec: string
+  pixelFormat: string
+  durationSeconds: number
+  hdr: boolean
+}
+
+type WorkerResources = {
+  nodeRssMb: number
+  systemFreeMemoryMb: number
+  systemTotalMemoryMb: number
+  workerAvailableMemoryMb: number
+  containerMemoryLimitMb: number
+  diskFreeMb: number
 }
 
 function approxProcessRssMb() {
@@ -153,6 +184,128 @@ function approxProcessRssMb() {
   } catch {
     return 0
   }
+}
+
+function roundedMb(bytes: number) {
+  return Math.max(0, Math.round(bytes / 1024 / 1024))
+}
+
+function readCgroupNumber(path: string) {
+  try {
+    const value = readFileSync(path, "utf8").trim()
+    if (value === "max") return null
+    const parsed = Number(value)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function workerResources(workspace?: string): WorkerResources {
+  const systemFreeMemoryMb = roundedMb(freemem())
+  const systemTotalMemoryMb = roundedMb(totalmem())
+  const cgroupLimit = readCgroupNumber("/sys/fs/cgroup/memory.max") ?? readCgroupNumber("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+  const cgroupCurrent = readCgroupNumber("/sys/fs/cgroup/memory.current") ?? readCgroupNumber("/sys/fs/cgroup/memory/memory.usage_in_bytes")
+  const containerMemoryLimitMb = cgroupLimit ? roundedMb(cgroupLimit) : 0
+  const cgroupAvailableMb = cgroupLimit && cgroupCurrent ? roundedMb(Math.max(0, cgroupLimit - cgroupCurrent)) : 0
+  let diskFreeMb = 0
+  try {
+    const stats = statfsSync(/* turbopackIgnore: true */ workspace ?? tmpdir())
+    diskFreeMb = roundedMb(Number(stats.bavail) * Number(stats.bsize))
+  } catch {
+    // A diagnostic must never prevent an otherwise valid render.
+  }
+  return {
+    nodeRssMb: approxProcessRssMb(),
+    systemFreeMemoryMb,
+    systemTotalMemoryMb,
+    workerAvailableMemoryMb: cgroupAvailableMb || systemFreeMemoryMb,
+    containerMemoryLimitMb,
+    diskFreeMb,
+  }
+}
+
+export class RenderDeferredError extends Error {
+  constructor(resources: WorkerResources, minimumMb: number) {
+    super(`Render deferred: insufficient worker memory (${resources.workerAvailableMemoryMb}MB available; ${minimumMb}MB required).`)
+    this.name = "RenderDeferredError"
+  }
+}
+
+function ensureWorkerMemory(workspace: string, minimumMb = MIN_AVAILABLE_RENDER_MEMORY_MB) {
+  const resources = workerResources(workspace)
+  if (resources.workerAvailableMemoryMb > 0 && resources.workerAvailableMemoryMb < minimumMb) {
+    throw new RenderDeferredError(resources, minimumMb)
+  }
+  return resources
+}
+
+function safeFrameRate(value: unknown) {
+  const source = String(value ?? "")
+  const [numerator, denominator] = source.split("/").map(Number)
+  if (Number.isFinite(numerator) && Number.isFinite(denominator) && denominator > 0) return Number((numerator / denominator).toFixed(3))
+  const direct = Number(source)
+  return Number.isFinite(direct) ? Number(direct.toFixed(3)) : 0
+}
+
+async function inspectSource(path: string, sourceType: SourceInspection["sourceType"], byteLength: number): Promise<SourceInspection> {
+  const executable = ffprobeExecutable()
+  const output = await new Promise<string>((resolve, reject) => {
+    const child = spawn(executable, [
+      "-v", "error",
+      "-show_entries", "stream=codec_type,codec_name,width,height,avg_frame_rate,r_frame_rate,pix_fmt,color_transfer,color_space:format=duration",
+      "-of", "json",
+      path,
+    ], { shell: false, stdio: ["ignore", "pipe", "pipe"] })
+    let stdout = ""
+    let stderr = ""
+    child.stdout.on("data", data => { stdout = `${stdout}${String(data)}`.slice(-8_000) })
+    child.stderr.on("data", data => { stderr = `${stderr}${String(data)}`.slice(-2_000) })
+    child.on("error", error => reject(new Error(`ffprobe could not start (${sanitizeRenderDiagnostic(error)})`)))
+    child.on("close", code => code === 0
+      ? resolve(stdout)
+      : reject(new Error(`ffprobe exited with ${code ?? "unknown"}: ${sanitizeRenderDiagnostic(stderr, 500)}`)))
+  })
+  let parsed: {
+    format?: { duration?: unknown }
+    streams?: Array<{ codec_type?: unknown; codec_name?: unknown; width?: unknown; height?: unknown; avg_frame_rate?: unknown; r_frame_rate?: unknown; pix_fmt?: unknown; color_transfer?: unknown }>
+  }
+  try {
+    parsed = JSON.parse(output) as typeof parsed
+  } catch {
+    throw new Error("ffprobe returned invalid source metadata.")
+  }
+  const stream = parsed.streams?.find(candidate => candidate.codec_type === "video")
+  if (!stream) throw new Error("ffprobe found no visual source stream.")
+  const pixelFormat = typeof stream.pix_fmt === "string" ? stream.pix_fmt : "unknown"
+  const colorTransfer = typeof stream.color_transfer === "string" ? stream.color_transfer.toLowerCase() : ""
+  return {
+    sourceType,
+    fileSizeMb: Number((byteLength / 1024 / 1024).toFixed(1)),
+    width: Number(stream.width) || 0,
+    height: Number(stream.height) || 0,
+    fps: safeFrameRate(stream.avg_frame_rate ?? stream.r_frame_rate),
+    codec: typeof stream.codec_name === "string" ? stream.codec_name.toLowerCase() : "unknown",
+    pixelFormat,
+    durationSeconds: Math.max(0, Number(Number(parsed.format?.duration ?? 0).toFixed(3)) || 0),
+    hdr: pixelFormat.includes("10") || ["smpte2084", "arib-std-b67"].includes(colorTransfer),
+  }
+}
+
+function requiresNormalization(source: SourceInspection) {
+  const pixels = source.width * source.height
+  return pixels > NORMALIZE_MAX_SOURCE_PIXELS ||
+    source.width > 1920 || source.height > 1920 ||
+    source.fps > REEL_FPS ||
+    source.codec === "hevc" ||
+    source.pixelFormat.includes("10") || source.hdr
+}
+
+function sourceSummary(source: SourceInspection | undefined) {
+  if (!source) return ""
+  const dimensions = source.width && source.height ? `${source.width}x${source.height}` : "unknown dimensions"
+  const fps = source.fps ? `${source.fps}fps` : "unknown fps"
+  return `Source: ${source.sourceType}, ${dimensions}, ${source.codec}, ${fps}, ${source.fileSizeMb.toFixed(1)}MB.`
 }
 
 async function runFfmpeg(
@@ -167,18 +320,18 @@ async function runFfmpeg(
   logRenderStage("ffmpeg", "started", {
     input_assets: inputCount,
     target_duration_seconds: targetDuration.toFixed(3),
-    resolution: REEL_RESOLUTION,
+    resolution: context.phase === "scene" || context.phase === "normalize" ? `${REEL_SCENE_WIDTH}x${REEL_SCENE_HEIGHT}` : REEL_RESOLUTION,
     fps: REEL_FPS,
     encoder_threads: REEL_ENCODER_THREADS,
     filter_threads: REEL_FILTER_THREADS,
     filter_complex_threads: REEL_FILTER_THREADS,
-    preset: REEL_RENDER_PRESET,
+    preset: context.phase === "scene" || context.phase === "normalize" ? REEL_RENDER_PRESET : REEL_FINAL_PRESET,
     timeout_seconds: REEL_RENDER_TIMEOUT_MS / 1_000,
     audio: hasAudio,
     render_strategy: context.strategy ?? "single_graph",
     phase: context.phase ?? "image",
     scene_index: context.sceneIndex ?? 0,
-    rss_mb: approxProcessRssMb(),
+    rss_mb: context.resources?.nodeRssMb ?? approxProcessRssMb(),
   })
 
   return new Promise<number>((resolve, reject) => {
@@ -211,7 +364,7 @@ async function runFfmpeg(
         const terminationReason = timedOut
           ? `Render timed out after ${REEL_RENDER_TIMEOUT_MS / 1_000} seconds`
           : exitCode === null && (terminationSignal === "SIGKILL" || terminationSignal === "SIGTERM")
-            ? `FFmpeg was terminated by ${terminationSignal}`
+          ? `FFmpeg process was terminated externally by ${terminationSignal} after ${(elapsedMs / 1_000).toFixed(1)} seconds. ${sourceSummary(context.source)} Available worker memory before render: ${context.resources?.workerAvailableMemoryMb ?? 0}MB. Resource cause could not be confirmed.`
             : exitCode === null
               ? `FFmpeg exited without a numeric exit code${terminationSignal ? ` (signal=${terminationSignal})` : ""}`
               : `exit_code=${exitCode}`
@@ -277,8 +430,56 @@ function sceneInputArgs(asset: MarketingAsset, sourcePath: string, duration: num
     : ["-stream_loop", "-1", "-t", duration.toFixed(3), "-i", sourcePath]
 }
 
+function scaleOverlayLayout(layout: ReelOverlayLayout | null) {
+  if (!layout) return null
+  const scale = REEL_SCENE_WIDTH / 1080
+  return {
+    ...layout,
+    fontSize: Math.max(1, Math.round(layout.fontSize * scale)),
+    lineSpacing: Math.max(1, Math.round(layout.lineSpacing * scale)),
+    boxPadding: Math.max(1, Math.round(layout.boxPadding * scale)),
+    x: Math.round(layout.x * scale),
+    y: Math.round(layout.y * scale),
+  }
+}
+
 function sceneVideoFilter(layout: ReelOverlayLayout | null, overlayTextPath: string | null, typographyStyle: ReelComposition["typographyStyle"]) {
-  return `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=${REEL_FPS},setsar=1${textOverlayFilter({ layout, textFilePath: overlayTextPath, typographyStyle })}`
+  return `scale=${REEL_SCENE_WIDTH}:${REEL_SCENE_HEIGHT}:force_original_aspect_ratio=increase,crop=${REEL_SCENE_WIDTH}:${REEL_SCENE_HEIGHT},fps=${REEL_FPS},setsar=1${textOverlayFilter({ layout: scaleOverlayLayout(layout), textFilePath: overlayTextPath, typographyStyle })}`
+}
+
+function normalizationFilter() {
+  return `scale=${REEL_SCENE_WIDTH}:${REEL_SCENE_HEIGHT}:force_original_aspect_ratio=increase,crop=${REEL_SCENE_WIDTH}:${REEL_SCENE_HEIGHT},fps=${REEL_FPS},setsar=1,format=yuv420p`
+}
+
+function normalizationArgs(input: {
+  asset: MarketingAsset
+  sourcePath: string
+  outputPath: string
+  duration: number
+}) {
+  const args = [
+    "-y",
+    "-threads", String(REEL_ENCODER_THREADS),
+    "-filter_threads", String(REEL_FILTER_THREADS),
+    "-filter_complex_threads", String(REEL_FILTER_THREADS),
+    "-i", input.sourcePath,
+    "-vf", normalizationFilter(),
+  ]
+  if (input.asset.mediaType === "image") {
+    args.push("-frames:v", "1", "-q:v", "2", input.outputPath)
+  } else {
+    args.push(
+      "-t", input.duration.toFixed(3),
+      "-an",
+      "-c:v", "libx264",
+      "-preset", REEL_RENDER_PRESET,
+      "-crf", "23",
+      "-pix_fmt", "yuv420p",
+      "-movflags", "+faststart",
+      input.outputPath,
+    )
+  }
+  return args
 }
 
 function sceneRenderArgs(input: {
@@ -313,6 +514,7 @@ function sceneRenderArgs(input: {
     "-an",
     "-c:v", "libx264",
     "-preset", REEL_RENDER_PRESET,
+    "-crf", "23",
     "-threads", String(REEL_ENCODER_THREADS),
     "-pix_fmt", "yuv420p",
     "-r", String(REEL_FPS),
@@ -352,7 +554,16 @@ function concatRenderArgs(input: {
   } else {
     args.push("-an")
   }
-  args.push("-c:v", "copy", "-movflags", "+faststart", input.outputPath)
+  args.push(
+    "-vf", `scale=1080:1920:flags=lanczos,format=yuv420p`,
+    "-c:v", "libx264",
+    "-preset", REEL_FINAL_PRESET,
+    "-crf", "20",
+    "-threads", String(REEL_ENCODER_THREADS),
+    "-pix_fmt", "yuv420p",
+    "-movflags", "+faststart",
+    input.outputPath,
+  )
   return args
 }
 
@@ -467,6 +678,7 @@ export class RenderService {
       const totalDuration = compositionAssets.reduce((total, item) => total + item.scene.duration, 0)
       for (const [index, { scene, asset }] of compositionAssets.entries()) {
         const sourcePath = join(/* turbopackIgnore: true */ workspace, `source-${index}.${safeExtension(asset)}`)
+        const normalizedPath = join(/* turbopackIgnore: true */ workspace, `normalized-${index}.${asset.mediaType === "image" ? "jpg" : "mp4"}`)
         const scenePath = join(/* turbopackIgnore: true */ workspace, `scene-${index}.mp4`)
         const overlayLayout = layoutReelOverlay({
           text: scene.overlay?.text,
@@ -480,40 +692,93 @@ export class RenderService {
           input.logo?.placement !== "end_card_only" || index === compositionAssets.length - 1
         ))
         const sceneLogo = shouldApplyLogo && logoPath && logo
-          ? { path: logoPath, x: logo.x, y: logo.y, size: logo.size, opacity: Math.max(0.1, Math.min(1, input.logo?.opacity ?? 0.65)) }
+          ? {
+              path: logoPath,
+              x: Math.round(logo.x * REEL_SCENE_WIDTH / 1080),
+              y: Math.round(logo.y * REEL_SCENE_WIDTH / 1080),
+              size: Math.round(logo.size * REEL_SCENE_WIDTH / 1080),
+              opacity: Math.max(0.1, Math.min(1, input.logo?.opacity ?? 0.65)),
+            }
           : null
         try {
+          const download = await downloadAsset(asset, sourcePath)
+          const source = await inspectSource(sourcePath, asset.mediaType === "video" ? "video" : "image", download.byteLength)
+          const normalizationRequired = requiresNormalization(source)
+          const resources = ensureWorkerMemory(workspace, normalizationRequired ? MIN_AVAILABLE_NORMALIZATION_MEMORY_MB : MIN_AVAILABLE_RENDER_MEMORY_MB)
           logRenderStage("scene", "started", {
             render_strategy: "per_scene",
             scene_index: index + 1,
-            target_duration_seconds: scene.duration.toFixed(3),
+            source_type: source.sourceType,
+            source_file_size_mb: source.fileSizeMb,
+            source_width: source.width,
+            source_height: source.height,
+            source_fps: source.fps,
+            source_codec: source.codec,
+            source_pixel_format: source.pixelFormat,
+            source_duration_seconds: source.durationSeconds,
+            source_hdr: source.hdr,
+            node_rss_mb: resources.nodeRssMb,
+            system_free_memory_mb: resources.systemFreeMemoryMb,
+            system_total_memory_mb: resources.systemTotalMemoryMb,
+            worker_available_memory_mb: resources.workerAvailableMemoryMb,
+            container_memory_limit_mb: resources.containerMemoryLimitMb,
+            disk_free_mb: resources.diskFreeMb,
+            target_width: REEL_SCENE_WIDTH,
+            target_height: REEL_SCENE_HEIGHT,
+            target_fps: REEL_FPS,
+            threads: REEL_ENCODER_THREADS,
+            preset: REEL_RENDER_PRESET,
+            audio_present: false,
+            normalization_required: normalizationRequired,
             overlay_lines: overlayLayout?.lines.length ?? 0,
-            font_size: overlayLayout?.fontSize ?? 0,
             layout_status: overlayLayout?.status ?? "empty",
-            rss_mb: approxProcessRssMb(),
           })
-          await downloadAsset(asset, sourcePath)
           logRenderStage("download", "ok", { render_strategy: "per_scene", scene_index: index + 1 })
           if (overlayLayout && overlayTextPath) await writeFile(overlayTextPath, overlayLayout.text, "utf8")
+          const renderSourcePath = normalizationRequired ? normalizedPath : sourcePath
+          if (renderSourcePath === normalizedPath) {
+            const normalizationResources = ensureWorkerMemory(workspace, MIN_AVAILABLE_NORMALIZATION_MEMORY_MB)
+            await runFfmpeg(normalizationArgs({
+              asset,
+              sourcePath,
+              outputPath: normalizedPath,
+              duration: scene.duration,
+            }), 1, false, scene.duration, {
+              strategy: "per_scene",
+              phase: "normalize",
+              sceneIndex: index + 1,
+              source,
+              resources: normalizationResources,
+            })
+          }
+          const sceneResources = ensureWorkerMemory(workspace)
           const elapsedMs = await runFfmpeg(sceneRenderArgs({
             asset,
-            sourcePath,
+            sourcePath: renderSourcePath,
             outputPath: scenePath,
             scene,
             typographyStyle,
             overlayLayout,
             overlayTextPath,
             logo: sceneLogo,
-          }), 1 + Number(Boolean(sceneLogo)), false, scene.duration, { strategy: "per_scene", phase: "scene", sceneIndex: index + 1 })
+          }), 1 + Number(Boolean(sceneLogo)), false, scene.duration, {
+            strategy: "per_scene",
+            phase: "scene",
+            sceneIndex: index + 1,
+            source,
+            resources: sceneResources,
+          })
           scenePaths.push(scenePath)
           logRenderStage("scene", "ok", { render_strategy: "per_scene", scene_index: index + 1, elapsed_ms: elapsedMs, rss_mb: approxProcessRssMb() })
         } catch (error) {
+          if (error instanceof RenderDeferredError) throw error
           // The ffmpeg error itself retains the `ffmpeg` stage so SIGKILL and
           // timeout logic still marks the job/content terminally and safely.
           if (error instanceof Error && error.message.includes("Render ffmpeg failed:")) throw error
           throw renderStageFailure("scene", `Scene ${index + 1}: ${sanitizeRenderDiagnostic(error)}`)
         } finally {
           await rm(sourcePath, { force: true })
+          await rm(normalizedPath, { force: true })
           if (overlayTextPath) await rm(overlayTextPath, { force: true })
         }
       }
@@ -521,10 +786,12 @@ export class RenderService {
       const manifestPath = join(/* turbopackIgnore: true */ workspace, "scenes.ffconcat")
       try {
         await writeFile(manifestPath, concatManifest(scenePaths))
-        logRenderStage("concat", "started", { render_strategy: "per_scene", scenes: scenePaths.length, target_duration_seconds: totalDuration.toFixed(3), rss_mb: approxProcessRssMb() })
-        const elapsedMs = await runFfmpeg(concatRenderArgs({ manifestPath, outputPath, totalDuration, audioPath, audioDuration: input.audio?.durationSeconds }), 1 + Number(Boolean(audioPath)), Boolean(input.audio), totalDuration, { strategy: "per_scene", phase: "concat" })
+        const resources = ensureWorkerMemory(workspace)
+        logRenderStage("concat", "started", { render_strategy: "per_scene", scenes: scenePaths.length, target_duration_seconds: totalDuration.toFixed(3), source_resolution: `${REEL_SCENE_WIDTH}x${REEL_SCENE_HEIGHT}`, target_resolution: REEL_RESOLUTION, rss_mb: resources.nodeRssMb, worker_available_memory_mb: resources.workerAvailableMemoryMb })
+        const elapsedMs = await runFfmpeg(concatRenderArgs({ manifestPath, outputPath, totalDuration, audioPath, audioDuration: input.audio?.durationSeconds }), 1 + Number(Boolean(audioPath)), Boolean(input.audio), totalDuration, { strategy: "per_scene", phase: "concat", resources })
         logRenderStage("concat", "ok", { render_strategy: "per_scene", scenes: scenePaths.length, elapsed_ms: elapsedMs, rss_mb: approxProcessRssMb() })
       } catch (error) {
+        if (error instanceof RenderDeferredError) throw error
         if (error instanceof Error && error.message.includes("Render ffmpeg failed:")) throw error
         throw renderStageFailure("concat", error)
       } finally {

@@ -10,6 +10,7 @@ const repository = vi.hoisted(() => ({
   getInstagramAccount: vi.fn().mockResolvedValue(null),
   approveNewestDraftReelVersion: vi.fn().mockResolvedValue(undefined),
   listReelVersions: vi.fn().mockResolvedValue([]),
+  scheduleApprovedContent: vi.fn().mockResolvedValue({ id: "content-1", status: "scheduled" }),
 }))
 
 vi.mock("@/lib/marketing/repositories/marketing-repository", () => ({ MarketingRepository: repository }))
@@ -38,6 +39,7 @@ beforeEach(() => {
   repository.getContentById.mockResolvedValue(record("approved"))
   repository.getInstagramAccount.mockResolvedValue(null)
   repository.listReelVersions.mockResolvedValue([])
+  repository.scheduleApprovedContent.mockResolvedValue({ id: "content-1", status: "scheduled" })
   vi.stubEnv("INSTAGRAM_PUBLISHING_ENABLED", "false")
 })
 
@@ -74,9 +76,7 @@ describe("approval and scheduling guards", () => {
 
     await SchedulerService.schedule({ contentId: "content-1", scheduledFor, timezone: "Asia/Kolkata", adminId: "admin-1" })
 
-    expect(repository.transitionContent).toHaveBeenCalledWith(expect.objectContaining({ from: "approved", to: "scheduled" }))
-    expect(repository.upsertSchedule).toHaveBeenCalledWith(expect.objectContaining({ scheduledFor, timezone: "Asia/Kolkata", createdBy: "admin-1" }))
-    expect(repository.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "publish_instagram", runAfter: scheduledFor }))
+    expect(repository.scheduleApprovedContent).toHaveBeenCalledWith(expect.objectContaining({ contentId: "content-1", scheduledFor, timezone: "Asia/Kolkata", createdBy: "admin-1" }))
   })
 
   it("does not schedule a draft", async () => {
@@ -100,6 +100,40 @@ describe("approval and scheduling guards", () => {
       timezone: "Asia/Kolkata",
       adminId: "admin-1",
     })).rejects.toThrow("Required publish media is not ready")
+  })
+
+  it("schedules an approved Carousel from its ordered original CRM assets without FFmpeg or a rendered MP4", async () => {
+    const assets = [0, 1, 2, 3, 4].map(index => ({
+      id: `asset-${index}`,
+      kind: "original_reference",
+      mediaType: "image",
+      sourceUrl: `https://images.example/villa-${index}.jpg`,
+      sortOrder: index,
+      createdAt: "2026-08-10T00:00:00.000Z",
+      metadata: { isCover: index === 0 },
+    }))
+    repository.getContentById.mockResolvedValue({
+      content: { ...record("approved", "carousel").content, composition: { format: "carousel", selectedAssetIds: assets.map(asset => asset.id) } },
+      assets,
+    })
+    const scheduledFor = new Date(Date.now() + 3_600_000).toISOString()
+
+    await SchedulerService.schedule({ contentId: "content-1", scheduledFor, timezone: "Asia/Kolkata", adminId: "admin-1" })
+
+    expect(repository.listReelVersions).not.toHaveBeenCalled()
+    expect(repository.scheduleApprovedContent).toHaveBeenCalledWith(expect.objectContaining({ contentId: "content-1", scheduledFor }))
+  })
+
+  it("keeps an invalid Carousel approved and returns an actionable media error", async () => {
+    repository.getContentById.mockResolvedValue({
+      content: { ...record("approved", "carousel").content, composition: { format: "carousel", selectedAssetIds: ["missing-asset", "asset-2"] } },
+      assets: [{ id: "asset-2", kind: "original_reference", mediaType: "image", sourceUrl: "https://images.example/2.jpg", sortOrder: 2, createdAt: "2026-08-10T00:00:00.000Z", metadata: {} }],
+    })
+
+    await expect(SchedulerService.schedule({
+      contentId: "content-1", scheduledFor: new Date(Date.now() + 3_600_000).toISOString(), timezone: "Asia/Kolkata", adminId: "admin-1",
+    })).rejects.toThrow("1 selected media asset could not be resolved")
+    expect(repository.scheduleApprovedContent).not.toHaveBeenCalled()
   })
 
   it("does not schedule the old active Reel while a newer approved version awaits rendering", async () => {

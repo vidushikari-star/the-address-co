@@ -4,10 +4,16 @@ import type { MarketingJob } from "@/lib/marketing/types"
 import { RenderStageError } from "@/lib/marketing/render-diagnostics"
 
 const admin = vi.hoisted(() => ({ client: { from: vi.fn(), rpc: vi.fn(), storage: { from: vi.fn() } } }))
-const renderService = vi.hoisted(() => ({ renderReel: vi.fn() }))
+const renderService = vi.hoisted(() => ({
+  renderReel: vi.fn(),
+  RenderDeferredError: class RenderDeferredError extends Error {},
+}))
 
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabaseClient: () => admin.client }))
-vi.mock("@/lib/marketing/services/render-service", () => ({ RenderService: renderService }))
+vi.mock("@/lib/marketing/services/render-service", () => ({
+  RenderService: renderService,
+  RenderDeferredError: renderService.RenderDeferredError,
+}))
 
 import { MarketingWorkerService, RENDER_JOB_TYPES } from "@/lib/marketing/services/marketing-worker-service"
 
@@ -255,7 +261,7 @@ describe("MarketingWorkerService render queue", () => {
     const lock = lockQuery(queuedJob({ status: "running", attempts: 1, progress: 5 }))
     const jobFailure = terminalUpdateQuery()
     const contentFailure = terminalUpdateQuery()
-    vi.spyOn(privateWorker(), "process").mockRejectedValue(new RenderStageError("ffmpeg", "FFmpeg was terminated by SIGKILL"))
+    vi.spyOn(privateWorker(), "process").mockRejectedValue(new RenderStageError("ffmpeg", "FFmpeg process was terminated externally by SIGKILL after 12.4 seconds. Resource cause could not be confirmed."))
     let jobTableCalls = 0
     admin.client.from.mockImplementation((table: string) => {
       if (table === "marketing_jobs") return [discovery, lock, jobFailure][jobTableCalls++]
@@ -268,11 +274,36 @@ describe("MarketingWorkerService render queue", () => {
 
     expect(jobFailure.update).toHaveBeenCalledWith(expect.objectContaining({
       status: "failed",
-      error: "Render ffmpeg failed: FFmpeg was terminated by SIGKILL",
+      error: "Render ffmpeg failed: FFmpeg process was terminated externally by SIGKILL after 12.4 seconds. Resource cause could not be confirmed.",
     }))
     expect(contentFailure.update).toHaveBeenCalledWith({
       status: "failed",
-      last_error: "Render ffmpeg failed: FFmpeg was terminated by SIGKILL",
+      last_error: "Render ffmpeg failed: FFmpeg process was terminated externally by SIGKILL after 12.4 seconds. Resource cause could not be confirmed.",
     })
+  })
+
+  it("defers a render when the worker memory guard is below its safe threshold without failing the Reel", async () => {
+    const candidate = queuedJob()
+    const discovery = queryWithRows([candidate])
+    const lock = lockQuery(queuedJob({ status: "running", attempts: 1, progress: 5 }))
+    const jobDeferred = terminalUpdateQuery()
+    const contentDeferred = terminalUpdateQuery()
+    vi.spyOn(privateWorker(), "process").mockRejectedValue(new renderService.RenderDeferredError("Render deferred: insufficient worker memory."))
+    let jobTableCalls = 0
+    admin.client.from.mockImplementation((table: string) => {
+      if (table === "marketing_jobs") return [discovery, lock, jobDeferred][jobTableCalls++]
+      if (table === "marketing_content") return contentDeferred
+      throw new Error(`Unexpected table: ${table}`)
+    })
+
+    await expect(MarketingWorkerService.run(1, { jobTypes: RENDER_JOB_TYPES }))
+      .resolves.toEqual([{ id: "job-1", status: "skipped" }])
+
+    expect(jobDeferred.update).toHaveBeenCalledWith(expect.objectContaining({
+      status: "queued",
+      error: "Render deferred: insufficient worker memory.",
+      progress: 0,
+    }))
+    expect(contentDeferred.update).toHaveBeenCalledWith({ last_error: "Render deferred: insufficient worker memory." })
   })
 })

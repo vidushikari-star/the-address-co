@@ -34,9 +34,13 @@ function stringArray(value: unknown): string[] {
 
 function mapContent(row: Row): MarketingContent {
   const property = object(row.properties)
-  const assets = Array.isArray(row.marketing_content_assets)
+  const assets = (Array.isArray(row.marketing_content_assets)
     ? row.marketing_content_assets.map(object)
-    : []
+    : []).sort((left, right) =>
+      Number(left.sort_order ?? 0) - Number(right.sort_order ?? 0) ||
+      String(left.created_at ?? "").localeCompare(String(right.created_at ?? "")) ||
+      String(left.id ?? "").localeCompare(String(right.id ?? ""))
+    )
 
   const activeReelVersionId = row.active_reel_version_id as string | null
   const renderedAsset = assets.find(asset => asset.kind === "rendered_media" && (
@@ -97,6 +101,14 @@ function mapAsset(row: Row): MarketingAsset {
     sortOrder: Number(row.sort_order ?? 0),
     createdAt: String(row.created_at),
   }
+}
+
+function sortAssets<T extends MarketingAsset>(assets: T[]) {
+  return [...assets].sort((left, right) =>
+    left.sortOrder - right.sortOrder ||
+    left.createdAt.localeCompare(right.createdAt) ||
+    left.id.localeCompare(right.id)
+  )
 }
 
 function mapAudioTrack(row: Row, signedUrl?: string | null): MarketingAudioTrack {
@@ -561,7 +573,8 @@ export class MarketingRepository {
     const assets = Array.isArray(row.marketing_content_assets)
       ? row.marketing_content_assets.map(object).map(asset => ({ ...asset, signed_url: null }))
       : []
-    return { content: mapContent({ ...row, marketing_content_assets: assets }), assets: assets.map(mapAsset) }
+    const mappedAssets = sortAssets(assets.map(mapAsset))
+    return { content: mapContent({ ...row, marketing_content_assets: assets }), assets: mappedAssets }
   }
 
   static async listContent(options?: {
@@ -630,7 +643,7 @@ export class MarketingRepository {
 
     return {
       content: mapContent({ ...row, marketing_content_assets: signedAssets }),
-      assets: signedAssets.map(mapAsset),
+      assets: sortAssets(signedAssets.map(mapAsset)),
     }
   }
 
@@ -1048,6 +1061,29 @@ export class MarketingRepository {
       created_by: input.createdBy,
     }, { onConflict: "content_id" })
     if (error) throw error
+  }
+
+  /**
+   * The database locks the approved item and writes its schedule, queued
+   * publish job, and audit event in one transaction. This prevents an
+   * otherwise-valid Carousel from remaining approved after a partial write.
+   */
+  static async scheduleApprovedContent(input: {
+    contentId: string
+    scheduledFor: string
+    timezone: string
+    createdBy: string
+  }) {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase.rpc("schedule_marketing_content", {
+      p_content_id: input.contentId,
+      p_scheduled_for: input.scheduledFor,
+      p_timezone: input.timezone,
+      p_created_by: input.createdBy,
+    }).maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error("Scheduled publishing job could not be created.")
+    return mapContent(data as Row)
   }
 
   static async recordUsage(input: {

@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     if (existing) return NextResponse.json({ content: existing.content, duplicate: true })
 
     const account = await MarketingRepository.getInstagramAccount()
-    const content = await MarketingRepository.createContent({
+    let content = await MarketingRepository.createContent({
       contentType: parsed.data.contentType,
       creativeDirection: parsed.data.creativeDirection,
       property,
@@ -44,7 +44,27 @@ export async function POST(request: Request) {
       createdBy: access.user.id,
       idempotencyKey: parsed.data.idempotencyKey,
     })
-    await MarketingRepository.addSourceAssets(content.id, property)
+    const sourceAssets = await MarketingRepository.addSourceAssets(content.id, property)
+    // Persist the exact ordered relation this Carousel will review and
+    // publish. The property itself is never changed; these remain references.
+    if (content.contentType === "carousel") {
+      const selectedAssets = sourceAssets
+        .filter(asset => asset.kind === "original_reference" && ["image", "video"].includes(asset.mediaType) && Boolean(asset.sourceUrl))
+        .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id))
+        .slice(0, 10)
+      const cover = selectedAssets.find(asset => asset.metadata?.isCover === true)
+      const selectedAssetIds = cover
+        ? [cover, ...selectedAssets.filter(asset => asset.id !== cover.id)].map(asset => asset.id)
+        : selectedAssets.map(asset => asset.id)
+      content = await MarketingRepository.updateContent(content.id, {
+        composition: {
+          format: "carousel",
+          aspectRatio: "1:1",
+          selectedAssetIds,
+          audio: { type: "none", label: "No audio selected" },
+        },
+      }, access.user.id)
+    }
     await MarketingRepository.addAuditLog({
       actorId: access.user.id,
       contentId: content.id,
