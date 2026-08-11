@@ -30,9 +30,10 @@ export function CarouselMediaPreview({ assets }: { assets: MarketingAsset[] }) {
   }
 
   const cover = current.metadata.isCover === true
+  const carouselCover = currentIndex === 0
   return <section className="space-y-3 rounded-lg bg-card p-1">
     <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-      <div><p className="text-xs font-semibold text-muted-foreground">Original CRM media — {count} {count === 1 ? "item" : "items"}</p><p className="mt-0.5 text-[11px] text-muted-foreground">{currentIndex + 1} / {count}{cover ? " · Property cover" : ""}</p></div>
+      <div><p className="text-xs font-semibold text-muted-foreground">Original CRM media — {count} {count === 1 ? "item" : "items"}</p><p className="mt-0.5 text-[11px] text-muted-foreground">{currentIndex + 1} / {count}{carouselCover ? " · Carousel cover" : ""}{cover ? " · Property cover" : ""}</p></div>
       <Images className="h-4 w-4 text-primary" aria-hidden="true" />
     </div>
     <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-muted">
@@ -45,11 +46,11 @@ export function CarouselMediaPreview({ assets }: { assets: MarketingAsset[] }) {
       </>}
     </div>
     {count > 1 && <div className="flex gap-2 overflow-x-auto px-1 pb-1" aria-label="Carousel media thumbnails">
-      {assets.map((asset, index) => <button key={asset.id} type="button" onClick={() => setCurrentIndex(index)} className={`relative h-14 w-16 shrink-0 overflow-hidden rounded-md border-2 ${index === currentIndex ? "border-primary" : "border-transparent"}`} aria-label={`View Carousel image ${index + 1}${asset.metadata.isCover === true ? ", property cover" : ""}`} aria-pressed={index === currentIndex}>
+      {assets.map((asset, index) => <button key={asset.id} type="button" onClick={() => setCurrentIndex(index)} className={`relative h-14 w-16 shrink-0 overflow-hidden rounded-md border-2 ${index === currentIndex ? "border-primary" : "border-transparent"}`} aria-label={`View Carousel image ${index + 1}${index === 0 ? ", Carousel cover" : ""}${asset.metadata.isCover === true ? ", property cover" : ""}`} aria-pressed={index === currentIndex}>
         {asset.mediaType === "video"
           ? <video className="h-full w-full object-cover" muted playsInline preload="metadata" src={asset.sourceUrl ?? asset.signedUrl ?? ""} />
           : <img className="h-full w-full object-cover" src={asset.sourceUrl ?? asset.signedUrl ?? ""} alt="" />}
-        {asset.metadata.isCover === true && <span className="absolute bottom-0 left-0 right-0 bg-black/65 px-1 py-0.5 text-[9px] font-medium text-white">Cover</span>}
+        {index === 0 && <span className="absolute bottom-0 left-0 right-0 bg-black/65 px-1 py-0.5 text-[9px] font-medium text-white">Carousel cover</span>}
       </button>)}
     </div>}
   </section>

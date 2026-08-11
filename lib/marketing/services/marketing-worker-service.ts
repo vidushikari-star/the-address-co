@@ -155,6 +155,10 @@ function isTerminalRenderTermination(job: MarketingJob, error: unknown) {
     /(Render timed out after|terminated(?: externally)? by SIGKILL|terminated(?: externally)? by SIGTERM)/.test(error.message)
 }
 
+function safeRenderDiagnostics(error: unknown) {
+  return error instanceof RenderStageError ? error.diagnostics : undefined
+}
+
 function isTerminalPublishingFailure(job: MarketingJob, error: unknown) {
   return job.type === "publish_instagram" && (
     error instanceof PublishingTerminalError ||
@@ -243,6 +247,7 @@ export class MarketingWorkerService {
         results.push({ id: job.id, status: "completed" })
       } catch (caught) {
         const errorMessage = safeError(caught)
+        const renderDiagnostics = safeRenderDiagnostics(caught)
         if (caught instanceof PublishingDisabledError) {
           await admin.from("marketing_jobs").update({
             status: "queued",
@@ -318,6 +323,7 @@ export class MarketingWorkerService {
           status: retry ? "queued" : "failed",
           error: errorMessage,
           progress: retry ? 0 : 100,
+          ...(renderDiagnostics ? { output: { ...job.output, render_diagnostics: renderDiagnostics } } : {}),
           run_after: new Date(Date.now() + Math.min(30, 2 ** job.attempts) * 60_000).toISOString(),
           locked_at: null,
           locked_by: null,
@@ -349,6 +355,16 @@ export class MarketingWorkerService {
       }
     }
     return results
+  }
+
+  /** Explicit Railway one-off diagnostic; it never claims a queued job. */
+  static async runRenderEnvironmentSelfTest(contentId?: string) {
+    let sourceAsset: MarketingAsset | null = null
+    if (contentId) {
+      const record = await this.loadContent(contentId)
+      sourceAsset = record.assets.find(asset => asset.kind === "original_reference" && asset.mediaType === "image" && Boolean(asset.sourceUrl)) ?? null
+    }
+    return RenderService.runEnvironmentSelfTest({ sourceAsset })
   }
 
   private static async loadContent(contentId: string) {

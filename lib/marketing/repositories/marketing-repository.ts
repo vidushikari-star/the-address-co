@@ -742,6 +742,43 @@ export class MarketingRepository {
     return mapContent(data as Row)
   }
 
+  /**
+   * The database function locks the content record, validates that every
+   * requested image belongs to its source property, and resets approval in
+   * the same transaction. It never edits the CRM property gallery itself.
+   */
+  static async updateCarouselMedia(input: {
+    contentId: string
+    propertyImageIds: string[]
+    updatedBy: string
+  }) {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase.rpc("update_marketing_carousel_media", {
+      p_content_id: input.contentId,
+      p_property_image_ids: input.propertyImageIds,
+      p_updated_by: input.updatedBy,
+    }).maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error("Carousel media could not be updated.")
+    return mapContent(data as Row)
+  }
+
+  static async listPropertyGalleryImages(propertyId: string) {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from("property_images")
+      .select("id, url, is_cover")
+      .eq("property_id", propertyId)
+      .eq("media_type", "image")
+      .order("created_at", { ascending: true })
+    if (error) throw error
+    return ((data ?? []) as Row[]).map(image => ({
+      id: String(image.id),
+      url: String(image.url),
+      isCover: Boolean(image.is_cover),
+    }))
+  }
+
   /** Deletes a draft and its generated private media; original property media is only referenced and is never removed. */
   static async deleteDraftContent(id: string) {
     const supabase = await createServerSupabaseClient()

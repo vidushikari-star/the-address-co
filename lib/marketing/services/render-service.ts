@@ -6,7 +6,7 @@ import { dirname, join } from "node:path"
 import { Readable, Transform } from "node:stream"
 import { pipeline } from "node:stream/promises"
 
-import { logRenderStage, renderStageFailure, sanitizeRenderDiagnostic } from "@/lib/marketing/render-diagnostics"
+import { getRenderWorkerRuntime, logRenderStage, renderStageFailure, sanitizeRenderDiagnostic, type RenderProcessDiagnostics } from "@/lib/marketing/render-diagnostics"
 import { layoutReelOverlay, logoLayout, type ReelOverlayLayout } from "@/lib/marketing/reel-layout"
 import { normalizeReelTypographyStyle, reelTypographyFontFile } from "@/lib/marketing/reel-typography"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
@@ -151,10 +151,11 @@ async function downloadLogo(input: { sourceUrl: string; mimeType: "image/png" | 
 
 type FfmpegRenderContext = {
   strategy?: "per_scene" | "single_graph"
-  phase?: "scene" | "concat" | "image" | "normalize"
+  phase?: "scene" | "concat" | "image" | "normalize" | "diagnostic"
   sceneIndex?: number
   source?: SourceInspection
   resources?: WorkerResources
+  jobCancelled?: boolean
 }
 
 type SourceInspection = {
@@ -308,6 +309,33 @@ function sourceSummary(source: SourceInspection | undefined) {
   return `Source: ${source.sourceType}, ${dimensions}, ${source.codec}, ${fps}, ${source.fileSizeMb.toFixed(1)}MB.`
 }
 
+/**
+ * Keep command diagnostics useful without putting local paths, signed URLs,
+ * filtergraph text, or overlay copy into a job record or Railway log.
+ */
+function safeFfmpegArgumentSummary(args: string[], context: FfmpegRenderContext) {
+  const valueAfter = (flag: string) => {
+    const index = args.lastIndexOf(flag)
+    return index >= 0 ? args[index + 1] : undefined
+  }
+  return {
+    loglevel: valueAfter("-loglevel") ?? "default",
+    input_mode: context.source?.sourceType ?? (args.includes("lavfi") ? "generated" : "local"),
+    loops_image: args.includes("-loop") && valueAfter("-loop") === "1",
+    input_framerate: valueAfter("-framerate") ?? "none",
+    finite_duration: args.includes("-t"),
+    shortest: args.includes("-shortest"),
+    output_fps: valueAfter("-r") ?? "none",
+    video_codec: valueAfter("-c:v") ?? "default",
+    pixel_format: valueAfter("-pix_fmt") ?? "default",
+    uses_filter_complex: args.includes("-filter_complex"),
+    scale: args.some(argument => argument.includes("scale=")),
+    crop: args.some(argument => argument.includes("crop=")),
+    audio_disabled: args.includes("-an"),
+    output: context.phase === "scene" ? "temporary_scene" : context.phase === "concat" ? "temporary_reel" : context.phase === "diagnostic" ? "temporary_diagnostic" : "temporary_asset",
+  }
+}
+
 async function runFfmpeg(
   args: string[],
   inputCount: number,
@@ -317,6 +345,7 @@ async function runFfmpeg(
 ) {
   const executable = process.env.FFMPEG_PATH || "ffmpeg"
   const startedAt = Date.now()
+  const worker = getRenderWorkerRuntime()
   logRenderStage("ffmpeg", "started", {
     input_assets: inputCount,
     target_duration_seconds: targetDuration.toFixed(3),
@@ -332,6 +361,7 @@ async function runFfmpeg(
     phase: context.phase ?? "image",
     scene_index: context.sceneIndex ?? 0,
     rss_mb: context.resources?.nodeRssMb ?? approxProcessRssMb(),
+    ...safeFfmpegArgumentSummary(args, context),
   })
 
   return new Promise<number>((resolve, reject) => {
@@ -341,30 +371,67 @@ async function runFfmpeg(
     })
     let stderr = ""
     let timedOut = false
+    let killRequested = false
+    let settled = false
     const timeout = setTimeout(() => {
       timedOut = true
+      killRequested = true
+      const elapsedMs = Date.now() - startedAt
+      console.warn(`[render-process] action=kill reason=timeout signal=SIGKILL scene=${context.sceneIndex ?? 0} elapsed_ms=${elapsedMs} worker_instance_id=${worker.instanceId}`)
       child.kill("SIGKILL")
     }, REEL_RENDER_TIMEOUT_MS)
     timeout.unref?.()
     child.stderr.on("data", data => { stderr = `${stderr}${String(data)}`.slice(-4_000) })
     child.on("error", error => {
+      if (settled) return
+      settled = true
       clearTimeout(timeout)
-      reject(renderStageFailure("ffmpeg", `could not start (${sanitizeRenderDiagnostic(error)})`))
+      const elapsedMs = Date.now() - startedAt
+      const diagnostics: RenderProcessDiagnostics = {
+        exit_code: null,
+        signal: null,
+        elapsed_ms: elapsedMs,
+        aborted: false,
+        timed_out: timedOut,
+        application_termination: killRequested,
+        external_sigkill_without_internal_kill: false,
+        worker_shutting_down: worker.shuttingDown,
+        job_cancelled: Boolean(context.jobCancelled),
+        scene_index: context.sceneIndex ?? 0,
+        phase: context.phase ?? "image",
+      }
+      reject(renderStageFailure("ffmpeg", `could not start (${sanitizeRenderDiagnostic(error)})`, diagnostics))
     })
     child.on("close", (code, signal) => {
+      if (settled) return
+      settled = true
       clearTimeout(timeout)
       const elapsedMs = Date.now() - startedAt
       const exitCode = child.exitCode ?? code
       const terminationSignal = child.signalCode ?? signal
+      const externallyTerminated = exitCode === null && Boolean(terminationSignal) && !killRequested
+      const diagnostics: RenderProcessDiagnostics = {
+        exit_code: exitCode ?? null,
+        signal: terminationSignal ?? null,
+        elapsed_ms: elapsedMs,
+        aborted: Boolean(terminationSignal),
+        timed_out: timedOut,
+        application_termination: killRequested,
+        external_sigkill_without_internal_kill: terminationSignal === "SIGKILL" && !killRequested,
+        worker_shutting_down: worker.shuttingDown,
+        job_cancelled: Boolean(context.jobCancelled),
+        scene_index: context.sceneIndex ?? 0,
+        phase: context.phase ?? "image",
+      }
       if (code === 0) {
-        logRenderStage("ffmpeg", "ok", { exit_code: exitCode ?? 0, elapsed_ms: elapsedMs, timed_out: timedOut, render_strategy: context.strategy ?? "single_graph", phase: context.phase ?? "image", scene_index: context.sceneIndex ?? 0, rss_mb: approxProcessRssMb() })
+        logRenderStage("ffmpeg", "ok", { exit_code: exitCode ?? 0, elapsed_ms: elapsedMs, timed_out: timedOut, application_termination: killRequested, worker_shutting_down: worker.shuttingDown, job_cancelled: Boolean(context.jobCancelled), render_strategy: context.strategy ?? "single_graph", phase: context.phase ?? "image", scene_index: context.sceneIndex ?? 0, rss_mb: approxProcessRssMb() })
         resolve(elapsedMs)
       } else {
         const reason = sanitizeRenderDiagnostic(stderr, 700) || "no FFmpeg stderr was available"
         const terminationReason = timedOut
           ? `Render timed out after ${REEL_RENDER_TIMEOUT_MS / 1_000} seconds`
-          : exitCode === null && (terminationSignal === "SIGKILL" || terminationSignal === "SIGTERM")
-          ? `FFmpeg process was terminated externally by ${terminationSignal} after ${(elapsedMs / 1_000).toFixed(1)} seconds. ${sourceSummary(context.source)} Available worker memory before render: ${context.resources?.workerAvailableMemoryMb ?? 0}MB. Resource cause could not be confirmed.`
+          : externallyTerminated && (terminationSignal === "SIGKILL" || terminationSignal === "SIGTERM")
+          ? `FFmpeg process was terminated externally by ${terminationSignal} after ${(elapsedMs / 1_000).toFixed(1)} seconds; no internal kill request was issued. ${sourceSummary(context.source)} Available worker memory before render: ${context.resources?.workerAvailableMemoryMb ?? 0}MB. Resource cause could not be confirmed.`
             : exitCode === null
               ? `FFmpeg exited without a numeric exit code${terminationSignal ? ` (signal=${terminationSignal})` : ""}`
               : `exit_code=${exitCode}`
@@ -372,7 +439,12 @@ async function runFfmpeg(
           exit_code: exitCode ?? "null",
           signal: terminationSignal ?? "none",
           elapsed_ms: elapsedMs,
+          aborted: Boolean(terminationSignal),
           timed_out: timedOut,
+          application_termination: killRequested,
+          external_sigkill_without_internal_kill: terminationSignal === "SIGKILL" && !killRequested,
+          worker_shutting_down: worker.shuttingDown,
+          job_cancelled: Boolean(context.jobCancelled),
           reason,
           render_strategy: context.strategy ?? "single_graph",
           phase: context.phase ?? "image",
@@ -380,7 +452,7 @@ async function runFfmpeg(
           rss_mb: approxProcessRssMb(),
         })
         const scenePrefix = context.sceneIndex ? `Scene ${context.sceneIndex}: ` : ""
-        reject(renderStageFailure("ffmpeg", `${scenePrefix}${terminationReason}; ${reason}`))
+        reject(renderStageFailure("ffmpeg", `${scenePrefix}${terminationReason}; ${reason}`, diagnostics))
       }
     })
   })
@@ -426,7 +498,7 @@ async function validateRenderedMp4(path: string) {
 
 function sceneInputArgs(asset: MarketingAsset, sourcePath: string, duration: number) {
   return asset.mediaType === "image"
-    ? ["-loop", "1", "-t", duration.toFixed(3), "-i", sourcePath]
+    ? ["-loop", "1", "-framerate", String(REEL_FPS), "-i", sourcePath]
     : ["-stream_loop", "-1", "-t", duration.toFixed(3), "-i", sourcePath]
 }
 
@@ -459,6 +531,7 @@ function normalizationArgs(input: {
 }) {
   const args = [
     "-y",
+    "-loglevel", "warning",
     "-threads", String(REEL_ENCODER_THREADS),
     "-filter_threads", String(REEL_FILTER_THREADS),
     "-filter_complex_threads", String(REEL_FILTER_THREADS),
@@ -494,13 +567,14 @@ function sceneRenderArgs(input: {
 }) {
   const args = [
     "-y",
+    "-loglevel", "warning",
     "-filter_threads", String(REEL_FILTER_THREADS),
     "-filter_complex_threads", String(REEL_FILTER_THREADS),
     ...sceneInputArgs(input.asset, input.sourcePath, input.scene.duration),
   ]
   const filter = sceneVideoFilter(input.overlayLayout, input.overlayTextPath, input.typographyStyle)
   if (input.logo) {
-    args.push("-loop", "1", "-i", input.logo.path)
+    args.push("-loop", "1", "-framerate", String(REEL_FPS), "-i", input.logo.path)
     args.push(
       "-filter_complex",
       `[0:v]${filter}[base];[1:v]format=rgba,colorchannelmixer=aa=${input.logo.opacity.toFixed(2)},scale=${input.logo.size}:-1[logo];[base][logo]overlay=${input.logo.x}:${input.logo.y}:format=auto[v]`,
@@ -538,6 +612,7 @@ function concatRenderArgs(input: {
 }) {
   const args = [
     "-y",
+    "-loglevel", "warning",
     "-filter_threads", String(REEL_FILTER_THREADS),
     "-filter_complex_threads", String(REEL_FILTER_THREADS),
     "-f", "concat", "-safe", "0", "-i", input.manifestPath,
@@ -593,7 +668,7 @@ export class RenderService {
       await downloadAsset(input.asset, sourcePath)
       if (overlayLayout && overlayTextPath) await writeFile(overlayTextPath, overlayLayout.text, "utf8")
       await runFfmpeg([
-        "-y", "-i", sourcePath,
+        "-y", "-loglevel", "warning", "-i", sourcePath,
         "-vf", `scale=${dimensions.width}:${dimensions.height}:force_original_aspect_ratio=increase,crop=${dimensions.width}:${dimensions.height}${textOverlayFilter({ layout: overlayLayout, textFilePath: overlayTextPath })}`,
         "-frames:v", "1",
         "-q:v", "2",
@@ -612,6 +687,87 @@ export class RenderService {
       return { storagePath, byteLength: rendered.byteLength }
     } finally {
       await rm(workspace, { recursive: true, force: true })
+    }
+  }
+
+  /**
+   * Explicit operator diagnostic: all generated files stay in tmp and no
+   * asset, job, or publication row is written. A source image is optional so
+   * the synthetic color test can establish basic FFmpeg health first.
+   */
+  static async runEnvironmentSelfTest(input?: { sourceAsset?: MarketingAsset | null }) {
+    const results: Array<{ name: "synthetic_color" | "downloaded_image" | "text_overlay" | "logo_overlay" | "text_and_logo"; status: "passed" | "failed" | "skipped"; elapsedMs?: number; reason?: string }> = []
+    let workspace: string | null = null
+    const runCase = async (
+      name: (typeof results)[number]["name"],
+      args: string[],
+      outputPath: string,
+      inputCount: number,
+    ) => {
+      try {
+        const elapsedMs = await runFfmpeg(args, inputCount, false, 3, { strategy: "per_scene", phase: "diagnostic" })
+        const output = await readFile(outputPath)
+        if (output.byteLength < 1_024) throw new Error("FFmpeg diagnostic output was unexpectedly small.")
+        results.push({ name, status: "passed", elapsedMs })
+      } catch (error) {
+        results.push({ name, status: "failed", reason: sanitizeRenderDiagnostic(error) })
+      }
+    }
+    try {
+      workspace = await mkdtemp(join(/* turbopackIgnore: true */ tmpdir(), "marketing-render-diagnostic-"))
+      const syntheticPath = join(/* turbopackIgnore: true */ workspace, "synthetic.mp4")
+      await runCase("synthetic_color", [
+        "-y", "-loglevel", "warning",
+        "-f", "lavfi", "-i", `color=c=navy:s=${REEL_SCENE_WIDTH}x${REEL_SCENE_HEIGHT}:r=${REEL_FPS}`,
+        "-t", "3", "-an", "-c:v", "libx264", "-preset", REEL_RENDER_PRESET,
+        "-threads", String(REEL_ENCODER_THREADS), "-pix_fmt", "yuv420p", "-movflags", "+faststart", syntheticPath,
+      ], syntheticPath, 1)
+
+      if (!input?.sourceAsset || input.sourceAsset.mediaType !== "image") {
+        for (const name of ["downloaded_image", "text_overlay", "logo_overlay", "text_and_logo"] as const) {
+          results.push({ name, status: "skipped", reason: "A Marketing source image is required for this controlled diagnostic." })
+        }
+        return { results }
+      }
+
+      const sourcePath = join(/* turbopackIgnore: true */ workspace, `source.${safeExtension(input.sourceAsset)}`)
+      const logoPath = join(/* turbopackIgnore: true */ workspace, "diagnostic-logo.ppm")
+      await downloadAsset(input.sourceAsset, sourcePath)
+      // PPM is a tiny, generated local logo fixture. It exercises the image
+      // overlay input without reading or changing a Brand Asset.
+      await writeFile(logoPath, Buffer.from("P6\n1 1\n255\n\xff\xff\xff", "binary"))
+      const scene = {
+        assetId: input.sourceAsset.id,
+        start: 0,
+        duration: 3,
+        crop: "cover" as const,
+        motion: "none" as const,
+        transitionOut: "fade" as const,
+      }
+      const textLayout = layoutReelOverlay({ text: "Render diagnostic", position: "bottom", type: "key_fact" })
+      const textPath = join(/* turbopackIgnore: true */ workspace, "diagnostic-overlay.txt")
+      if (textLayout) await writeFile(textPath, textLayout.text, "utf8")
+      const makeScene = (name: (typeof results)[number]["name"], overlay: ReelOverlayLayout | null, overlayTextPath: string | null, logo: boolean) => {
+        const outputPath = join(/* turbopackIgnore: true */ workspace!, `${name}.mp4`)
+        return runCase(name, sceneRenderArgs({
+          asset: input.sourceAsset!, sourcePath, outputPath, scene, typographyStyle: "modern_sans", overlayLayout: overlay, overlayTextPath,
+          logo: logo ? { path: logoPath, x: 24, y: 24, size: 64, opacity: 1 } : null,
+        }), outputPath, 1 + Number(logo))
+      }
+      await makeScene("downloaded_image", null, null, false)
+      await makeScene("text_overlay", textLayout, textPath, false)
+      await makeScene("logo_overlay", null, null, true)
+      await makeScene("text_and_logo", textLayout, textPath, true)
+      return { results }
+    } catch (error) {
+      const reason = sanitizeRenderDiagnostic(error)
+      const completed = new Set(results.map(result => result.name))
+      for (const name of ["synthetic_color", "downloaded_image", "text_overlay", "logo_overlay", "text_and_logo"] as const) {
+        if (!completed.has(name)) results.push({ name, status: "failed", reason })
+      }
+      return { results }
+    } finally {
+      if (workspace) await rm(workspace, { recursive: true, force: true })
     }
   }
 

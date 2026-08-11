@@ -3,6 +3,7 @@ import { dirname, join } from "node:path"
 import { promisify } from "node:util"
 
 import { RENDER_JOB_TYPES, MarketingWorkerService } from "@/lib/marketing/services/marketing-worker-service"
+import { setRenderWorkerRuntime } from "@/lib/marketing/render-runtime"
 import { supabaseProjectRef } from "@/lib/marketing/supabase-project"
 
 const execFileAsync = promisify(execFile)
@@ -21,6 +22,12 @@ type WorkerConfig = {
 let stopping = false
 let wakeSleep: (() => void) | null = null
 let remoteProjectVerified = false
+const workerInstanceId = process.env.RAILWAY_REPLICA_ID?.trim()
+  || `${process.env.RAILWAY_DEPLOYMENT_ID?.trim() || process.env.HOSTNAME?.trim() || "worker"}-${process.pid}-${crypto.randomUUID()}`
+
+function workerLog(level: "info" | "warn" | "error", message: string) {
+  console[level](`[marketing-worker] worker_instance_id=${workerInstanceId} ${message}`)
+}
 
 function required(name: string) {
   const value = process.env[name]?.trim()
@@ -79,7 +86,7 @@ async function verifyFfmpeg(path: string) {
     windowsHide: true,
   })
   const version = stdout.split("\n", 1)[0]?.trim() || "version detected"
-  console.info(`[marketing-worker] FFmpeg detected: ${version}`)
+  workerLog("info", `FFmpeg detected: ${version}`)
 
   const ffprobe = process.env.FFPROBE_PATH?.trim() || (path.includes("/") ? join(dirname(path), "ffprobe") : "ffprobe")
   const { stdout: probeStdout } = await execFileAsync(ffprobe, ["-version"], {
@@ -87,7 +94,7 @@ async function verifyFfmpeg(path: string) {
     windowsHide: true,
   })
   const probeVersion = probeStdout.split("\n", 1)[0]?.trim() || "version detected"
-  console.info(`[marketing-worker] FFprobe detected: ${probeVersion}`)
+  workerLog("info", `FFprobe detected: ${probeVersion}`)
 }
 
 function resultSummary(result: Array<{ status: string }>) {
@@ -102,7 +109,7 @@ async function runRenderJobs() {
     jobTypes: RENDER_JOB_TYPES,
     diagnosticsLabel: "Railway render",
   })
-  console.info(`[marketing-worker] render jobs processed: ${JSON.stringify(resultSummary(result))}`)
+  workerLog("info", `render jobs processed: ${JSON.stringify(resultSummary(result))}`)
 }
 
 async function invokeRemoteRunner(config: WorkerConfig) {
@@ -115,53 +122,53 @@ async function invokeRemoteRunner(config: WorkerConfig) {
   const payload = await response.json().catch(() => null) as { result?: unknown; supabaseProjectRef?: unknown } | null
   const processed = Array.isArray(payload?.result) ? payload.result.length : undefined
   const suffix = processed === undefined ? "" : ` jobs_processed=${processed}`
-  console.info(`[marketing-worker] job runner response status=${response.status}${suffix}`)
+  workerLog("info", `job runner response status=${response.status}${suffix}`)
 
   if (response.status === 401 || response.status === 403) {
-    console.error("[marketing-worker] job runner authentication failed. Check MARKETING_CRON_SECRET and endpoint access.")
+    workerLog("error", "job runner authentication failed. Check MARKETING_CRON_SECRET and endpoint access.")
     return false
   }
   if (!response.ok) {
-    console.warn(`[marketing-worker] temporary job runner error (HTTP ${response.status}); retrying next cycle.`)
+    workerLog("warn", `temporary job runner error (HTTP ${response.status}); retrying next cycle.`)
     return remoteProjectVerified
   }
 
   const remoteProjectRef = typeof payload?.supabaseProjectRef === "string" ? payload.supabaseProjectRef : null
   if (!remoteProjectRef) {
-    console.error("[marketing-worker] Vercel runner did not return its Supabase project identity; render jobs will not be claimed.")
+    workerLog("error", "Vercel runner did not return its Supabase project identity; render jobs will not be claimed.")
     return false
   }
   if (remoteProjectRef !== config.supabaseProjectRef) {
-    console.error("[marketing-worker] Supabase project mismatch between Railway and Vercel; render jobs will not be claimed.")
+    workerLog("error", "Supabase project mismatch between Railway and Vercel; render jobs will not be claimed.")
     return false
   }
   if (!remoteProjectVerified) {
-    console.info("[marketing-worker] Railway and Vercel Supabase project identities match.")
+    workerLog("info", "Railway and Vercel Supabase project identities match.")
     remoteProjectVerified = true
   }
   return true
 }
 
 async function cycle(config: WorkerConfig) {
-  console.info("[marketing-worker] job cycle started")
+  workerLog("info", "job cycle started")
   let queueIdentityConfirmed = remoteProjectVerified
   if (!stopping) {
     try {
       queueIdentityConfirmed = await invokeRemoteRunner(config)
     } catch {
-      console.warn("[marketing-worker] temporary job runner network error; retrying next cycle.")
+      workerLog("warn", "temporary job runner network error; retrying next cycle.")
     }
   }
   if (queueIdentityConfirmed && !stopping) {
     try {
       await runRenderJobs()
     } catch {
-      console.warn("[marketing-worker] temporary render-worker error; retrying next cycle.")
+      workerLog("warn", "temporary render-worker error; retrying next cycle.")
     }
   } else if (!stopping) {
-    console.warn("[marketing-worker] render job claim skipped until the shared Supabase project is confirmed.")
+    workerLog("warn", "render job claim skipped until the shared Supabase project is confirmed.")
   }
-  console.info("[marketing-worker] cycle completed")
+  workerLog("info", "cycle completed")
 }
 
 function wait(ms: number) {
@@ -181,15 +188,26 @@ function wait(ms: number) {
 function requestShutdown(signal: "SIGINT" | "SIGTERM") {
   if (stopping) return
   stopping = true
-  console.info(`[marketing-worker] ${signal} received; finishing the current cycle before shutdown.`)
+  setRenderWorkerRuntime({ shuttingDown: true })
+  workerLog("info", `${signal} received; finishing the current cycle before shutdown.`)
   wakeSleep?.()
 }
 
 async function main() {
+  setRenderWorkerRuntime({ instanceId: workerInstanceId, shuttingDown: false })
+  if (["1", "true"].includes(process.env.MARKETING_RENDER_SELF_TEST?.trim().toLowerCase() ?? "")) {
+    const ffmpegPath = process.env.FFMPEG_PATH?.trim() || "ffmpeg"
+    workerLog("info", "controlled render self-test starting; normal job cycles are disabled for this process.")
+    await verifyFfmpeg(ffmpegPath)
+    const diagnostic = await MarketingWorkerService.runRenderEnvironmentSelfTest(process.env.MARKETING_RENDER_SELF_TEST_CONTENT_ID?.trim() || undefined)
+    const summary = diagnostic.results.map(result => ({ name: result.name, status: result.status, elapsed_ms: result.elapsedMs ?? null }))
+    workerLog("info", `controlled render self-test completed: ${JSON.stringify(summary)}`)
+    return
+  }
   const config = readConfig()
-  console.info(`[marketing-worker] Marketing worker starting (interval_ms=${config.intervalMs})`)
+  workerLog("info", `Marketing worker starting (interval_ms=${config.intervalMs})`)
   await verifyFfmpeg(config.ffmpegPath)
-  console.info("[marketing-worker] render jobs run locally; non-render jobs are delegated to the protected Vercel runner.")
+  workerLog("info", "render jobs run locally; non-render jobs are delegated to the protected Vercel runner.")
 
   process.once("SIGINT", () => requestShutdown("SIGINT"))
   process.once("SIGTERM", () => requestShutdown("SIGTERM"))
@@ -198,12 +216,12 @@ async function main() {
     await cycle(config)
     if (!stopping) await wait(config.intervalMs)
   }
-  console.info("[marketing-worker] Marketing worker stopped")
+  workerLog("info", "Marketing worker stopped")
 }
 
 main().catch(error => {
   // Do not print unknown thrown values: HTTP/client errors can include
   // sensitive URLs or response bodies. The known validation messages are safe.
-  console.error(`[marketing-worker] fatal startup error: ${safeStartupError(error)}`)
+  workerLog("error", `fatal startup error: ${safeStartupError(error)}`)
   process.exitCode = 1
 })

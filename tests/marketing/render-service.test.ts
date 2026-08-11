@@ -83,6 +83,8 @@ describe("RenderService audio mixing", () => {
     expect(args).toEqual(expect.arrayContaining(["-map", "[a]", "-c:a", "aac"]))
     const sceneArgs = ffmpegArgs(args => args.includes("-preset"))!
     expect(sceneArgs).toEqual(expect.arrayContaining([
+      "-loop", "1",
+      "-framerate", "30",
       "-filter_threads", String(REEL_FILTER_THREADS),
       "-filter_complex_threads", String(REEL_FILTER_THREADS),
       "-preset", "ultrafast",

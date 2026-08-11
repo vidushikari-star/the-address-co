@@ -291,7 +291,15 @@ describe("MarketingWorkerService render queue", () => {
     const lock = lockQuery(queuedJob({ status: "running", attempts: 1, progress: 5 }))
     const jobFailure = terminalUpdateQuery()
     const contentFailure = terminalUpdateQuery()
-    vi.spyOn(privateWorker(), "process").mockRejectedValue(new RenderStageError("ffmpeg", "FFmpeg process was terminated externally by SIGKILL after 12.4 seconds. Resource cause could not be confirmed."))
+    vi.spyOn(privateWorker(), "process").mockRejectedValue(new RenderStageError("ffmpeg", "FFmpeg process was terminated externally by SIGKILL after 12.4 seconds. Resource cause could not be confirmed.", {
+      exit_code: null,
+      signal: "SIGKILL",
+      elapsed_ms: 12_400,
+      timed_out: false,
+      application_termination: false,
+      worker_shutting_down: false,
+      job_cancelled: false,
+    }))
     let jobTableCalls = 0
     admin.client.from.mockImplementation((table: string) => {
       if (table === "marketing_jobs") return [discovery, lock, jobFailure][jobTableCalls++]
@@ -305,6 +313,7 @@ describe("MarketingWorkerService render queue", () => {
     expect(jobFailure.update).toHaveBeenCalledWith(expect.objectContaining({
       status: "failed",
       error: "Render ffmpeg failed: FFmpeg process was terminated externally by SIGKILL after 12.4 seconds. Resource cause could not be confirmed.",
+      output: expect.objectContaining({ render_diagnostics: expect.objectContaining({ signal: "SIGKILL", application_termination: false }) }),
     }))
     expect(contentFailure.update).toHaveBeenCalledWith({
       status: "failed",

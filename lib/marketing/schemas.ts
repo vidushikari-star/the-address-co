@@ -24,6 +24,14 @@ export const ContentUpdateSchema = z.object({
   composition: z.record(z.string(), z.unknown()).optional(),
 })
 
+export const CarouselMediaUpdateSchema = z.object({
+  propertyImageIds: z.array(z.string().uuid()).min(2).max(10),
+}).superRefine((value, context) => {
+  if (new Set(value.propertyImageIds).size !== value.propertyImageIds.length) {
+    context.addIssue({ code: "custom", path: ["propertyImageIds"], message: "Carousel media cannot contain duplicate images." })
+  }
+})
+
 export const GenerateContentCopySchema = z.object({
   fields: z.array(z.enum(["headline", "hook", "caption", "cta", "hashtags"])).min(1).max(5).optional(),
 })
