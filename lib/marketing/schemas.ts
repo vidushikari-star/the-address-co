@@ -5,6 +5,7 @@ import {
   MARKETING_CONTENT_TYPES,
   MARKETING_STATUSES,
 } from "@/lib/marketing/types"
+import { REEL_TYPOGRAPHY_STYLES } from "@/lib/marketing/reel-typography"
 
 export const CreateContentSchema = z.object({
   propertyId: z.string().uuid(),
@@ -80,6 +81,7 @@ export const ReelCompositionSchema = z.object({
   hashtags: z.array(z.string().max(80)).max(30),
   cta: z.string().max(240),
   coverText: z.string().max(120),
+  typographyStyle: z.enum(REEL_TYPOGRAPHY_STYLES).default("modern_sans"),
   audio: z.object({
     type: z.enum(["none", "uploaded", "royalty_free", "original", "instagram_manual"]),
     id: z.string().uuid().nullable().optional(),
@@ -99,19 +101,49 @@ export const ReelCompositionSchema = z.object({
   }).optional(),
 })
 
+const ReelStoryboardSceneSchema = z.object({
+  assetId: z.string().uuid(),
+  overlayText: z.string().trim().max(120),
+  durationSeconds: z.number().min(1.5).max(12),
+  overlayPosition: z.enum(["top_left", "top_right", "center", "lower_left", "lower_right"]),
+  overlayType: z.enum(["hook", "property_label", "key_fact", "price", "cta"]),
+}).superRefine((scene, context) => {
+  const hardLimit = scene.overlayType === "hook" ? 80 : scene.overlayType === "cta" ? 100 : 120
+  if (scene.overlayText.length > hardLimit) {
+    context.addIssue({
+      code: "too_big",
+      maximum: hardLimit,
+      inclusive: true,
+      origin: "string",
+      path: ["overlayText"],
+      message: "Overlay text is too long for the mobile Reel layout.",
+    })
+  }
+})
+
+const ReelStoryboardEndCardSchema = z.object({
+  // The renderer combines these into one 120-character overlay. Keeping the
+  // combined cap lower leaves room for line spacing in the social safe zone.
+  headline: z.string().trim().min(1).max(70),
+  cta: z.string().trim().min(1).max(48),
+}).superRefine((endCard, context) => {
+  if (`${endCard.headline}\n${endCard.cta}`.length > 100) {
+    context.addIssue({
+      code: "too_big",
+      maximum: 100,
+      inclusive: true,
+      origin: "string",
+      path: ["headline"],
+      message: "Combined end-card text is too long for the mobile Reel layout.",
+    })
+  }
+})
+
 export const ReelStoryboardSchema = z.object({
   hook: z.string().trim().min(1).max(100),
-  scenes: z.array(z.object({
-    assetId: z.string().uuid(),
-    overlayText: z.string().trim().max(120),
-    durationSeconds: z.number().min(1.5).max(12),
-    overlayPosition: z.enum(["top_left", "top_right", "center", "lower_left", "lower_right"]),
-    overlayType: z.enum(["hook", "property_label", "key_fact", "price", "cta"]),
-  })).min(1).max(10),
-  endCard: z.object({
-    headline: z.string().trim().min(1).max(120),
-    cta: z.string().trim().min(1).max(160),
-  }),
+  typographyStyle: z.enum(REEL_TYPOGRAPHY_STYLES).default("modern_sans"),
+  scenes: z.array(ReelStoryboardSceneSchema).min(1).max(10),
+  endCard: ReelStoryboardEndCardSchema,
 })
 
 export const ImproveReelSchema = z.object({

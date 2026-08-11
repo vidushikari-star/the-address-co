@@ -98,7 +98,7 @@ describe("Marketing Audio Library signed uploads", () => {
   })
 
   it("retires the legacy multipart endpoint so it cannot proxy a bulk body through Vercel", async () => {
-    const response = await legacyUpload(new Request("http://localhost/api/marketing/audio", { method: "POST" }))
+    const response = await legacyUpload()
     expect(response.status).toBe(410)
   })
 

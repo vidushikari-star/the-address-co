@@ -12,6 +12,7 @@ import {
 } from "@/lib/marketing/services/instagram-service"
 import { MediaAnalysisService } from "@/lib/marketing/services/media-analysis-service"
 import { RenderService } from "@/lib/marketing/services/render-service"
+import { normalizeReelTypographyStyle } from "@/lib/marketing/reel-typography"
 import { TokenCryptoService } from "@/lib/marketing/services/token-crypto-service"
 import { ReelCompositionSchema } from "@/lib/marketing/schemas"
 import type {
@@ -390,6 +391,7 @@ export class MarketingWorkerService {
             opacity: brandSettings.defaultReelLogoOpacity,
             assetId: activeLogo ? String((activeLogo as Row).id) : null,
           },
+          typographyStyle: normalizeReelTypographyStyle(brandSettings.fontFamily),
         })
       : {
           propertyId: property.id,

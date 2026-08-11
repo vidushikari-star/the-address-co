@@ -16,11 +16,14 @@ export function ContentWorkflowActions({
   hasReadyMedia,
   publishingEnabled,
   publication,
+  hasApprovedVersionAwaitingRender = false,
 }: {
   content: MarketingContent
   hasReadyMedia: boolean
   publishingEnabled: boolean
   publication?: MarketingPublication | null
+  /** A newer approved version must render before it can replace the active one. */
+  hasApprovedVersionAwaitingRender?: boolean
 }) {
   const router = useRouter()
   const [message, setMessage] = useState<string | null>(null)
@@ -88,6 +91,9 @@ export function ContentWorkflowActions({
   }
 
   if (content.status === "approved") {
+    if (content.contentType === "reel" && hasApprovedVersionAwaitingRender) {
+      return <section className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/40 p-4"><div><p className="text-sm font-semibold">New Reel version awaiting render</p><p className="mt-1 text-xs text-muted-foreground">The previous rendered version is preserved. Render the approved new version below, then make it current before scheduling.</p></div><ApprovalActions contentId={content.id} status="approved" /></section>
+    }
     return <section className="space-y-4">
       <div className="rounded-xl border p-4"><p className="text-sm font-semibold">Approved</p><p className="mt-1 text-xs text-muted-foreground">{requiresRender ? hasReadyMedia ? "Render ready. This approved Reel can now be scheduled." : "This approved Reel needs rendering before it can be scheduled." : "This approved post uses the selected original CRM media and is ready to schedule without FFmpeg rendering."}</p><div className="mt-3"><ApprovalActions contentId={content.id} status="approved" /></div></div>
       {requiresRender && !hasReadyMedia ? <div className="space-y-2 rounded-xl border p-4"><Button type="button" size="sm" onClick={render} disabled={isPending}><Clapperboard className="h-4 w-4" />Render Reel</Button>{isPending && <Loader2 className="inline h-4 w-4 animate-spin text-muted-foreground" />}{message && <p className="text-xs text-muted-foreground" role="status">{message}</p>}</div> : <MarketingPublishingActions contentId={content.id} canPublishNow={publishingEnabled} />}

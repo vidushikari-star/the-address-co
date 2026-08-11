@@ -1,4 +1,4 @@
-import type { ReelComposition, ReelScene, ReelStoryboard } from "@/lib/marketing/types"
+import type { ReelComposition, ReelScene, ReelStoryboard, ReelTypographyStyle } from "@/lib/marketing/types"
 import { ReelCompositionSchema } from "@/lib/marketing/schemas"
 
 type Creative = {
@@ -19,6 +19,7 @@ export class CompositionService {
     creative: Creative
     audio?: ReelComposition["audio"]
     logo?: ReelComposition["logo"]
+    typographyStyle?: ReelTypographyStyle
   }): ReelComposition {
     const selected = input.assetIds.slice(0, 10)
     if (!selected.length) {
@@ -61,6 +62,7 @@ export class CompositionService {
       hashtags: input.creative.hashtags,
       cta: input.creative.cta,
       coverText: input.creative.coverText,
+      typographyStyle: input.typographyStyle ?? "modern_sans",
       // The API does not attach Instagram's licensed music catalogue. Reels
       // are silent by default until an actual uploaded/audio asset workflow is added.
       audio: input.audio ?? { type: "none", label: "No audio selected" },
@@ -75,6 +77,7 @@ export class CompositionService {
     creative: Pick<Creative, "caption" | "hashtags" | "cta" | "coverText" | "transitions">
     audio: ReelComposition["audio"]
     logo?: ReelComposition["logo"]
+    typographyStyle?: ReelTypographyStyle
   }): ReelComposition {
     const sourceScenes = input.storyboard.scenes
     if (!sourceScenes.length) throw new Error("A Reel storyboard needs at least one source scene.")
@@ -127,6 +130,7 @@ export class CompositionService {
       hashtags: input.creative.hashtags,
       cta: input.creative.cta,
       coverText: input.creative.coverText,
+      typographyStyle: input.storyboard.typographyStyle ?? input.typographyStyle ?? "modern_sans",
       audio: input.audio,
       logo: input.logo,
     })

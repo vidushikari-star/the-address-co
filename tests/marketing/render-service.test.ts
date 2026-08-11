@@ -54,16 +54,22 @@ function renderInput(): Parameters<typeof RenderService.renderReel>[0] {
   }
 }
 
+function ffmpegArgs(predicate: (args: string[]) => boolean) {
+  const call = childProcess.spawn.mock.calls.find(([, args]) => Array.isArray(args) && predicate(args as string[]))
+  return call?.[1] as string[] | undefined
+}
+
 describe("RenderService audio mixing", () => {
   it("trims a long uploaded track, fades it out, and never loops a shorter source", async () => {
     await RenderService.renderReel(renderInput())
 
-    const args = childProcess.spawn.mock.calls[0]?.[1] as string[]
+    const args = ffmpegArgs(args => args.includes("-f") && args.includes("concat"))!
     const filters = args[args.indexOf("-filter_complex") + 1]
     expect(filters).toContain("[1:a]atrim=duration=15.000")
     expect(filters).toContain("afade=t=out:st=13.500:d=1.500")
     expect(args).toEqual(expect.arrayContaining(["-map", "[a]", "-c:a", "aac"]))
-    expect(args).toEqual(expect.arrayContaining([
+    const sceneArgs = ffmpegArgs(args => args.includes("-preset"))!
+    expect(sceneArgs).toEqual(expect.arrayContaining([
       "-filter_threads", String(REEL_FILTER_THREADS),
       "-filter_complex_threads", String(REEL_FILTER_THREADS),
       "-preset", "veryfast",
@@ -79,7 +85,7 @@ describe("RenderService audio mixing", () => {
       ...input,
       logo: { sourceUrl: "https://project.supabase.co/storage/v1/object/sign/logo.png", mimeType: "image/png", placement: "top_right", scale: "small", opacity: 0.65 },
     })
-    const args = childProcess.spawn.mock.calls[0]?.[1] as string[]
+    const args = ffmpegArgs(args => args.includes("-filter_complex"))!
     const filters = args[args.indexOf("-filter_complex") + 1]
     expect(filters).toContain("colorchannelmixer=aa=0.65")
     expect(filters).toContain("overlay=")
@@ -93,15 +99,34 @@ describe("RenderService audio mixing", () => {
       ...input,
       logo: { sourceUrl: "https://project.supabase.co/storage/v1/object/sign/logo.png", mimeType: "image/png", placement: "end_card_only", scale: "small", opacity: 0.65 },
     })
-    const args = childProcess.spawn.mock.calls[0]?.[1] as string[]
-    const filters = args[args.indexOf("-filter_complex") + 1]
-    expect(filters).toContain("[s1][logo]overlay=")
+    const sceneFilters = childProcess.spawn.mock.calls
+      .map(([, args]) => args as string[])
+      .filter(args => args.includes("-filter_complex") && args.includes("-preset"))
+    expect(sceneFilters).toHaveLength(1)
+    const filters = sceneFilters[0][sceneFilters[0].indexOf("-filter_complex") + 1]
+    expect(filters).toContain("[base][logo]overlay=")
+  })
+
+  it("uses a fixed installed editorial font for an editorial storyboard style", async () => {
+    const input = renderInput()
+    input.composition.typographyStyle = "editorial_serif"
+    input.composition.scenes[0].overlay = { text: "A quieter way to arrive", position: "top_left", type: "hook" }
+
+    await RenderService.renderReel(input)
+
+    const args = ffmpegArgs(candidate => candidate.includes("-preset"))!
+    const filter = args[args.indexOf("-vf") + 1]
+    expect(filter).toContain("fontfile='/usr/share/fonts/truetype/lindenhill/LindenHill.otf'")
+    expect(filter).not.toContain("DejaVuSans.ttf")
   })
 
   it("reports a source media download failure without exposing the source URL", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 403, headers: new Headers() })))
 
-    await expect(RenderService.renderReel(renderInput())).rejects.toThrow("Render download failed: Unable to fetch render asset (403).")
+    const input = renderInput()
+    input.audio = null
+    input.composition.audio = { type: "none", label: "Silent Reel" }
+    await expect(RenderService.renderReel(input)).rejects.toThrow("Render scene failed: Scene 1: Unable to fetch render asset (403).")
   })
 
   it("includes a sanitized FFmpeg exit code and stderr tail on execution failure", async () => {
@@ -120,7 +145,7 @@ describe("RenderService audio mixing", () => {
       return child
     })
 
-    await expect(RenderService.renderReel(renderInput())).rejects.toThrow("Render ffmpeg failed: exit_code=1; Invalid filter drawtext=text='[redacted]' [url]")
+    await expect(RenderService.renderReel(renderInput())).rejects.toThrow("Render ffmpeg failed: Scene 1: exit_code=1; Invalid filter drawtext=text='[redacted]' [url]")
   })
 
   it("reports an output-stage failure when FFmpeg produces no readable MP4", async () => {
@@ -152,7 +177,7 @@ describe("RenderService audio mixing", () => {
       return child
     })
 
-    await expect(RenderService.renderReel(renderInput())).rejects.toThrow("Render ffmpeg failed: FFmpeg was terminated by SIGKILL; no FFmpeg stderr was available")
+    await expect(RenderService.renderReel(renderInput())).rejects.toThrow("Render ffmpeg failed: Scene 1: FFmpeg was terminated by SIGKILL; no FFmpeg stderr was available")
   })
 
   it("reports an explicit renderer timeout when its timeout terminates FFmpeg", async () => {
@@ -177,7 +202,7 @@ describe("RenderService audio mixing", () => {
       })
 
       const rendering = RenderService.renderReel(renderInput())
-      const rejection = expect(rendering).rejects.toThrow(`Render ffmpeg failed: Render timed out after ${REEL_RENDER_TIMEOUT_MS / 1_000} seconds; no FFmpeg stderr was available`)
+      const rejection = expect(rendering).rejects.toThrow(`Render ffmpeg failed: Scene 1: Render timed out after ${REEL_RENDER_TIMEOUT_MS / 1_000} seconds; no FFmpeg stderr was available`)
       await vi.advanceTimersByTimeAsync(0)
       await vi.advanceTimersByTimeAsync(REEL_RENDER_TIMEOUT_MS)
 
@@ -186,5 +211,67 @@ describe("RenderService audio mixing", () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it("renders complex Reels as isolated scene MP4s before a lightweight concat", async () => {
+    const input = renderInput()
+    input.audio = null
+    input.composition.audio = { type: "none", label: "Silent Reel" }
+    for (let index = 1; index < 10; index += 1) {
+      input.composition.scenes.push({
+        assetId: input.assets[0].id, start: index * 3, duration: 3, crop: "cover", motion: "slow_zoom", transitionOut: "fade",
+        overlay: { text: `Scene ${index + 1}`, position: "lower_left", type: "key_fact" },
+      })
+    }
+
+    await RenderService.renderReel(input)
+
+    const ffmpegCalls = childProcess.spawn.mock.calls
+      .filter(([executable]) => !String(executable).endsWith("ffprobe"))
+      .map(([, args]) => args as string[])
+    expect(ffmpegCalls).toHaveLength(11)
+    const sceneCalls = ffmpegCalls.filter(args => args.includes("-preset"))
+    expect(sceneCalls).toHaveLength(10)
+    expect(sceneCalls.every(args => !args.includes("xfade"))).toBe(true)
+    expect(sceneCalls.every(args => args.filter(arg => arg === "-i").length <= 1)).toBe(true)
+    const concat = ffmpegCalls.find(args => args.includes("concat"))!
+    expect(concat).toEqual(expect.arrayContaining(["-f", "concat", "-c:v", "copy", "-an"]))
+  })
+
+  it("identifies the scene when an externally killed renderer stops a complex Reel", async () => {
+    let renderCount = 0
+    childProcess.spawn.mockImplementation((executable: string) => {
+      const stderr = new EventEmitter()
+      const stdout = new EventEmitter()
+      const child = new EventEmitter() as EventEmitter & { stderr: EventEmitter; stdout: EventEmitter; exitCode?: number | null; signalCode?: string | null }
+      child.stderr = stderr
+      child.stdout = stdout
+      queueMicrotask(() => {
+        if (executable.endsWith("ffprobe")) {
+          child.emit("close", 0)
+          return
+        }
+        renderCount += 1
+        if (renderCount === 7) {
+          child.exitCode = null
+          child.signalCode = "SIGKILL"
+          child.emit("close", null, "SIGKILL")
+          return
+        }
+        child.emit("close", 0)
+      })
+      return child
+    })
+
+    const input = renderInput()
+    input.audio = null
+    input.composition.audio = { type: "none", label: "Silent Reel" }
+    for (let index = 1; index < 10; index += 1) {
+      input.composition.scenes.push({
+        assetId: input.assets[0].id, start: index * 3, duration: 3, crop: "cover", motion: "none", transitionOut: "fade",
+      })
+    }
+
+    await expect(RenderService.renderReel(input)).rejects.toThrow("Render ffmpeg failed: Scene 7: FFmpeg was terminated by SIGKILL")
   })
 })

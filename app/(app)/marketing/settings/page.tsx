@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { requireMarketingAdminPage } from "@/lib/auth/marketing"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
+import { normalizeReelTypographyStyle } from "@/lib/marketing/reel-typography"
 
 type Props = { searchParams: Promise<{ instagram?: string; reason?: string }> }
 
@@ -48,7 +49,7 @@ export default async function MarketingSettingsPage({ searchParams }: Props) {
           <label className="grid gap-1.5 text-sm font-medium">Excluded words / phrases<Textarea name="excludedWords" defaultValue={settings.excludedWords.join(", ")} rows={3} /></label>
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <label className="grid gap-1.5 text-sm font-medium">Font<Input name="fontFamily" defaultValue={settings.fontFamily ?? ""} placeholder="Inter" /></label>
+          <label className="grid gap-1.5 text-sm font-medium">Default Reel typography<select name="fontFamily" defaultValue={normalizeReelTypographyStyle(settings.fontFamily)} className="h-10 rounded-md border bg-background px-3 text-sm"><option value="editorial_serif">Editorial serif</option><option value="refined_serif">Refined serif</option><option value="modern_sans">Modern sans</option><option value="minimal_sans">Minimal sans</option></select></label>
           <label className="grid gap-1.5 text-sm font-medium">Primary color<Input name="primaryColor" defaultValue={settings.brandColors.primary ?? "#1f4d3b"} /></label>
           <label className="grid gap-1.5 text-sm font-medium">Accent color<Input name="accentColor" defaultValue={settings.brandColors.accent ?? "#c9a96a"} /></label>
         </div>

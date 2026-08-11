@@ -9,6 +9,7 @@ const repository = vi.hoisted(() => ({
   enqueueJob: vi.fn().mockResolvedValue(undefined),
   getInstagramAccount: vi.fn().mockResolvedValue(null),
   approveNewestDraftReelVersion: vi.fn().mockResolvedValue(undefined),
+  listReelVersions: vi.fn().mockResolvedValue([]),
 }))
 
 vi.mock("@/lib/marketing/repositories/marketing-repository", () => ({ MarketingRepository: repository }))
@@ -24,7 +25,7 @@ const completeCopy = {
   hashtags: ["#NorthGoa"],
 }
 
-function record(status: string, contentType = "single_image", assets = [{ kind: "original_reference", mediaType: "image", sourceUrl: "https://images.example/villa.jpg" }]) {
+function record(status: string, contentType = "single_image", assets: Array<{ kind: string; mediaType: string; sourceUrl?: string; storagePath?: string; metadata?: Record<string, unknown> }> = [{ kind: "original_reference", mediaType: "image", sourceUrl: "https://images.example/villa.jpg" }]) {
   return {
     content: { id: "content-1", status, contentType, composition: {}, ...completeCopy },
     assets,
@@ -36,6 +37,7 @@ beforeEach(() => {
   repository.transitionContent.mockResolvedValue({ id: "content-1", status: "approved" })
   repository.getContentById.mockResolvedValue(record("approved"))
   repository.getInstagramAccount.mockResolvedValue(null)
+  repository.listReelVersions.mockResolvedValue([])
   vi.stubEnv("INSTAGRAM_PUBLISHING_ENABLED", "false")
 })
 
@@ -98,6 +100,19 @@ describe("approval and scheduling guards", () => {
       timezone: "Asia/Kolkata",
       adminId: "admin-1",
     })).rejects.toThrow("Required publish media is not ready")
+  })
+
+  it("does not schedule the old active Reel while a newer approved version awaits rendering", async () => {
+    repository.getContentById.mockResolvedValue(record("approved", "reel", [{ kind: "rendered_media", mediaType: "video", storagePath: "rendered/v1.mp4" }]))
+    repository.listReelVersions.mockResolvedValue([{ id: "version-2", status: "approved", renderedAssetId: null }])
+
+    await expect(SchedulerService.schedule({
+      contentId: "content-1",
+      scheduledFor: new Date(Date.now() + 3_600_000).toISOString(),
+      timezone: "Asia/Kolkata",
+      adminId: "admin-1",
+    })).rejects.toThrow("Render the approved new Reel version")
+    expect(repository.transitionContent).not.toHaveBeenCalled()
   })
 
   it("does not schedule failed content", async () => {

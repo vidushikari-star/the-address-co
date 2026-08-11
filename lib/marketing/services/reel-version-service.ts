@@ -8,6 +8,7 @@ function currentStoryboard(content: MarketingContent, composition: ReelCompositi
   const visualScenes = composition.scenes.filter(scene => scene.overlay?.type !== "end_card")
   return {
     hook: content.hook ?? visualScenes[0]?.overlay?.text ?? "Property spotlight",
+    typographyStyle: composition.typographyStyle ?? "modern_sans",
     scenes: visualScenes.map((scene, index) => ({
       assetId: scene.assetId,
       overlayText: scene.overlay?.text ?? "",
@@ -35,7 +36,90 @@ function existingComposition(content: MarketingContent, sourceAssetIds: string[]
   }
 }
 
+function sourceAssetIdsForComposition(composition: ReelComposition, fallbackAssetIds: string[]) {
+  const fromComposition = [...new Set(composition.scenes.map(scene => scene.assetId))]
+  return fromComposition.length ? fromComposition : fallbackAssetIds
+}
+
+function withAudio(composition: ReelComposition, audio: ReelComposition["audio"]) {
+  return ReelCompositionSchema.parse({ ...composition, audio })
+}
+
 export class ReelVersionService {
+  /**
+   * Audio is a material render input. It therefore belongs to a mutable draft
+   * version, never to a historic rendered version. For legacy rendered Reels
+   * we first preserve a Version 1 record, then create Version 2 as the edit.
+   */
+  static async setAudio(input: {
+    contentId: string
+    audio: ReelComposition["audio"]
+    adminId: string
+  }) {
+    const record = await MarketingRepository.getContentById(input.contentId)
+    if (!record) throw new Error("Content not found.")
+    if (record.content.contentType !== "reel") throw new Error("Audio can only be selected for a Reel.")
+
+    const sourceAssetIds = record.assets
+      .filter(asset => asset.kind === "original_reference" && (asset.mediaType === "image" || asset.mediaType === "video"))
+      .map(asset => asset.id)
+    const versions = await MarketingRepository.listReelVersions(record.content.id)
+    const editableDraft = versions.find(version => version.status === "draft")
+    const baseComposition = editableDraft?.composition ?? existingComposition(record.content, sourceAssetIds)
+    const composition = withAudio(baseComposition, input.audio)
+
+    let version
+    if (editableDraft) {
+      version = await MarketingRepository.updateDraftReelVersion({
+        id: editableDraft.id,
+        composition,
+        audioSettings: composition.audio,
+      })
+    } else {
+      // Version history began after the first production render. Preserve that
+      // immutable derivative before creating a new edit-version for the audio.
+      if (!versions.length) {
+        const existingRender = record.assets.find(asset => asset.kind === "rendered_media" && asset.mediaType === "video")
+        if (existingRender) {
+          const baseline = await MarketingRepository.createReelVersion({
+            contentId: record.content.id,
+            composition: baseComposition,
+            sourceAssetIds: sourceAssetIdsForComposition(baseComposition, sourceAssetIds),
+            logoSettings: baseComposition.logo ?? null,
+            audioSettings: baseComposition.audio,
+            userPrompt: "Initial Reel version",
+            createdBy: input.adminId,
+            status: "rendered",
+          })
+          await MarketingRepository.markReelVersionRendered({ id: baseline.id, renderedAssetId: existingRender.id, makeCurrent: true })
+        }
+      }
+
+      version = await MarketingRepository.createReelVersion({
+        contentId: record.content.id,
+        composition,
+        sourceAssetIds: sourceAssetIdsForComposition(composition, sourceAssetIds),
+        logoSettings: composition.logo ?? null,
+        audioSettings: composition.audio,
+        userPrompt: input.audio.type === "uploaded" ? "Audio updated" : "Audio removed — silent Reel",
+        createdBy: input.adminId,
+        status: "draft",
+      })
+    }
+
+    const status = record.content.status === "approved"
+      ? "ready_for_review"
+      : record.content.status === "failed"
+        ? "draft"
+        : record.content.status
+    const content = await MarketingRepository.updateContent(record.content.id, {
+      composition,
+      status,
+      last_error: null,
+    }, input.adminId)
+    return { content, version, createdDraft: !editableDraft }
+  }
+
   static async improve(input: { contentId: string; prompt: string; adminId: string }) {
     const record = await MarketingRepository.getContentById(input.contentId)
     if (!record) throw new Error("Content not found.")
@@ -86,19 +170,28 @@ export class ReelVersionService {
       opacity: settings.defaultReelLogoOpacity,
       assetId: activeLogo?.id ?? null,
     }
-    const revised = CompositionService.composeStoryboard({
-      propertyId: composition.propertyId,
-      storyboard,
-      creative: {
-        caption: composition.caption,
-        hashtags: composition.hashtags,
-        cta: composition.cta,
-        coverText: composition.coverText,
-        transitions: composition.scenes.map(scene => scene.transitionOut),
-      },
+    let revised: ReelComposition
+    try {
+      revised = CompositionService.composeStoryboard({
+        propertyId: composition.propertyId,
+        storyboard,
+        creative: {
+          caption: composition.caption,
+          hashtags: composition.hashtags,
+          cta: composition.cta,
+          coverText: composition.coverText,
+          transitions: composition.scenes.map(scene => scene.transitionOut),
+        },
       audio: composition.audio,
       logo,
-    })
+      })
+    } catch (error) {
+      // The raw Zod issue can contain generated copy. Keep that only in the
+      // server diagnostic and give the editor a concise recovery action.
+      const name = error && typeof error === "object" && "name" in error ? String(error.name) : "UnknownError"
+      console.error("Reel storyboard composition validation failed:", JSON.stringify({ name }))
+      throw new Error("AI generated text that was too long for the Reel layout. Please try again or use a shorter creative instruction.")
+    }
     const version = await MarketingRepository.createReelVersion({
       contentId: record.content.id,
       composition: revised,
@@ -109,7 +202,7 @@ export class ReelVersionService {
       createdBy: input.adminId,
       status: "draft",
     })
-    await MarketingRepository.updateContent(record.content.id, { status: "ready_for_review", last_error: null }, input.adminId)
+    await MarketingRepository.updateContent(record.content.id, { composition: revised, status: "ready_for_review", last_error: null }, input.adminId)
     await MarketingRepository.addAuditLog({ actorId: input.adminId, contentId: record.content.id, action: "reel_version.improved", metadata: { versionId: version.id, versionNumber: version.versionNumber } })
     return version
   }

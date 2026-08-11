@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { MarketingContentCard } from "@/components/marketing/content-card"
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { applyScheduledContentOutcomes, type ScheduledContentOutcome } from "@/lib/marketing/scheduled-content-state"
 import type { MarketingContent } from "@/lib/marketing/types"
 
 function plural(count: number, singular: string, pluralLabel = `${singular}s`) {
@@ -15,14 +16,15 @@ function plural(count: number, singular: string, pluralLabel = `${singular}s`) {
 
 export function MarketingContentLibrary({ content }: { content: MarketingContent[] }) {
   const router = useRouter()
+  const [visibleContent, setVisibleContent] = useState(content)
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-  const eligible = useMemo(() => content.filter(item => item.status === "draft" || item.status === "scheduled"), [content])
+  const eligible = useMemo(() => visibleContent.filter(item => item.status === "draft" || item.status === "scheduled"), [visibleContent])
   const eligibleIds = useMemo(() => new Set(eligible.map(item => item.id)), [eligible])
-  const selectedItems = useMemo(() => content.filter(item => selected.has(item.id)), [content, selected])
+  const selectedItems = useMemo(() => visibleContent.filter(item => selected.has(item.id)), [visibleContent, selected])
   const selectedStatus = selectedItems[0]?.status
   const selectedCount = selectedItems.length
   const drafts = useMemo(() => eligible.filter(item => item.status === "draft"), [eligible])
@@ -34,6 +36,8 @@ export function MarketingContentLibrary({ content }: { content: MarketingContent
   useEffect(() => {
     setSelected(current => new Set([...current].filter(id => eligibleIds.has(id))))
   }, [eligibleIds])
+
+  useEffect(() => setVisibleContent(content), [content])
 
   function toggle(item: MarketingContent, checked: boolean) {
     setSelected(current => {
@@ -58,8 +62,10 @@ export function MarketingContentLibrary({ content }: { content: MarketingContent
       const endpoint = selectedStatus === "draft" ? "/api/marketing/content/bulk-delete" : "/api/marketing/content/scheduled"
       const body = selectedStatus === "draft" ? { ids: [...selected] } : { action, ids: [...selected] }
       const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-      const data = await response.json().catch(() => ({})) as { error?: string; message?: string }
+      const data = await response.json().catch(() => ({})) as { error?: string; message?: string; outcomes?: ScheduledContentOutcome[] }
       if (!response.ok) { setError(data.error ?? "The selected content could not be updated."); setConfirmOpen(false); return }
+      if (selectedStatus === "scheduled") setVisibleContent(current => applyScheduledContentOutcomes(current, action, data.outcomes ?? []))
+      else setVisibleContent(current => current.filter(item => !selected.has(item.id)))
       setConfirmOpen(false); setSelected(new Set()); setError(null)
       setMessage(data.message ?? (action === "unschedule" ? "Scheduled content unscheduled." : "Selected content deleted."))
       router.refresh()
@@ -74,7 +80,7 @@ export function MarketingContentLibrary({ content }: { content: MarketingContent
     </section>
     {selectedCount > 0 && <section className={`mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 ${selectedStatus === "scheduled" ? "border-amber-300 bg-amber-50/60" : "border-destructive/30 bg-destructive/5"}`}><p className="text-sm font-medium">{selectionLabel} selected</p><div className="flex flex-wrap gap-2">{selectedStatus === "scheduled" && <Button type="button" size="sm" variant="outline" onClick={() => bulk("unschedule")} disabled={isPending}><CalendarX2 className="h-4 w-4" />Unschedule selected</Button>}<Button type="button" variant="destructive" size="sm" onClick={() => setConfirmOpen(true)} disabled={isPending}><Trash2 className="h-4 w-4" />{selectedStatus === "scheduled" ? `Delete ${plural(selectedCount, "item")}` : `Delete ${selectionLabel}`}</Button></div></section>}
     {error && <p className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</p>}{message && <p className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{message}</p>}
-    {content.length ? <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">{content.map(item => {
+    {visibleContent.length ? <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">{visibleContent.map(item => {
       const selectable = item.status === "draft" || item.status === "scheduled"
       return <MarketingContentCard key={item.id} content={item} selection={{ checked: selected.has(item.id), disabled: !selectable, onCheckedChange: checked => toggle(item, checked) }} />
     })}</div> : <div className="rounded-2xl border border-dashed bg-card p-12 text-center text-sm text-muted-foreground">No content matches this view.</div>}

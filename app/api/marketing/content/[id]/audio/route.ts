@@ -3,11 +3,13 @@ import { z } from "zod"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
+import { ReelVersionService } from "@/lib/marketing/services/reel-version-service"
+import type { ReelComposition } from "@/lib/marketing/types"
 
 type Context = { params: Promise<{ id: string }> }
 
 const AudioSelectionSchema = z.object({ audioTrackId: z.string().uuid().nullable() })
-const EDITABLE_STATUSES = ["draft", "changes_requested", "ready_for_review", "failed"]
+const EDITABLE_STATUSES = ["draft", "changes_requested", "ready_for_review", "failed", "approved"]
 
 /** Persist only a validated private-library selection; no external/Meta music IDs are accepted. */
 export async function POST(request: Request, context: Context) {
@@ -25,28 +27,25 @@ export async function POST(request: Request, context: Context) {
       return NextResponse.json({ error: "Return this Reel to edits before changing its audio." }, { status: 409 })
     }
 
-    let audio: Record<string, unknown> = { type: "none", label: "Silent Reel" }
+    let audio: ReelComposition["audio"] = { type: "none", label: "Silent Reel" }
     if (parsed.data.audioTrackId) {
       const track = await MarketingRepository.getAudioTrackById(parsed.data.audioTrackId)
       if (!track) return NextResponse.json({ error: "That Audio Library track is no longer available." }, { status: 404 })
       audio = { type: "uploaded", id: track.id, label: track.title, durationSeconds: track.durationSeconds }
     }
 
-    const changes: Record<string, unknown> = {
-      composition: { ...(record.content.composition as Record<string, unknown>), audio },
-    }
-    if (record.content.status === "failed") {
-      changes.status = "draft"
-      changes.last_error = null
-    }
-    const content = await MarketingRepository.updateContent(id, changes, access.user.id)
+    const { content, version, createdDraft } = await ReelVersionService.setAudio({
+      contentId: id,
+      audio,
+      adminId: access.user.id,
+    })
     await MarketingRepository.addAuditLog({
       actorId: access.user.id,
       contentId: id,
       action: parsed.data.audioTrackId ? "reel.audio_selected" : "reel.audio_removed",
       metadata: parsed.data.audioTrackId ? { audioTrackId: parsed.data.audioTrackId } : {},
     })
-    return NextResponse.json({ content })
+    return NextResponse.json({ content, version, createdDraft })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to update Reel audio." }, { status: 400 })
   }

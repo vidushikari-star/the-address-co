@@ -1,17 +1,20 @@
 import { spawn } from "node:child_process"
+import { createWriteStream } from "node:fs"
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
+import { Readable, Transform } from "node:stream"
+import { pipeline } from "node:stream/promises"
 
 import { logRenderStage, renderStageFailure, sanitizeRenderDiagnostic } from "@/lib/marketing/render-diagnostics"
 import { layoutReelOverlay, logoLayout } from "@/lib/marketing/reel-layout"
+import { normalizeReelTypographyStyle, reelTypographyFontFile } from "@/lib/marketing/reel-typography"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import type { MarketingAsset, ReelComposition } from "@/lib/marketing/types"
 
 const MAX_RENDER_INPUT_BYTES = 75 * 1024 * 1024
 const MAX_AUDIO_INPUT_BYTES = 25 * 1024 * 1024
 const MAX_LOGO_INPUT_BYTES = 5 * 1024 * 1024
-const TRANSITION_DURATION = 0.4
 export const REEL_ENCODER_THREADS = 2
 export const REEL_FILTER_THREADS = 2
 export const REEL_RENDER_TIMEOUT_MS = 4 * 60_000
@@ -36,6 +39,33 @@ function safeExtension(asset: MarketingAsset) {
   return asset.mediaType === "video" ? "mp4" : "jpg"
 }
 
+async function saveResponseToFile(response: Response, destination: string, maximumBytes: number, limitMessage: string) {
+  const contentLength = Number(response.headers.get("content-length") ?? 0)
+  if (contentLength > maximumBytes) throw new Error(limitMessage)
+
+  // Fetch provides a web stream in Railway. Keep the bounded fallback for the
+  // test harnesses and older fetch implementations that expose only bytes.
+  if (!response.body) {
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    if (bytes.byteLength > maximumBytes) throw new Error(limitMessage)
+    await writeFile(destination, bytes)
+    return
+  }
+
+  let written = 0
+  const guard = new Transform({
+    transform(chunk, _encoding, callback) {
+      written += Buffer.byteLength(chunk)
+      if (written > maximumBytes) {
+        callback(new Error(limitMessage))
+        return
+      }
+      callback(null, chunk)
+    },
+  })
+  await pipeline(Readable.fromWeb(response.body as unknown as import("node:stream/web").ReadableStream), guard, createWriteStream(destination))
+}
+
 async function downloadAsset(asset: MarketingAsset, destination: string) {
   const sourceUrl = asset.sourceUrl ?? asset.signedUrl
   if (!sourceUrl) throw new Error("A composition asset has no source URL.")
@@ -53,17 +83,7 @@ async function downloadAsset(asset: MarketingAsset, destination: string) {
     throw new Error("Renderer received an unsupported asset MIME type.")
   }
 
-  const contentLength = Number(response.headers.get("content-length") ?? 0)
-  if (contentLength > MAX_RENDER_INPUT_BYTES) {
-    throw new Error("A render asset exceeds the 75 MB safety limit.")
-  }
-
-  const bytes = new Uint8Array(await response.arrayBuffer())
-  if (bytes.byteLength > MAX_RENDER_INPUT_BYTES) {
-    throw new Error("A render asset exceeds the 75 MB safety limit.")
-  }
-
-  await writeFile(destination, bytes)
+  await saveResponseToFile(response, destination, MAX_RENDER_INPUT_BYTES, "A render asset exceeds the 75 MB safety limit.")
 }
 
 function audioExtension(mimeType: string) {
@@ -84,21 +104,7 @@ async function downloadAudio(input: { sourceUrl: string; mimeType: string }, des
   if (!mimeType || !["audio/mpeg", "audio/mp4", "audio/wav"].includes(mimeType)) {
     throw new Error("Renderer received an unsupported audio MIME type.")
   }
-  const contentLength = Number(response.headers.get("content-length") ?? 0)
-  if (contentLength > MAX_AUDIO_INPUT_BYTES) throw new Error("Selected audio exceeds the 25 MB safety limit.")
-  const bytes = new Uint8Array(await response.arrayBuffer())
-  if (bytes.byteLength > MAX_AUDIO_INPUT_BYTES) throw new Error("Selected audio exceeds the 25 MB safety limit.")
-  await writeFile(destination, bytes)
-}
-
-function transitionName(transition: string) {
-  switch (transition) {
-    case "slide": return "slideleft"
-    case "zoom": return "zoomin"
-    case "blur": return "fadeblack"
-    case "cross_dissolve": return "fade"
-    default: return "fade"
-  }
+  await saveResponseToFile(response, destination, MAX_AUDIO_INPUT_BYTES, "Selected audio exceeds the 25 MB safety limit.")
 }
 
 function escapeDrawtext(value: string) {
@@ -115,11 +121,13 @@ function textOverlayFilter(input: {
   text?: string
   position?: NonNullable<ReelComposition["scenes"][number]["overlay"]>["position"]
   type?: NonNullable<ReelComposition["scenes"][number]["overlay"]>["type"]
+  typographyStyle?: ReelComposition["typographyStyle"]
 }) {
   const layout = layoutReelOverlay(input)
   if (!layout) return ""
   const x = layout.alignment === "center" ? "(w-text_w)/2" : String(layout.x)
-  return `,drawtext=text='${escapeDrawtext(layout.text)}':fontcolor=white:fontsize=${layout.fontSize}:line_spacing=${layout.lineSpacing}:box=1:boxcolor=black@${layout.boxOpacity.toFixed(2)}:boxborderw=${layout.boxPadding}:shadowcolor=black@0.65:shadowx=2:shadowy=2:x=${x}:y=${layout.y}`
+  const fontFile = reelTypographyFontFile(input.typographyStyle)
+  return `,drawtext=fontfile='${fontFile}':text='${escapeDrawtext(layout.text)}':fontcolor=white:fontsize=${layout.fontSize}:line_spacing=${layout.lineSpacing}:box=1:boxcolor=black@${layout.boxOpacity.toFixed(2)}:boxborderw=${layout.boxPadding}:shadowcolor=black@0.65:shadowx=2:shadowy=2:x=${x}:y=${layout.y}`
 }
 
 async function downloadLogo(input: { sourceUrl: string; mimeType: "image/png" | "image/webp" }, destination: string) {
@@ -129,14 +137,30 @@ async function downloadLogo(input: { sourceUrl: string; mimeType: "image/png" | 
   if (!response.ok) throw new Error(`Unable to fetch selected logo (${response.status}).`)
   const mime = (response.headers.get("content-type") ?? "").split(";", 1)[0]?.toLocaleLowerCase()
   if (!mime || !["image/png", "image/webp"].includes(mime)) throw new Error("Renderer received an unsupported logo MIME type.")
-  const contentLength = Number(response.headers.get("content-length") ?? 0)
-  if (contentLength > MAX_LOGO_INPUT_BYTES) throw new Error("Selected logo exceeds the 5 MB safety limit.")
-  const bytes = new Uint8Array(await response.arrayBuffer())
-  if (bytes.byteLength > MAX_LOGO_INPUT_BYTES) throw new Error("Selected logo exceeds the 5 MB safety limit.")
-  await writeFile(destination, bytes)
+  await saveResponseToFile(response, destination, MAX_LOGO_INPUT_BYTES, "Selected logo exceeds the 5 MB safety limit.")
 }
 
-async function runFfmpeg(args: string[], inputCount: number, hasAudio: boolean, targetDuration: number) {
+type FfmpegRenderContext = {
+  strategy?: "per_scene" | "single_graph"
+  phase?: "scene" | "concat" | "image"
+  sceneIndex?: number
+}
+
+function approxProcessRssMb() {
+  try {
+    return Math.round(process.memoryUsage().rss / 1024 / 1024)
+  } catch {
+    return 0
+  }
+}
+
+async function runFfmpeg(
+  args: string[],
+  inputCount: number,
+  hasAudio: boolean,
+  targetDuration: number,
+  context: FfmpegRenderContext = {},
+) {
   const executable = process.env.FFMPEG_PATH || "ffmpeg"
   const startedAt = Date.now()
   logRenderStage("ffmpeg", "started", {
@@ -146,12 +170,17 @@ async function runFfmpeg(args: string[], inputCount: number, hasAudio: boolean, 
     fps: REEL_FPS,
     encoder_threads: REEL_ENCODER_THREADS,
     filter_threads: REEL_FILTER_THREADS,
+    filter_complex_threads: REEL_FILTER_THREADS,
     preset: REEL_RENDER_PRESET,
     timeout_seconds: REEL_RENDER_TIMEOUT_MS / 1_000,
     audio: hasAudio,
+    render_strategy: context.strategy ?? "single_graph",
+    phase: context.phase ?? "image",
+    scene_index: context.sceneIndex ?? 0,
+    rss_mb: approxProcessRssMb(),
   })
 
-  await new Promise<void>((resolve, reject) => {
+  return new Promise<number>((resolve, reject) => {
     const child = spawn(executable, args, {
       shell: false,
       stdio: ["ignore", "ignore", "pipe"],
@@ -174,8 +203,8 @@ async function runFfmpeg(args: string[], inputCount: number, hasAudio: boolean, 
       const exitCode = child.exitCode ?? code
       const terminationSignal = child.signalCode ?? signal
       if (code === 0) {
-        logRenderStage("ffmpeg", "ok", { exit_code: exitCode ?? 0, elapsed_ms: elapsedMs, timed_out: timedOut })
-        resolve()
+        logRenderStage("ffmpeg", "ok", { exit_code: exitCode ?? 0, elapsed_ms: elapsedMs, timed_out: timedOut, render_strategy: context.strategy ?? "single_graph", phase: context.phase ?? "image", scene_index: context.sceneIndex ?? 0, rss_mb: approxProcessRssMb() })
+        resolve(elapsedMs)
       } else {
         const reason = sanitizeRenderDiagnostic(stderr, 700) || "no FFmpeg stderr was available"
         const terminationReason = timedOut
@@ -191,8 +220,13 @@ async function runFfmpeg(args: string[], inputCount: number, hasAudio: boolean, 
           elapsed_ms: elapsedMs,
           timed_out: timedOut,
           reason,
+          render_strategy: context.strategy ?? "single_graph",
+          phase: context.phase ?? "image",
+          scene_index: context.sceneIndex ?? 0,
+          rss_mb: approxProcessRssMb(),
         })
-        reject(renderStageFailure("ffmpeg", `${terminationReason}; ${reason}`))
+        const scenePrefix = context.sceneIndex ? `Scene ${context.sceneIndex}: ` : ""
+        reject(renderStageFailure("ffmpeg", `${scenePrefix}${terminationReason}; ${reason}`))
       }
     })
   })
@@ -234,6 +268,89 @@ async function validateRenderedMp4(path: string) {
   if (!formats.includes("mp4") || video?.codec_name !== "h264" || video.pix_fmt !== "yuv420p") {
     throw new Error("Rendered output is not an H.264 yuv420p MP4.")
   }
+}
+
+function sceneInputArgs(asset: MarketingAsset, sourcePath: string, duration: number) {
+  return asset.mediaType === "image"
+    ? ["-loop", "1", "-t", duration.toFixed(3), "-i", sourcePath]
+    : ["-stream_loop", "-1", "-t", duration.toFixed(3), "-i", sourcePath]
+}
+
+function sceneVideoFilter(scene: ReelComposition["scenes"][number], typographyStyle: ReelComposition["typographyStyle"]) {
+  return `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=${REEL_FPS},setsar=1${textOverlayFilter({ text: scene.overlay?.text, position: scene.overlay?.position, type: scene.overlay?.type, typographyStyle })}`
+}
+
+function sceneRenderArgs(input: {
+  asset: MarketingAsset
+  sourcePath: string
+  outputPath: string
+  scene: ReelComposition["scenes"][number]
+  typographyStyle: ReelComposition["typographyStyle"]
+  logo?: { path: string; x: number; y: number; size: number; opacity: number } | null
+}) {
+  const args = [
+    "-y",
+    "-filter_threads", String(REEL_FILTER_THREADS),
+    "-filter_complex_threads", String(REEL_FILTER_THREADS),
+    ...sceneInputArgs(input.asset, input.sourcePath, input.scene.duration),
+  ]
+  const filter = sceneVideoFilter(input.scene, input.typographyStyle)
+  if (input.logo) {
+    args.push("-loop", "1", "-i", input.logo.path)
+    args.push(
+      "-filter_complex",
+      `[0:v]${filter}[base];[1:v]format=rgba,colorchannelmixer=aa=${input.logo.opacity.toFixed(2)},scale=${input.logo.size}:-1[logo];[base][logo]overlay=${input.logo.x}:${input.logo.y}:format=auto[v]`,
+      "-map", "[v]",
+    )
+  } else {
+    args.push("-vf", filter, "-map", "0:v:0")
+  }
+  args.push(
+    "-t", input.scene.duration.toFixed(3),
+    "-an",
+    "-c:v", "libx264",
+    "-preset", REEL_RENDER_PRESET,
+    "-threads", String(REEL_ENCODER_THREADS),
+    "-pix_fmt", "yuv420p",
+    "-r", String(REEL_FPS),
+    "-movflags", "+faststart",
+    input.outputPath,
+  )
+  return args
+}
+
+function concatManifest(paths: string[]) {
+  // Local temporary paths are generated by us; quote them only for ffconcat.
+  return paths.map(path => `file '${path.replaceAll("'", "'\\''")}'`).join("\n")
+}
+
+function concatRenderArgs(input: {
+  manifestPath: string
+  outputPath: string
+  totalDuration: number
+  audioPath?: string | null
+  audioDuration?: number | null
+}) {
+  const args = [
+    "-y",
+    "-filter_threads", String(REEL_FILTER_THREADS),
+    "-filter_complex_threads", String(REEL_FILTER_THREADS),
+    "-f", "concat", "-safe", "0", "-i", input.manifestPath,
+  ]
+  if (input.audioPath) args.push("-i", input.audioPath)
+  args.push("-map", "0:v:0")
+  if (input.audioPath && input.audioDuration) {
+    const audibleDuration = Math.min(input.totalDuration, input.audioDuration)
+    const fadeDuration = audibleDuration > 0.4 ? Math.min(1.5, audibleDuration / 4) : 0
+    const fade = fadeDuration > 0
+      ? `,afade=t=out:st=${Math.max(0, audibleDuration - fadeDuration).toFixed(3)}:d=${fadeDuration.toFixed(3)}`
+      : ""
+    args.push("-filter_complex", `[1:a]atrim=duration=${input.totalDuration.toFixed(3)},asetpts=N/SR/TB${fade}[a]`, "-map", "[a]", "-c:a", "aac", "-b:a", "160k")
+  } else {
+    args.push("-an")
+  }
+  args.push("-c:v", "copy", "-movflags", "+faststart", input.outputPath)
+  return args
 }
 
 export class RenderService {
@@ -307,7 +424,7 @@ export class RenderService {
         return { scene, asset }
       })
       if (!compositionAssets.length) throw new Error("A Reel composition needs at least one scene.")
-      logRenderStage("input", "ok", { scenes: compositionAssets.length, audio: Boolean(input.audio), logo: Boolean(input.logo) })
+      logRenderStage("input", "ok", { input_asset_count: compositionAssets.length, scenes: compositionAssets.length, audio: Boolean(input.audio), logo: Boolean(input.logo), render_strategy: "per_scene", typography_style: normalizeReelTypographyStyle(input.composition.typographyStyle) })
     } catch (error) {
       throw renderStageFailure("input", error)
     }
@@ -322,7 +439,6 @@ export class RenderService {
       }
       const outputPath = join(/* turbopackIgnore: true */ workspace, "reel.mp4")
 
-      let inputPaths: string[]
       const audioPath = input.audio
         ? join(/* turbopackIgnore: true */ workspace, `audio.${audioExtension(input.audio.mimeType)}`)
         : null
@@ -330,81 +446,55 @@ export class RenderService {
         ? join(/* turbopackIgnore: true */ workspace, `logo.${input.logo.mimeType === "image/webp" ? "webp" : "png"}`)
         : null
       try {
-        inputPaths = await Promise.all(compositionAssets.map(async ({ asset }, index) => {
-          const path = join(/* turbopackIgnore: true */ workspace!, `${index}.${safeExtension(asset)}`)
-          await downloadAsset(asset, path)
-          return path
-        }))
         if (audioPath && input.audio) await downloadAudio(input.audio, audioPath)
         if (logoPath && input.logo) await downloadLogo(input.logo, logoPath)
-        logRenderStage("download", "ok", { sources: compositionAssets.length, audio: Boolean(input.audio), logo: Boolean(input.logo) })
+        logRenderStage("download", "ok", { sources: 0, audio: Boolean(input.audio), logo: Boolean(input.logo), render_strategy: "per_scene" })
       } catch (error) {
         throw renderStageFailure("download", error)
       }
 
-      const args = [
-        "-y",
-        "-filter_threads", String(REEL_FILTER_THREADS),
-        "-filter_complex_threads", String(REEL_FILTER_THREADS),
-      ]
-      compositionAssets.forEach(({ scene, asset }, index) => {
-        if (asset.mediaType === "image") args.push("-loop", "1", "-t", String(scene.duration), "-i", inputPaths[index])
-        else args.push("-stream_loop", "-1", "-t", String(scene.duration), "-i", inputPaths[index])
-      })
-      if (audioPath) args.push("-i", audioPath)
-      if (logoPath) args.push("-i", logoPath)
-
       const logo = input.logo ? logoLayout(input.logo.placement, input.logo.scale, input.logo.margin) : null
-      const logoInputIndex = compositionAssets.length + (audioPath ? 1 : 0)
-      const filters: string[] = []
-      if (logoPath && logo) {
-        filters.push(`[${logoInputIndex}:v]format=rgba,colorchannelmixer=aa=${Math.max(0.1, Math.min(1, input.logo?.opacity ?? 0.65)).toFixed(2)},scale=${logo.size}:-1[logo]`)
+      const typographyStyle = normalizeReelTypographyStyle(input.composition.typographyStyle)
+      const scenePaths: string[] = []
+      const totalDuration = compositionAssets.reduce((total, item) => total + item.scene.duration, 0)
+      for (const [index, { scene, asset }] of compositionAssets.entries()) {
+        const sourcePath = join(/* turbopackIgnore: true */ workspace, `source-${index}.${safeExtension(asset)}`)
+        const scenePath = join(/* turbopackIgnore: true */ workspace, `scene-${index}.mp4`)
+        const shouldApplyLogo = Boolean(logoPath && logo && (
+          input.logo?.placement !== "end_card_only" || index === compositionAssets.length - 1
+        ))
+        const sceneLogo = shouldApplyLogo && logoPath && logo
+          ? { path: logoPath, x: logo.x, y: logo.y, size: logo.size, opacity: Math.max(0.1, Math.min(1, input.logo?.opacity ?? 0.65)) }
+          : null
+        try {
+          logRenderStage("scene", "started", { render_strategy: "per_scene", scene_index: index + 1, target_duration_seconds: scene.duration.toFixed(3), rss_mb: approxProcessRssMb() })
+          await downloadAsset(asset, sourcePath)
+          logRenderStage("download", "ok", { render_strategy: "per_scene", scene_index: index + 1 })
+          const elapsedMs = await runFfmpeg(sceneRenderArgs({ asset, sourcePath, outputPath: scenePath, scene, typographyStyle, logo: sceneLogo }), 1 + Number(Boolean(sceneLogo)), false, scene.duration, { strategy: "per_scene", phase: "scene", sceneIndex: index + 1 })
+          scenePaths.push(scenePath)
+          logRenderStage("scene", "ok", { render_strategy: "per_scene", scene_index: index + 1, elapsed_ms: elapsedMs, rss_mb: approxProcessRssMb() })
+        } catch (error) {
+          // The ffmpeg error itself retains the `ffmpeg` stage so SIGKILL and
+          // timeout logic still marks the job/content terminally and safely.
+          if (error instanceof Error && error.message.includes("Render ffmpeg failed:")) throw error
+          throw renderStageFailure("scene", `Scene ${index + 1}: ${sanitizeRenderDiagnostic(error)}`)
+        } finally {
+          await rm(sourcePath, { force: true })
+        }
       }
-      compositionAssets.forEach(({ scene }, index) => {
-        const base = `s${index}`
-        const sceneFilter = `[${index}:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1${textOverlayFilter({ text: scene.overlay?.text, position: scene.overlay?.position, type: scene.overlay?.type })}[${base}]`
-        filters.push(sceneFilter)
-        const useEndCardLogo = Boolean(logo && input.logo?.placement === "end_card_only" && index === compositionAssets.length - 1)
-        filters.push(useEndCardLogo ? `[${base}][logo]overlay=${logo?.x}:${logo?.y}:format=auto[v${index}]` : `[${base}]null[v${index}]`)
-      })
-      let previous = "v0"
-      let totalDuration = compositionAssets[0].scene.duration
-      for (let index = 1; index < compositionAssets.length; index += 1) {
-        const next = `x${index}`
-        const transition = transitionName(compositionAssets[index - 1].scene.transitionOut)
-        filters.push(`[${previous}][v${index}]xfade=transition=${transition}:duration=${TRANSITION_DURATION}:offset=${Math.max(0, totalDuration - TRANSITION_DURATION).toFixed(3)}[${next}]`)
-        previous = next
-        totalDuration += compositionAssets[index].scene.duration - TRANSITION_DURATION
-      }
-      if (logo && input.logo?.placement !== "end_card_only") {
-        const branded = "branded"
-        filters.push(`[${previous}][logo]overlay=${logo.x}:${logo.y}:format=auto[${branded}]`)
-        previous = branded
-      }
-      if (input.audio) {
-        // Never loop a short licensed track. `atrim` only caps a long track;
-        // FFmpeg leaves a shorter source short while the video continues.
-        const audibleDuration = Math.min(totalDuration, input.audio.durationSeconds)
-        const fadeDuration = audibleDuration > 0.4 ? Math.min(1.5, audibleDuration / 4) : 0
-        const fade = fadeDuration > 0
-          ? `,afade=t=out:st=${Math.max(0, audibleDuration - fadeDuration).toFixed(3)}:d=${fadeDuration.toFixed(3)}`
-          : ""
-        filters.push(`[${compositionAssets.length}:a]atrim=duration=${totalDuration.toFixed(3)},asetpts=N/SR/TB${fade}[a]`)
-      }
-      args.push("-filter_complex", filters.join(";"), "-map", `[${previous}]`)
-      if (input.audio) args.push("-map", "[a]", "-c:a", "aac", "-b:a", "160k")
-      else args.push("-an")
-      args.push(
-        "-c:v", "libx264",
-        "-preset", REEL_RENDER_PRESET,
-        "-threads", String(REEL_ENCODER_THREADS),
-        "-pix_fmt", "yuv420p",
-        "-movflags", "+faststart",
-        "-r", String(REEL_FPS),
-        outputPath
-      )
 
-      await runFfmpeg(args, compositionAssets.length, Boolean(input.audio), totalDuration)
+      const manifestPath = join(/* turbopackIgnore: true */ workspace, "scenes.ffconcat")
+      try {
+        await writeFile(manifestPath, concatManifest(scenePaths))
+        logRenderStage("concat", "started", { render_strategy: "per_scene", scenes: scenePaths.length, target_duration_seconds: totalDuration.toFixed(3), rss_mb: approxProcessRssMb() })
+        const elapsedMs = await runFfmpeg(concatRenderArgs({ manifestPath, outputPath, totalDuration, audioPath, audioDuration: input.audio?.durationSeconds }), 1 + Number(Boolean(audioPath)), Boolean(input.audio), totalDuration, { strategy: "per_scene", phase: "concat" })
+        logRenderStage("concat", "ok", { render_strategy: "per_scene", scenes: scenePaths.length, elapsed_ms: elapsedMs, rss_mb: approxProcessRssMb() })
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("Render ffmpeg failed:")) throw error
+        throw renderStageFailure("concat", error)
+      } finally {
+        await Promise.all([...scenePaths, manifestPath].map(path => rm(path, { force: true })))
+      }
 
       let rendered: Buffer
       try {

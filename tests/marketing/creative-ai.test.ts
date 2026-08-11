@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { CreativeAIService } from "@/lib/marketing/services/creative-ai-service"
-import type { MarketingBrandSettings, PropertyFactSnapshot } from "@/lib/marketing/types"
+import { CreativeAIService, fitStoryboardCopyForReelLayout } from "@/lib/marketing/services/creative-ai-service"
+import type { MarketingBrandSettings, PropertyFactSnapshot, ReelStoryboard } from "@/lib/marketing/types"
 
 const settings: MarketingBrandSettings = {
   brandName: "The Address Co",
@@ -46,6 +46,13 @@ const creative = {
   transitions: ["fade"],
   audioStyle: "manual_instagram",
   factsUsed: ["title", "location", "bedrooms"],
+}
+
+const sourceAssetId = "1e149a39-7321-42d1-900c-7389c0da37a3"
+const storyboard: ReelStoryboard = {
+  hook: "Villa Verde, Parra",
+  scenes: [{ assetId: sourceAssetId, overlayText: "Villa Verde", durationSeconds: 5, overlayPosition: "top_left", overlayType: "hook" }],
+  endCard: { headline: "Villa Verde", cta: "Arrange a private viewing." },
 }
 
 const originalApiKey = process.env.OPENAI_API_KEY
@@ -186,5 +193,61 @@ describe("CreativeAIService", () => {
       creativeDirection: "minimal",
       settings,
     })).rejects.toThrow("excluded language")
+  })
+
+  it("instructs the storyboard model to use mobile-safe overlay limits", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    const fetchMock = vi.fn().mockResolvedValue(completedResponse(storyboard))
+    global.fetch = fetchMock
+
+    await CreativeAIService.improveReelStoryboard({ property, creativeDirection: "minimal", settings, sourceAssetIds: [sourceAssetId], userPrompt: "Use a more minimal opening." })
+
+    const request = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
+    expect(request.input[0].content).toContain("hook/title overlay ≤80 characters")
+    expect(request.input[0].content).toContain("at most 2–3 short lines")
+  })
+
+  it("deterministically fits overly long storyboard overlays to the mobile-safe layout", () => {
+    const fitted = fitStoryboardCopyForReelLayout({
+      ...storyboard,
+      scenes: [{ ...storyboard.scenes[0], overlayText: "A beautifully designed villa located in the heart of Siolim offering refined interiors, lush landscaping and a considered approach to tropical living.", overlayType: "hook" }],
+      endCard: { headline: "Discover a beautifully designed home with refined interiors and lush tropical landscaping", cta: "Arrange a private viewing with our expert team today" },
+    })
+
+    expect(fitted.scenes[0].overlayText.length).toBeLessThanOrEqual(80)
+    expect(`${fitted.endCard.headline}\n${fitted.endCard.cta}`.length).toBeLessThanOrEqual(100)
+  })
+
+  it("runs one bounded repair request when only an overlay length is invalid", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    const tooLong = {
+      ...storyboard,
+      scenes: [{ ...storyboard.scenes[0], overlayText: "This is deliberately far too long for a concise mobile-first hook and keeps going until it exceeds the strict eighty character hook layout limit." }],
+    }
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(completedResponse(tooLong))
+      .mockResolvedValueOnce(completedResponse(storyboard))
+    global.fetch = fetchMock
+
+    const output = await CreativeAIService.improveReelStoryboard({ property, creativeDirection: "minimal", settings, sourceAssetIds: [sourceAssetId], userPrompt: "Use a concise opening." })
+
+    expect(output.scenes[0].overlayText).toBe("Villa Verde")
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const repairRequest = JSON.parse((fetchMock.mock.calls[1][1] as RequestInit).body as string)
+    expect(repairRequest.input[0].content).toContain("Repair only the text lengths")
+  })
+
+  it("surfaces a friendly message after the bounded overlay repair also fails", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    const tooLong = {
+      ...storyboard,
+      scenes: [{ ...storyboard.scenes[0], overlayText: "This is deliberately far too long for a concise mobile-first hook and keeps going until it exceeds the strict eighty character hook layout limit." }],
+    }
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce(completedResponse(tooLong))
+      .mockResolvedValueOnce(completedResponse(tooLong))
+
+    await expect(CreativeAIService.improveReelStoryboard({ property, creativeDirection: "minimal", settings, sourceAssetIds: [sourceAssetId], userPrompt: "Use a concise opening." }))
+      .rejects.toThrow("AI generated text that was too long for the Reel layout. Please try again or use a shorter creative instruction.")
   })
 })

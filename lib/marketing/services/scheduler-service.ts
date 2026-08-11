@@ -22,6 +22,13 @@ export class SchedulerService {
     if (!hasPublishableMedia(record.content, record.assets)) {
       throw new Error("Required publish media is not ready. Render the approved Reel before scheduling.")
     }
+    if (record.content.contentType === "reel") {
+      const versions = await MarketingRepository.listReelVersions(record.content.id)
+      const approvedVersionAwaitingRender = versions.some(version => version.status === "approved" && !version.renderedAssetId)
+      if (approvedVersionAwaitingRender) {
+        throw new Error("Render the approved new Reel version and make it current before scheduling.")
+      }
+    }
     // Keep staging scheduling available while the kill switch is off. Once
     // production publishing is enabled, do not schedule work that cannot be
     // delivered by the configured professional account.

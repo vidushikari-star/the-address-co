@@ -91,6 +91,7 @@ export const REEL_LOGO_PLACEMENTS = [
 
 export type ReelLogoPlacement = (typeof REEL_LOGO_PLACEMENTS)[number]
 export type ReelLogoScale = "small" | "medium" | "large"
+export type ReelTypographyStyle = "editorial_serif" | "refined_serif" | "modern_sans" | "minimal_sans"
 
 /** A private, administrator-uploaded brand asset. It is never source property media. */
 export type MarketingBrandAsset = {
@@ -190,6 +191,8 @@ export type ReelComposition = {
   hashtags: string[]
   cta: string
   coverText: string
+  /** Fixed, Docker-installed typography selected from a controlled style set. */
+  typographyStyle?: ReelTypographyStyle
   audio: {
     type: "none" | "uploaded" | "royalty_free" | "original" | "instagram_manual"
     id?: string | null
@@ -207,6 +210,7 @@ export type ReelComposition = {
 
 export type ReelStoryboard = {
   hook: string
+  typographyStyle?: ReelTypographyStyle
   scenes: Array<{
     assetId: string
     overlayText: string

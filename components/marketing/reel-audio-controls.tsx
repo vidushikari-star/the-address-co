@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import type { MarketingAudioTrack, MarketingContent, ReelComposition } from "@/lib/marketing/types"
+import type { MarketingAudioTrack, MarketingContent, MarketingReelVersion, ReelComposition } from "@/lib/marketing/types"
 
 function formatDuration(seconds: number) {
   const rounded = Math.max(0, Math.round(seconds))
@@ -49,14 +49,23 @@ function selectedAudio(content: MarketingContent) {
   }
 }
 
-export function ReelAudioControls({ content, tracks }: { content: MarketingContent; tracks: MarketingAudioTrack[] }) {
+export function ReelAudioControls({
+  content,
+  tracks,
+  draftVersion,
+}: {
+  content: MarketingContent
+  tracks: MarketingAudioTrack[]
+  /** The unrendered version is the real edit source, not the old video. */
+  draftVersion?: MarketingReelVersion | null
+}) {
   const router = useRouter()
   const [message, setMessage] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const selected = selectedAudio(content)
+  const selected = selectedAudio(draftVersion ? { ...content, composition: draftVersion.composition } : content)
   const track = selected.id ? tracks.find(item => item.id === selected.id) : undefined
-  const editable = ["draft", "changes_requested", "ready_for_review", "failed"].includes(content.status)
+  const editable = ["draft", "changes_requested", "ready_for_review", "failed", "approved"].includes(content.status)
 
   function persist(audio: ReelComposition["audio"], success: string) {
     setMessage(null)
@@ -66,8 +75,10 @@ export function ReelAudioControls({ content, tracks }: { content: MarketingConte
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ audioTrackId: audio.type === "uploaded" ? audio.id ?? null : null }),
       })
-      const data = await response.json().catch(() => ({})) as { error?: string }
-      setMessage(response.ok ? success : data.error ?? "Could not update Reel audio.")
+      const data = await response.json().catch(() => ({})) as { error?: string; version?: { versionNumber?: number }; createdDraft?: boolean }
+      setMessage(response.ok
+        ? `${success} ${data.createdDraft ? `Version ${data.version?.versionNumber ?? "new"} now requires approval and re-rendering.` : "Re-render required after approval."}`
+        : data.error ?? "Could not update Reel audio.")
       if (response.ok) {
         setOpen(false)
         router.refresh()
@@ -77,22 +88,22 @@ export function ReelAudioControls({ content, tracks }: { content: MarketingConte
 
   const hasSelectedTrack = selected.type === "uploaded" && Boolean(track)
 
-  return <section className="space-y-3 rounded-xl border p-4">
-    <div><p className="text-sm font-semibold">Audio</p><p className="mt-1 text-xs text-muted-foreground">User-uploaded, licensed audio only. Instagram licensed or trending music is not available here.</p></div>
-    {hasSelectedTrack ? <div className="flex flex-wrap items-center gap-1 rounded-lg bg-muted/60 px-3 py-2 text-sm">
-      <Music2 className="mr-1 h-4 w-4 text-primary" />
+  return <section className="space-y-3 rounded-xl bg-muted/35 p-4 ring-1 ring-border/70">
+    <div className="flex flex-wrap items-baseline justify-between gap-2"><div><p className="text-sm font-semibold">Audio</p><p className="mt-0.5 text-xs text-muted-foreground">Licensed, user-uploaded tracks only.</p></div>{draftVersion && !draftVersion.renderedAssetId && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Re-render required</span>}</div>
+    {hasSelectedTrack ? <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-background px-3 py-2.5 text-sm shadow-xs ring-1 ring-border/70">
+      <Music2 className="h-4 w-4 shrink-0 text-primary" />
       <span className="font-medium">{track!.title}</span><span className="text-muted-foreground">· {formatDuration(track!.durationSeconds)}</span>
       <AudioPreviewButton url={track!.signedUrl} label={track!.title} />
-      {editable && <><Button type="button" size="sm" variant="ghost" onClick={() => setOpen(true)} disabled={isPending}>Change</Button><Button type="button" size="sm" variant="ghost" onClick={() => persist({ type: "none", label: "Silent Reel" }, "Reel will render silently.")} disabled={isPending}>Remove</Button></>}
+      {editable && <span className="ml-auto flex gap-1"><Button type="button" size="sm" variant="ghost" onClick={() => setOpen(true)} disabled={isPending}>Change</Button><Button type="button" size="sm" variant="ghost" onClick={() => persist({ type: "none", label: "Silent Reel" }, "Silent Reel selected.")} disabled={isPending}>Remove</Button></span>}
     </div> : <>
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" variant={selected.type === "none" ? "secondary" : "outline"} onClick={() => persist({ type: "none", label: "Silent Reel" }, "Reel will render silently.")} disabled={!editable || isPending}>
+      <div className="flex flex-wrap items-center gap-2 rounded-lg bg-background p-2 shadow-xs ring-1 ring-border/70">
+        <Button type="button" size="sm" variant={selected.type === "none" ? "secondary" : "ghost"} onClick={() => persist({ type: "none", label: "Silent Reel" }, "Silent Reel selected.")} disabled={!editable || isPending}>
           {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <VolumeX className="h-4 w-4" />}Silent
         </Button>
         {editable && <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)} disabled={isPending || !tracks.length}><Music2 className="h-4 w-4" />Select from Audio Library</Button>}
       </div>
       {!tracks.length && <p className="text-xs text-muted-foreground">No licensed tracks yet. Add owned or permissioned audio in Marketing Settings.</p>}
-      {selected.type === "uploaded" && !track && <p className="text-xs text-muted-foreground">The previously selected track was removed from the library. A new render will remain silent until a replacement is selected.</p>}
+      {selected.type === "uploaded" && !track && <p className="text-xs text-amber-800">The selected Audio Library track is no longer available. This draft will render silently unless you choose a replacement.</p>}
     </>}
     {message && <p className="text-xs text-muted-foreground" role="status">{message}</p>}
     <Dialog open={open} onOpenChange={setOpen}>

@@ -30,7 +30,7 @@ describe("scheduled content controls", () => {
     const response = await POST(new Request("http://localhost/api/marketing/content/scheduled", { method: "POST", body: JSON.stringify({ action: "unschedule", ids: [id] }) }))
     expect(response.status).toBe(200)
     expect(repository.manageScheduledContents).toHaveBeenCalledWith({ action: "unschedule", ids: [id], updatedBy: "admin-1" })
-    await expect(response.json()).resolves.toMatchObject({ message: "1 scheduled items unscheduled" })
+    await expect(response.json()).resolves.toMatchObject({ message: "1 scheduled item unscheduled" })
   })
 
   it("returns all three successful outcomes for a bulk unschedule and records each audit event", async () => {
@@ -53,7 +53,7 @@ describe("scheduled content controls", () => {
       method: "POST", body: JSON.stringify({ action: "delete", ids: [id, secondId, thirdId] }),
     }))
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toMatchObject({ message: "3 items deleted" })
+    await expect(response.json()).resolves.toMatchObject({ message: "3 scheduled items deleted" })
     expect(repository.addAuditLog).toHaveBeenCalledWith(expect.objectContaining({ action: "content.scheduled_deleted" }))
   })
 
@@ -67,7 +67,7 @@ describe("scheduled content controls", () => {
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({
       outcomes: [{ id, outcome: "deleted" }, { id: secondId, outcome: "skipped_not_scheduled" }, { id: thirdId, outcome: "skipped_publication_history" }],
-      message: "1 items deleted. 2 skipped because they were no longer safely deletable.",
+      message: "1 scheduled item deleted. 2 items skipped because they were no longer safely deletable.",
     })
   })
 
@@ -75,7 +75,19 @@ describe("scheduled content controls", () => {
     repository.manageScheduledContents.mockResolvedValue([{ id, outcome: "skipped_publishing" }])
     const response = await POST(new Request("http://localhost/api/marketing/content/scheduled", { method: "POST", body: JSON.stringify({ action: "delete", ids: [id] }) }))
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toMatchObject({ message: "0 items deleted. 1 skipped because publishing had already started." })
+    await expect(response.json()).resolves.toMatchObject({ message: "0 scheduled items deleted. 1 item skipped because publishing had already started." })
     expect(repository.addAuditLog).not.toHaveBeenCalled()
+  })
+
+  it("keeps a completed scheduled delete successful when post-mutation audit logging fails", async () => {
+    repository.manageScheduledContents.mockResolvedValue([{ id, outcome: "deleted" }])
+    repository.addAuditLog.mockRejectedValue(new Error("audit storage unavailable"))
+
+    const response = await POST(new Request("http://localhost/api/marketing/content/scheduled", {
+      method: "POST", body: JSON.stringify({ action: "delete", ids: [id] }),
+    }))
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({ message: "1 scheduled item deleted" })
   })
 })

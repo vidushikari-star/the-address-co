@@ -362,6 +362,25 @@ export class MarketingRepository {
     return data ? mapReelVersion(data as Row) : null
   }
 
+  /** Updates only an editable version. Rendered history is intentionally immutable. */
+  static async updateDraftReelVersion(input: {
+    id: string
+    composition: ReelComposition
+    audioSettings: ReelComposition["audio"]
+  }) {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from("marketing_reel_versions")
+      .update({ composition: input.composition, audio_settings: input.audioSettings, last_error: null })
+      .eq("id", input.id)
+      .eq("status", "draft")
+      .select("*")
+      .maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error("The editable Reel draft is no longer available. Refresh and try again.")
+    return mapReelVersion(data as Row)
+  }
+
   static async markReelVersionRendering(id: string) {
     const supabase = await createServerSupabaseClient()
     const { error } = await supabase.from("marketing_reel_versions")
