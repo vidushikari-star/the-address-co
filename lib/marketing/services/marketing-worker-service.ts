@@ -4,7 +4,12 @@ import { isInstagramPublishingEnabled } from "@/lib/marketing/feature-flags"
 import { logRenderStage, RenderStageError, renderStageFailure, sanitizeRenderDiagnostic } from "@/lib/marketing/render-diagnostics"
 import { CompositionService } from "@/lib/marketing/services/composition-service"
 import { CreativeAIService } from "@/lib/marketing/services/creative-ai-service"
-import { InstagramService } from "@/lib/marketing/services/instagram-service"
+import {
+  InstagramApiError,
+  InstagramContainerPendingError,
+  InstagramContainerTerminalError,
+  InstagramService,
+} from "@/lib/marketing/services/instagram-service"
 import { MediaAnalysisService } from "@/lib/marketing/services/media-analysis-service"
 import { RenderService } from "@/lib/marketing/services/render-service"
 import { TokenCryptoService } from "@/lib/marketing/services/token-crypto-service"
@@ -116,12 +121,41 @@ function safeError(error: unknown) {
 }
 
 class PublishingDisabledError extends Error {}
+class PublishingDeferredError extends Error {
+  constructor(readonly runAfter: string) {
+    super("Instagram publication is not due yet.")
+    this.name = "PublishingDeferredError"
+  }
+}
+class PublishingTerminalError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "PublishingTerminalError"
+  }
+}
+
+function logInstagramPublisher(stage: "eligibility" | "container" | "processing" | "publish" | "persistence", status: "started" | "ok" | "created" | "pending" | "failed", details?: Record<string, string | number | boolean>) {
+  const suffix = details
+    ? ` ${Object.entries(details).map(([key, value]) => `${key}=${String(value)}`).join(" ")}`
+    : ""
+  const message = `[instagram-publisher] stage=${stage} status=${status}${suffix}`
+  if (status === "failed") console.error(message)
+  else console.info(message)
+}
 
 function isTerminalRenderTermination(job: MarketingJob, error: unknown) {
   return job.type === "render_reel" &&
     error instanceof RenderStageError &&
     error.stage === "ffmpeg" &&
     /(Render timed out after|terminated by SIGKILL|terminated by SIGTERM)/.test(error.message)
+}
+
+function isTerminalPublishingFailure(job: MarketingJob, error: unknown) {
+  return job.type === "publish_instagram" && (
+    error instanceof PublishingTerminalError ||
+    error instanceof InstagramContainerTerminalError ||
+    (error instanceof InstagramApiError && !error.isRecoverable)
+  )
 }
 
 export class MarketingWorkerService {
@@ -195,7 +229,48 @@ export class MarketingWorkerService {
           results.push({ id: job.id, status: "skipped" })
           continue
         }
-        const retry = !isTerminalRenderTermination(job, caught) && job.attempts < job.maxAttempts
+        if (caught instanceof PublishingDeferredError && job.type === "publish_instagram") {
+          await admin.from("marketing_jobs").update({
+            status: "queued",
+            error: null,
+            progress: 0,
+            run_after: caught.runAfter,
+            locked_at: null,
+            locked_by: null,
+          }).eq("id", job.id)
+          results.push({ id: job.id, status: "skipped" })
+          continue
+        }
+        if (caught instanceof InstagramContainerPendingError && job.type === "publish_instagram") {
+          if (job.attempts >= job.maxAttempts) {
+            const timeoutError = `Instagram media container did not finish after ${job.maxAttempts} processing checks.`
+            logInstagramPublisher("processing", "failed", { checks: job.maxAttempts, reason: "processing_timeout" })
+            await admin.from("marketing_jobs").update({
+              status: "failed",
+              error: timeoutError,
+              progress: 100,
+              locked_at: null,
+              locked_by: null,
+            }).eq("id", job.id)
+            if (job.contentId) {
+              await admin.from("marketing_publications").update({ status: "failed", last_error: timeoutError }).eq("content_id", job.contentId)
+              await admin.from("marketing_content").update({ status: "failed", last_error: timeoutError }).eq("id", job.contentId)
+            }
+            results.push({ id: job.id, status: "failed" })
+            continue
+          }
+          await admin.from("marketing_jobs").update({
+            status: "queued",
+            error: errorMessage,
+            progress: 45,
+            run_after: new Date(Date.now() + 60_000).toISOString(),
+            locked_at: null,
+            locked_by: null,
+          }).eq("id", job.id)
+          results.push({ id: job.id, status: "skipped" })
+          continue
+        }
+        const retry = !isTerminalRenderTermination(job, caught) && !isTerminalPublishingFailure(job, caught) && job.attempts < job.maxAttempts
         await admin.from("marketing_jobs").update({
           status: retry ? "queued" : "failed",
           error: errorMessage,
@@ -206,6 +281,17 @@ export class MarketingWorkerService {
         }).eq("id", job.id)
         if (job.contentId && job.type === "render_reel") {
           await admin.from("marketing_content").update({ last_error: errorMessage }).eq("id", job.contentId)
+        }
+        if (job.contentId && job.type === "publish_instagram") {
+          await admin.from("marketing_content").update({ last_error: errorMessage }).eq("id", job.contentId)
+          if (caught instanceof InstagramApiError && caught.isAuthenticationFailure) {
+            await admin.from("marketing_accounts").update({ status: "expired" })
+              .eq("platform", "instagram")
+              .in("status", ["connected", "expiring", "error"])
+          }
+          if (!retry) {
+            await admin.from("marketing_publications").update({ status: "failed", last_error: errorMessage }).eq("content_id", job.contentId)
+          }
         }
         if (!retry && job.contentId) {
           await admin.from("marketing_content").update({ status: "failed", last_error: errorMessage }).eq("id", job.contentId)
@@ -448,14 +534,30 @@ export class MarketingWorkerService {
     }
     const admin = createAdminSupabaseClient()
     const { content, assets } = await this.loadContent(job.contentId!)
+    const isControlledTest = job.input.publishTest === true
+    logInstagramPublisher("eligibility", "started", {
+      content_type: content.contentType,
+      controlled_test: isControlledTest,
+      status: content.status,
+    })
     if (!["approved", "scheduled", "publishing"].includes(content.status)) {
-      throw new Error("Publishing safety check failed: content is not approved.")
+      throw new PublishingTerminalError("Publishing safety check failed: content is not approved.")
     }
-    if (content.status === "scheduled" && (!content.proposedPublishAt || new Date(content.proposedPublishAt) > new Date())) {
-      throw new Error("Publishing safety check failed: scheduled time has not arrived.")
+    if (content.status === "approved" && !isControlledTest) {
+      throw new PublishingTerminalError("Publishing safety check failed: scheduled publication is required.")
+    }
+    if (content.status === "scheduled") {
+      if (!content.proposedPublishAt) {
+        throw new PublishingTerminalError("Publishing safety check failed: scheduled time is missing.")
+      }
+      if (new Date(content.proposedPublishAt) > new Date()) {
+        throw new PublishingDeferredError(content.proposedPublishAt)
+      }
     }
     const media = publishableAssets(content, assets)
-    if (!media.length) throw new Error("Publishing safety check failed: approved publish media is missing.")
+    if (!media.length) throw new PublishingTerminalError("Publishing safety check failed: approved publish media is missing.")
+    const caption = [content.caption, content.hashtags.join(" ")].filter(Boolean).join(" ").trim()
+    if (!caption) throw new PublishingTerminalError("Publishing safety check failed: a caption is required.")
 
     let accountQuery = admin
       .from("marketing_accounts")
@@ -467,12 +569,13 @@ export class MarketingWorkerService {
     if (content.accountId) accountQuery = accountQuery.eq("id", content.accountId)
     const { data: account, error: accountError } = await accountQuery.maybeSingle()
     if (accountError) throw accountError
-    if (!account) throw new Error("Publishing safety check failed: Instagram is not connected.")
+    if (!account) throw new PublishingTerminalError("Publishing safety check failed: Instagram is not connected.")
     const accountRow = account as Row
     if (accountRow.token_expires_at && new Date(String(accountRow.token_expires_at)) <= new Date()) {
       await admin.from("marketing_accounts").update({ status: "expired" }).eq("id", accountRow.id as string)
-      throw new Error("Instagram access token expired. Reconnect Instagram before publishing.")
+      throw new PublishingTerminalError("Instagram access has expired. Reconnect the account before publishing.")
     }
+    logInstagramPublisher("eligibility", "ok", { media_count: media.length, controlled_test: isControlledTest })
 
     const { data: existing, error: publicationError } = await admin
       .from("marketing_publications")
@@ -481,7 +584,17 @@ export class MarketingWorkerService {
       .maybeSingle()
     if (publicationError) throw publicationError
     const prior = record(existing)
-    if (prior.status === "published") return { publicationId: prior.external_publication_id, duplicate: true }
+    if (prior.status === "published") {
+      const publishedAt = String(prior.published_at ?? new Date().toISOString())
+      if (content.status !== "published") {
+        const { error: repairError } = await admin.from("marketing_content")
+          .update({ status: "published", published_at: publishedAt, last_error: null })
+          .eq("id", content.id)
+        if (repairError) throw repairError
+      }
+      logInstagramPublisher("persistence", "ok", { recovered: true })
+      return { publicationId: prior.external_publication_id, duplicate: true }
+    }
 
     const { data: publication, error: upsertError } = await admin
       .from("marketing_publications")
@@ -497,16 +610,22 @@ export class MarketingWorkerService {
     if (upsertError) throw upsertError
     const publicationRow = publication as Row
 
-    const withSignedUrls = await Promise.all(media.map(async asset => {
-      if (!asset.storagePath) return asset
-      const { data, error } = await admin.storage.from("marketing-assets").createSignedUrl(asset.storagePath, 60 * 60)
-      if (error || !data?.signedUrl) throw error ?? new Error("Unable to sign rendered media for Instagram.")
-      return { ...asset, signedUrl: data.signedUrl }
-    }))
     const accessToken = TokenCryptoService.decrypt(String(accountRow.access_token_ciphertext))
     let containerId = publicationRow.external_container_id as string | null
     if (!containerId) {
-      await admin.from("marketing_content").update({ status: "publishing" }).eq("id", content.id)
+      const { error: transitionError } = await admin.from("marketing_content")
+        .update({ status: "publishing", last_error: null })
+        .eq("id", content.id)
+      if (transitionError) throw transitionError
+      const withSignedUrls = await Promise.all(media.map(async asset => {
+        if (!asset.storagePath) return asset
+        // Meta needs to fetch the object asynchronously, but the bucket stays
+        // private: this unlogged, per-object URL expires after six hours.
+        const { data, error } = await admin.storage.from("marketing-assets").createSignedUrl(asset.storagePath, 6 * 60 * 60)
+        if (error || !data?.signedUrl) throw error ?? new Error("Unable to sign approved media for Instagram.")
+        return { ...asset, signedUrl: data.signedUrl }
+      }))
+      logInstagramPublisher("container", "started", { media_count: withSignedUrls.length })
       const container = await InstagramService.createContainer({
         content,
         mediaAssets: withSignedUrls,
@@ -514,40 +633,61 @@ export class MarketingWorkerService {
         instagramAccountId: String(accountRow.external_account_id),
       })
       containerId = container.containerId
-      await admin.from("marketing_publications").update({
+      const { error: containerPersistenceError } = await admin.from("marketing_publications").update({
         external_container_id: containerId,
-        request_diagnostics: container.diagnostics,
+        request_diagnostics: { container_created: true },
         status: "processing",
+        last_error: null,
       }).eq("id", publicationRow.id as string)
-      await admin.from("marketing_audit_logs").insert({ content_id: content.id, action: "publication.container_created", metadata: { containerId } })
+      if (containerPersistenceError) throw containerPersistenceError
+      await admin.from("marketing_audit_logs").insert({ content_id: content.id, action: "publication.container_created", metadata: { controlledTest: isControlledTest } })
+      logInstagramPublisher("container", "created", { controlled_test: isControlledTest })
     }
 
     const containerStatus = await InstagramService.getContainerStatus(containerId, accessToken)
-    if (containerStatus.status_code !== "FINISHED") {
-      throw new Error(`Instagram media container is still processing (${String(containerStatus.status_code ?? "unknown")}).`)
+    const processingStatus = String(containerStatus.status_code ?? "unknown").toUpperCase()
+    if (processingStatus === "FINISHED") {
+      logInstagramPublisher("processing", "ok")
+    } else if (processingStatus === "ERROR" || processingStatus === "EXPIRED") {
+      logInstagramPublisher("processing", "failed", { status_code: processingStatus })
+      throw new InstagramContainerTerminalError(processingStatus)
+    } else {
+      logInstagramPublisher("processing", "pending", { status_code: processingStatus })
+      throw new InstagramContainerPendingError(processingStatus)
     }
     if (publicationRow.publish_attempted_at) {
-      throw new Error("A prior Instagram publish attempt has an unknown result; manual verification is required before retrying.")
+      throw new PublishingTerminalError("A prior Instagram publish attempt has an unknown result; verify Instagram before retrying.")
     }
 
-    await admin.from("marketing_publications").update({ publish_attempted_at: new Date().toISOString() }).eq("id", publicationRow.id as string)
+    const { error: attemptError } = await admin.from("marketing_publications")
+      .update({ publish_attempted_at: new Date().toISOString(), status: "processing" })
+      .eq("id", publicationRow.id as string)
+    if (attemptError) throw attemptError
+    logInstagramPublisher("publish", "started")
     const published = await InstagramService.publishContainer({
       instagramAccountId: String(accountRow.external_account_id),
       accessToken,
       containerId,
     })
     const permalink = await InstagramService.getPublicationPermalink(published.publicationId, accessToken).catch(() => undefined)
-    await admin.from("marketing_publications").update({
+    const publishedAt = new Date().toISOString()
+    const { error: publicationPersistenceError } = await admin.from("marketing_publications").update({
       external_publication_id: published.publicationId,
       permalink: permalink ?? null,
-      request_diagnostics: published.diagnostics,
+      request_diagnostics: { publication_created: true },
       status: "published",
-      published_at: new Date().toISOString(),
+      published_at: publishedAt,
       last_error: null,
     }).eq("id", publicationRow.id as string)
-    await admin.from("marketing_content").update({ status: "published", published_at: new Date().toISOString(), last_error: null }).eq("id", content.id)
-    await admin.from("marketing_audit_logs").insert({ content_id: content.id, action: "publication.succeeded", metadata: { publicationId: published.publicationId, permalink } })
-    await admin.from("marketing_usage_events").insert({ content_id: content.id, category: "publishing", quantity: 1, unit: "attempt", metadata: { publicationId: published.publicationId } })
+    if (publicationPersistenceError) throw publicationPersistenceError
+    const { error: contentPersistenceError } = await admin.from("marketing_content")
+      .update({ status: "published", published_at: publishedAt, last_error: null })
+      .eq("id", content.id)
+    if (contentPersistenceError) throw contentPersistenceError
+    await admin.from("marketing_audit_logs").insert({ content_id: content.id, action: "publication.succeeded", metadata: { controlledTest: isControlledTest } })
+    await admin.from("marketing_usage_events").insert({ content_id: content.id, category: "publishing", quantity: 1, unit: "attempt", metadata: { controlledTest: isControlledTest } })
+    logInstagramPublisher("publish", "ok")
+    logInstagramPublisher("persistence", "ok")
     return { publicationId: published.publicationId, permalink }
   }
 }

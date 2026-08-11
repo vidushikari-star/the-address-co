@@ -7,6 +7,7 @@ const repository = vi.hoisted(() => ({
   addAuditLog: vi.fn().mockResolvedValue(undefined),
   upsertSchedule: vi.fn().mockResolvedValue(undefined),
   enqueueJob: vi.fn().mockResolvedValue(undefined),
+  getInstagramAccount: vi.fn().mockResolvedValue(null),
 }))
 
 vi.mock("@/lib/marketing/repositories/marketing-repository", () => ({ MarketingRepository: repository }))
@@ -33,6 +34,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   repository.transitionContent.mockResolvedValue({ id: "content-1", status: "approved" })
   repository.getContentById.mockResolvedValue(record("approved"))
+  repository.getInstagramAccount.mockResolvedValue(null)
+  vi.stubEnv("INSTAGRAM_PUBLISHING_ENABLED", "false")
 })
 
 describe("approval and scheduling guards", () => {
@@ -96,6 +99,26 @@ describe("approval and scheduling guards", () => {
       timezone: "Asia/Kolkata",
       adminId: "admin-1",
     })).rejects.toThrow("Only approved content can be scheduled")
+  })
+
+  it("requires the connected professional account before scheduling when publishing is enabled", async () => {
+    vi.stubEnv("INSTAGRAM_PUBLISHING_ENABLED", "true")
+
+    await expect(SchedulerService.schedule({
+      contentId: "content-1",
+      scheduledFor: new Date(Date.now() + 3_600_000).toISOString(),
+      timezone: "Asia/Kolkata",
+      adminId: "admin-1",
+    })).rejects.toThrow("Connect an Instagram professional account")
+
+    repository.getInstagramAccount.mockResolvedValue({ id: "other-account", status: "connected" })
+    repository.getContentById.mockResolvedValue({ content: { ...record("approved").content, accountId: "expected-account" }, assets: record("approved").assets })
+    await expect(SchedulerService.schedule({
+      contentId: "content-1",
+      scheduledFor: new Date(Date.now() + 3_600_000).toISOString(),
+      timezone: "Asia/Kolkata",
+      adminId: "admin-1",
+    })).rejects.toThrow("selected Instagram account is no longer connected")
   })
 
   it("returns an approved item to changes before material edits", async () => {

@@ -87,13 +87,15 @@ The CRM permits one active Instagram connection. **Marketing → Settings → In
 The worker:
 
 1. verifies the feature flag, approval state, due time, active connection, media, caption and publication idempotency record;
-2. signs private rendered media when needed, or uses the approved original CRM-media URL for a normal single-image post;
-3. creates an Instagram media container (including carousel children), polls container status, then calls `media_publish`;
-4. stores container/publication IDs, permalink and safe diagnostics.
+2. signs a private rendered MP4 per object for six hours when needed, or uses the approved original CRM-media URL for a normal single-image post;
+3. creates an Instagram media container (including carousel children), persists the container ID, polls its `status_code` through queued jobs, then calls `media_publish` only after `FINISHED`;
+4. stores the Instagram media ID, trustworthy permalink, published time and safe diagnostics.
 
 Publishing is disabled unless `INSTAGRAM_PUBLISHING_ENABLED=true`. While disabled, scheduled publish jobs remain queued and are deferred by the worker; they do not call Meta and do not mark the content failed. The review screen states this explicitly, while still allowing create, generate, approve, render and schedule testing. A pre-persisted `publish_attempted_at` protects against retrying an ambiguous network failure and accidentally creating a duplicate post; that situation requires a human to check Instagram before retrying.
 
-Meta requires a professional account. The current Meta Instagram API supports content publishing for professional accounts, with Stories limited to business accounts in the documented flows. Meta fetches supplied media URLs during publishing, which is why the worker creates a short-lived signed URL. See Meta’s [Instagram API Postman collection](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api) and its [content publishing guide](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/content-publishing) before enabling production publishing.
+Meta requires a professional account. The current Meta Instagram API supports content publishing for professional accounts, with Stories limited to business accounts in the documented flows. Meta fetches supplied media URLs during publishing, which is why the worker creates an unlogged, expiring signed URL for only the rendered object; it never makes the private `marketing-assets` bucket public. See Meta’s [Instagram API Postman collection](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api) and its [content publishing guide](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/content-publishing) before enabling production publishing.
+
+Container processing never blocks a Vercel request. `IN_PROGRESS` is returned to `marketing_jobs` with a one-minute next check and a bounded maximum of ten checks. `ERROR` and `EXPIRED` are terminal: the publication, job and content are moved to `failed` with a sanitized reason. A `media_publish` attempt is recorded before the call, so a network timeout cannot cause a second post; an ambiguous result requires a human to verify Instagram before retrying. Safe logs use the form `[instagram-publisher] stage=eligibility|container|processing|publish|persistence status=…` and never contain a token, signed URL, caption, property text, or user data.
 
 Programmatic access to the commercial Instagram music catalogue is not implemented and must not be assumed. The Reel review panel exposes only the private, user-uploaded Audio Library and an explicit Silent Reel option; it never claims to attach licensed or trending Instagram music from Meta.
 
@@ -136,11 +138,39 @@ Enable `MARKETING_ENABLED=true` only after the migration and secrets are in plac
 
 ## Meta configuration
 
-1. Create a Meta app with Instagram API / Instagram Login and add the exact `META_REDIRECT_URI`.
-2. Add an administrator/tester while the app is in development, then complete Meta App Review for the requested production permissions.
-3. Connect an eligible professional Instagram account from **Marketing → Settings**.
-4. Configure a publicly reachable deployment: Meta must be able to fetch signed render URLs.
-5. Register webhook endpoints only if you later enable webhook-driven container/publishing or analytics updates; the polling worker works without a webhook.
+This implementation uses **Instagram API with Instagram Login** on `graph.instagram.com`, not Basic Display and not the Facebook Login publishing flow. Meta’s current collection identifies this as the direct login flow for Instagram professional accounts and specifies the `instagram_business_*` scopes; the older `business_*` values are deprecated. See the [official Meta Instagram API collection](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api) and [official container workflow](https://www.postman.com/meta/instagram/request/munmruq/get-ig-container-status).
+
+1. In Meta for Developers, create the app and add the **Instagram API / Instagram Login** product. Meta’s collection recommends a Business app for this use case.
+2. In that product’s Instagram Login settings, register the exact production callback: `https://<your-vercel-domain>/api/marketing/instagram/callback`. Register the exact local callback too if local OAuth is needed; it must match `META_REDIRECT_URI` character-for-character.
+3. Request only `instagram_business_basic` and `instagram_business_content_publish`. While the app is in development, use a Meta app administrator/tester and an eligible Instagram professional account. Before serving accounts outside your organization, obtain the appropriate Meta App Review/Advanced Access for the requested permissions.
+4. The account must be an Instagram **Business or Creator professional account**. This Instagram Login flow does not require a linked Facebook Page for publishing.
+5. Set these **Vercel server-side** variables for Production and Preview as appropriate:
+
+   ```text
+   META_APP_ID=<Meta app ID>
+   META_APP_SECRET=<Meta app secret>
+   META_REDIRECT_URI=https://<your-vercel-domain>/api/marketing/instagram/callback
+   META_GRAPH_BASE_URL=https://graph.instagram.com
+   META_GRAPH_API_VERSION=v25.0
+   MARKETING_TOKEN_ENCRYPTION_KEY=<base64-encoded 32-byte key>
+   MARKETING_OAUTH_STATE_SECRET=<unique 32+-character secret>
+   MARKETING_CRON_SECRET=<existing protected-runner secret>
+   INSTAGRAM_PUBLISHING_ENABLED=false
+   ```
+
+   `v25.0` is the version currently configured by this codebase; review Meta’s version lifecycle and update this value deliberately when Meta deprecates it. Do not set the Meta app secret, access token ciphertext, service-role key, or signing URL as a browser variable. Railway does **not** need Meta app credentials: it calls Vercel’s protected non-render job runner, which executes publishing.
+
+6. OAuth exchanges the authorization code, stores the returned long-lived token encrypted at rest, and records its expiry. The CRM labels expiring/expired tokens and requires a reconnect before an expired token can publish; it does not claim to refresh a token automatically.
+7. No Meta webhook is required for this publishing implementation. It uses persisted container IDs plus bounded worker polling. Do not register a webhook for this feature unless a separately implemented webhook handler and verification flow is deployed.
+
+### First controlled publishing test
+
+1. Deploy the current Vercel code and confirm the protected `/api/marketing/jobs/run` invocation is operating.
+2. Leave `INSTAGRAM_PUBLISHING_ENABLED=false`, connect the professional account in **Marketing → Settings**, and use **Test connection**. Confirm the masked account ID, token status and handle look correct.
+3. Create one small, approved single-image item (or approve a Reel only after Railway has produced its validated MP4). Do not use a draft, rendering or failed item.
+4. Set `INSTAGRAM_PUBLISHING_ENABLED=true` in Vercel Production, redeploy/restart the job runner as required by the platform, then select **Publish test** on that one approved item. This is an explicit admin action and queues a job; it never sends from the browser.
+5. Watch safe Vercel logs for `instagram-publisher` stages and confirm the item becomes **Published** with an Instagram media ID. The CRM shows **View on Instagram** only when Meta returns a trusted permalink.
+6. Set the kill switch back to `false` if you do not yet want normal scheduled posts to publish. With the switch false, no `media_publish` call is made and jobs are deferred.
 
 ## OpenAI configuration
 

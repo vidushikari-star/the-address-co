@@ -28,13 +28,13 @@ export function MarketingPublishingActions({ contentId, canPublishNow }: { conte
     })
   }
 
-  function publishNow() {
-    if (!window.confirm("Queue this approved content for publishing now?")) return
+  function publishTest() {
+    if (!window.confirm("Queue this approved item as a controlled Instagram publishing test? It will publish through the protected worker.")) return
     setMessage(null)
     startTransition(async () => {
       const response = await fetch(`/api/marketing/publish/${contentId}`, { method: "POST" })
       const data = await response.json().catch(() => ({})) as { error?: string }
-      setMessage(response.ok ? "Publishing has been queued for the protected worker." : data.error ?? "Could not queue publishing.")
+      setMessage(response.ok ? "Controlled publishing test queued for the protected worker." : data.error ?? "Could not queue publishing.")
       if (response.ok) router.refresh()
     })
   }
@@ -42,8 +42,8 @@ export function MarketingPublishingActions({ contentId, canPublishNow }: { conte
   return <div className="space-y-3 rounded-xl border p-4">
     <p className="text-sm font-semibold">Publishing controls</p>
     <label className="grid gap-1 text-xs font-medium">Schedule in your local timezone<Input type="datetime-local" value={scheduledFor} onChange={event => setScheduledFor(event.target.value)} /></label>
-    <div className="flex flex-wrap gap-2"><Button type="button" size="sm" onClick={schedule} disabled={isPending}><CalendarClock className="h-4 w-4" />Schedule post</Button>{canPublishNow && <Button type="button" size="sm" variant="outline" onClick={publishNow} disabled={isPending}><Send className="h-4 w-4" />Publish now</Button>}{isPending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}</div>
-    <p className="text-xs text-muted-foreground">{canPublishNow ? "Publish now is queued for the protected worker, never sent from this browser." : "Direct publishing is disabled by feature flag; scheduling remains available."}</p>
+    <div className="flex flex-wrap gap-2"><Button type="button" size="sm" onClick={schedule} disabled={isPending}><CalendarClock className="h-4 w-4" />Schedule post</Button>{canPublishNow && <Button type="button" size="sm" variant="outline" onClick={publishTest} disabled={isPending}><Send className="h-4 w-4" />Publish test</Button>}{isPending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}</div>
+    <p className="text-xs text-muted-foreground">{canPublishNow ? "Publish test deliberately sends this approved item through the protected worker; it is never published from the browser." : "Publishing is disabled by feature flag; scheduling remains available."}</p>
     {message && <p className="text-xs text-muted-foreground">{message}</p>}
   </div>
 }

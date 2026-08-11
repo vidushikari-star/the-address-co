@@ -68,7 +68,9 @@ export default async function MarketingSettingsPage({ searchParams }: Props) {
           <InstagramConnectionActions connected={connected} />
           {account && <dl className="mt-5 space-y-2 border-t pt-4 text-sm">
             <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Account type</dt><dd className="font-medium">{account.accountType || "Professional"}</dd></div>
+            <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Account ID</dt><dd className="font-medium">{account.maskedAccountId ?? "Unavailable"}</dd></div>
             <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Connection</dt><dd className="font-medium capitalize">{account.status}</dd></div>
+            <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Token status</dt><dd className="font-medium">{account.status === "expired" ? "Expired — reconnect" : account.tokenExpiresAt ? `Valid until ${new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(new Date(account.tokenExpiresAt))}` : "Connected"}</dd></div>
             <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Publishing</dt><dd className="font-medium">{process.env.INSTAGRAM_PUBLISHING_ENABLED === "true" ? "Enabled" : "Disabled by flag"}</dd></div>
             <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Last verified</dt><dd className="font-medium">{account.lastVerifiedAt ? new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(account.lastVerifiedAt)) : "Not yet verified"}</dd></div>
           </dl>}

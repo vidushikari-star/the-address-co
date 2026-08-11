@@ -24,4 +24,35 @@ describe("InstagramService", () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain("container-1")
     expect((fetchMock.mock.calls[0][1] as RequestInit).headers).toMatchObject({ Authorization: "Bearer server-token" })
   })
+
+  it("creates official image and Reel media containers without exposing a token in the URL", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "image-container" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "reel-container" }), { status: 200 }))
+    global.fetch = fetchMock
+    const content = {
+      id: "content-1", contentType: "single_image" as const, caption: "Caption", hashtags: ["#tag"], altText: "A home",
+    }
+    const image = { id: "asset-1", contentId: "content-1", kind: "original_reference" as const, mediaType: "image" as const, sourceUrl: "https://crm.example/image.jpg", metadata: {}, sortOrder: 0, createdAt: "2026-08-10T00:00:00.000Z" }
+    await InstagramService.createContainer({ content: content as never, mediaAssets: [image], accessToken: "server-token", instagramAccountId: "ig-user" })
+    await InstagramService.createContainer({ content: { ...content, contentType: "reel" } as never, mediaAssets: [{ ...image, kind: "rendered_media", mediaType: "video", storagePath: "reel.mp4", signedUrl: "https://project.supabase.co/signed.mp4" }], accessToken: "server-token", instagramAccountId: "ig-user" })
+
+    const imageBody = String((fetchMock.mock.calls[0][1] as RequestInit).body)
+    const reelBody = String((fetchMock.mock.calls[1][1] as RequestInit).body)
+    expect(imageBody).toContain("image_url=https%3A%2F%2Fcrm.example%2Fimage.jpg")
+    expect(reelBody).toContain("media_type=REELS")
+    expect(reelBody).toContain("video_url=https%3A%2F%2Fproject.supabase.co%2Fsigned.mp4")
+    expect(String(fetchMock.mock.calls[0][0])).not.toContain("server-token")
+  })
+
+  it("classifies Meta authentication failures without persisting the raw API message", async () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { message: "Invalid OAuth 2.0 Access Token: server-token", code: 190 } }), { status: 400 }))
+
+    await expect(InstagramService.verifyConnection("server-token")).rejects.toMatchObject({
+      name: "InstagramApiError",
+      statusCode: 400,
+      code: 190,
+      message: "Instagram authentication failed. Reconnect the account.",
+    })
+  })
 })

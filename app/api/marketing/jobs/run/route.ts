@@ -23,8 +23,10 @@ export async function POST(request: Request) {
     // Safe, non-secret queue identity for the Railway worker's deployment
     // diagnostic. This catches accidental cross-project configuration.
     return NextResponse.json({ result, supabaseProjectRef: supabaseProjectRef() })
-  } catch (error) {
-    console.error("Marketing worker failed:", error)
+  } catch {
+    // Individual services emit safe stage diagnostics. Do not serialize an
+    // arbitrary provider error here because it could contain request data.
+    console.error("Marketing worker failed.")
     return NextResponse.json({ error: "Marketing worker failed." }, { status: 500 })
   }
 }

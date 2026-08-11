@@ -18,7 +18,18 @@ export async function POST(_request: Request, context: Context) {
   const { id } = await context.params
   const content = await MarketingRepository.getContentById(id)
   if (!content) return NextResponse.json({ error: "Content not found." }, { status: 404 })
-  if (content.content.status !== "approved") {
+  const isRetry = await _request.json().catch(() => null)
+    .then(body => Boolean(body && typeof body === "object" && (body as { retry?: unknown }).retry === true))
+  if (isRetry) {
+    if (content.content.status !== "failed") {
+      return NextResponse.json({ error: "Only a failed publication can be retried." }, { status: 409 })
+    }
+    try {
+      await MarketingRepository.prepareSafePublicationRetry({ contentId: id, updatedBy: access.user.id })
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "This publication cannot be retried automatically." }, { status: 409 })
+    }
+  } else if (content.content.status !== "approved") {
     return NextResponse.json({ error: "Only explicitly approved content can be published." }, { status: 409 })
   }
   if (!hasPublishableMedia(content.content, content.assets)) {
@@ -28,8 +39,10 @@ export async function POST(_request: Request, context: Context) {
   await MarketingRepository.enqueueJob({
     contentId: id,
     type: "publish_instagram",
-    idempotencyKey: `publish-now:${id}`,
+    input: { publishTest: true },
+    idempotencyKey: isRetry ? `publish-retry:${id}:${crypto.randomUUID()}` : `publish-test:${id}`,
+    maxAttempts: 10,
   })
-  await MarketingRepository.addAuditLog({ actorId: access.user.id, contentId: id, action: "publication.queued" })
-  return NextResponse.json({ queued: true }, { status: 202 })
+  await MarketingRepository.addAuditLog({ actorId: access.user.id, contentId: id, action: isRetry ? "publication.retry_queued" : "publication.test_queued" })
+  return NextResponse.json({ queued: true, controlledTest: !isRetry }, { status: 202 })
 }

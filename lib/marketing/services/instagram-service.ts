@@ -20,6 +20,39 @@ export type InstagramToken = {
 
 type GraphResponse = Record<string, unknown>
 
+export class InstagramApiError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: number,
+    readonly code?: number,
+  ) {
+    super(message)
+    this.name = "InstagramApiError"
+  }
+
+  get isAuthenticationFailure() {
+    return this.statusCode === 401 || this.code === 190
+  }
+
+  get isRecoverable() {
+    return this.statusCode === 408 || this.statusCode === 429 || this.statusCode >= 500
+  }
+}
+
+export class InstagramContainerPendingError extends Error {
+  constructor(readonly statusCode: string) {
+    super(`Instagram media container is still processing (${statusCode}).`)
+    this.name = "InstagramContainerPendingError"
+  }
+}
+
+export class InstagramContainerTerminalError extends Error {
+  constructor(readonly statusCode: string) {
+    super(`Instagram media container ${statusCode.toLowerCase()}. Create a new publication attempt after reviewing the media.`)
+    this.name = "InstagramContainerTerminalError"
+  }
+}
+
 function oauthStateSecret() {
   const secret = process.env.MARKETING_OAUTH_STATE_SECRET
   if (!secret || secret.length < 32) {
@@ -58,10 +91,19 @@ async function requestGraph(input: {
   })
   const data = await response.json().catch(() => ({})) as GraphResponse
   if (!response.ok || data.error) {
-    const message = typeof data.error === "object" && data.error
-      ? String((data.error as Record<string, unknown>).message ?? "Instagram API error")
-      : `Instagram API error (${response.status})`
-    throw new Error(message)
+    const error = typeof data.error === "object" && data.error
+      ? data.error as Record<string, unknown>
+      : {}
+    const code = typeof error.code === "number" ? error.code : undefined
+    const rawMessage = String(error.message ?? "")
+    // Meta may echo input values in an error. Do not persist or log those
+    // values; classify only the safe, actionable classes we need.
+    const message = /oauth|access token|token.*expired|invalid.*token/i.test(rawMessage)
+      ? "Instagram authentication failed. Reconnect the account."
+      : /permission|scope|capability/i.test(rawMessage)
+        ? "Instagram publishing permission was denied. Reconnect the account with publishing access."
+        : `Instagram API request failed (HTTP ${response.status}${code ? `, code ${code}` : ""}).`
+    throw new InstagramApiError(message, response.status, code)
   }
   return data
 }
@@ -69,7 +111,7 @@ async function requestGraph(input: {
 function mediaUrl(asset: MarketingAsset) {
   const url = asset.signedUrl ?? asset.sourceUrl
   if (!url || !/^https:\/\//i.test(url)) {
-    throw new Error("A publicly reachable approved-media URL is required for Instagram publishing.")
+    throw new Error("A Meta-fetchable approved-media URL is required for Instagram publishing.")
   }
   return url
 }
@@ -265,6 +307,7 @@ export class InstagramService {
       path: `/${encodeURIComponent(publicationId)}?fields=permalink`,
       accessToken,
     })
-    return response.permalink as string | undefined
+    const permalink = response.permalink as string | undefined
+    return permalink?.startsWith("https://www.instagram.com/") ? permalink : undefined
   }
 }

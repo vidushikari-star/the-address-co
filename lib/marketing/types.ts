@@ -170,6 +170,8 @@ export type ReelComposition = {
 
 export type InstagramAccount = {
   id: string
+  /** The external account ID is intentionally masked before it reaches the UI. */
+  maskedAccountId?: string | null
   username?: string | null
   displayName?: string | null
   accountType?: string | null
@@ -179,6 +181,18 @@ export type InstagramAccount = {
   connectedAt?: string | null
   lastVerifiedAt?: string | null
   scopes: string[]
+}
+
+export type MarketingPublication = {
+  id: string
+  contentId: string
+  status: "pending" | "processing" | "published" | "failed"
+  instagramMediaId?: string | null
+  permalink?: string | null
+  publishedAt?: string | null
+  /** Whether media_publish may have completed despite a lost response. */
+  publishAttemptedAt?: string | null
+  lastError?: string | null
 }
 
 export type MarketingJobType =

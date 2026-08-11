@@ -16,7 +16,10 @@ export function contentRequiresRendering(content: Pick<MarketingContent, "conten
 
 export function publishableAssets(content: Pick<MarketingContent, "contentType" | "composition">, assets: MarketingAsset[]) {
   return contentRequiresRendering(content)
-    ? assets.filter(asset => asset.kind === "rendered_media")
+    // Railway validates the encoded output with FFprobe before creating this
+    // asset. Publishing only accepts that private, completed MP4; it never
+    // uploads an original property video as a substitute for a Reel render.
+    ? assets.filter(asset => asset.kind === "rendered_media" && asset.mediaType === "video" && asset.storagePath?.toLowerCase().endsWith(".mp4"))
     : assets.filter(asset => asset.kind === "original_reference" && Boolean(asset.sourceUrl))
 }
 

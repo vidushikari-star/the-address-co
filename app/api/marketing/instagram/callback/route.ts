@@ -47,8 +47,10 @@ export async function GET(request: Request) {
     })
 
     return NextResponse.redirect(new URL(`${returnTo}?instagram=connected`, request.url))
-  } catch (caught) {
-    console.error("Instagram callback failed:", caught)
+  } catch {
+    // OAuth providers can include request-specific data in failures. Keep
+    // browser redirects and logs free of authorization codes and tokens.
+    console.error("Instagram callback failed.")
     return NextResponse.redirect(fallback)
   }
 }

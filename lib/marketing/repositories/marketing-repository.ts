@@ -7,6 +7,7 @@ import type {
   MarketingContent,
   MarketingContentType,
   MarketingCampaign,
+  MarketingPublication,
   CampaignPlanItem,
   MarketingJob,
   MarketingJobType,
@@ -121,6 +122,26 @@ function mapJob(row: Row): MarketingJob {
     runAfter: String(row.run_after),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
+  }
+}
+
+function maskExternalAccountId(value: unknown) {
+  const id = String(value ?? "")
+  if (!id) return null
+  if (id.length <= 6) return "••••"
+  return `${id.slice(0, 3)}••••${id.slice(-3)}`
+}
+
+function mapPublication(row: Row): MarketingPublication {
+  return {
+    id: String(row.id),
+    contentId: String(row.content_id),
+    status: row.status as MarketingPublication["status"],
+    instagramMediaId: row.external_publication_id as string | null,
+    permalink: row.permalink as string | null,
+    publishedAt: row.published_at as string | null,
+    publishAttemptedAt: row.publish_attempted_at as string | null,
+    lastError: row.last_error as string | null,
   }
 }
 
@@ -525,6 +546,7 @@ export class MarketingRepository {
     input?: Record<string, unknown>
     idempotencyKey: string
     runAfter?: string
+    maxAttempts?: number
   }) {
     const supabase = await createServerSupabaseClient()
     const { data, error } = await supabase
@@ -535,6 +557,7 @@ export class MarketingRepository {
         input: input.input ?? {},
         idempotency_key: input.idempotencyKey,
         run_after: input.runAfter ?? new Date().toISOString(),
+        max_attempts: input.maxAttempts ?? 3,
       }, { onConflict: "idempotency_key", ignoreDuplicates: true })
       .select("*")
       .maybeSingle()
@@ -743,7 +766,7 @@ export class MarketingRepository {
     const supabase = await createServerSupabaseClient()
     const { data, error } = await supabase
       .from("marketing_accounts")
-      .select("id, username, display_name, account_type, profile_image_url, status, token_expires_at, scopes, connected_at, last_verified_at")
+      .select("id, external_account_id, username, display_name, account_type, profile_image_url, status, token_expires_at, scopes, connected_at, last_verified_at")
       .eq("platform", "instagram")
       .order("created_at", { ascending: false })
       .limit(1)
@@ -764,6 +787,7 @@ export class MarketingRepository {
 
     return {
       id: String(row.id),
+      maskedAccountId: maskExternalAccountId(row.external_account_id),
       username: row.username as string | null,
       displayName: row.display_name as string | null,
       accountType: row.account_type as string | null,
@@ -845,6 +869,59 @@ export class MarketingRepository {
       .maybeSingle()
     if (error) throw error
     return data ? object(data) : null
+  }
+
+  /** Publication data that is safe for an authenticated Marketing admin UI. */
+  static async getPublicationForContent(contentId: string): Promise<MarketingPublication | null> {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from("marketing_publications")
+      .select("id, content_id, status, external_publication_id, permalink, publish_attempted_at, published_at, last_error")
+      .eq("content_id", contentId)
+      .maybeSingle()
+    if (error) throw error
+    return data ? mapPublication(data as Row) : null
+  }
+
+  /**
+   * A retry is only safe before media_publish was attempted. Once Meta may
+   * have accepted that request, the worker deliberately requires manual
+   * verification instead of risking a duplicate Instagram post.
+   */
+  static async prepareSafePublicationRetry(input: { contentId: string; updatedBy: string }) {
+    const supabase = await createServerSupabaseClient()
+    const { data: publication, error: publicationError } = await supabase
+      .from("marketing_publications")
+      .select("id, status, external_publication_id, publish_attempted_at")
+      .eq("content_id", input.contentId)
+      .maybeSingle()
+    if (publicationError) throw publicationError
+    const row = object(publication)
+    if (!publication || row.status !== "failed" || row.external_publication_id || row.publish_attempted_at) {
+      throw new Error("This publication cannot be retried automatically. Verify Instagram before creating a new attempt.")
+    }
+
+    const { error: resetPublicationError } = await supabase
+      .from("marketing_publications")
+      .update({
+        status: "pending",
+        external_container_id: null,
+        last_error: null,
+        request_diagnostics: {},
+      })
+      .eq("id", row.id as string)
+      .eq("status", "failed")
+    if (resetPublicationError) throw resetPublicationError
+
+    const { data: content, error: contentError } = await supabase
+      .from("marketing_content")
+      .update({ status: "approved", last_error: null, updated_by: input.updatedBy })
+      .eq("id", input.contentId)
+      .eq("status", "failed")
+      .select("id")
+      .maybeSingle()
+    if (contentError) throw contentError
+    if (!content) throw new Error("Only failed content can be retried for publishing.")
   }
 
   static async updateInstagramConnectionHealth(input: {
