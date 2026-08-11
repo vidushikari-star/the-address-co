@@ -35,6 +35,10 @@ import {
 } from "@/components/properties/share-property-button"
 
 import {
+  PublicShareSettings,
+} from "@/components/properties/public-share-settings"
+
+import {
   StatusBadge,
 } from "@/components/shared/status-badge"
 
@@ -488,6 +492,23 @@ const propertyValue =
   />
 
 </section>
+
+      <PublicShareSettings
+        property={property}
+        images={images.map(image => ({
+          id: image.id,
+          label: image.mediaType === "video" ? "Property video" : "Property image",
+          publicShareAllowed: image.publicShareAllowed,
+        }))}
+        documents={documents
+          .filter(document => ["brochure", "floor_plan"].includes(document.category))
+          .map(document => ({
+            id: document.id,
+            label: document.name,
+            category: document.category,
+            publicShareAllowed: document.publicShareAllowed ?? false,
+          }))}
+      />
 
 
 

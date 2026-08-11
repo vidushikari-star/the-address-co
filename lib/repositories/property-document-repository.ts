@@ -12,6 +12,7 @@ type PropertyDocumentRow = {
   file_url: string
   file_type: string
   created_at: string
+  public_share_allowed: boolean | null
 }
 
 function mapPropertyDocumentRow(
@@ -38,6 +39,9 @@ function mapPropertyDocumentRow(
 
     createdAt:
       row.created_at,
+
+    publicShareAllowed:
+      row.public_share_allowed ?? false,
   }
 }
 

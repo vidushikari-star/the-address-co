@@ -12,6 +12,7 @@ export interface PropertyImage {
   isCover: boolean
   mediaType: "image" | "video"
   createdAt: string
+  publicShareAllowed: boolean
 }
 
 
@@ -22,6 +23,7 @@ type PropertyImageRow = {
   is_cover: boolean
   media_type: "image" | "video" | null
   created_at: string
+  public_share_allowed: boolean | null
 }
 
 
@@ -60,6 +62,9 @@ function mapPropertyImageRow(
 
     createdAt:
       row.created_at,
+
+    publicShareAllowed:
+      row.public_share_allowed ?? false,
 
   }
 

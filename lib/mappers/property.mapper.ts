@@ -59,6 +59,28 @@ type PropertyRow = {
 
   public_link:string | null
 
+  public_share_token:string | null
+
+  public_share_enabled:boolean | null
+
+  public_share_show_price:boolean | null
+
+  public_share_show_advisor_contact:boolean | null
+
+  public_share_show_documents:boolean | null
+
+  public_share_show_exact_address:boolean | null
+
+  public_share_expires_at:string | null
+
+  public_share_advisor_name:string | null
+
+  public_share_advisor_phone:string | null
+
+  public_share_advisor_whatsapp:string | null
+
+  public_share_advisor_email:string | null
+
     housing_listing_id:string | null
 
   housing_sync_status:string | null
@@ -355,6 +377,39 @@ export function mapPropertyRow(
 
     publicLink:
       row.public_link ?? "",
+
+    publicShareToken:
+      row.public_share_token ?? undefined,
+
+    publicShareEnabled:
+      row.public_share_enabled ?? false,
+
+    publicShareShowPrice:
+      row.public_share_show_price ?? false,
+
+    publicShareShowAdvisorContact:
+      row.public_share_show_advisor_contact ?? false,
+
+    publicShareShowDocuments:
+      row.public_share_show_documents ?? false,
+
+    publicShareShowExactAddress:
+      row.public_share_show_exact_address ?? false,
+
+    publicShareExpiresAt:
+      row.public_share_expires_at ?? undefined,
+
+    publicShareAdvisorName:
+      row.public_share_advisor_name ?? undefined,
+
+    publicShareAdvisorPhone:
+      row.public_share_advisor_phone ?? undefined,
+
+    publicShareAdvisorWhatsapp:
+      row.public_share_advisor_whatsapp ?? undefined,
+
+    publicShareAdvisorEmail:
+      row.public_share_advisor_email ?? undefined,
 
           housingListingId:
       row.housing_listing_id ?? undefined,

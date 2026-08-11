@@ -1,456 +1,122 @@
 "use client"
 
-import {
-  useState,
-} from "react"
+import { useState } from "react"
 
-import {
-  Button,
-} from "@/components/ui/button"
-
-import {
-  ContactsRepository,
-} from "@/lib/supabase/repositories/contacts.repository"
-
-import {
-  createActivity,
-} from "@/lib/repositories/activity-repository"
-
-import type {
-  Property,
-} from "@/types/property"
-
-
+import { Button } from "@/components/ui/button"
 
 type Props = {
-
-  property: Property
-
-  advisorId?: string
-
+  shareToken: string
+  propertyTitle: string
 }
 
+/**
+ * The browser submits only visitor-provided data and the opaque public token.
+ * The server validates that token before it writes any CRM contact/activity.
+ */
+export function PropertyEnquiryForm({ shareToken, propertyTitle }: Props) {
+  const [name, setName] = useState("")
+  const [phone, setPhone] = useState("")
+  const [email, setEmail] = useState("")
+  const [message, setMessage] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [submitted, setSubmitted] = useState(false)
 
-
-
-
-export function PropertyEnquiryForm({
-
-  property,
-
-  advisorId,
-
-}: Props){
-
-
-
-  const [
-    name,
-    setName,
-  ] =
-  useState("")
-
-
-
-  const [
-    phone,
-    setPhone,
-  ] =
-  useState("")
-
-
-
-  const [
-    email,
-    setEmail,
-  ] =
-  useState("")
-
-
-
-  const [
-    message,
-    setMessage,
-  ] =
-  useState("")
-
-
-
-  const [
-    loading,
-    setLoading,
-  ] =
-  useState(false)
-
-  const [
-    error,
-    setError,
-  ] =
-  useState<string | null>(null)
-
-
-
-  const [
-    submitted,
-    setSubmitted,
-  ] =
-  useState(false)
-
-
-
-
-
-
-
-  async function submit(){
-
-
-    if(
-      !name ||
-      !phone
-    ){
-
+  async function submit() {
+    if (!name.trim() || !phone.trim()) {
       setError("Enter your name and phone number to request a viewing.")
-
       return
-
     }
-
-
 
     setLoading(true)
     setError(null)
 
-
-
-
-
     try {
-
-
-      const contact =
-
-        await ContactsRepository.create({
-
-          fullName:
-            name,
-
-
-          phone:
-            phone,
-
-
-          email:
-            email || undefined,
-
-
-          whatsapp:
-            phone,
-
-
-          leadSource:
-            advisorId
-              ? "property_share"
-              : "website",
-
-
-          advisorId:
-  advisorId || undefined,
-
-
-
-          propertyType:
-            property.propertyType?.toLowerCase(),
-
-
-
-          locations:
-            [
-              property.location
-            ],
-
-
-
-          notes:
-
-`Interested in property:
-
-${property.name}
-
-${message}`
-
-
-
-        })
-
-
-
-
-
-
-
-      await createActivity({
-
-        type:
-          "contact_created",
-
-
-        title:
-          "New Property Enquiry",
-
-
-        description:
-          `${name} enquired about ${property.name}`,
-
-
-        body:
-
-`Property enquiry received from public page.
-
-Property:
-${property.name}
-
-Shared by Advisor:
-${advisorId ?? "Direct Website"}
-
-Message:
-${message}`,
-
-
-
-        contactId:
-          contact.id,
-
-
-        propertyId:
-          property.id,
-
-
-        date:
-          new Date().toISOString(),
-
-      })
-
-
-
-
-
-
-      setSubmitted(true)
-
-
-
-    }
-    catch(error){
-
-
-      console.error(
-        "Enquiry failed",
-        error
+      const response = await fetch(
+        `/api/public/property-shares/${encodeURIComponent(shareToken)}/enquiries`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name, phone, email, message }),
+        },
       )
 
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null
+        throw new Error(payload?.error ?? "Unable to submit your enquiry.")
+      }
 
-      setError("Unable to submit your enquiry. Please try again.")
-
-
-    }
-    finally{
-
-
+      setSubmitted(true)
+    } catch (submissionError) {
+      console.error("Public property enquiry failed", submissionError)
+      setError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : "Unable to submit your enquiry. Please try again.",
+      )
+    } finally {
       setLoading(false)
-
     }
-
-
   }
 
-
-
-
-
-
-
-  if(submitted){
-
+  if (submitted) {
     return (
-
       <div className="rounded-3xl border p-8 text-center">
-
-
-        <h3 className="text-2xl font-semibold">
-
-          Thank you
-
-        </h3>
-
-
+        <h3 className="text-2xl font-semibold">Thank you</h3>
         <p className="mt-3 text-muted-foreground">
-
-          We will get back to you shortly regarding this property.
-
+          We will get back to you shortly regarding {propertyTitle}.
         </p>
-
-
       </div>
-
     )
-
   }
-
-
-
-
-
-
 
   return (
-
-    <div className="rounded-3xl border p-8 space-y-5">
-
-
-      <h2 className="text-3xl font-semibold">
-
-        Schedule a Private Viewing
-
-      </h2>
-
-
+    <div className="space-y-5 rounded-3xl border p-8">
+      <h2 className="text-3xl font-semibold">Schedule a Private Viewing</h2>
 
       <input
-
         type="text"
-
         autoComplete="name"
-
         required
-
         className="w-full rounded-xl border p-3"
-
         placeholder="Your Name"
-
         value={name}
-
-        onChange={
-          e =>
-            setName(
-              e.target.value
-            )
-        }
-
+        onChange={event => setName(event.target.value)}
       />
 
-
-
-
-
       <input
-
         type="tel"
-
         inputMode="tel"
-
         autoComplete="tel"
-
         required
-
         className="w-full rounded-xl border p-3"
-
         placeholder="Phone Number"
-
         value={phone}
-
-        onChange={
-          e =>
-            setPhone(
-              e.target.value
-            )
-        }
-
+        onChange={event => setPhone(event.target.value)}
       />
-
-
-
-
 
       <input
-
         type="email"
-
         autoComplete="email"
-
         className="w-full rounded-xl border p-3"
-
         placeholder="Email"
-
         value={email}
-
-        onChange={
-          e =>
-            setEmail(
-              e.target.value
-            )
-        }
-
+        onChange={event => setEmail(event.target.value)}
       />
-
-
-
-
 
       <textarea
-
         className="w-full rounded-xl border p-3"
-
         placeholder="Message"
-
         rows={4}
-
         value={message}
-
-        onChange={
-          e =>
-            setMessage(
-              e.target.value
-            )
-        }
-
+        onChange={event => setMessage(event.target.value)}
       />
 
+      {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
 
-
-
-
-      {error && (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      )}
-
-      <Button
-
-        className="w-full"
-
-        disabled={
-          loading
-        }
-
-        onClick={
-          submit
-        }
-
-      >
-
-        {
-          loading
-            ? "Submitting..."
-            : "Request Private Viewing"
-        }
-
+      <Button className="w-full" disabled={loading} onClick={submit}>
+        {loading ? "Submitting..." : "Request Private Viewing"}
       </Button>
-
-
     </div>
-
   )
-
 }

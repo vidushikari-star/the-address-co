@@ -49,6 +49,10 @@ type Property = {
 
   public_link: string | null
 
+  public_share_token: string | null
+
+  public_share_enabled: boolean | null
+
 }
 
 

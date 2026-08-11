@@ -2,18 +2,7 @@ import {
   notFound,
 } from "next/navigation"
 import Image from "next/image"
-
-import {
-  getPropertyBySlug,
-} from "@/lib/repositories/property-repository"
-
-import {
-  getPropertyImages,
-} from "@/lib/repositories/property-image-repository"
-
-import {
-  getPropertyDocuments,
-} from "@/lib/repositories/property-document-repository"
+import { connection } from "next/server"
 
 import {
   PropertyEnquiryForm,
@@ -26,8 +15,8 @@ import {
 } from "@/lib/utils/format-currency"
 
 import {
-  supabase,
-} from "@/lib/supabase/client"
+  getPublicPropertyShare,
+} from "@/lib/public/property-share"
 
 import {
   PublicHeader,
@@ -62,10 +51,6 @@ type Props = {
     slug:string
   }>
 
-  searchParams: Promise<{
-    advisor?: string
-  }>
-
 }
 
 
@@ -76,8 +61,6 @@ export default async function PublicPropertySharePage({
 
   params,
 
-  searchParams,
-
 }:Props){
 
 
@@ -86,20 +69,12 @@ export default async function PublicPropertySharePage({
   } =
   await params
 
-
-  const {
-    advisor: advisorId,
-  } =
-  await searchParams
-
-
-
-
+  // A revoked share must never be served from a prerendered cache. The public
+  // projection below is deliberately resolved only after an incoming request.
+  await connection()
 
   const property =
-    await getPropertyBySlug(
-      slug
-    )
+    await getPublicPropertyShare(slug)
 
 
 
@@ -109,48 +84,18 @@ export default async function PublicPropertySharePage({
 
   }
 
-
-
-
-
-  const images =
-    await getPropertyImages(
-      property.id
-    )
-
-const documents =
-  await getPropertyDocuments(
-    property.id
-  )
-
-  const publicDocuments =
-  documents.filter(
-    document =>
-      [
-        "brochure",
-        "floor_plan",
-        "price_sheet",
-        "payment_plan",
-      ].includes(
-        document.category
-      )
-  )
-
-
-
   const coverMedia =
-  images.find(
+  property.images.find(
     image => image.isCover
   )
   ||
-  images[0]
+  property.images[0]
   ||
   null
 
 
 const coverUrl =
-  coverMedia?.url ||
-  property.coverImage
+  coverMedia?.url
 
 
 const coverType =
@@ -160,41 +105,10 @@ const coverType =
 
 
 
-  const displayPrice =
-    property.transactionType === "Rental"
-      ? property.price.rent
-      : property.price.asking
-
-
-
-
-
-  const {
-    data: sharedAdvisor,
-  } =
-  advisorId
-    ? await supabase
-        .from("user_profiles")
-        .select(
-          "id,name,phone,whatsapp"
-        )
-        .eq(
-          "id",
-          advisorId
-        )
-        .single()
-    : {
-        data: null,
-      }
-
-
-
-
-
   const advisorWhatsapp =
     (
-      sharedAdvisor?.whatsapp ??
-      sharedAdvisor?.phone ??
+      property.advisor?.whatsapp ??
+      property.advisor?.phone ??
       ""
     )
     .replace(
@@ -212,7 +126,7 @@ const coverType =
 
 I am interested in:
 
-${property.name}
+${property.title}
 
 Please share more details.`
 
@@ -309,7 +223,7 @@ Please share more details.`
 
           <Image
             src={coverUrl}
-            alt={property.name}
+            alt={property.title}
             width={1600}
             height={1067}
             sizes="(max-width: 768px) 100vw, 80vw"
@@ -363,7 +277,7 @@ Please share more details.`
           md:text-6xl
         "
       >
-        {property.name}
+        {property.title}
       </h1>
 
 
@@ -374,12 +288,15 @@ Please share more details.`
       <LocationMapPreview
 
 location={
-property.location
+property.location ?? ""
 }
 
 />
 
 
+
+      {
+        property.price !== null && (
 
       <div
         className="
@@ -396,7 +313,7 @@ property.location
         <p className="text-sm text-white/70">
 
           {
-            property.transactionType === "Rental"
+          property.transactionType === "Rental"
               ? "Monthly Rent"
               : "Asking Price"
           }
@@ -408,7 +325,7 @@ property.location
 
           {
             formatExactPropertyPrice(
-              displayPrice,
+              property.price,
               property.transactionType
             )
           }
@@ -417,42 +334,10 @@ property.location
 
 
 
-        {
-          property.transactionType === "Rental" &&
-          property.price.securityDeposit &&
-          property.price.securityDeposit > 0 && (
-
-            <div
-              className="
-                mt-4
-                border-t
-                border-white/20
-                pt-4
-              "
-            >
-
-              <p className="text-sm text-white/70">
-                Security Deposit
-              </p>
-
-              <p className="text-xl font-semibold">
-
-                {
-                  formatExactPropertyPrice(
-                    property.price.securityDeposit,
-                    "Sale"
-                  )
-                }
-
-              </p>
-
-            </div>
-
-          )
-        }
-
-
       </div>
+
+        )
+      }
 
 
     </div>
@@ -522,7 +407,7 @@ property.location
 
 
       {
-        images.length > 0 && (
+        property.images.length > 0 && (
 
           <section className="mx-auto max-w-6xl px-6">
 
@@ -541,11 +426,11 @@ property.location
 
 
               {
-  images.map(
-    image => (
+  property.images.map(
+    (image, index) => (
 
       <div
-        key={image.id}
+        key={`${image.url}-${index}`}
       >
 
         {
@@ -582,7 +467,7 @@ property.location
 
     <Image
       src={image.url}
-      alt={property.name}
+      alt={property.title}
       width={900}
       height={675}
       sizes="(max-width: 768px) 100vw, 50vw"
@@ -722,7 +607,7 @@ property.location
       <section className="mx-auto max-w-6xl px-6 pb-12">
 
         {
-  publicDocuments.length > 0 && (
+  property.documents.length > 0 && (
 
     <section
       className="
@@ -741,12 +626,12 @@ property.location
       <div className="grid gap-4 md:grid-cols-3">
 
         {
-          publicDocuments.map(
-            document => (
+          property.documents.map(
+            (document, index) => (
 
               <a
-                key={document.id}
-                href={document.fileUrl}
+                key={`${document.url}-${index}`}
+                href={document.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="
@@ -801,9 +686,9 @@ property.location
 
         <PropertyEnquiryForm
 
-          property={property}
+          shareToken={property.token}
 
-          advisorId={advisorId}
+          propertyTitle={property.title}
 
         />
 

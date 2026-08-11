@@ -348,9 +348,9 @@ export function QualificationCard({
                   name: property.name,
                   location: property.location,
                   publicLink:
-                    property.slug
-                      ? `${window.location.origin}/share/${property.slug}`
-                      : property.public_link,
+                    property.public_share_enabled && property.public_share_token
+                      ? `${window.location.origin}/share/${property.public_share_token}`
+                      : "",
                 },
 
               })

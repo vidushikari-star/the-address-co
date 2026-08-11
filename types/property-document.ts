@@ -1,4 +1,9 @@
 export type PropertyDocumentCategory =
+  | "brochure"
+  | "floor_plan"
+  | "price_sheet"
+  | "payment_plan"
+  | "approvals"
   | "legal"
   | "marketing"
   | "transaction"
@@ -21,5 +26,8 @@ export interface PropertyDocument {
   fileType?:string
 
   createdAt:string
+
+  /** Explicit CRM-admin allowlist for the server-side public share projection. */
+  publicShareAllowed?: boolean
 
 }

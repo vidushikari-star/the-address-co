@@ -138,10 +138,11 @@ The 12 disabled tables are: `calendar_events`, `commission_distributions`,
 | D. Railway worker | `workers/marketing-worker.ts` validates `SUPABASE_SERVICE_ROLE_KEY`; it processes marketing jobs and private storage assets. No browser policy should be required for this access. |
 | E. Integration endpoint | Housing inventory validates its dedicated bearer key, then uses service role and service-only RPCs. Instagram/OAuth/token flows are admin server routes; encrypted token ciphertext is not sent to clients. |
 
-Important current anon dependency: [`app/(public)/share/[slug]/page.tsx`](../app/(public)/share/[slug]/page.tsx)
-uses repositories backed by the anon client for property details, images and
-documents, and directly queries `user_profiles` for advisor contact details.
-This is the blocker for removing public CRM-table access safely.
+The former public-share blocker has been removed by the server-only projection
+documented in [`public-property-share-security.md`](./public-property-share-security.md).
+`/share/[slug]` now treats the segment as a revocable share token and no longer
+imports anonymous CRM repositories or queries `user_profiles`. Stage 1 remains
+pending: deploy and smoke-test this change before applying its reviewed SQL.
 
 ## Target permissions matrix
 

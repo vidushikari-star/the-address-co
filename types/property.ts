@@ -256,6 +256,31 @@ export interface Property {
   publicLink?:string
 
 
+  // Explicit, revocable public-share settings. These values are CRM-only and
+  // are projected to anonymous visitors by server code only.
+  publicShareToken?: string
+
+  publicShareEnabled?: boolean
+
+  publicShareShowPrice?: boolean
+
+  publicShareShowAdvisorContact?: boolean
+
+  publicShareShowDocuments?: boolean
+
+  publicShareShowExactAddress?: boolean
+
+  publicShareExpiresAt?: string
+
+  publicShareAdvisorName?: string
+
+  publicShareAdvisorPhone?: string
+
+  publicShareAdvisorWhatsapp?: string
+
+  publicShareAdvisorEmail?: string
+
+
 
 
 

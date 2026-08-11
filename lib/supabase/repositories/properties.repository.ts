@@ -23,6 +23,8 @@ export const PropertiesRepository = {
           bedrooms,
           cover_image,
           public_link,
+          public_share_token,
+          public_share_enabled,
           price
         `)
         .order(

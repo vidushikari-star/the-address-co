@@ -297,13 +297,19 @@ try{
 
 
 const propertyUrl =
-property.slug
-? `${window.location.origin}/share/${property.slug}${
-currentUser?.id
-? `?advisor=${currentUser.id}`
+property.publicShareEnabled && property.publicShareToken
+? `${window.location.origin}/share/${property.publicShareToken}`
 : ""
-}`
-: property.publicLink
+
+if(!propertyUrl){
+
+  alert(
+    "Enable the property's public share and save its settings before sending a public link."
+  )
+
+  return
+
+}
 
 
 
