@@ -2,13 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const repository = vi.hoisted(() => ({
   getContentById: vi.fn(),
-  transitionContent: vi.fn().mockResolvedValue({ id: "content-1", status: "approved" }),
-  addApproval: vi.fn().mockResolvedValue(undefined),
-  addAuditLog: vi.fn().mockResolvedValue(undefined),
+  applyApproval: vi.fn().mockResolvedValue({ id: "content-1", status: "approved" }),
   upsertSchedule: vi.fn().mockResolvedValue(undefined),
   enqueueJob: vi.fn().mockResolvedValue(undefined),
   getInstagramAccount: vi.fn().mockResolvedValue(null),
-  approveNewestDraftReelVersion: vi.fn().mockResolvedValue(undefined),
   listReelVersions: vi.fn().mockResolvedValue([]),
   scheduleApprovedContent: vi.fn().mockResolvedValue({ id: "content-1", status: "scheduled" }),
 }))
@@ -35,7 +32,7 @@ function record(status: string, contentType = "single_image", assets: Array<{ ki
 
 beforeEach(() => {
   vi.clearAllMocks()
-  repository.transitionContent.mockResolvedValue({ id: "content-1", status: "approved" })
+  repository.applyApproval.mockResolvedValue({ id: "content-1", status: "approved" })
   repository.getContentById.mockResolvedValue(record("approved"))
   repository.getInstagramAccount.mockResolvedValue(null)
   repository.listReelVersions.mockResolvedValue([])
@@ -44,31 +41,27 @@ beforeEach(() => {
 })
 
 describe("approval and scheduling guards", () => {
-  it("allows an admin to approve a complete single-image draft without audio and persists approval metadata", async () => {
+  it("allows an admin to approve a complete single-image draft through the atomic approval operation", async () => {
     repository.getContentById.mockResolvedValue(record("draft"))
 
     await ApprovalService.approve("content-1", "admin-1", "Looks good")
 
-    expect(repository.transitionContent).toHaveBeenCalledWith(expect.objectContaining({
-      id: "content-1",
-      from: ["draft", "ready_for_review", "changes_requested"],
-      to: "approved",
-      updatedBy: "admin-1",
-    }))
-    expect(repository.addApproval).toHaveBeenCalledWith(expect.objectContaining({
+    expect(repository.applyApproval).toHaveBeenCalledWith(expect.objectContaining({
       contentId: "content-1",
       decision: "approved",
       decidedBy: "admin-1",
     }))
   })
 
-  it("approves the newest regenerated Reel version only after the content review succeeds", async () => {
+  it("keeps a Reel approval in the same database operation as its newest draft version", async () => {
     repository.getContentById.mockResolvedValue(record("ready_for_review", "reel"))
-    repository.transitionContent.mockResolvedValue({ id: "content-1", status: "approved", contentType: "reel" })
 
     await ApprovalService.approve("content-1", "admin-1")
 
-    expect(repository.approveNewestDraftReelVersion).toHaveBeenCalledWith("content-1", "admin-1")
+    expect(repository.applyApproval).toHaveBeenCalledWith(expect.objectContaining({
+      contentId: "content-1",
+      decision: "approved",
+    }))
   })
 
   it("schedules an approved single-image item using its original CRM image without FFmpeg rendering", async () => {
@@ -88,7 +81,7 @@ describe("approval and scheduling guards", () => {
       timezone: "Asia/Kolkata",
       adminId: "admin-1",
     })).rejects.toThrow("Only approved content can be scheduled")
-    expect(repository.transitionContent).not.toHaveBeenCalled()
+    expect(repository.applyApproval).not.toHaveBeenCalled()
   })
 
   it("does not schedule an approved Reel until its render succeeds", async () => {
@@ -146,7 +139,7 @@ describe("approval and scheduling guards", () => {
       timezone: "Asia/Kolkata",
       adminId: "admin-1",
     })).rejects.toThrow("Render the approved new Reel version")
-    expect(repository.transitionContent).not.toHaveBeenCalled()
+    expect(repository.applyApproval).not.toHaveBeenCalled()
   })
 
   it("does not schedule failed content", async () => {
@@ -183,11 +176,11 @@ describe("approval and scheduling guards", () => {
   it("returns an approved item to changes before material edits", async () => {
     await ApprovalService.requestChanges("content-1", "admin-1", "Update the CTA")
 
-    expect(repository.transitionContent).toHaveBeenCalledWith(expect.objectContaining({
-      from: ["ready_for_review", "approved"],
-      to: "changes_requested",
-      updatedBy: "admin-1",
+    expect(repository.applyApproval).toHaveBeenCalledWith(expect.objectContaining({
+      contentId: "content-1",
+      decision: "changes_requested",
+      note: "Update the CTA",
+      decidedBy: "admin-1",
     }))
-    expect(repository.addApproval).toHaveBeenCalledWith(expect.objectContaining({ decision: "changes_requested" }))
   })
 })

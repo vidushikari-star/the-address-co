@@ -164,8 +164,29 @@ function isTerminalPublishingFailure(job: MarketingJob, error: unknown) {
 }
 
 export class MarketingWorkerService {
+  /**
+   * A process crash must not leave a lease permanently held. The database
+   * recovery function deliberately fails stale Instagram jobs rather than
+   * retrying a potentially accepted Meta publish request.
+   */
+  private static async recoverExpiredLeases(admin: ReturnType<typeof createAdminSupabaseClient>) {
+    if (typeof admin.rpc !== "function") return
+    const result = await admin.rpc("recover_stale_marketing_jobs", {})
+    // Unit-test adapters from older queue tests do not implement RPCs. A real
+    // Supabase client always returns this result object.
+    if (!result) return
+    if (result.error) throw result.error
+    const row = Array.isArray(result.data) ? result.data[0] : null
+    const requeued = Number(record(row).requeued_count ?? 0)
+    const failedPublish = Number(record(row).failed_publish_count ?? 0)
+    if (requeued || failedPublish) {
+      console.warn(`[marketing-worker] recovered stale jobs: requeued=${requeued} failed_publish=${failedPublish}`)
+    }
+  }
+
   static async run(limit = 3, options?: { jobTypes?: readonly MarketingJobType[]; diagnosticsLabel?: string }) {
     const admin = createAdminSupabaseClient()
+    await this.recoverExpiredLeases(admin)
     const workerId = `cron-${crypto.randomUUID()}`
     const jobTypes = options?.jobTypes ?? [...RENDER_JOB_TYPES, ...VERCEL_SAFE_JOB_TYPES]
     if (!jobTypes.length) return []
@@ -354,7 +375,7 @@ export class MarketingWorkerService {
       case "render_image": return this.renderImages(job, false)
       case "render_carousel": return this.renderImages(job, true)
       case "publish_instagram": return this.publishInstagram(job)
-      default: return { skipped: true, reason: `Unsupported worker job: ${job.type}` }
+      default: throw new Error(`Unsupported marketing job type: ${job.type}`)
     }
   }
 

@@ -109,6 +109,36 @@ afterEach(() => {
 })
 
 describe("MarketingWorkerService render queue", () => {
+  it("repairs expired job leases before looking for new work", async () => {
+    const discovery = queryWithRows([])
+    admin.client.from.mockReturnValue(discovery)
+    admin.client.rpc.mockResolvedValue({
+      data: [{ requeued_count: 2, failed_publish_count: 1 }],
+      error: null,
+    })
+
+    await expect(MarketingWorkerService.run(1, { jobTypes: RENDER_JOB_TYPES })).resolves.toEqual([])
+
+    expect(admin.client.rpc).toHaveBeenCalledWith("recover_stale_marketing_jobs", {})
+  })
+
+  it("does not silently complete an unsupported queued job type", async () => {
+    await expect(privateWorker().process({
+      id: "job-unsupported",
+      contentId,
+      type: "analyze_media",
+      status: "running",
+      progress: 5,
+      input: {},
+      output: {},
+      attempts: 1,
+      maxAttempts: 3,
+      runAfter: "2026-08-10T00:00:00.000Z",
+      createdAt: "2026-08-10T00:00:00.000Z",
+      updatedAt: "2026-08-10T00:00:00.000Z",
+    })).rejects.toThrow("Unsupported marketing job type: analyze_media")
+  })
+
   it("discovers and claims queued render_reel jobs for Railway", async () => {
     const candidate = queuedJob()
     const discovery = queryWithRows([candidate])

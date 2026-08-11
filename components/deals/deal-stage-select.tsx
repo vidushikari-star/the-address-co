@@ -9,12 +9,8 @@ import {
 } from "next/navigation"
 
 import {
-  updateDeal,
-} from "@/lib/repositories/deal-repository"
-
-import {
-  createActivity,
-} from "@/lib/repositories/activity-repository"
+  transitionDealStageAction,
+} from "@/lib/actions/deal-actions"
 
 import type {
   Deal,
@@ -97,6 +93,11 @@ export function DealStageSelect({
     setLoading,
   ] = useState(false)
 
+  const [
+    error,
+    setError,
+  ] = useState<string | null>(null)
+
 
 
 
@@ -117,82 +118,22 @@ export function DealStageSelect({
 
 
     setLoading(true)
-
-
-
-    const now =
-      new Date().toISOString()
+    setError(null)
 
 
 
     try {
 
 
-      await updateDeal(
-
-        deal.id,
-
-        {
-
-          stage:
-            newStage,
-
-
-          lastActivity:
-            now,
-
-        }
-
-      )
-
-
-
-
-
-      await createActivity({
-
-        type:
-          "deal_stage_changed",
-
-
-        title:
-          "Deal Stage Changed",
-
-
-        description:
-          deal.name,
-
-
-        body:
-          `Deal moved from:
-${deal.stage.replace(
-  /_/g,
-  " "
-)}
-
-to:
-${newStage.replace(
-  /_/g,
-  " "
-)}`,
-
-
-        dealId:
-          deal.id,
-
-
-        contactId:
-          deal.contactId,
-
-
-        propertyId:
-          deal.propertyId,
-
-
-        date:
-          now,
-
+      const result = await transitionDealStageAction({
+        dealId: deal.id,
+        stage: newStage,
+        contactId: deal.contactId,
       })
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
 
 
 
@@ -205,15 +146,8 @@ ${newStage.replace(
     } catch(error) {
 
 
-      console.error(
-        "Stage update failed",
-        error
-      )
-
-
-      alert(
-        "Failed updating stage"
-      )
+      console.error("Stage update failed", error)
+      setError("The deal stage could not be saved. Refresh and try again.")
 
 
 
@@ -232,6 +166,7 @@ ${newStage.replace(
 
   return (
 
+    <div className="space-y-1">
     <select
 
       value={
@@ -280,6 +215,8 @@ ${newStage.replace(
 
 
     </select>
+    {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
+    </div>
 
   )
 

@@ -1,7 +1,7 @@
 "use client"
 /* eslint-disable @next/next/no-img-element */
 
-import { useMemo, useState, useTransition } from "react"
+import { useMemo, useRef, useState, useTransition } from "react"
 import { Check, Loader2, Search, Sparkles } from "lucide-react"
 import { useRouter } from "next/navigation"
 
@@ -39,6 +39,10 @@ export function CreateContentStudio({ properties, initialPropertyId }: { propert
   const [direction, setDirection] = useState<CreativeDirection>("surprise_me")
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  // Keep one request key while this studio instance is open. A browser retry
+  // after an uncertain response then returns the original draft instead of
+  // creating a second Marketing item.
+  const createIdempotencyKey = useRef(crypto.randomUUID())
   const property = properties.find(item => item.id === propertyId)
   const matchingProperties = useMemo(() => properties.filter(item => [item.name, item.location, item.status].join(" ").toLocaleLowerCase().includes(query.toLocaleLowerCase())), [properties, query])
 
@@ -49,7 +53,7 @@ export function CreateContentStudio({ properties, initialPropertyId }: { propert
       const response = await fetch("/api/marketing/content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ propertyId, contentType, creativeDirection: direction, idempotencyKey: crypto.randomUUID() }),
+        body: JSON.stringify({ propertyId, contentType, creativeDirection: direction, idempotencyKey: createIdempotencyKey.current }),
       })
       const payload = await response.json().catch(() => ({})) as { content?: { id: string }; error?: string }
       if (!response.ok || !payload.content) {

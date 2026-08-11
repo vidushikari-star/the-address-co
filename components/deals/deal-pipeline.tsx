@@ -7,6 +7,10 @@ import {
 } from "react"
 
 import {
+  useRouter,
+} from "next/navigation"
+
+import {
   DndContext,
   DragEndEvent,
   closestCorners,
@@ -18,12 +22,8 @@ import type {
 } from "@/types/deal"
 
 import {
-  updateDeal,
-} from "@/lib/repositories/deal-repository"
-
-import {
-  createActivity,
-} from "@/lib/repositories/activity-repository"
+  transitionDealStageAction,
+} from "@/lib/actions/deal-actions"
 
 import {
   PipelineColumn,
@@ -62,6 +62,7 @@ type Props = {
 export function DealPipeline({
   deals: initialDeals,
 }: Props) {
+  const router = useRouter()
   const [
     deals,
     setDeals,
@@ -71,6 +72,16 @@ export function DealPipeline({
     mobileStage,
     setMobileStage,
   ] = useState<DealStage>("lead")
+
+  const [
+    pendingDealIds,
+    setPendingDealIds,
+  ] = useState<Set<string>>(() => new Set())
+
+  const [
+    stageError,
+    setStageError,
+  ] = useState<string | null>(null)
 
   useEffect(() => {
     setDeals(initialDeals)
@@ -140,7 +151,8 @@ export function DealPipeline({
     if (
       !newStage ||
       currentDeal.stage ===
-        newStage
+        newStage ||
+      pendingDealIds.has(dealId)
     ) {
       return
     }
@@ -154,64 +166,38 @@ export function DealPipeline({
                 stage: newStage,
               }
             : deal
-        )
+      )
     )
+    setPendingDealIds(current => new Set(current).add(dealId))
+    setStageError(null)
 
     try {
-      const now =
-        new Date().toISOString()
-
-      await updateDeal(
+      const result = await transitionDealStageAction({
         dealId,
-        {
-          stage: newStage,
-          lastActivity: now,
-        }
-      )
-
-      await createActivity({
-        type:
-          "deal_stage_changed",
-
-        title:
-          "Deal Stage Changed",
-
-        description:
-          currentDeal.name,
-
-        body: `Stage changed from ${currentDeal.stage.replace(
-          /_/g,
-          " "
-        )} to ${newStage.replace(
-          /_/g,
-          " "
-        )}`,
-
-        dealId,
-
-        contactId:
-          currentDeal.contactId,
-
-        propertyId:
-          currentDeal.propertyId,
-
-        date: now,
+        stage: newStage,
+        contactId: currentDeal.contactId,
       })
+      if (!result.ok) throw new Error(result.error)
+      router.refresh()
     } catch (error) {
       console.error(error)
-
-      alert(
-        "Failed updating deal stage"
-      )
+      setStageError(error instanceof Error ? error.message : "The deal stage could not be saved. Refresh and try again.")
 
       setDeals([
         ...initialDeals,
       ])
+    } finally {
+      setPendingDealIds(current => {
+        const next = new Set(current)
+        next.delete(dealId)
+        return next
+      })
     }
   }
   
     return (
     <>
+      {stageError && <p className="mb-3 text-sm text-destructive" role="alert">{stageError}</p>}
       {/* DESKTOP PIPELINE */}
       <div className="hidden md:block">
         <DndContext

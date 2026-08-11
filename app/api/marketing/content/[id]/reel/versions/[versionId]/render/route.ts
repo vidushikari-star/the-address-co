@@ -15,13 +15,12 @@ export async function POST(_request: Request, context: Context) {
     if (record.content.status !== "approved" || version.status !== "approved") {
       return NextResponse.json({ error: "Approve this revised Reel version before rendering it." }, { status: 409 })
     }
-    await MarketingRepository.queueReelRender({
+    await MarketingRepository.queueReelVersionRender({
       contentId: id,
+      versionId: version.id,
       updatedBy: access.user.id,
-      jobInput: { resumeApproved: true, reelVersionId: version.id },
       idempotencyKey: `render-reel-version:${id}:${version.id}:${crypto.randomUUID()}`,
     })
-    await MarketingRepository.markReelVersionRendering(version.id)
     await MarketingRepository.addAuditLog({ actorId: access.user.id, contentId: id, action: "reel_version.render_requested", metadata: { versionId: version.id } })
     return NextResponse.json({ queued: true }, { status: 202 })
   } catch (error) {

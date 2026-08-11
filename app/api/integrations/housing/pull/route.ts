@@ -23,12 +23,13 @@ export async function GET(request: Request) {
       ...result,
     })
   } catch (error) {
-    console.error("Housing sync pull failed:", error)
+    const name = error && typeof error === "object" && "name" in error ? String(error.name) : "UnknownError"
+    console.error("Housing sync pull failed", { name })
 
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "Housing lead sync could not be completed. Please retry; if it persists, check the integration logs.",
       },
       { status: 500 }
     )

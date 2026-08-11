@@ -12,7 +12,8 @@
     "marketing:worker": "tsx workers/marketing-worker.ts",
     "lint": "eslint",
     "test": "vitest run",
-    "test:integration": "vitest run tests/marketing/instagram-service.test.ts tests/marketing/rendering.integration.test.ts"
+    "test:integration": "vitest run tests/marketing/instagram-service.test.ts tests/marketing/rendering.integration.test.ts",
+    "test:smoke": "vitest run tests/properties/create-property.test.ts tests/deals/deal-stage-action.test.ts tests/marketing/content-creation-route.test.ts tests/marketing/content-delivery.test.ts tests/marketing/approval-and-scheduler.test.ts tests/marketing/reel-version-render-route.test.ts tests/marketing/marketing-worker-service.test.ts tests/marketing/instagram-publishing.test.ts tests/integrations/housing-inventory.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

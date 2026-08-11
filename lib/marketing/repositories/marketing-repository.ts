@@ -402,6 +402,31 @@ export class MarketingRepository {
     if (error) throw error
   }
 
+  /**
+   * Locks the approved parent and version, marks both rendering, and creates
+   * the Railway job in one database transaction. A failed HTTP request cannot
+   * leave a version approved while its parent is already rendering.
+   */
+  static async queueReelVersionRender(input: {
+    contentId: string
+    versionId: string
+    updatedBy: string
+    idempotencyKey: string
+  }) {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase
+      .rpc("queue_marketing_reel_version_render", {
+        p_content_id: input.contentId,
+        p_version_id: input.versionId,
+        p_updated_by: input.updatedBy,
+        p_idempotency_key: input.idempotencyKey,
+      })
+      .maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error("Reel version render job could not be queued.")
+    return mapJob(data as Row)
+  }
+
   static async markReelVersionRendered(input: { id: string; renderedAssetId: string; makeCurrent?: boolean }) {
     const supabase = await createServerSupabaseClient()
     const { data: version, error: versionError } = await supabase
@@ -872,6 +897,25 @@ export class MarketingRepository {
     const { data, error } = await query.select("*").maybeSingle()
     if (error) throw error
     if (!data) throw new Error("Content is not in a valid state for this action.")
+    return mapContent(data as Row)
+  }
+
+  /** Writes the content state, approval decision, Reel-version approval, and audit event atomically. */
+  static async applyApproval(input: {
+    contentId: string
+    decision: "approved" | "changes_requested" | "rejected"
+    note?: string
+    decidedBy: string
+  }) {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase.rpc("apply_marketing_approval", {
+      p_content_id: input.contentId,
+      p_decision: input.decision,
+      p_note: input.note ?? null,
+      p_decided_by: input.decidedBy,
+    }).maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error("Approval could not be recorded.")
     return mapContent(data as Row)
   }
 
