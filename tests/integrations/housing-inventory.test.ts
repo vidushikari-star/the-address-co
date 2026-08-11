@@ -81,6 +81,35 @@ describe("POST /api/integrations/housing/inventory", () => {
     expect(admin.from).not.toHaveBeenCalledWith("properties")
   })
 
+  it("logs sanitized Supabase persistence details without incoming data or credentials", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    admin.rpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: "42702",
+        message: "column reference \"version\" is ambiguous",
+        details: "Rejected value https://private.example.com/image.jpg with {\"description\":\"private\"}",
+        hint: "Qualify the table column in the upsert function",
+      },
+    })
+
+    const response = await POST(request(validPayload(), apiKey, { "x-request-id": "84a0cde7-8cae-4d8b-b656-ec8659a503bb" }))
+
+    expect(response.status).toBe(500)
+    expect(error).toHaveBeenCalledWith("[housing-inventory]", {
+      requestId: "84a0cde7-8cae-4d8b-b656-ec8659a503bb",
+      stage: "persistence",
+      status: "failed",
+      db_code: "42702",
+      message: "column reference \"version\" is ambiguous",
+      details: "Rejected value [redacted-structured-value]",
+      hint: "Qualify the table column in the upsert function",
+      external_id: "HOUSING-123456",
+    })
+    expect(JSON.stringify(error.mock.calls)).not.toContain(apiKey)
+    expect(JSON.stringify(error.mock.calls)).not.toContain("private.example.com")
+  })
+
   it("returns 401 for an invalid API key", async () => {
     const response = await POST(request(validPayload(), "wrong-key"))
     expect(response.status).toBe(401)

@@ -11,6 +11,7 @@ import {
   type HousingInventoryInboxAdmin,
 } from "@/lib/integrations/housing/inventory"
 import { takeHousingInventoryRequest } from "@/lib/integrations/housing/inventory-rate-limit"
+import { logHousingInventoryPersistenceError } from "@/lib/integrations/housing/inventory-persistence-error"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 
 export const dynamic = "force-dynamic"
@@ -97,8 +98,8 @@ export async function POST(request: Request) {
           status: "invalid",
           validationErrors: validation.fields,
         })
-      } catch {
-        console.error("Housing inventory persistence failed", { requestId, stage: "validation" })
+      } catch (error) {
+        logHousingInventoryPersistenceError({ requestId, externalId, error, stage: "validation" })
         await audit(admin, { endpoint, requestId, authenticated: true, status: 500, propertyCount: 0 })
         return response({ success: false, error: "Unable to receive inventory." }, 500, requestId)
       }
@@ -128,8 +129,8 @@ export async function POST(request: Request) {
       status,
       message: stored.updated ? "Inventory update accepted." : "Inventory accepted for processing.",
     }, stored.updated ? 200 : 201, requestId)
-  } catch {
-    console.error("Housing inventory persistence failed", { requestId, stage: "persistence" })
+  } catch (error) {
+    logHousingInventoryPersistenceError({ requestId, externalId: validation.submission.external_id, error })
     await audit(admin, { endpoint, requestId, authenticated: true, status: 500, propertyCount: 0 })
     return response({ success: false, error: "Unable to receive inventory." }, 500, requestId)
   }

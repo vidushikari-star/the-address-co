@@ -4,6 +4,10 @@ import {
   useState,
 } from "react"
 
+import {
+  useRouter,
+} from "next/navigation"
+
 import type {
   SiteVisit,
   SiteVisitStatus,
@@ -54,6 +58,8 @@ export function SiteVisits({
   properties,
   dealStage,
 }: Props) {
+
+  const router = useRouter()
 
   const [
 editingVisit,
@@ -185,32 +191,34 @@ useState<SiteVisit | null>(null)
 
 
 
-    if(
-      value.status === "completed" &&
-      visit.dealId &&
-      dealStage !== "negotiation"
-    ){
+    try {
 
-      await updateDeal(
+      if(
+        value.status === "completed" &&
+        visit.dealId &&
+        dealStage !== "negotiation"
+      ){
 
-        visit.dealId,
+        await updateDeal(
 
-        {
+          visit.dealId,
 
-          stage:
-            "negotiation",
+          {
 
-        }
+            stage:
+              "negotiation",
 
-      )
+          }
 
-    }
+        )
+
+      }
 
 
 
 
 
-    await createActivity({
+      await createActivity({
 
       type:
         "site_visit",
@@ -267,7 +275,11 @@ ${value.feedback || "No feedback added"}`,
       date:
         new Date().toISOString(),
 
-    })
+      })
+    } finally {
+      // The site-visit write above succeeded, so always show its persisted state.
+      router.refresh()
+    }
 
 
   }
