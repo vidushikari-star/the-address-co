@@ -1,8 +1,8 @@
 # Supabase RLS and storage security audit
 
-Audit date: 2026-08-11  
+Audit date: 2026-08-11; Stage 1 re-verification: 2026-08-12
 Scope: linked production catalog snapshot, repository migrations/baseline, and application data-access call sites.  
-Production action: **none**. No data, policy, bucket, grant, or migration was applied.
+Production action: **none**. No data, policy, bucket, grant, or migration was applied. The Stage 1 migration below is prepared but has not been pushed.
 
 ## Evidence and limits
 
@@ -173,11 +173,18 @@ pending: deploy and smoke-test this change before applying its reviewed SQL.
 All artifacts are in [`supabase/security-rollout`](../supabase/security-rollout),
 not `supabase/migrations`; routine `supabase db push` cannot apply them.
 
-1. **Stage 1 — anonymous CRM access.**
-   [`stage-1-remove-anonymous-crm-access.sql`](../supabase/security-rollout/stage-1-remove-anonymous-crm-access.sql)
-   removes anon activity/deal/property policies and replaces the public
-   site-visit policy with a CRM-user policy. First deploy the public-property
-   projection and verify all active users have `user_profiles`.
+1. **Stage 1 — anonymous CRM access (prepared, not applied).**
+   [`20260812090000_stage_1_remove_anonymous_crm_access.sql`](../supabase/migrations/20260812090000_stage_1_remove_anonymous_crm_access.sql)
+   removes direct `anon` grants from confirmed internal tables, replaces broad
+   RLS policies on activities, deals, properties, site visits and user profiles
+   with an authenticated CRM-user check, and removes the inert anonymous
+   commission policy. It does not enable RLS on the Stage 2 legacy tables,
+   change `property-images` read behavior, or change storage buckets. It removes
+   only anonymous `property_images` mutation grants. Its incident rollback is
+   [`20260812090000_stage_1_remove_anonymous_crm_access.rollback.sql`](../supabase/security-rollout/rollbacks/20260812090000_stage_1_remove_anonymous_crm_access.rollback.sql),
+   and the exact release procedure is
+   [`stage-1-rls-smoke-test.md`](./stage-1-rls-smoke-test.md). First deploy the
+   public-property projection and verify all active users have `user_profiles`.
 2. **Stage 2 — disabled sensitive tables.**
    [`stage-2-sensitive-crm-rls.sql`](../supabase/security-rollout/stage-2-sensitive-crm-rls.sql)
    is intentionally a design template. It must not become executable until
@@ -218,10 +225,40 @@ sales, admin and service-role credentials. Tests must inspect only fixture rows.
 - storage tests prove `property-images` follows the intentional public-media
   decision and `property-documents` is private after Stage 3.
 
-The repository adds static guard tests for rollout placement, no anon policy in
-the Stage 1 proposal, and service-role key absence from the browser client.
-Full RLS integration tests require a disposable Supabase/Postgres environment;
-they cannot be truthfully simulated with a unit-test mock.
+The repository adds static guard tests for Stage 1 migration/rollback coverage,
+no anonymous policy in the original proposal, and service-role key absence from
+the browser client. Full RLS integration tests require a disposable
+Supabase/Postgres environment; they cannot be truthfully simulated with a
+unit-test mock.
+
+## Stage 1 re-verification and remaining exposure
+
+On 2026-08-12, a catalog-only query against the linked project confirmed that
+all 16 Stage 1 internal tables have direct `anon` `ALL PRIVILEGES` grants. RLS
+is enabled on `activities`, `deals`, `properties`, `site_visits`, and
+`user_profiles`; the other 11 targeted tables remain RLS-disabled and are kept
+that way for Stage 2, but their direct anonymous grants are removed by the
+prepared Stage 1 migration. The policy inventory exactly matched the named
+policies in the migration and rollback.
+
+Public share re-verification passed: the public page resolves only through the
+server-side token projection, its client form calls the public server endpoint,
+and neither imports a browser Supabase client nor a core CRM repository. The
+production build does not contain `SUPABASE_SERVICE_ROLE_KEY`.
+
+The storage catalog has the default direct `anon` table grant on
+`storage.objects`, but storage RLS is enabled. Its only anonymous/public policy
+is `Allow public viewing of property images` for `SELECT` in the
+`property-images` bucket; upload and delete policies are authenticated-only.
+Therefore Stage 1 makes no storage-policy change: no anonymous storage
+write/delete policy was found. Bucket-public `property-documents` downloads
+remain the separate Stage 3 risk.
+
+After Stage 1, expected anonymous access is limited to the intentional public
+share server route, public `property-images` objects and direct image metadata
+`SELECT` access (not mutation), plus the still-public `property-documents`
+bucket until Stage 3. No direct anonymous CRM table access should remain for
+the 16 Stage 1 targets.
 
 ## Rollback principles
 

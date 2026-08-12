@@ -208,4 +208,17 @@ describe("public-share browser boundary", () => {
     expect(page).not.toContain("searchParams")
     expect(page).not.toContain("?advisor=")
   })
+
+  it("uses a server-only projection for every core CRM table dependency", async () => {
+    const root = process.cwd()
+    const projection = await readFile(join(root, "lib", "public", "property-share.ts"), "utf8")
+    const publicPage = await readFile(join(root, "app", "(public)", "share", "[slug]", "page.tsx"), "utf8")
+
+    expect(projection).toContain('createAdminSupabaseClient')
+    expect(projection).toContain('.from("properties")')
+    expect(projection).toContain('.from("property_images")')
+    expect(projection).toContain('.from("property_documents")')
+    expect(projection).not.toContain('.from("user_profiles")')
+    expect(publicPage).not.toMatch(/\.from\(["'](properties|deals|activities|site_visits|contacts|commissions|expenses|property_contacts|property_commissions|property_documents|user_profiles)["']\)/)
+  })
 })
