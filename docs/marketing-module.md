@@ -45,9 +45,20 @@ The database function `is_marketing_admin()` checks `user_profiles.role = 'admin
 
 `OPENAI_API_KEY` is mandatory for this on-demand generation route. If it is missing, the UI shows `OPENAI_API_KEY is not configured`; it never leaves an apparently successful blank draft. Campaign and assistant flows may still use the protected background worker for their separate multi-item orchestration.
 
-Reels are the only on-demand content type that currently requires FFmpeg rendering. Every downloaded Reel source is FFprobed before work begins; safe logs include media codec, dimensions, frame rate, pixel format, duration, file size, Node RSS, cgroup/host memory and temporary-disk headroom, but never a source URL or overlay text. Oversized stills and expensive video inputs (4K, >30 fps, HEVC, 10-bit/HDR) first become temporary, silent 720×1280 SDR proxies. Individual scenes use one thread and the `ultrafast` preset at 720×1280/30 fps; one final 1080×1920 H.264, yuv420p, fast-start encode preserves the delivery format. A low-memory guard defers the queued job rather than starting FFmpeg when the worker has insufficient headroom. Temporary originals, proxies, scenes, text files, audio, logo and final output are deleted with the workspace on success or failure.
+### Instagram format contract
 
-An approved single-image post uses its selected original CRM image directly and does not wait for FFmpeg. A Carousel also uses its ordered original CRM assets directly: it never requires a Reel render or a rendered MP4 to be approved, scheduled, reviewed, or published. The existing image/carousel renderer remains available for a future explicitly branded-derivative workflow, but it is not a prerequisite for scheduling a normal approved post.
+| Content type | Source media | Final media | Target size / aspect | Copy location | Render required | Publisher path | Validation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Single Post | One image | Derived JPEG | 1080×1350 / 4:5 | Separate caption, hashtags and CTA; optional short overlay | Yes | image | Matching rendered 4:5 image and complete caption |
+| Carousel | 2–10 ordered images | Ordered derived JPEG children | 1080×1350 / 4:5 each | One separate shared caption; concise slide overlays only | Yes | carousel child containers, then parent | Image-only, ordered source-to-derivative parity, 2–10 rendered children |
+| Reel | Images and/or video | H.264/yuv420p MP4, AAC when selected | 1080×1920 / 9:16 | Safe-zone visual overlays plus separate caption | Yes | REELS | Current rendered MP4 with 1080×1920 metadata |
+| Story | One image | Derived Story JPEG | 1080×1920 / 9:16 | Headline, support, highlights, price, CTA and optional logo are rendered on media | Yes | STORIES | Current rendered 9:16 Story creative; metadata-only Stories cannot schedule |
+
+The shared format contract is enforced before approval, scheduling, and the protected publisher. Static Feed Posts and Carousels use `scale=…:force_original_aspect_ratio=increase,crop=…`, so a property image fills the exact output canvas without stretching. Their full caption never becomes image overlay text.
+
+Reels use the existing Railway FFmpeg worker. Every downloaded Reel source is FFprobed before work begins; safe logs include media codec, dimensions, frame rate, pixel format, duration, file size, Node RSS, cgroup/host memory and temporary-disk headroom, but never a source URL or overlay text. Oversized stills and expensive video inputs (4K, >30 fps, HEVC, 10-bit/HDR) first become temporary, silent 720×1280 SDR proxies. Individual scenes use one thread and the `ultrafast` preset at 720×1280/30 fps; one final 1080×1920 H.264, yuv420p, fast-start encode preserves the delivery format. A low-memory guard defers the queued job rather than starting FFmpeg when the worker has insufficient headroom. Temporary originals, proxies, scenes, text files, audio, logo and final output are deleted with the workspace on success or failure.
+
+Stories use the lightest existing static FFmpeg path. `StoryComposition` stores concise Story-specific copy—not feed caption text—and one source image. The renderer crops without stretching to 1080×1920, draws each named role in a shared safe region (top 210px, bottom 300px, side margins 84px), and optionally overlays the selected private brand logo. The resulting Marketing-owned JPEG stores its source asset ID and render token. Editing Story copy, source image, layout, or logo queues a new derivative and returns the content to review; original CRM media is never modified.
 
 ## Audio Library
 
@@ -63,7 +74,7 @@ The only accepted state transitions are enforced server-side:
 
 ```text
 draft / ready_for_review / changes_requested -> approved   (authenticated admin only)
-approved single-image -> scheduled                         (authenticated admin only)
+approved static format -> rendering -> approved (retry only; protected worker completes render)
 approved Reel -> rendering -> approved (render ready)      (protected worker completes render)
 approved with ready publish media -> scheduled              (authenticated admin only)
 due scheduled -> publishing -> published                    (protected worker only)
@@ -91,7 +102,7 @@ The CRM permits one active Instagram connection. **Marketing → Settings → In
 The worker:
 
 1. verifies the feature flag, approval state, due time, active connection, media, caption and publication idempotency record;
-2. signs a private rendered MP4 per object for six hours when needed, or uses the approved original CRM-media URL for a normal single-image post;
+2. signs only private, format-validated rendered media per object for six hours; it never falls back to original CRM media;
 3. creates an Instagram media container (including carousel children), persists the container ID, polls its `status_code` through queued jobs, then calls `media_publish` only after `FINISHED`;
 4. stores the Instagram media ID, trustworthy permalink, published time and safe diagnostics.
 

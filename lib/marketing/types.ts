@@ -93,6 +93,45 @@ export type ReelLogoPlacement = (typeof REEL_LOGO_PLACEMENTS)[number]
 export type ReelLogoScale = "small" | "medium" | "large"
 export type ReelTypographyStyle = "editorial_serif" | "refined_serif" | "modern_sans" | "minimal_sans"
 
+export const STORY_LAYOUT_STYLES = [
+  "full_bleed_gradient",
+  "editorial_panel",
+  "lower_third",
+  "dark_panel",
+  "light_panel",
+] as const
+
+export type StoryLayoutStyle =
+  (typeof STORY_LAYOUT_STYLES)[number]
+
+/** Concise visual copy that is rendered into a Story creative, never a feed caption. */
+export type StoryCopy = {
+  headline: string
+  supportingLine: string
+  highlights: string[]
+  priceLine: string
+  cta: string
+}
+
+export type StoryComposition = {
+  propertyId: string
+  format: "story"
+  aspectRatio: "9:16"
+  sourceAssetId: string
+  storyCopy: StoryCopy
+  layoutStyle: StoryLayoutStyle
+  typographyStyle: ReelTypographyStyle
+  /** Invalidates an older derived Story whenever visual inputs change. */
+  renderToken: string
+  logo: {
+    enabled: boolean
+    placement: "top_left" | "top_right" | "bottom_left" | "bottom_right"
+    scale: "small" | "medium" | "large"
+    opacity: number
+    assetId?: string | null
+  }
+}
+
 /** A private, administrator-uploaded brand asset. It is never source property media. */
 export type MarketingBrandAsset = {
   id: string
@@ -126,7 +165,7 @@ export type MarketingContent = {
   hashtags: string[]
   altText?: string | null
   creative: Record<string, unknown>
-  composition: ReelComposition | Record<string, unknown>
+  composition: ReelComposition | StoryComposition | Record<string, unknown>
   proposedPublishAt?: string | null
   publishedAt?: string | null
   rejectionReason?: string | null

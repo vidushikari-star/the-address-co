@@ -1,5 +1,6 @@
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
-import { carouselAssetValidationError } from "@/lib/marketing/content-delivery"
+import { getInstagramFormat } from "@/lib/marketing/instagram-format"
+import { validateInstagramPublishability } from "@/lib/marketing/content-delivery"
 function hasReviewableCopy(content: {
   headline?: string | null
   hook?: string | null
@@ -17,13 +18,15 @@ export class ApprovalService {
   static async approve(contentId: string, adminId: string, note?: string) {
     const record = await MarketingRepository.getContentById(contentId)
     if (!record) throw new Error("Content not found.")
-    if (!hasReviewableCopy(record.content)) {
+    const format = getInstagramFormat(record.content.contentType)
+    if (format.captionRequired && !hasReviewableCopy(record.content)) {
       throw new Error("Generate or complete headline, hook, caption, CTA, and hashtags before approval.")
     }
-    if (record.content.contentType === "carousel") {
-      const mediaError = carouselAssetValidationError(record.content, record.assets)
-      if (mediaError) throw new Error(mediaError)
+    if (!format.captionRequired && !record.content.headline?.trim()) {
+      throw new Error("Generate or complete the Story headline before approval.")
     }
+    const publishabilityError = validateInstagramPublishability(record.content, record.assets)
+    if (publishabilityError) throw new Error(publishabilityError)
 
     return MarketingRepository.applyApproval({
       contentId,

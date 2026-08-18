@@ -23,9 +23,13 @@ const completeCopy = {
   hashtags: ["#NorthGoa"],
 }
 
-function record(status: string, contentType = "single_image", assets: Array<{ kind: string; mediaType: string; sourceUrl?: string; storagePath?: string; metadata?: Record<string, unknown> }> = [{ kind: "original_reference", mediaType: "image", sourceUrl: "https://images.example/villa.jpg" }]) {
+const renderToken = "1e149a39-7321-42d1-900c-7389c0da37a3"
+function renderedImage(format = "single_image", sourceAssetId = "asset-1") {
+  return { id: `rendered-${sourceAssetId}`, kind: "rendered_media", mediaType: "image", storagePath: `rendered/${sourceAssetId}.jpg`, metadata: { instagramFormat: format, renderToken, sourceAssetId, width: 1080, height: 1350, aspectRatio: "4:5" } }
+}
+function record(status: string, contentType = "single_image", assets: Array<{ kind: string; mediaType: string; sourceUrl?: string; storagePath?: string; metadata?: Record<string, unknown> }> = [renderedImage()]) {
   return {
-    content: { id: "content-1", status, contentType, composition: {}, ...completeCopy },
+    content: { id: "content-1", status, contentType, composition: contentType === "reel" ? {} : { format: contentType, renderToken }, ...completeCopy },
     assets,
   }
 }
@@ -54,7 +58,7 @@ describe("approval and scheduling guards", () => {
   })
 
   it("keeps a Reel approval in the same database operation as its newest draft version", async () => {
-    repository.getContentById.mockResolvedValue(record("ready_for_review", "reel"))
+    repository.getContentById.mockResolvedValue(record("ready_for_review", "reel", [{ kind: "rendered_media", mediaType: "video", storagePath: "rendered/v1.mp4", metadata: { format: "1080x1920-h264-mp4", width: 1080, height: 1920, aspectRatio: "9:16" } }]))
 
     await ApprovalService.approve("content-1", "admin-1")
 
@@ -64,7 +68,7 @@ describe("approval and scheduling guards", () => {
     }))
   })
 
-  it("schedules an approved single-image item using its original CRM image without FFmpeg rendering", async () => {
+  it("schedules an approved single-image item only after its 4:5 derivative is ready", async () => {
     const scheduledFor = new Date(Date.now() + 3_600_000).toISOString()
 
     await SchedulerService.schedule({ contentId: "content-1", scheduledFor, timezone: "Asia/Kolkata", adminId: "admin-1" })
@@ -92,10 +96,10 @@ describe("approval and scheduling guards", () => {
       scheduledFor: new Date(Date.now() + 3_600_000).toISOString(),
       timezone: "Asia/Kolkata",
       adminId: "admin-1",
-    })).rejects.toThrow("Required publish media is not ready")
+    })).rejects.toThrow("Rendered Reel MP4 is missing")
   })
 
-  it("schedules an approved Carousel from its ordered original CRM assets without FFmpeg or a rendered MP4", async () => {
+  it("schedules an approved Carousel only from its ordered matching rendered children", async () => {
     const assets = [0, 1, 2, 3, 4].map(index => ({
       id: `asset-${index}`,
       kind: "original_reference",
@@ -106,8 +110,8 @@ describe("approval and scheduling guards", () => {
       metadata: { isCover: index === 0 },
     }))
     repository.getContentById.mockResolvedValue({
-      content: { ...record("approved", "carousel").content, composition: { format: "carousel", selectedAssetIds: assets.map(asset => asset.id) } },
-      assets,
+      content: { ...record("approved", "carousel").content, composition: { format: "carousel", selectedAssetIds: assets.map(asset => asset.id), renderToken } },
+      assets: [...assets, ...assets.map((asset, index) => ({ ...renderedImage("carousel", asset.id), sortOrder: index }))],
     })
     const scheduledFor = new Date(Date.now() + 3_600_000).toISOString()
 
@@ -130,7 +134,7 @@ describe("approval and scheduling guards", () => {
   })
 
   it("does not schedule the old active Reel while a newer approved version awaits rendering", async () => {
-    repository.getContentById.mockResolvedValue(record("approved", "reel", [{ kind: "rendered_media", mediaType: "video", storagePath: "rendered/v1.mp4" }]))
+    repository.getContentById.mockResolvedValue(record("approved", "reel", [{ kind: "rendered_media", mediaType: "video", storagePath: "rendered/v1.mp4", metadata: { format: "1080x1920-h264-mp4", width: 1080, height: 1920, aspectRatio: "9:16" } }]))
     repository.listReelVersions.mockResolvedValue([{ id: "version-2", status: "approved", renderedAssetId: null }])
 
     await expect(SchedulerService.schedule({

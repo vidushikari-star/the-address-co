@@ -13,6 +13,7 @@ import { POST as approve } from "@/app/api/marketing/content/[id]/approval/route
 import { PATCH as edit } from "@/app/api/marketing/content/route"
 import { POST as publish } from "@/app/api/marketing/publish/[id]/route"
 import { POST as render } from "@/app/api/marketing/content/[id]/render/route"
+import { PATCH as updateStory } from "@/app/api/marketing/content/[id]/story/route"
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -70,6 +71,21 @@ describe("Marketing workflow API guards", () => {
 
     expect(response.status).toBe(409)
     await expect(response.json()).resolves.toEqual({ error: "Approved, scheduled, and published content is locked. Request changes before editing." })
+  })
+
+  it("locks an approved Story before its visual composition can be replaced", async () => {
+    const contentId = "1e149a39-7321-42d1-900c-7389c0da37a3"
+    const sourceAssetId = "b2041f1f-89e9-4a59-a8de-00169502f523"
+    repository.getContentById.mockResolvedValue({ content: { id: contentId, contentType: "story", status: "approved" }, assets: [] })
+
+    const response = await updateStory(new Request(`http://localhost/api/marketing/content/${contentId}/story`, {
+      method: "PATCH",
+      body: JSON.stringify({ sourceAssetId, storyCopy: { headline: "Villa Verde", supportingLine: "Parra", highlights: [], priceLine: "", cta: "Arrange a viewing" }, layoutStyle: "editorial_panel", logoEnabled: false }),
+    }), { params: Promise.resolve({ id: contentId }) })
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({ error: "Approved, scheduled, and published Stories are locked. Request changes before editing." })
+    expect(repository.enqueueJob).not.toHaveBeenCalled()
   })
 
   it("queues an approved Reel through the atomic render-job operation", async () => {

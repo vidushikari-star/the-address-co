@@ -39,7 +39,7 @@ const creative = {
   hashtags: ["#NorthGoa"],
   onScreenText: ["Villa Verde"],
   carouselSlides: ["Villa Verde"],
-  storyCopy: ["Villa Verde"],
+  storyCopy: { headline: "Villa Verde", supportingLine: "Parra, Goa", highlights: ["Four bedrooms"], priceLine: "", cta: "Arrange a private viewing." },
   coverText: "Villa Verde",
   altText: "Villa Verde in Parra, Goa.",
   suggestedDuration: 30,

@@ -18,7 +18,7 @@ export function CarouselMediaPreview({ assets }: { assets: MarketingAsset[] }) {
   }, [count])
 
   if (!current) {
-    return <div className="grid aspect-[4/3] place-items-center rounded-lg border border-dashed bg-muted/40 p-6 text-center text-xs text-muted-foreground">No selected Carousel media is available.</div>
+    return <div className="grid aspect-[4/5] place-items-center rounded-lg border border-dashed bg-muted/40 p-6 text-center text-xs text-muted-foreground">Rendered Carousel children will appear here after the ordered 4:5 creative is ready.</div>
   }
 
   function previous() {
@@ -33,10 +33,10 @@ export function CarouselMediaPreview({ assets }: { assets: MarketingAsset[] }) {
   const carouselCover = currentIndex === 0
   return <section className="space-y-3 rounded-lg bg-card p-1">
     <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-      <div><p className="text-xs font-semibold text-muted-foreground">Original CRM media — {count} {count === 1 ? "item" : "items"}</p><p className="mt-0.5 text-[11px] text-muted-foreground">{currentIndex + 1} / {count}{carouselCover ? " · Carousel cover" : ""}{cover ? " · Property cover" : ""}</p></div>
+      <div><p className="text-xs font-semibold text-muted-foreground">Instagram Carousel · rendered 1080 × 1350</p><p className="mt-0.5 text-[11px] text-muted-foreground">{currentIndex + 1} / {count}{carouselCover ? " · Carousel cover" : ""}{cover ? " · Property cover" : ""}</p></div>
       <Images className="h-4 w-4 text-primary" aria-hidden="true" />
     </div>
-    <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-muted">
+    <div className="relative aspect-[4/5] overflow-hidden rounded-lg bg-muted">
       {current.mediaType === "video"
         ? <video className="h-full w-full object-cover" controls preload="metadata" src={current.sourceUrl ?? current.signedUrl ?? ""} />
         : <img className="h-full w-full object-cover" src={current.sourceUrl ?? current.signedUrl ?? ""} alt={`Selected Carousel media ${currentIndex + 1} of ${count}`} />}

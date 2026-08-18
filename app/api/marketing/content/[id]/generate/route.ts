@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
+import { composeStaticInstagramContent, staticRenderJobType } from "@/lib/marketing/instagram-static-composition"
 import { GenerateContentCopySchema } from "@/lib/marketing/schemas"
 import { CreativeAIService } from "@/lib/marketing/services/creative-ai-service"
 import type { MarketingStatus, PropertyFactSnapshot } from "@/lib/marketing/types"
@@ -17,7 +18,8 @@ const GENERATABLE_STATUSES: MarketingStatus[] = [
   "failed",
 ]
 
-const ALL_COPY_FIELDS = ["headline", "hook", "caption", "cta", "hashtags"] as const
+const ALL_COPY_FIELDS = ["headline", "hook", "caption", "cta", "hashtags", "story_copy"] as const
+type DatabaseCopyField = Exclude<(typeof ALL_COPY_FIELDS)[number], "story_copy">
 
 function isPropertySnapshot(value: unknown): value is PropertyFactSnapshot {
   return Boolean(
@@ -74,7 +76,10 @@ export async function POST(request: Request, context: Context) {
       cta: creative.cta,
       hashtags: creative.hashtags,
     }
-    const changes = Object.fromEntries(fields.map(field => [
+    // `story_copy` belongs inside the validated creative/composition JSON; it
+    // is intentionally not a marketing_content column.
+    const databaseFields = fields.filter(field => field !== "story_copy") as DatabaseCopyField[]
+    const changes = Object.fromEntries(databaseFields.map(field => [
       field === "cta" ? "cta" : field,
       copy[field],
     ])) as Record<string, unknown>
@@ -84,7 +89,29 @@ export async function POST(request: Request, context: Context) {
     if (record.content.status === "ready_for_review") changes.status = "changes_requested"
     if (record.content.status === "failed") changes.status = "draft"
 
-    const content = await MarketingRepository.updateContent(id, changes, access.user.id)
+    if (record.content.contentType !== "reel") {
+      const logo = record.content.contentType === "story"
+        ? await MarketingRepository.getActiveBrandLogo()
+        : null
+      changes.composition = composeStaticInstagramContent({
+        content: record.content,
+        assets: record.assets,
+        creative,
+        logo: logo ? { id: logo.id, enabled: true } : null,
+      })
+    }
+
+    let content = await MarketingRepository.updateContent(id, changes, access.user.id)
+    if (record.content.contentType !== "reel") {
+      const composition = changes.composition as { renderToken: string }
+      await MarketingRepository.enqueueJob({
+        contentId: id,
+        type: staticRenderJobType(record.content.contentType),
+        input: { resumeApproved: false, renderToken: composition.renderToken },
+        idempotencyKey: `${staticRenderJobType(record.content.contentType)}:${id}:${composition.renderToken}`,
+      })
+      content = await MarketingRepository.updateContent(id, { status: "rendering" }, access.user.id)
+    }
     await MarketingRepository.addAuditLog({
       actorId: access.user.id,
       contentId: id,

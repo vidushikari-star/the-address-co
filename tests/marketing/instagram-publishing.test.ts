@@ -18,6 +18,7 @@ import { MarketingWorkerService, VERCEL_SAFE_JOB_TYPES } from "@/lib/marketing/s
 import { TokenCryptoService } from "@/lib/marketing/services/token-crypto-service"
 
 const contentId = "1e149a39-7321-42d1-900c-7389c0da37a3"
+const renderToken = "b2041f1f-89e9-4a59-a8de-00169502f523"
 
 function query(data: unknown) {
   const value = { select: vi.fn(), eq: vi.fn(), in: vi.fn(), lte: vi.fn(), order: vi.fn(), limit: vi.fn(), maybeSingle: vi.fn() }
@@ -63,7 +64,7 @@ function contentRow(overrides: Record<string, unknown> = {}) {
     hashtags: ["#NorthGoa"],
     caption: "A considered introduction.",
     creative: {},
-    composition: {},
+    composition: { format: "single_image", renderToken },
     proposed_publish_at: "2026-08-10T00:00:00.000Z",
     created_at: "2026-08-10T00:00:00.000Z",
     updated_at: "2026-08-10T00:00:00.000Z",
@@ -75,10 +76,11 @@ function assetRow(overrides: Record<string, unknown> = {}) {
   return {
     id: "asset-1",
     content_id: contentId,
-    kind: "original_reference",
+    kind: "rendered_media",
     media_type: "image",
-    source_url: "https://crm.example/property.jpg",
-    metadata: {},
+    storage_path: `${contentId}/rendered/feed.jpg`,
+    source_url: null,
+    metadata: { instagramFormat: "single_image", renderToken, sourceAssetId: "asset-1", width: 1080, height: 1350, aspectRatio: "4:5" },
     sort_order: 0,
     created_at: "2026-08-10T00:00:00.000Z",
     ...overrides,
@@ -171,14 +173,14 @@ describe("Instagram publishing worker", () => {
     await expect(privateWorker().publishInstagram(runningJob())).rejects.toThrow("not due yet")
   })
 
-  it("publishes an approved source image and persists the Meta publication", async () => {
+  it("publishes a validated rendered Feed image and persists the Meta publication", async () => {
     const db = installPublishingAdmin({})
 
     await expect(privateWorker().publishInstagram(runningJob())).resolves.toEqual({ publicationId: "ig-media-1", permalink: "https://www.instagram.com/p/example/" })
 
     expect(InstagramService.createContainer).toHaveBeenCalledWith(expect.objectContaining({
       instagramAccountId: "17841400000000001",
-      mediaAssets: [expect.objectContaining({ mediaType: "image", sourceUrl: "https://crm.example/property.jpg" })],
+      mediaAssets: [expect.objectContaining({ mediaType: "image", signedUrl: "https://project.supabase.co/signed" })],
     }))
     expect(InstagramService.publishContainer).toHaveBeenCalledWith(expect.objectContaining({ containerId: "container-1" }))
     expect(db.publicationUpdates[2].update).toHaveBeenCalledWith(expect.objectContaining({ status: "published", external_publication_id: "ig-media-1" }))
@@ -188,7 +190,7 @@ describe("Instagram publishing worker", () => {
   it("publishes only a validated rendered MP4 for a Reel through a private signed URL", async () => {
     installPublishingAdmin({
       content: contentRow({ content_type: "reel", composition: { format: "reel" } }),
-      assets: [assetRow({ kind: "rendered_media", media_type: "video", storage_path: `${contentId}/rendered/reel.mp4`, source_url: null, metadata: { format: "1080x1920-h264-mp4" } })],
+      assets: [assetRow({ kind: "rendered_media", media_type: "video", storage_path: `${contentId}/rendered/reel.mp4`, source_url: null, metadata: { format: "1080x1920-h264-mp4", width: 1080, height: 1920, aspectRatio: "9:16" } })],
     })
 
     await privateWorker().publishInstagram(runningJob())
@@ -201,8 +203,8 @@ describe("Instagram publishing worker", () => {
     installPublishingAdmin({
       content: contentRow({ content_type: "carousel", composition: { format: "carousel", selectedAssetIds: ["asset-image", "asset-video"] } }),
       assets: [
-        assetRow({ id: "asset-image", media_type: "image" }),
-        assetRow({ id: "asset-video", media_type: "video", source_url: "https://crm.example/tour.mp4", sort_order: 1 }),
+        assetRow({ id: "asset-image", kind: "original_reference", media_type: "image", source_url: "https://crm.example/property.jpg" }),
+        assetRow({ id: "asset-video", kind: "original_reference", media_type: "video", source_url: "https://crm.example/tour.mp4", sort_order: 1 }),
       ],
     })
 
@@ -212,12 +214,12 @@ describe("Instagram publishing worker", () => {
   })
 
   it("keeps a pending Reel container queued without calling media_publish and marks ERROR as terminal", async () => {
-    installPublishingAdmin({ content: contentRow({ content_type: "reel", composition: { format: "reel" } }), assets: [assetRow({ kind: "rendered_media", media_type: "video", storage_path: "rendered.mp4", source_url: null })] })
+    installPublishingAdmin({ content: contentRow({ content_type: "reel", composition: { format: "reel" } }), assets: [assetRow({ kind: "rendered_media", media_type: "video", storage_path: "rendered.mp4", source_url: null, metadata: { format: "1080x1920-h264-mp4", width: 1080, height: 1920, aspectRatio: "9:16" } })] })
     vi.spyOn(InstagramService, "getContainerStatus").mockResolvedValueOnce({ status_code: "IN_PROGRESS" })
     await expect(privateWorker().publishInstagram(runningJob())).rejects.toBeInstanceOf(InstagramContainerPendingError)
     expect(InstagramService.publishContainer).not.toHaveBeenCalled()
 
-    installPublishingAdmin({ content: contentRow({ content_type: "reel", composition: { format: "reel" } }), assets: [assetRow({ kind: "rendered_media", media_type: "video", storage_path: "rendered.mp4", source_url: null })] })
+    installPublishingAdmin({ content: contentRow({ content_type: "reel", composition: { format: "reel" } }), assets: [assetRow({ kind: "rendered_media", media_type: "video", storage_path: "rendered.mp4", source_url: null, metadata: { format: "1080x1920-h264-mp4", width: 1080, height: 1920, aspectRatio: "9:16" } })] })
     vi.spyOn(InstagramService, "getContainerStatus").mockResolvedValueOnce({ status_code: "ERROR" })
     await expect(privateWorker().publishInstagram(runningJob())).rejects.toBeInstanceOf(InstagramContainerTerminalError)
   })

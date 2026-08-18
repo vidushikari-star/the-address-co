@@ -43,8 +43,14 @@ function mapContent(row: Row): MarketingContent {
     )
 
   const activeReelVersionId = row.active_reel_version_id as string | null
+  const composition = object(row.composition)
+  const renderToken = composition.renderToken as string | undefined
   const renderedAsset = assets.find(asset => asset.kind === "rendered_media" && (
-    !activeReelVersionId || object(asset.metadata).reelVersionId === activeReelVersionId
+    activeReelVersionId
+      ? object(asset.metadata).reelVersionId === activeReelVersionId
+      : renderToken
+        ? object(asset.metadata).renderToken === renderToken
+        : true
   ))
   const coverAsset = assets.find(asset => asset.kind === "cover")
 
@@ -66,7 +72,7 @@ function mapContent(row: Row): MarketingContent {
     hashtags: stringArray(row.hashtags),
     altText: row.alt_text as string | null,
     creative: object(row.creative),
-    composition: object(row.composition),
+    composition,
     proposedPublishAt: row.proposed_publish_at as string | null,
     publishedAt: row.published_at as string | null,
     rejectionReason: row.rejection_reason as string | null,

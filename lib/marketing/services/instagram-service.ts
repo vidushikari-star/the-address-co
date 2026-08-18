@@ -259,10 +259,11 @@ export class InstagramService {
       .filter(Boolean)
       .join("\n\n")
       .slice(0, 2_200)
-    if (!caption) throw new Error("Instagram publishing requires a caption.")
+    if (input.content.contentType !== "story" && !caption) throw new Error("Instagram publishing requires a caption.")
 
     const endpoint = `/${encodeURIComponent(input.instagramAccountId)}/media`
-    const body = new URLSearchParams({ caption })
+    const body = new URLSearchParams()
+    if (caption && input.content.contentType !== "story") body.set("caption", caption)
     const assets = input.mediaAssets
 
     if (input.content.contentType === "reel") {
@@ -298,8 +299,9 @@ export class InstagramService {
     } else if (input.content.contentType === "story") {
       const story = assets[0]
       if (!story) throw new Error("An Instagram Story requires approved media.")
+      if (story.mediaType !== "image") throw new Error("This CRM publishes Stories from rendered image creatives only.")
       body.set("media_type", "STORIES")
-      body.set(story.mediaType === "video" ? "video_url" : "image_url", mediaUrl(story))
+      body.set("image_url", mediaUrl(story))
     } else {
       const image = assets.find(asset => asset.mediaType === "image")
       if (!image) throw new Error("An image post requires an approved image.")

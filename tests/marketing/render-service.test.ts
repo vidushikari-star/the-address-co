@@ -73,6 +73,29 @@ function ffmpegArgs(predicate: (args: string[]) => boolean) {
 }
 
 describe("RenderService audio mixing", () => {
+  it("renders a landscape source into a non-stretched 1080×1920 Story with named copy and logo", async () => {
+    await RenderService.renderStory({
+      contentId: "1e149a39-7321-42d1-900c-7389c0da37a3",
+      asset: { id: "b2041f1f-89e9-4a59-a8de-00169502f523", contentId: "content-1", kind: "original_reference", mediaType: "image", sourceUrl: "https://project.supabase.co/storage/v1/object/sign/landscape.jpg", metadata: {}, sortOrder: 0, createdAt: "2026-08-10T00:00:00.000Z" },
+      composition: {
+        propertyId: "1e149a39-7321-42d1-900c-7389c0da37a3", format: "story", aspectRatio: "9:16", sourceAssetId: "b2041f1f-89e9-4a59-a8de-00169502f523",
+        storyCopy: { headline: "Villa Verde", supportingLine: "Parra, Goa", highlights: ["Four bedrooms"], priceLine: "", cta: "Arrange a viewing" },
+        layoutStyle: "editorial_panel", typographyStyle: "modern_sans", renderToken: "34d1e601-18e9-4caa-9cc4-8af4c11888f1",
+        logo: { enabled: true, placement: "top_right", scale: "small", opacity: 0.8 },
+      },
+      logo: { sourceUrl: "https://project.supabase.co/storage/v1/object/sign/logo.png", mimeType: "image/png" },
+    })
+
+    const args = ffmpegArgs(args => args.some(value => value.endsWith("rendered-story.jpg")))!
+    const filter = args[args.indexOf("-filter_complex") + 1]
+    expect(filter).toContain("scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920")
+    expect(filter).toContain("story-0.txt")
+    expect(filter).toContain("story-3.txt")
+    expect(filter).toContain("overlay=")
+    expect(args).toContain("-frames:v")
+    expect(files.writeFile.mock.calls.map(([, value]) => String(value)).join(" ")).toContain("Arrange a viewing")
+  })
+
   it("trims a long uploaded track, fades it out, and never loops a shorter source", async () => {
     await RenderService.renderReel(renderInput())
 

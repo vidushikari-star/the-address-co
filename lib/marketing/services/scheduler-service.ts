@@ -1,4 +1,4 @@
-import { carouselAssetValidationError, hasPublishableMedia } from "@/lib/marketing/content-delivery"
+import { validateInstagramPublishability } from "@/lib/marketing/content-delivery"
 import { isInstagramPublishingEnabled } from "@/lib/marketing/feature-flags"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 
@@ -21,15 +21,8 @@ export class SchedulerService {
       if (record.content.status !== "approved") {
         throw new Error("Only approved content can be scheduled.")
       }
-      if (record.content.contentType === "carousel") {
-        const carouselError = carouselAssetValidationError(record.content, record.assets)
-        if (carouselError) throw new Error(carouselError)
-      }
-      if (!hasPublishableMedia(record.content, record.assets)) {
-        throw new Error(record.content.contentType === "reel"
-          ? "Required publish media is not ready. Render the approved Reel before scheduling."
-          : "Required approved media is not ready for scheduling.")
-      }
+      const publishabilityError = validateInstagramPublishability(record.content, record.assets)
+      if (publishabilityError) throw new Error(publishabilityError)
       if (record.content.contentType === "reel") {
         const versions = await MarketingRepository.listReelVersions(record.content.id)
         const approvedVersionAwaitingRender = versions.some(version => version.status === "approved" && !version.renderedAssetId)

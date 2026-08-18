@@ -1,7 +1,7 @@
 import OpenAI from "openai"
 import { zodTextFormat } from "openai/helpers/zod"
 
-import { CreativeOutputSchema, ReelStoryboardSchema } from "@/lib/marketing/schemas"
+import { CreativeOutputSchema, ReelStoryboardSchema, StoryCopySchema } from "@/lib/marketing/schemas"
 import type {
   CreativeDirection,
   MarketingBrandSettings,
@@ -40,7 +40,9 @@ function validateBrandSafety<T extends CreativeOutput | ReelStoryboard>(output: 
     : [
         output.campaignConcept, output.hook, output.headline, output.caption,
         output.shortCaption, output.cta, output.coverText, output.altText,
-        ...output.onScreenText, ...output.carouselSlides, ...output.storyCopy,
+        ...output.onScreenText, ...output.carouselSlides,
+        output.storyCopy.headline, output.storyCopy.supportingLine,
+        ...output.storyCopy.highlights, output.storyCopy.priceLine, output.storyCopy.cta,
       ]
   const copy = [
     ...outputValues,
@@ -235,6 +237,9 @@ export class CreativeAIService {
       "Use only the supplied inventory facts. Never invent amenities, views, ROI, availability, room counts, size, price, location facts, or urgency.",
       "When a fact is absent, omit it. Generic stylistic language is allowed only when it does not imply an unsupported property fact.",
       "Use premium, sophisticated, editorial wording. Avoid cheesy sales language and excessive emojis.",
+      input.contentType === "story"
+        ? "For Story output, make storyCopy a concise visual script: headline is at most two short mobile lines, supportingLine is a short fact-grounded phrase, highlights are compact, priceLine is empty when price should not be shown, and cta is one short line. Never put a paragraph or hashtags in storyCopy; it will be burned into a 9:16 creative. The feed-style caption remains separate metadata."
+        : "",
       `Brand tone: ${input.settings.preferredTone}`,
       input.settings.brandName ? `Brand name: ${input.settings.brandName}` : "",
       input.settings.instagramHandle ? `Instagram handle: @${input.settings.instagramHandle}` : "",
@@ -400,5 +405,53 @@ export class CreativeAIService {
       throw new Error("OpenAI storyboard referenced an unavailable source asset.")
     }
     return validateBrandSafety(storyboard, input.settings)
+  }
+
+  /** Produces visual Story copy only; feed captions and hashtags are never used as an overlay fallback. */
+  static async improveStoryCopy(input: {
+    property: PropertyFactSnapshot
+    creativeDirection: CreativeDirection | string
+    settings: MarketingBrandSettings
+    currentStoryCopy: CreativeOutput["storyCopy"]
+    userPrompt: string
+  }): Promise<CreativeOutput["storyCopy"]> {
+    if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured")
+    let response
+    try {
+      response = await openAiClient().responses.parse({
+        model: process.env.OPENAI_MARKETING_MODEL ?? DEFAULT_MARKETING_MODEL,
+        max_output_tokens: 500,
+        input: [
+          { role: "system", content: [
+            "You are the visual Story editor for a luxury real-estate CRM.",
+            "Return only the supplied concise Story copy schema.",
+            "Use only supplied property facts. Never invent facts.",
+            "Every value is burned into a 1080×1920 Instagram Story: headline max two short lines, supporting line max three, highlights compact, price line optional, CTA one line.",
+            "Never include a full feed caption, paragraph, hashtag list, or unsupported claim.",
+            `Brand tone: ${input.settings.preferredTone}`,
+            input.settings.excludedWords.length ? `Excluded words: ${input.settings.excludedWords.join(", ")}` : "",
+            `Creative direction: ${input.creativeDirection}`,
+            `Requested improvement: ${input.userPrompt}`,
+          ].filter(Boolean).join("\n") },
+          { role: "user", content: JSON.stringify({ propertyFacts: factLines(input.property), currentStoryCopy: input.currentStoryCopy }) },
+        ],
+        text: { format: zodTextFormat(StoryCopySchema, "marketing_story_copy") },
+      })
+    } catch (error) {
+      logRequestFailure(error)
+      if (isStructuredOutputParseError(error)) throw new Error("OpenAI structured Story copy could not be parsed.")
+      throw new Error("OpenAI Story copy generation request failed.")
+    }
+    const diagnostics = logResponseDiagnostics(response)
+    if (diagnostics.refused) throw new Error("OpenAI refused the Story copy request.")
+    if (response.status && response.status !== "completed") throw new Error("OpenAI Story copy response was not completed.")
+    if (!response.output_parsed) throw new Error("OpenAI returned no Story copy.")
+    const storyCopy = StoryCopySchema.parse(response.output_parsed)
+    return validateBrandSafety({
+      campaignConcept: "story", hook: storyCopy.headline, headline: storyCopy.headline,
+      caption: "story", shortCaption: "story", cta: storyCopy.cta, hashtags: ["#story"],
+      onScreenText: [], carouselSlides: [], storyCopy, coverText: "", altText: "",
+      suggestedDuration: 15, transitions: [], audioStyle: "ambient", factsUsed: [],
+    }, input.settings).storyCopy
   }
 }

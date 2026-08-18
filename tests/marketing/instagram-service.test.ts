@@ -57,6 +57,20 @@ describe("InstagramService", () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it("uses the Meta STORIES path with the rendered Story image and no detached feed caption", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "story-container" }), { status: 200 }))
+    global.fetch = fetchMock
+    const content = { id: "content-1", contentType: "story" as const, caption: "A feed caption must not be used", hashtags: ["#tag"], altText: null }
+    const story = { id: "story-1", contentId: "content-1", kind: "rendered_media" as const, mediaType: "image" as const, storagePath: "story.jpg", signedUrl: "https://project.supabase.co/signed-story.jpg", metadata: { instagramFormat: "story", width: 1080, height: 1920 }, sortOrder: 0, createdAt: "2026-08-10T00:00:00.000Z" }
+
+    await InstagramService.createContainer({ content: content as never, mediaAssets: [story], accessToken: "server-token", instagramAccountId: "ig-user" })
+
+    const body = String((fetchMock.mock.calls[0][1] as RequestInit).body)
+    expect(body).toContain("media_type=STORIES")
+    expect(body).toContain("image_url=https%3A%2F%2Fproject.supabase.co%2Fsigned-story.jpg")
+    expect(body).not.toContain("caption")
+  })
+
   it("retains created child IDs if a later Carousel child fails", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ id: "child-1" }), { status: 200 }))

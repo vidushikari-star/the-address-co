@@ -4,6 +4,7 @@ import {
   CREATIVE_DIRECTIONS,
   MARKETING_CONTENT_TYPES,
   MARKETING_STATUSES,
+  STORY_LAYOUT_STYLES,
 } from "@/lib/marketing/types"
 import { REEL_TYPOGRAPHY_STYLES } from "@/lib/marketing/reel-typography"
 
@@ -33,7 +34,7 @@ export const CarouselMediaUpdateSchema = z.object({
 })
 
 export const GenerateContentCopySchema = z.object({
-  fields: z.array(z.enum(["headline", "hook", "caption", "cta", "hashtags"])).min(1).max(5).optional(),
+  fields: z.array(z.enum(["headline", "hook", "caption", "cta", "hashtags", "story_copy"])).min(1).max(6).optional(),
 })
 
 export const BulkDeleteDraftsSchema = z.object({
@@ -158,6 +159,44 @@ export const ImproveReelSchema = z.object({
   prompt: z.string().trim().min(3).max(600),
 })
 
+/** Mobile-readable, visual Story copy. It is deliberately separate from feed captions. */
+export const StoryCopySchema = z.object({
+  headline: z.string().trim().min(1).max(72),
+  supportingLine: z.string().trim().max(150),
+  highlights: z.array(z.string().trim().min(1).max(60)).max(3),
+  priceLine: z.string().trim().max(64),
+  cta: z.string().trim().min(1).max(60),
+})
+
+export const StoryCompositionSchema = z.object({
+  propertyId: z.string().uuid(),
+  format: z.literal("story"),
+  aspectRatio: z.literal("9:16"),
+  sourceAssetId: z.string().uuid(),
+  storyCopy: StoryCopySchema,
+  layoutStyle: z.enum(STORY_LAYOUT_STYLES),
+  typographyStyle: z.enum(REEL_TYPOGRAPHY_STYLES).default("modern_sans"),
+  renderToken: z.string().uuid(),
+  logo: z.object({
+    enabled: z.boolean(),
+    placement: z.enum(["top_left", "top_right", "bottom_left", "bottom_right"]),
+    scale: z.enum(["small", "medium", "large"]),
+    opacity: z.number().min(0.1).max(1),
+    assetId: z.string().uuid().nullable().optional(),
+  }),
+})
+
+export const StoryUpdateSchema = z.object({
+  sourceAssetId: z.string().uuid(),
+  storyCopy: StoryCopySchema,
+  layoutStyle: z.enum(STORY_LAYOUT_STYLES),
+  logoEnabled: z.boolean(),
+})
+
+export const ImproveStorySchema = z.object({
+  prompt: z.string().trim().min(3).max(600),
+})
+
 export const CreativeOutputSchema = z.object({
   campaignConcept: z.string().trim().min(1).max(350),
   hook: z.string().trim().min(1).max(160),
@@ -168,7 +207,7 @@ export const CreativeOutputSchema = z.object({
   hashtags: z.array(z.string().trim().min(2).max(80)).min(1).max(30),
   onScreenText: z.array(z.string().max(120)).max(12),
   carouselSlides: z.array(z.string().max(300)).min(1).max(10),
-  storyCopy: z.array(z.string().max(200)).max(8),
+  storyCopy: StoryCopySchema,
   coverText: z.string().max(120),
   altText: z.string().max(500),
   suggestedDuration: z.union([z.literal(15), z.literal(20), z.literal(30), z.literal(45), z.literal(60)]),

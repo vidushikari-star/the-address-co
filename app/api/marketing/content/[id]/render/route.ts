@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
+import { staticRenderJobType } from "@/lib/marketing/instagram-static-composition"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 import { CreativeOutputSchema, ReelCompositionSchema } from "@/lib/marketing/schemas"
 import { CompositionService } from "@/lib/marketing/services/composition-service"
@@ -32,11 +33,25 @@ export async function POST(_request: Request, context: Context) {
     const { id } = await context.params
     const record = await MarketingRepository.getContentById(id)
     if (!record) return NextResponse.json({ error: "Content not found." }, { status: 404 })
-    if (record.content.contentType !== "reel") {
-      return NextResponse.json({ error: "Only Reel rendering is currently requested by this endpoint." }, { status: 400 })
-    }
     if (!["approved", "failed"].includes(record.content.status)) {
-      return NextResponse.json({ error: "Approve the Reel before rendering it." }, { status: 409 })
+      return NextResponse.json({ error: "Approve the creative before rendering it." }, { status: 409 })
+    }
+
+    if (record.content.contentType !== "reel") {
+      if (!record.content.composition || typeof record.content.composition !== "object") {
+        return NextResponse.json({ error: "Generate the static creative before rendering it." }, { status: 409 })
+      }
+      const renderToken = crypto.randomUUID()
+      const composition = { ...record.content.composition, renderToken }
+      await MarketingRepository.updateContent(id, { composition, status: "rendering" }, access.user.id)
+      await MarketingRepository.enqueueJob({
+        contentId: id,
+        type: staticRenderJobType(record.content.contentType),
+        input: { resumeApproved: true, renderToken },
+        idempotencyKey: `${staticRenderJobType(record.content.contentType)}:${id}:${renderToken}`,
+      })
+      await MarketingRepository.addAuditLog({ actorId: access.user.id, contentId: id, action: "render.requested", metadata: { format: record.content.contentType } })
+      return NextResponse.json({ queued: true }, { status: 202 })
     }
 
     let composition: ReelComposition
