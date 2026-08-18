@@ -1,8 +1,10 @@
 import {
   notFound,
 } from "next/navigation"
+import type { Metadata } from "next"
 import Image from "next/image"
 import { connection } from "next/server"
+import { cache } from "react"
 
 import {
   PropertyEnquiryForm,
@@ -17,6 +19,11 @@ import {
 import {
   getPublicPropertyShare,
 } from "@/lib/public/property-share"
+
+import {
+  createPublicBrandMetadata,
+  getPublicAppOrigin,
+} from "@/lib/brand/public-brand"
 
 import {
   PublicHeader,
@@ -53,6 +60,24 @@ type Props = {
 
 }
 
+const getCachedPublicPropertyShare = cache(getPublicPropertyShare)
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params
+
+  // Share tokens are revocable, so metadata must be resolved per request too.
+  await connection()
+  const share = await getCachedPublicPropertyShare(slug)
+
+  if (!share) {
+    notFound()
+  }
+
+  // Metadata intentionally contains no property fields. It remains generic even
+  // when the allowlisted public projection is available.
+  return createPublicBrandMetadata(getPublicAppOrigin(), `/share/${slug}`)
+}
+
 
 
 
@@ -74,7 +99,7 @@ export default async function PublicPropertySharePage({
   await connection()
 
   const property =
-    await getPublicPropertyShare(slug)
+    await getCachedPublicPropertyShare(slug)
 
 
 

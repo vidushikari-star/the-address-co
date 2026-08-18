@@ -1,5 +1,7 @@
 import Link from "next/link"
 
+import { PUBLIC_BRAND } from "@/lib/brand/public-brand"
+
 
 export function PublicHeader(){
 
@@ -45,9 +47,9 @@ export function PublicHeader(){
               justify-center
               rounded-xl
               bg-white
-              text-[#1F4D3B]
               shadow-lg
             "
+              style={{ color: PUBLIC_BRAND.primaryColor }}
           >
 
             <span
@@ -56,7 +58,7 @@ export function PublicHeader(){
                 font-semibold
               "
             >
-              A
+              {PUBLIC_BRAND.mark}
             </span>
 
           </div>
@@ -76,7 +78,7 @@ export function PublicHeader(){
                 tracking-[0.18em]
               "
             >
-              THE ADDRESS CO.
+              {PUBLIC_BRAND.name.toUpperCase()}
             </div>
 
 
@@ -87,7 +89,7 @@ export function PublicHeader(){
                 text-white/70
               "
             >
-              Luxury Real Estate
+              {PUBLIC_BRAND.descriptor}
             </div>
 
 

@@ -1,12 +1,13 @@
 import type { MetadataRoute } from "next"
 
+import { PUBLIC_BRAND } from "@/lib/brand/public-brand"
+
 export default function manifest(): MetadataRoute.Manifest {
 
   return {
-    name: "The Address Co.",
+    name: PUBLIC_BRAND.name,
     short_name: "TAC",
-    description:
-      "Luxury Real Estate Operating System",
+    description: PUBLIC_BRAND.descriptor,
 
     start_url: "/dashboard",
 

@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  createPublicBrandMetadata,
+  getPublicAppOrigin,
+  PUBLIC_BRAND,
+} from "@/lib/brand/public-brand";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,16 +18,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const publicAppOrigin = getPublicAppOrigin()
+
 export const metadata: Metadata = {
 
-  title:
-    "The Address Co.",
-
-  description:
-    "Luxury Real Estate Operating System",
-
-  applicationName:
-    "The Address Co.",
+  ...createPublicBrandMetadata(publicAppOrigin),
 
 
   appleWebApp: {
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
       true,
 
     title:
-      "The Address Co.",
+      PUBLIC_BRAND.name,
 
     statusBarStyle:
       "black",

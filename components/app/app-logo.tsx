@@ -2,6 +2,8 @@
 
 import Link from "next/link"
 
+import { PUBLIC_BRAND } from "@/lib/brand/public-brand"
+
 type AppLogoProps = {
   collapsed?: boolean
 }
@@ -20,17 +22,18 @@ export function AppLogo({ collapsed = false }: AppLogoProps) {
         items-center
         justify-center
         rounded-xl
-        bg-[#1F4D3B]
         text-white
         shadow-sm
-      ">
+      "
+        style={{ backgroundColor: PUBLIC_BRAND.primaryColor }}
+      >
 
         <span className="
           text-lg
           font-semibold
           tracking-tight
         ">
-          A
+          {PUBLIC_BRAND.mark}
         </span>
 
       </div>
@@ -48,9 +51,10 @@ export function AppLogo({ collapsed = false }: AppLogoProps) {
             text-sm
             font-semibold
             tracking-[0.12em]
-            text-[#1F4D3B]
-          ">
-            THE ADDRESS CO.
+          "
+            style={{ color: PUBLIC_BRAND.primaryColor }}
+          >
+            {PUBLIC_BRAND.name.toUpperCase()}
           </span>
 
 
@@ -59,7 +63,7 @@ export function AppLogo({ collapsed = false }: AppLogoProps) {
             text-xs
             text-muted-foreground
           ">
-            Luxury Real Estate Advisory
+            {PUBLIC_BRAND.descriptor}
           </span>
 
         </div>
