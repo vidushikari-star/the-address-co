@@ -1,12 +1,18 @@
-import { ContactsRepository } from "@/lib/supabase/repositories/contacts.repository"
-
-import { getDeals } from "@/lib/repositories/deal-repository"
-
-import { getProperties } from "@/lib/repositories/property-repository"
-
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 
-import { supabase } from "@/lib/supabase/client"
+import { mapContactRow } from "@/lib/mappers/contact.mapper"
+
+import { mapDealRow } from "@/lib/mappers/deal.mapper"
+
+import { mapPropertyRow } from "@/lib/mappers/property.mapper"
+
+import type { Contact } from "@/types/contact"
+
+import type { ContactRow } from "@/types/contact-row"
+
+import type { Deal } from "@/types/deal"
+
+import type { Property } from "@/types/property"
 
 import {
   calculateDealHealth,
@@ -19,6 +25,109 @@ import {
 import {
   getLeadPriority,
 } from "@/lib/utils/lead-score"
+
+export type DashboardSupabaseClient =
+  Awaited<
+    ReturnType<typeof createServerSupabaseClient>
+  >
+
+async function getDashboardContacts(
+  supabase: DashboardSupabaseClient
+): Promise<Contact[]> {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from("contacts")
+    .select(`
+      *,
+      advisor:profiles!contacts_advisor_id_fkey(
+        id,
+        full_name
+      )
+    `)
+    .order(
+      "created_at",
+      {
+        ascending: false,
+      }
+    )
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? []).map(
+    (row) => {
+      const contact = mapContactRow(
+        row as ContactRow
+      )
+
+      return {
+        ...contact,
+        advisorId:
+          row.advisor?.id ?? undefined,
+        assignedAdvisor:
+          row.advisor?.full_name ?? undefined,
+      }
+    }
+  )
+}
+
+async function getDashboardDeals(
+  supabase: DashboardSupabaseClient
+): Promise<Deal[]> {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from("deals")
+    .select(`
+      *,
+      advisor:user_profiles (
+        name
+      )
+    `)
+    .order(
+      "created_at",
+      {
+        ascending: false,
+      }
+    )
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? []).map(
+    mapDealRow
+  )
+}
+
+async function getDashboardProperties(
+  supabase: DashboardSupabaseClient
+): Promise<Property[]> {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from("properties")
+    .select("*")
+    .order(
+      "created_at",
+      {
+        ascending: false,
+      }
+    )
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? []).map(
+    mapPropertyRow
+  )
+}
 
 
 function getIndiaDateKey(
@@ -86,7 +195,9 @@ function getTaskDueLabel(
   )
 }
 
-export async function getDashboardStats() {
+export async function getDashboardStats(
+  supabase: DashboardSupabaseClient
+) {
 
   const [
     contacts,
@@ -94,11 +205,11 @@ export async function getDashboardStats() {
     properties,
   ] = await Promise.all([
 
-    ContactsRepository.getAll(),
+    getDashboardContacts(supabase),
 
-    getDeals(),
+    getDashboardDeals(supabase),
 
-    getProperties(),
+    getDashboardProperties(supabase),
 
   ])
 
@@ -221,10 +332,9 @@ activeContactsCount:
 
 
 
-export async function getRecentActivities() {
-
-  const supabase =
-    await createServerSupabaseClient()
+export async function getRecentActivities(
+  supabase: DashboardSupabaseClient
+) {
 
 
 
@@ -378,10 +488,9 @@ export async function getRecentActivities() {
 
 
 
-export async function getUpcomingTasks(){
-
-  const supabase =
-    await createServerSupabaseClient()
+export async function getUpcomingTasks(
+  supabase: DashboardSupabaseClient
+){
 
 
 
@@ -576,10 +685,12 @@ export async function getUpcomingTasks(){
 
 
 
-export async function getHotLeads(){
+export async function getHotLeads(
+  supabase: DashboardSupabaseClient
+){
 
   const contacts =
-    await ContactsRepository.getAll()
+    await getDashboardContacts(supabase)
 
 
 
@@ -675,10 +786,12 @@ export async function getHotLeads(){
 
 
 
-export async function getNewLeads(){
+export async function getNewLeads(
+  supabase: DashboardSupabaseClient
+){
 
   const contacts =
-    await ContactsRepository.getAll()
+    await getDashboardContacts(supabase)
 
 
 
@@ -765,7 +878,8 @@ export async function getNewLeads(){
 }
 
 export async function getMyWork(
-  userId?: string
+  supabase: DashboardSupabaseClient,
+  userId: string
 ){
 
 const [
@@ -815,7 +929,7 @@ await Promise.all([
     )
     .eq(
       "advisor_id",
-      userId ?? ""
+      userId
     ),
 
     supabase
@@ -833,7 +947,7 @@ await Promise.all([
   )
   .eq(
     "assigned_to",
-    userId ?? ""
+    userId
   ),
 
 
@@ -864,11 +978,13 @@ return {
 
 
 
-export async function getDealHealthSummary(){
+export async function getDealHealthSummary(
+  supabase: DashboardSupabaseClient
+){
 
 
   const deals =
-    await getDeals()
+    await getDashboardDeals(supabase)
 
 
 
@@ -982,10 +1098,12 @@ const summary = {
 
 }
 
-export async function getFollowUpContacts(){
+export async function getFollowUpContacts(
+  supabase: DashboardSupabaseClient
+){
 
   const contacts =
-    await ContactsRepository.getAll()
+    await getDashboardContacts(supabase)
 
 
 

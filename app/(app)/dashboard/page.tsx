@@ -3,6 +3,15 @@ getServerUserProfile,
 } from "@/lib/auth/server-user-profile"
 
 import {
+  createServerSupabaseClient,
+} from "@/lib/supabase/server"
+
+import {
+  loadRequiredDashboardData,
+  loadOptionalDashboardWidget,
+} from "@/lib/services/dashboard-widget-loader"
+
+import {
   BriefcaseBusiness,
   CircleDollarSign,
   Home,
@@ -59,6 +68,15 @@ export default async function DashboardPage(){
 const user =
 await getServerUserProfile()
 
+if (!user) {
+  throw new Error(
+    "Authenticated user is required for the Dashboard."
+  )
+}
+
+const supabase =
+  await createServerSupabaseClient()
+
 
 const [
 stats,
@@ -71,23 +89,87 @@ dealHealth,
 followUpQueue,
 ] = await Promise.all([
 
-getDashboardStats(),
-
-getRecentActivities(),
-
-getUpcomingTasks(),
-
-getHotLeads(),
-
-getCommissionStats(),
-
-getMyWork(
-  user?.id
+loadRequiredDashboardData(
+  "summary",
+  user.id,
+  () => getDashboardStats(supabase)
 ),
 
-getDealHealthSummary(),
+loadOptionalDashboardWidget(
+  "recent-activity",
+  user.id,
+  () => getRecentActivities(supabase),
+  () => []
+),
 
-getFollowUpContacts(),
+loadOptionalDashboardWidget(
+  "agenda",
+  user.id,
+  () => getUpcomingTasks(supabase),
+  () => []
+),
+
+loadOptionalDashboardWidget(
+  "hot-leads",
+  user.id,
+  () => getHotLeads(supabase),
+  () => []
+),
+
+loadOptionalDashboardWidget(
+  "commissions",
+  user.id,
+  () => getCommissionStats(supabase, user.role),
+  () => ({
+    total: 0,
+    pending: 0,
+    received: 0,
+    count: 0,
+    pendingCount: 0,
+    receivedCount: 0,
+    upcoming: [],
+  })
+),
+
+loadOptionalDashboardWidget(
+  "my-work",
+  user.id,
+  () => getMyWork(
+    supabase,
+    user.id
+  ),
+  () => ({
+    newLeads: 0,
+    followUps: 0,
+    myTasks: 0,
+    activeDeals: 0,
+    upcomingVisits: 0,
+  })
+),
+
+loadOptionalDashboardWidget(
+  "deal-health",
+  user.id,
+  () => getDealHealthSummary(supabase),
+  () => ({
+    healthy: 0,
+    attention: 0,
+    risk: 0,
+    total: 0,
+    concerns: [],
+  })
+),
+
+loadOptionalDashboardWidget(
+  "follow-up-queue",
+  user.id,
+  () => getFollowUpContacts(supabase),
+  () => ({
+    overdue: [],
+    today: [],
+    upcoming: [],
+  })
+),
 
 ])
 
