@@ -22,9 +22,6 @@ export class ApprovalService {
     if (format.captionRequired && !hasReviewableCopy(record.content)) {
       throw new Error("Generate or complete headline, hook, caption, CTA, and hashtags before approval.")
     }
-    if (!format.captionRequired && !record.content.headline?.trim()) {
-      throw new Error("Generate or complete the Story headline before approval.")
-    }
     const publishabilityError = validateInstagramPublishability(record.content, record.assets)
     if (publishabilityError) throw new Error(publishabilityError)
 

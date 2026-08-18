@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const access = vi.hoisted(() => ({ requireMarketingApiAccess: vi.fn() }))
 const flags = vi.hoisted(() => ({ isInstagramPublishingEnabled: vi.fn() }))
-const repository = vi.hoisted(() => ({ getContentById: vi.fn(), enqueueJob: vi.fn(), queueStaticRender: vi.fn(), queueReelRender: vi.fn(), addAuditLog: vi.fn(), getBrandSettings: vi.fn(), getActiveBrandLogo: vi.fn(), updateContent: vi.fn() }))
+const repository = vi.hoisted(() => ({ getContentById: vi.fn(), getPropertySnapshot: vi.fn(), enqueueJob: vi.fn(), queueStaticRender: vi.fn(), queueReelRender: vi.fn(), addAuditLog: vi.fn(), getBrandSettings: vi.fn(), getActiveBrandLogo: vi.fn(), updateContent: vi.fn() }))
+const creativeAi = vi.hoisted(() => ({ improveStoryCopy: vi.fn() }))
 
 vi.mock("@/lib/auth/marketing", () => access)
 vi.mock("@/lib/marketing/feature-flags", () => flags)
 vi.mock("@/lib/marketing/repositories/marketing-repository", () => ({ MarketingRepository: repository }))
+vi.mock("@/lib/marketing/services/creative-ai-service", () => ({ CreativeAIService: creativeAi }))
 vi.mock("@/lib/marketing/services/approval-service", () => ({ ApprovalService: { approve: vi.fn(), requestChanges: vi.fn(), reject: vi.fn() } }))
 
 import { POST as approve } from "@/app/api/marketing/content/[id]/approval/route"
@@ -14,6 +16,7 @@ import { PATCH as edit } from "@/app/api/marketing/content/route"
 import { POST as publish } from "@/app/api/marketing/publish/[id]/route"
 import { POST as render } from "@/app/api/marketing/content/[id]/render/route"
 import { PATCH as updateStory } from "@/app/api/marketing/content/[id]/story/route"
+import { POST as improveStory } from "@/app/api/marketing/content/[id]/story/route"
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -136,6 +139,58 @@ describe("Marketing workflow API guards", () => {
     }))
     expect(repository.enqueueJob).not.toHaveBeenCalled()
     await expect(response.json()).resolves.toMatchObject({ queued: true, storyCopy: expect.any(Object) })
+  })
+
+  it("persists an AI-improved Story creative before queuing its replacement render", async () => {
+    const contentId = "1e149a39-7321-42d1-900c-7389c0da37a3"
+    const sourceAssetId = "b2041f1f-89e9-4a59-a8de-00169502f523"
+    const property = { id: contentId, title: "Villa Verde", amenities: [], features: [], media: [] }
+    repository.getContentById.mockResolvedValue({
+      content: {
+        id: contentId,
+        contentType: "story",
+        status: "ready_for_review",
+        primaryPropertyId: contentId,
+        propertySnapshot: property,
+        creativeDirection: "luxury_editorial",
+        creative: {},
+        composition: {
+          propertyId: contentId,
+          format: "story",
+          aspectRatio: "9:16",
+          sourceAssetId,
+          storyCopy: { headline: "Villa Verde", supportingLine: "Parra", highlights: [], priceLine: "", cta: "Arrange a viewing" },
+          layoutStyle: "editorial_panel",
+          typographyStyle: "modern_sans",
+          renderToken: "0f0f8bbf-943a-4f00-a80e-5b8d9cbb1ef0",
+          logo: { enabled: false, placement: "top_right", scale: "small", opacity: 0.8 },
+        },
+      },
+      assets: [{ id: sourceAssetId, kind: "original_reference", mediaType: "image" }],
+    })
+    repository.getPropertySnapshot.mockResolvedValue(property)
+    repository.getBrandSettings.mockResolvedValue({})
+    repository.queueStaticRender.mockResolvedValue({ content: { id: contentId }, job: { id: "story-job" } })
+    repository.addAuditLog.mockResolvedValue(undefined)
+    creativeAi.improveStoryCopy.mockResolvedValue({ headline: "A calmer Villa Verde", supportingLine: "Parra", highlights: ["Four bedrooms"], priceLine: "", cta: "Arrange a viewing" })
+
+    const response = await improveStory(new Request(`http://localhost/api/marketing/content/${contentId}/story`, {
+      method: "POST",
+      body: JSON.stringify({ prompt: "Make it calmer" }),
+    }), { params: Promise.resolve({ id: contentId }) })
+
+    expect(response.status).toBe(202)
+    expect(repository.queueStaticRender).toHaveBeenCalledWith(expect.objectContaining({
+      contentId,
+      changes: expect.objectContaining({
+        composition: expect.objectContaining({
+          sourceAssetId,
+          storyCopy: expect.objectContaining({ headline: "A calmer Villa Verde" }),
+          renderToken: expect.any(String),
+        }),
+      }),
+    }))
+    await expect(response.json()).resolves.toMatchObject({ queued: true, storyCopy: { headline: "A calmer Villa Verde" } })
   })
 
   it("queues an approved Reel through the atomic render-job operation", async () => {

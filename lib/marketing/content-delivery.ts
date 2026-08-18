@@ -101,6 +101,12 @@ function compositionRecord(content: Pick<MarketingContent, "composition">) {
     : {}
 }
 
+function record(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {}
+}
+
 function matchingRenderedAssets(input: {
   content: Pick<MarketingContent, "contentType" | "composition" | "activeReelVersionId">
   assets: MarketingAsset[]
@@ -108,12 +114,54 @@ function matchingRenderedAssets(input: {
 }) {
   const composition = compositionRecord(input.content)
   const renderToken = typeof composition.renderToken === "string" ? composition.renderToken : null
+  const sourceAssetId = typeof composition.sourceAssetId === "string" ? composition.sourceAssetId : null
   return stableAssets(input.assets).filter(asset => {
     if (asset.kind !== "rendered_media" || asset.mediaType !== getInstagramFormat(input.content.contentType).outputMediaType || !asset.storagePath) return false
     if (input.format === "reel") return asset.storagePath.toLowerCase().endsWith(".mp4") &&
       (!input.content.activeReelVersionId || asset.metadata.reelVersionId === input.content.activeReelVersionId)
-    return Boolean(renderToken && asset.metadata.renderToken === renderToken && asset.metadata.instagramFormat === input.format)
+    return Boolean(
+      renderToken &&
+      asset.metadata.renderToken === renderToken &&
+      asset.metadata.instagramFormat === input.format &&
+      (input.format !== "story" || asset.metadata.sourceAssetId === sourceAssetId)
+    )
   })
+}
+
+function storyValidationError(
+  content: Pick<MarketingContent, "composition">,
+  assets: MarketingAsset[],
+) {
+  const raw = compositionRecord(content)
+  const rawCopy = record(raw.storyCopy)
+  if (!String(rawCopy.headline ?? "").trim()) return "Story headline is required."
+  if (!String(rawCopy.cta ?? "").trim()) return "Story CTA is required."
+
+  const parsed = StoryCompositionSchema.safeParse(content.composition)
+  if (!parsed.success) return "Story creative is incomplete. Complete and save the Story creative before approval."
+  const layoutError = storyLayoutError(parsed.data.storyCopy)
+  if (layoutError) return layoutError
+
+  const source = assets.find(asset => asset.id === parsed.data.sourceAssetId && asset.kind === "original_reference")
+  if (!source || source.mediaType !== "image") return "Story source must be an available property image."
+
+  const currentRender = matchingRenderedAssets({
+    content: { contentType: "story", composition: content.composition, activeReelVersionId: null },
+    assets,
+    format: "story",
+  })
+  if (!currentRender.length) {
+    const priorRenderExists = assets.some(asset =>
+      asset.kind === "rendered_media" &&
+      asset.mediaType === "image" &&
+      asset.metadata.instagramFormat === "story"
+    )
+    return priorRenderExists
+      ? "Story creative changed after the last render. Render the updated Story before approval."
+      : "Story must be rendered before approval."
+  }
+
+  return null
 }
 
 export function publishableAssets(content: Pick<MarketingContent, "contentType" | "composition" | "activeReelVersionId">, assets: MarketingAsset[]) {
@@ -147,12 +195,8 @@ export function validateInstagramPublishability(
     if (sourceError) return sourceError
   }
   if (format.id === "story") {
-    const parsed = StoryCompositionSchema.safeParse(content.composition)
-    if (!parsed.success) return "Story has no valid visual composition. Generate or edit its Story creative before continuing."
-    const layoutError = storyLayoutError(parsed.data.storyCopy)
-    if (layoutError) return layoutError
-    const source = assets.find(asset => asset.id === parsed.data.sourceAssetId && asset.kind === "original_reference")
-    if (!source || source.mediaType !== "image") return "Story source must be an available property image."
+    const error = storyValidationError(content, assets)
+    if (error) return error
   }
   const media = publishableAssets(content, assets)
   if (media.length < format.minimumMediaCount || media.length > format.maximumMediaCount) {

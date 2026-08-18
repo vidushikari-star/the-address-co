@@ -45,6 +45,39 @@ beforeEach(() => {
 })
 
 describe("approval and scheduling guards", () => {
+  it("approves a Story from its persisted composition even when the legacy headline column is empty", async () => {
+    const sourceAssetId = "34d1e601-18e9-4caa-9cc4-8af4c11888f1"
+    const storyToken = "1e149a39-7321-42d1-900c-7389c0da37a3"
+    repository.getContentById.mockResolvedValue({
+      content: {
+        id: "content-1",
+        status: "ready_for_review",
+        contentType: "story",
+        headline: null,
+        hashtags: [],
+        composition: {
+          propertyId: "b2041f1f-89e9-4a59-a8de-00169502f523",
+          format: "story",
+          aspectRatio: "9:16",
+          sourceAssetId,
+          storyCopy: { headline: "Villa Verde", supportingLine: "Parra", highlights: [], priceLine: "", cta: "Arrange a viewing" },
+          layoutStyle: "editorial_panel",
+          typographyStyle: "modern_sans",
+          renderToken: storyToken,
+          logo: { enabled: false, placement: "top_right", scale: "small", opacity: 0.8 },
+        },
+      },
+      assets: [
+        { id: sourceAssetId, kind: "original_reference", mediaType: "image", sourceUrl: "https://images.example/source.jpg", metadata: {} },
+        { id: "story-render", kind: "rendered_media", mediaType: "image", storagePath: "rendered/story.jpg", metadata: { instagramFormat: "story", renderToken: storyToken, sourceAssetId, width: 1080, height: 1920, aspectRatio: "9:16" } },
+      ],
+    })
+
+    await ApprovalService.approve("content-1", "admin-1")
+
+    expect(repository.applyApproval).toHaveBeenCalledWith(expect.objectContaining({ contentId: "content-1", decision: "approved" }))
+  })
+
   it("allows an admin to approve a complete single-image draft through the atomic approval operation", async () => {
     repository.getContentById.mockResolvedValue(record("draft"))
 

@@ -53,8 +53,29 @@ describe("Instagram format delivery", () => {
       composition: { propertyId: id, format: "story", aspectRatio: "9:16", sourceAssetId: storySourceId, storyCopy: { headline: "Villa Verde", supportingLine: "Parra", highlights: ["Four bedrooms"], priceLine: "", cta: "Arrange a viewing" }, layoutStyle: "editorial_panel", typographyStyle: "modern_sans", renderToken: token, logo: { enabled: false, placement: "top_right", scale: "small", opacity: 0.8 } },
     }
     const sourceAsset = source(storySourceId, 0)
-    expect(validateInstagramPublishability(story, [sourceAsset])).toBe("Story has no valid rendered 9:16 creative.")
+    expect(validateInstagramPublishability(story, [sourceAsset])).toBe("Story must be rendered before approval.")
     const output = { ...rendered(storySourceId, 0), metadata: { instagramFormat: "story", renderToken: token, sourceAssetId: storySourceId, width: 1080, height: 1920, aspectRatio: "9:16" } }
     expect(validateInstagramPublishability(story, [sourceAsset, output])).toBeNull()
+  })
+
+  it("rejects a prior Story derivative after its source or creative token changes", () => {
+    const currentSourceId = "e5c7daaf-0b33-4988-97a2-f1b6855404cb"
+    const story: Pick<MarketingContent, "contentType" | "composition" | "activeReelVersionId" | "caption" | "hashtags"> = {
+      contentType: "story", activeReelVersionId: null, caption: null, hashtags: [],
+      composition: { propertyId: id, format: "story", aspectRatio: "9:16", sourceAssetId: currentSourceId, storyCopy: { headline: "Villa Verde", supportingLine: "Parra", highlights: [], priceLine: "", cta: "Arrange a viewing" }, layoutStyle: "editorial_panel", typographyStyle: "modern_sans", renderToken: "4e27cccd-c24c-4e4d-9789-a505617e1fb1", logo: { enabled: false, placement: "top_right", scale: "small", opacity: 0.8 } },
+    }
+    const oldOutput = { ...rendered(storySourceId, 0), metadata: { instagramFormat: "story", renderToken: token, sourceAssetId: storySourceId, width: 1080, height: 1920, aspectRatio: "9:16" } }
+
+    expect(validateInstagramPublishability(story, [source(currentSourceId, 1), oldOutput]))
+      .toBe("Story creative changed after the last render. Render the updated Story before approval.")
+  })
+
+  it("reports a true missing Story headline instead of a generic render error", () => {
+    const story: Pick<MarketingContent, "contentType" | "composition" | "activeReelVersionId" | "caption" | "hashtags"> = {
+      contentType: "story", activeReelVersionId: null, caption: null, hashtags: [],
+      composition: { format: "story", storyCopy: { headline: "", cta: "Arrange a viewing" } },
+    }
+
+    expect(validateInstagramPublishability(story, [])).toBe("Story headline is required.")
   })
 })

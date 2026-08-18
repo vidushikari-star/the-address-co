@@ -17,6 +17,7 @@ export function ContentWorkflowActions({
   publishingEnabled,
   publication,
   hasApprovedVersionAwaitingRender = false,
+  approvalDisabledReason,
 }: {
   content: MarketingContent
   hasReadyMedia: boolean
@@ -24,12 +25,17 @@ export function ContentWorkflowActions({
   publication?: MarketingPublication | null
   /** A newer approved version must render before it can replace the active one. */
   hasApprovedVersionAwaitingRender?: boolean
+  approvalDisabledReason?: string
 }) {
   const router = useRouter()
   const [message, setMessage] = useState<string | null>(null)
   const [confirmScheduledDelete, setConfirmScheduledDelete] = useState(false)
   const [isPending, startTransition] = useTransition()
   const requiresRender = contentRequiresRendering(content)
+  const resolvedApprovalDisabledReason = approvalDisabledReason
+    ?? (content.contentType === "story" && !hasReadyMedia
+      ? "Story requires a current rendered creative before approval."
+      : undefined)
 
   function render() {
     setMessage(null)
@@ -92,7 +98,7 @@ export function ContentWorkflowActions({
   if (["draft", "ready_for_review", "changes_requested"].includes(content.status)) {
     return <section className="space-y-3 rounded-xl border p-4">
       <div><p className="text-sm font-semibold">Review and approval</p><p className="mt-1 text-xs text-muted-foreground">Approval is recorded server-side with the approving administrator and timestamp.</p></div>
-      <ApprovalActions contentId={content.id} status={content.status} />
+      <ApprovalActions contentId={content.id} status={content.status} approveDisabledReason={resolvedApprovalDisabledReason} />
     </section>
   }
 

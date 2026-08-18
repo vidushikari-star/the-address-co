@@ -45,11 +45,20 @@ function mapContent(row: Row): MarketingContent {
   const activeReelVersionId = row.active_reel_version_id as string | null
   const composition = object(row.composition)
   const renderToken = composition.renderToken as string | undefined
+  const storySourceAssetId = composition.sourceAssetId as string | undefined
   const renderedAsset = assets.find(asset => asset.kind === "rendered_media" && (
     activeReelVersionId
       ? object(asset.metadata).reelVersionId === activeReelVersionId
       : renderToken
-        ? object(asset.metadata).renderToken === renderToken
+        ? object(asset.metadata).renderToken === renderToken && (
+          row.content_type !== "story" || (
+            object(asset.metadata).instagramFormat === "story" &&
+            object(asset.metadata).sourceAssetId === storySourceAssetId &&
+            object(asset.metadata).width === 1080 &&
+            object(asset.metadata).height === 1920 &&
+            object(asset.metadata).aspectRatio === "9:16"
+          )
+        )
         : true
   ))
   const coverAsset = assets.find(asset => asset.kind === "cover")
