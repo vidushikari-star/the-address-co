@@ -17,6 +17,9 @@ const apiKey = "housing-test-key-that-must-never-be-logged"
 function validPayload(overrides: Record<string, unknown> = {}) {
   return {
     external_id: "HOUSING-123456",
+    name: "Advisor Name",
+    email: "advisor@example.com",
+    phone: "+919876543210",
     property_category: "residential",
     listing_intent: "sell",
     building_or_society_name: "Casa Ekam",
@@ -76,9 +79,58 @@ describe("POST /api/integrations/housing/inventory", () => {
     expect(admin.rpc).toHaveBeenCalledWith("upsert_housing_inventory_submission", expect.objectContaining({
       p_external_id: "HOUSING-123456",
       p_status: "ready_for_mapping",
-      p_payload: expect.objectContaining({ building_or_society_name: "Casa Ekam" }),
+      p_payload: expect.objectContaining({
+        building_or_society_name: "Casa Ekam",
+        name: "Advisor Name",
+        email: "advisor@example.com",
+        phone: "+919876543210",
+        listing_contact: {
+          source: "housing_payload",
+          name: "Advisor Name",
+          email: "advisor@example.com",
+          phone: "+919876543210",
+        },
+      }),
     }))
     expect(admin.from).not.toHaveBeenCalledWith("properties")
+  })
+
+  it("requires a public/business listing contact name and phone", async () => {
+    const missingName = await POST(request(validPayload({ name: " " })))
+    expect(missingName.status).toBe(422)
+    await expect(missingName.json()).resolves.toMatchObject({ fields: expect.arrayContaining([expect.objectContaining({ field: "name" })]) })
+
+    const missingPhone = await POST(request(validPayload({ phone: "" })))
+    expect(missingPhone.status).toBe(422)
+    await expect(missingPhone.json()).resolves.toMatchObject({ fields: expect.arrayContaining([expect.objectContaining({ field: "phone" })]) })
+  })
+
+  it("validates optional email and normalizes listing-contact whitespace and phones", async () => {
+    const invalidEmail = await POST(request(validPayload({ email: "not-an-email" })))
+    expect(invalidEmail.status).toBe(422)
+    await expect(invalidEmail.json()).resolves.toMatchObject({ fields: expect.arrayContaining([expect.objectContaining({ field: "email" })]) })
+
+    const accepted = await POST(request(validPayload({
+      name: "  Vidushi Kari  ",
+      email: " ADVISOR@EXAMPLE.COM ",
+      phone: " +91 (98765) 43210 ",
+    })))
+    expect(accepted.status).toBe(201)
+    expect(admin.rpc).toHaveBeenLastCalledWith("upsert_housing_inventory_submission", expect.objectContaining({
+      p_payload: expect.objectContaining({
+        name: "Vidushi Kari",
+        email: "advisor@example.com",
+        phone: "+919876543210",
+      }),
+    }))
+  })
+
+  it("accepts and preserves a valid international listing-contact phone", async () => {
+    const response = await POST(request(validPayload({ phone: "+44 20 7946 0958" })))
+    expect(response.status).toBe(201)
+    expect(admin.rpc).toHaveBeenCalledWith("upsert_housing_inventory_submission", expect.objectContaining({
+      p_payload: expect.objectContaining({ phone: "+442079460958" }),
+    }))
   })
 
   it("logs sanitized Supabase persistence details without incoming data or credentials", async () => {
@@ -187,11 +239,22 @@ describe("POST /api/integrations/housing/inventory", () => {
       .mockResolvedValueOnce({ data: [inboxRow("HOUSING-123456", false)], error: null })
       .mockResolvedValueOnce({ data: [inboxRow("HOUSING-123456", true)], error: null })
     const first = await POST(request(validPayload()))
-    const second = await POST(request(validPayload({ description: "Revised description" })))
+    const second = await POST(request(validPayload({
+      description: "Revised description",
+      name: "Updated Advisor",
+      email: "updated@example.com",
+      phone: "+44 20 7946 0958",
+    })))
     expect(first.status).toBe(201)
     expect(second.status).toBe(200)
     await expect(second.json()).resolves.toMatchObject({ success: true, external_id: "HOUSING-123456", status: "updated" })
     expect(admin.rpc.mock.calls.map(call => call[1].p_external_id)).toEqual(["HOUSING-123456", "HOUSING-123456"])
+    expect(admin.rpc.mock.calls[1]?.[1].p_payload).toMatchObject({
+      name: "Updated Advisor",
+      email: "updated@example.com",
+      phone: "+442079460958",
+      listing_contact: expect.objectContaining({ name: "Updated Advisor", phone: "+442079460958" }),
+    })
   })
 
   it("rejects non-HTTPS image URLs", async () => {
@@ -223,6 +286,11 @@ describe("POST /api/integrations/housing/inventory", () => {
     const output = JSON.stringify([...info.mock.calls, ...error.mock.calls])
     expect(output).not.toContain(apiKey)
     expect(output).not.toContain(description)
+  })
+
+  it("never returns the bearer secret", async () => {
+    const response = await POST(request(validPayload()))
+    expect(await response.text()).not.toContain(apiKey)
   })
 })
 

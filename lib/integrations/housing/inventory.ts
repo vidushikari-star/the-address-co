@@ -4,6 +4,55 @@ import { z } from "zod"
 export const HOUSING_INVENTORY_MAX_BODY_BYTES = 1_000_000
 export const HOUSING_INVENTORY_MAX_IMAGES = 50
 
+export type HousingListingContact = {
+  source: "housing_payload"
+  name: string
+  email: string | null
+  phone: string
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function isRawListingContactId(value: string) {
+  return UUID_PATTERN.test(value)
+    || /^\d{8,}$/.test(value)
+    || /^(?:usr|user|profile|contact|advisor)[_:][a-z0-9-]+$/i.test(value)
+}
+
+function normalizeHousingPhone(value: string) {
+  const compact = value.trim().replace(/[\s().-]/g, "")
+  const international = compact.startsWith("00")
+    ? `+${compact.slice(2)}`
+    : compact
+
+  if (/^\+[1-9]\d{7,14}$/.test(international)) return international
+
+  const digits = international.replace(/\D/g, "")
+  if (/^[6-9]\d{9}$/.test(digits)) return `+91${digits}`
+  if (/^0[6-9]\d{9}$/.test(digits)) return `+91${digits.slice(1)}`
+  if (/^91[6-9]\d{9}$/.test(digits)) return `+${digits}`
+
+  return null
+}
+
+const ListingContactNameSchema = z.string()
+  .trim()
+  .min(1, "name is required.")
+  .max(160, "name must be at most 160 characters.")
+  .refine(value => !isRawListingContactId(value), "name must be a public/business contact name, not an internal ID.")
+
+const ListingContactEmailSchema = z.preprocess(
+  value => typeof value === "string" && !value.trim() ? undefined : value,
+  z.string().trim().email("email must be a valid email address.").max(320).nullable().optional(),
+).transform(value => typeof value === "string" ? value.toLowerCase() : undefined)
+
+const ListingContactPhoneSchema = z.string()
+  .trim()
+  .min(1, "phone is required.")
+  .max(64, "phone must be at most 64 characters.")
+  .refine(value => normalizeHousingPhone(value) !== null, "phone must be a valid Indian or international phone number.")
+  .transform(value => normalizeHousingPhone(value)!)
+
 const propertyTypes = [
   "apartment", "independent_house", "duplex", "independent_floor", "villa",
   "penthouse", "studio", "plot", "farm_house", "agricultural_land",
@@ -38,6 +87,9 @@ const AddressSchema = z.object({
 
 export const HousingInventorySubmissionSchema = z.object({
   external_id: z.string().trim().min(1, "external_id is required.").max(180),
+  name: ListingContactNameSchema,
+  email: ListingContactEmailSchema,
+  phone: ListingContactPhoneSchema,
   property_category: z.enum(["residential", "commercial"]),
   listing_intent: z.enum(["sell", "rent", "pg_coliving"]),
   building_or_society_name: z.string().trim().max(250).nullable().optional(),
@@ -95,9 +147,54 @@ export const HousingInventorySubmissionSchema = z.object({
   if (submission.listing_intent === "rent" && !submission.monthly_rent && !submission.price) {
     context.addIssue({ code: "custom", path: ["monthly_rent", "amount"], message: "Monthly rent is required for rent listings." })
   }
-})
+}).transform(submission => ({
+  ...submission,
+  // The partner sends compatibility fields at the top level. Persist one
+  // explicit internal concept so Phase 2 can map a public listing contact
+  // without guessing from owners, deals, or unrelated CRM contacts.
+  listing_contact: {
+    source: "housing_payload" as const,
+    name: submission.name,
+    email: submission.email ?? null,
+    phone: submission.phone,
+  },
+}))
 
 export type HousingInventorySubmission = z.output<typeof HousingInventorySubmissionSchema>
+
+function textValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null
+}
+
+/** Reads the explicit public/business listing contact from a persisted inbox payload. */
+export function housingListingContactFromPayload(payload: unknown): HousingListingContact | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null
+  const record = payload as Record<string, unknown>
+  const nested = record.listing_contact
+
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    const contact = nested as Record<string, unknown>
+    const name = textValue(contact.name)
+    const phone = textValue(contact.phone)
+    if (name && phone) {
+      return {
+        source: "housing_payload",
+        name,
+        email: textValue(contact.email),
+        phone,
+      }
+    }
+  }
+
+  // Inbox rows received before this contact contract deliberately remain
+  // viewable, but are not treated as having a listing contact.
+  return null
+}
+
+export function maskHousingListingPhone(phone: string | null | undefined) {
+  const digits = phone?.replace(/\D/g, "") ?? ""
+  return digits.length >= 4 ? `••••••${digits.slice(-4)}` : "—"
+}
 
 export type HousingValidationField = {
   field: string
