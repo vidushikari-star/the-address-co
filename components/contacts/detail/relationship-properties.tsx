@@ -14,7 +14,12 @@ import type {
 
 import {
   getProperties,
+  getPropertiesByIds,
 } from "@/lib/repositories/property-repository"
+import {
+  getPropertySharesWithAdvisorByContactId,
+  type PropertyShare,
+} from "@/lib/repositories/property-share-repository"
 import {
   getPropertyMatches,
 } from "@/lib/services/property-matching"
@@ -41,6 +46,8 @@ export function RelationshipProperties({
 }: Props) {
   const [recommendedProperties, setRecommendedProperties] =
     useState<Property[]>([])
+  const [sharedProperties, setSharedProperties] =
+    useState<Array<{ property: Property; share: PropertyShare }>>([])
   const [loading, setLoading] =
     useState(true)
 
@@ -51,13 +58,29 @@ export function RelationshipProperties({
       setLoading(true)
 
       try {
-        const properties = await getProperties()
+        const [properties, shares] = await Promise.all([
+          getProperties(),
+          getPropertySharesWithAdvisorByContactId(contact.id),
+        ])
         const recommendations = getPropertyMatches(contact, properties)
           .map(match => match.property)
           .slice(0, 5)
 
         if (mounted) {
           setRecommendedProperties(recommendations)
+          const sharedById = new Map(
+            (await getPropertiesByIds(
+              shares
+                .map((share) => share.propertyId)
+                .filter(Boolean)
+            )).map((property) => [property.id, property])
+          )
+          setSharedProperties(
+            shares.flatMap((share) => {
+              const property = sharedById.get(share.propertyId)
+              return property ? [{ property, share }] : []
+            })
+          )
         }
       } catch (error) {
         console.error("Loading recommended properties failed", error)
@@ -76,7 +99,8 @@ export function RelationshipProperties({
   }, [contact])
 
   return (
-    <Card className="rounded-2xl">
+    <div className="space-y-4">
+      <Card className="rounded-2xl">
       <CardHeader className="px-4 py-3">
         <CardTitle className="flex items-center justify-between text-base">
           <span>Recommended Matches</span>
@@ -103,6 +127,41 @@ export function RelationshipProperties({
           ))
         )}
       </CardContent>
-    </Card>
+      </Card>
+
+      <Card className="rounded-2xl">
+        <CardHeader className="px-4 py-3">
+          <CardTitle className="flex items-center justify-between text-base">
+            <span>Shared Properties</span>
+            <Badge variant="secondary">{sharedProperties.length}</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 px-4 pb-5">
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading shared properties...</p>
+          ) : sharedProperties.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No properties have been shared with this relationship yet.</p>
+          ) : (
+            sharedProperties.map(({ property, share }) => (
+              <div key={share.id} className="space-y-1">
+                <RecommendedPropertyCard
+                  property={property}
+                  label="shared"
+                  status={share.status}
+                  sharedAt={share.sharedAt}
+                  shareId={share.id}
+                  contactId={contact.id}
+                />
+                {share.advisorName && (
+                  <p className="px-1 text-xs text-muted-foreground">
+                    Shared by {share.advisorName}
+                  </p>
+                )}
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }

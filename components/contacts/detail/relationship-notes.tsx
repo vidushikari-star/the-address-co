@@ -236,6 +236,13 @@ export function RelationshipNotes({
         space-y-5
       ">
 
+        {contact.notesText && (
+          <div className="rounded-xl border bg-muted/30 p-3">
+            <p className="text-xs font-medium text-muted-foreground">Contact notes</p>
+            <p className="mt-1 whitespace-pre-wrap text-sm">{contact.notesText}</p>
+          </div>
+        )}
+
 
 
 

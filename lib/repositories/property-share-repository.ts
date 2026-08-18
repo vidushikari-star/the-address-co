@@ -30,6 +30,10 @@ export interface PropertyShare {
 
   createdAt: string
 
+  createdBy?: string
+
+  advisorName?: string
+
 }
 
 
@@ -53,6 +57,8 @@ type PropertyShareRow = {
   shared_at: string
 
   created_at: string
+
+  created_by: string | null
 
 }
 
@@ -98,6 +104,9 @@ row.shared_at,
 
 createdAt:
 row.created_at,
+
+createdBy:
+row.created_by ?? undefined,
 
 }
 
@@ -258,6 +267,43 @@ return (
 mapPropertyShareRow
 )
 
+}
+
+export async function getPropertySharesWithAdvisorByContactId(
+  contactId: string
+): Promise<PropertyShare[]> {
+  const shares = await getPropertySharesByContactId(contactId)
+  const advisorIds = [
+    ...new Set(
+      shares
+        .map((share) => share.createdBy)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ]
+
+  if (!advisorIds.length) {
+    return shares
+  }
+
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .select("id,name")
+    .in("id", advisorIds)
+
+  if (error) {
+    throw error
+  }
+
+  const names = new Map(
+    (data ?? []).map((advisor) => [advisor.id, advisor.name])
+  )
+
+  return shares.map((share) => ({
+    ...share,
+    advisorName: share.createdBy
+      ? names.get(share.createdBy) ?? "Unknown advisor"
+      : undefined,
+  }))
 }
 
 

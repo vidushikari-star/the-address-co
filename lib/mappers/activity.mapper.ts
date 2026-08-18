@@ -31,6 +31,9 @@ export function mapActivityRow(
   userId:
     (row.user_id as string | null) ?? undefined,
 
+  actorName:
+    ((row.actor as { full_name?: string | null } | null)?.full_name) ?? undefined,
+
   contactId:
     (row.contact_id as string | null) ?? undefined,
 

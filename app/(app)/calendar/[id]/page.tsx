@@ -111,10 +111,20 @@ export default async function CalendarEventPage({
 
         assignedUser={
           assignedUser?.name
+          ?? (
+            event.assignedTo
+            ? "Unknown advisor"
+            : undefined
+          )
         }
 
         createdUser={
           createdUser?.name
+          ?? (
+            event.createdBy
+            ? "Unknown user"
+            : "System"
+          )
         }
 
       />

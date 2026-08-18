@@ -4,6 +4,8 @@ import { ContactList } from "@/components/contacts/list/contact-list"
 type Props = {
   searchParams: Promise<{
     stage?: string
+    follow_up?: string
+    assigned_to?: string
   }>
 }
 
@@ -22,6 +24,12 @@ export default async function ContactsPage({
     <ContactList
       stageFilter={
         params.stage
+      }
+      followUpFilter={
+        params.follow_up
+      }
+      assignedToMe={
+        params.assigned_to === "me"
       }
     />
 

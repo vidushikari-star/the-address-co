@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Building2 } from "lucide-react"
 
@@ -9,6 +9,7 @@ import { getCreatedPropertyPath } from "@/lib/properties/property-schema"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { deleteCrmDraft, getCrmDraft, saveCrmDraft } from "@/lib/repositories/crm-draft-repository"
 
 const propertyTypes = ["Villa", "Apartment", "Plot", "Penthouse", "Commercial"]
 const statuses = ["available", "viewed", "shortlisted", "offer", "purchased", "rejected", "archived"]
@@ -26,6 +27,8 @@ export default function NewPropertyPage() {
   const router = useRouter()
   const requestIdRef = useRef<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
+  const [draftUpdatedAt, setDraftUpdatedAt] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: "",
@@ -59,6 +62,29 @@ export default function NewPropertyPage() {
 
   function update(key: keyof typeof form, value: string | boolean) {
     setForm(current => ({ ...current, [key]: value }))
+  }
+
+  useEffect(() => {
+    getCrmDraft("property")
+      .then(draft => {
+        if (!draft) return
+        setForm(current => ({ ...current, ...draft.payload } as typeof current))
+        setDraftUpdatedAt(draft.updatedAt)
+      })
+      .catch(error => console.error("Unable to load property draft", error))
+  }, [])
+
+  async function saveDraft() {
+    setSavingDraft(true)
+    setError(null)
+    try {
+      const draft = await saveCrmDraft("property", form)
+      setDraftUpdatedAt(draft.updatedAt)
+    } catch (draftError) {
+      setError(draftError instanceof Error ? draftError.message : "Unable to save the property draft.")
+    } finally {
+      setSavingDraft(false)
+    }
   }
 
   async function saveProperty(event: React.FormEvent<HTMLFormElement>) {
@@ -106,6 +132,7 @@ export default function NewPropertyPage() {
       return
     }
 
+    await deleteCrmDraft("property")
     router.push(getCreatedPropertyPath(result.property.slug))
     router.refresh()
   }
@@ -173,7 +200,7 @@ export default function NewPropertyPage() {
           <span><span className="block text-sm font-medium">Syndicate to Housing.com</span><span className="block text-sm text-muted-foreground">Only enabled, active, complete listings appear in the Housing inventory feed.</span></span>
         </label>
 
-        <Button type="submit" disabled={saving} className="w-full sm:w-auto">{saving ? "Saving property…" : "Save Property"}</Button>
+        <div className="flex flex-wrap items-center gap-3"><Button type="button" variant="outline" onClick={saveDraft} disabled={saving || savingDraft}>{savingDraft ? "Saving draft…" : "Save Draft"}</Button><Button type="submit" disabled={saving || savingDraft} className="w-full sm:w-auto">{saving ? "Saving property…" : "Save Property"}</Button>{draftUpdatedAt && <span className="text-xs text-muted-foreground">Draft saved {new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(draftUpdatedAt))}</span>}</div>
       </form>
     </div>
   )

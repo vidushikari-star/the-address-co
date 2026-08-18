@@ -117,8 +117,11 @@ export function PropertySelector({
 
   useEffect(()=>{
 
-    if(!open)
+    if(!open){
+      setSearch("")
+      setLoading(false)
       return
+    }
 
 
 
@@ -334,6 +337,8 @@ export function PropertySelector({
                           onSelect(
                             property
                           )
+
+                          setSearch("")
 
 
                           onOpenChange(

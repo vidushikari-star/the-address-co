@@ -59,27 +59,16 @@ return type
 
 
 
-function formatIndiaTime(
-date?:string
-){
+function formatIndiaTime(date?:string){
+  if(!date) return ""
 
-if(!date){
-
-return ""
-
-}
-
-return new Date(date)
-.toLocaleTimeString(
-"en-IN",
-{
-timeZone:"Asia/Kolkata",
-hour:"2-digit",
-minute:"2-digit",
-hour12:true,
-}
-)
-
+  return new Date(date)
+    .toLocaleTimeString("en-IN", {
+      timeZone:"Asia/Kolkata",
+      hour:"2-digit",
+      minute:"2-digit",
+      hour12:true,
+    })
 }
 
 
@@ -101,11 +90,9 @@ item.type === "site_visit"
 
 
 const displayTime =
-item.date
-? formatIndiaTime(
-item.date
-)
-: item.time ?? ""
+isTask
+? item.time ?? ""
+: item.time ?? formatIndiaTime(item.date)
 
 
 

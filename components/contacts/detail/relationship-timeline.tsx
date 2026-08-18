@@ -5,6 +5,12 @@ import {
   useState,
 } from "react"
 
+import Link from "next/link"
+
+import {
+  formatIndiaDateTime,
+} from "@/lib/utils/india-date"
+
 import type {
   Contact,
 } from "@/types/contact"
@@ -222,10 +228,11 @@ export function RelationshipTimeline({
 
 
         <CardTitle className="
-          text-base
+          flex items-center justify-between text-base
         ">
 
-          Relationship Timeline
+          <span>Relationship Timeline</span>
+          <Link href={`/activities?entity=contact&id=${contact.id}`} className="text-xs font-medium text-primary hover:underline">View all</Link>
 
         </CardTitle>
 
@@ -360,6 +367,10 @@ export function RelationshipTimeline({
 
                             </div>
 
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {activity.actorName ?? "System"}
+                            </p>
+
 
                           </div>
 
@@ -403,19 +414,7 @@ export function RelationshipTimeline({
                               ">
 
 
-                                {
-                                  new Date(
-                                    activity.date
-                                  )
-                                  .toLocaleDateString(
-                                    "en-IN",
-                                    {
-                                      day:"numeric",
-                                      month:"short",
-                                      year:"numeric",
-                                    }
-                                  )
-                                }
+                                {formatIndiaDateTime(activity.date)}
 
 
                               </span>

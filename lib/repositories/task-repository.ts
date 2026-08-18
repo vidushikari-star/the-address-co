@@ -10,6 +10,31 @@ import type {
   Task,
 } from "@/types/task"
 
+import {
+  createActivity,
+} from "@/lib/repositories/activity-repository"
+
+async function mapTasksWithAdvisorNames(rows: Record<string, unknown>[]): Promise<Task[]> {
+  const advisorIds = [
+    ...new Set(
+      rows
+        .map(row => row.assigned_to)
+        .filter((id): id is string => typeof id === "string" && Boolean(id))
+    ),
+  ]
+  const { data: advisors, error } = advisorIds.length
+    ? await supabase.from("user_profiles").select("id,name").in("id", advisorIds)
+    : { data: [], error: null }
+  if (error) throw error
+  const names = new Map((advisors ?? []).map(advisor => [advisor.id, advisor.name]))
+  return rows.map(row => ({
+    ...mapTaskRow(row as Parameters<typeof mapTaskRow>[0]),
+    advisorName: typeof row.assigned_to === "string"
+      ? names.get(row.assigned_to) ?? "Unknown advisor"
+      : undefined,
+  }))
+}
+
 
 
 export async function getTasksByContactId(
@@ -43,12 +68,7 @@ export async function getTasksByContactId(
   }
 
 
-  return (
-    data ?? []
-  )
-  .map(
-    mapTaskRow
-  )
+  return mapTasksWithAdvisorNames(data ?? [])
 
 }
 
@@ -86,12 +106,7 @@ export async function getTasksByDealId(
   }
 
 
-  return (
-    data ?? []
-  )
-  .map(
-    mapTaskRow
-  )
+  return mapTasksWithAdvisorNames(data ?? [])
 
 }
 
@@ -107,6 +122,10 @@ dealId?:string
 
 }
 ):Promise<Task>{
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
 
   const {
@@ -145,16 +164,18 @@ dealId?:string
 
       due_date:
         task.dueDate
-        ?
-        task.dueDate
-          .toISOString()
-          .split("T")[0]
-        :
-        null,
+        ?? null,
+
+      due_time:
+        task.dueTime
+        ?? null,
 
 
       assigned_to:
         task.assignedTo ?? null,
+
+      created_by:
+        user?.id ?? null,
 
     })
     .select()
@@ -169,9 +190,26 @@ dealId?:string
   }
 
 
-  return mapTaskRow(
-    data
-  )
+  const created = mapTaskRow(data)
+
+  try {
+    await createActivity({
+      type: "task_created",
+      title: "Task created",
+      description: created.title,
+      contactId: created.contactId,
+      dealId: created.dealId,
+      date: new Date().toISOString(),
+    })
+  } catch (activityError) {
+    console.error("Task activity log failed", {
+      action: "task_created",
+      taskId: created.id,
+      code: activityError instanceof Error ? activityError.name : "unknown",
+    })
+  }
+
+  return created
 
 }
 
@@ -234,11 +272,14 @@ updates:Partial<Task>
   if(updates.dueDate !== undefined){
 
     payload.due_date =
-      updates.dueDate
-        ? updates.dueDate
-            .toISOString()
-            .split("T")[0]
-        : null
+      updates.dueDate ?? null
+
+  }
+
+  if(updates.dueTime !== undefined){
+
+    payload.due_time =
+      updates.dueTime ?? null
 
   }
 
@@ -273,8 +314,27 @@ updates:Partial<Task>
   }
 
 
-  return mapTaskRow(
-    data
-  )
+  const updated = mapTaskRow(data)
+
+  if (updates.completed !== undefined) {
+    try {
+      await createActivity({
+        type: updates.completed ? "task_completed" : "task_created",
+        title: updates.completed ? "Task completed" : "Task reopened",
+        description: updated.title,
+        contactId: updated.contactId,
+        dealId: updated.dealId,
+        date: new Date().toISOString(),
+      })
+    } catch (activityError) {
+      console.error("Task activity log failed", {
+        action: updates.completed ? "task_completed" : "task_reopened",
+        taskId: updated.id,
+        code: activityError instanceof Error ? activityError.name : "unknown",
+      })
+    }
+  }
+
+  return updated
 
 }

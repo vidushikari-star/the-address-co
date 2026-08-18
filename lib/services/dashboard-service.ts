@@ -363,6 +363,19 @@ export async function getRecentActivities(
 
   }
 
+  const actorIds = [
+    ...new Set(
+      (data ?? [])
+        .map(activity => activity.created_by)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ]
+  const { data: actors, error: actorsError } = actorIds.length
+    ? await supabase.from("profiles").select("id,full_name").in("id", actorIds)
+    : { data: [], error: null }
+  if (actorsError) throw actorsError
+  const actorNames = new Map((actors ?? []).map(actor => [actor.id, actor.full_name]))
+
 
 
 
@@ -468,6 +481,11 @@ export async function getRecentActivities(
 
       propertyId:
         activity.property_id,
+
+      actorName:
+        activity.created_by
+          ? actorNames.get(activity.created_by) ?? "Unknown user"
+          : "System",
 
 
     }
@@ -882,12 +900,41 @@ export async function getMyWork(
   userId: string
 ){
 
+const today = getIndiaDateKey()
+
 const [
+newLeadsResult,
+followUpsResult,
 activeDealsResult,
 upcomingVisitsResult,
 tasksResult,
 ] =
 await Promise.all([
+
+  supabase
+    .from("contacts")
+    .select(
+      "id",
+      {
+        count:"exact",
+        head:true,
+      }
+    )
+    .eq("advisor_id", userId)
+    .eq("lead_stage", "new"),
+
+  supabase
+    .from("contacts")
+    .select(
+      "id",
+      {
+        count:"exact",
+        head:true,
+      }
+    )
+    .eq("advisor_id", userId)
+    .not("next_follow_up_at", "is", null)
+    .lte("next_follow_up_at", `${today}T23:59:59+05:30`),
 
 
   supabase
@@ -903,6 +950,10 @@ await Promise.all([
       "stage",
       "in",
       "(closed_won,closed_lost)"
+    )
+    .eq(
+      "advisor_id",
+      userId
     ),
 
 
@@ -919,9 +970,7 @@ await Promise.all([
     )
     .gte(
       "scheduled_date",
-      new Date()
-        .toISOString()
-        .split("T")[0]
+      today
     )
     .neq(
       "status",
@@ -958,10 +1007,10 @@ await Promise.all([
 return {
 
   newLeads:
-    0,
+    newLeadsResult.count ?? 0,
 
   followUps:
-    0,
+    followUpsResult.count ?? 0,
 
   myTasks:
     tasksResult.count ?? 0,

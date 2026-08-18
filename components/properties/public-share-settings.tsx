@@ -84,6 +84,11 @@ export function PublicShareSettings({ property, images, documents }: Props) {
     [settings.documentIds],
   )
 
+  const selectedImageCount = useMemo(
+    () => settings.imageIds.length,
+    [settings.imageIds],
+  )
+
   function setBoolean(key: keyof Pick<Settings, "enabled" | "showPrice" | "showAdvisorContact" | "showDocuments" | "showExactAddress">, value: boolean) {
     setSettings(current => ({ ...current, [key]: value }))
   }
@@ -166,14 +171,23 @@ export function PublicShareSettings({ property, images, documents }: Props) {
         <fieldset className="rounded-xl border p-4">
           <legend className="px-2 text-sm font-medium">Media included in this public share</legend>
           <p className="mb-3 text-sm text-muted-foreground">Only selected media is exposed. Images remain durable public media; documents get short-lived signed URLs.</p>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <Button type="button" size="sm" variant="outline" disabled={!images.length || saving} onClick={() => setSettings(current => ({ ...current, imageIds: images.map(image => image.id) }))}>Select all media</Button>
+            <Button type="button" size="sm" variant="ghost" disabled={!selectedImageCount || saving} onClick={() => setSettings(current => ({ ...current, imageIds: [] }))}>Clear media</Button>
+            <span className="text-xs text-muted-foreground">{selectedImageCount} of {images.length} media selected</span>
+          </div>
           <div className="space-y-2">
             {images.map(image => <label key={image.id} className="flex items-center gap-3 text-sm"><input type="checkbox" checked={settings.imageIds.includes(image.id)} onChange={() => setSettings(current => ({ ...current, imageIds: toggle(current.imageIds, image.id) }))} /> {image.label}</label>)}
             {!images.length && <p className="text-sm text-muted-foreground">No property media is available to include.</p>}
           </div>
           <div className="mt-4 space-y-2 border-t pt-4">
+            <div className="flex flex-wrap items-center gap-2 pb-2">
+              <Button type="button" size="sm" variant="outline" disabled={!documents.length || saving} onClick={() => setSettings(current => ({ ...current, documentIds: documents.map(document => document.id) }))}>Select all shareable documents</Button>
+              <Button type="button" size="sm" variant="ghost" disabled={!selectedDocumentCount || saving} onClick={() => setSettings(current => ({ ...current, documentIds: [] }))}>Clear documents</Button>
+              <span className="text-xs text-muted-foreground">{selectedDocumentCount} of {documents.length} shareable documents selected</span>
+            </div>
             {documents.map(document => <label key={document.id} className="flex items-center gap-3 text-sm"><input type="checkbox" checked={settings.documentIds.includes(document.id)} onChange={() => setSettings(current => ({ ...current, documentIds: toggle(current.documentIds, document.id) }))} /> {document.label} <span className="text-muted-foreground">({document.category.replaceAll("_", " ")})</span></label>)}
             {!documents.length && <p className="text-sm text-muted-foreground">Only brochure and floor-plan documents can be selected.</p>}
-            {selectedDocumentCount > 0 && <p className="text-xs text-muted-foreground">{selectedDocumentCount} document{selectedDocumentCount === 1 ? "" : "s"} selected.</p>}
           </div>
         </fieldset>
 

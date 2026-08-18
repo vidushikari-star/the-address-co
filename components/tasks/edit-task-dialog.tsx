@@ -33,9 +33,8 @@ function getInitialForm(task: TaskWithContext) {
     title: task.title,
     description: task.description ?? "",
     priority: task.priority,
-    dueDate: task.dueDate
-      ? new Date(task.dueDate).toISOString().split("T")[0]
-      : "",
+    dueDate: task.dueDate ?? "",
+    dueTime: task.dueTime ?? "",
     assignedTo: task.assignedTo ?? "",
   }
 }
@@ -82,7 +81,8 @@ export function EditTaskDialog({
         title: form.title.trim(),
         description: form.description.trim() || undefined,
         priority: form.priority,
-        dueDate: form.dueDate ? new Date(form.dueDate) : undefined,
+        dueDate: form.dueDate || undefined,
+        dueTime: form.dueTime || undefined,
         assignedTo: form.assignedTo || undefined,
         completed: task.completed,
         archived: task.archived,
@@ -154,7 +154,7 @@ export function EditTaskDialog({
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <label
                   htmlFor={`task-${task.id}-priority`}
@@ -194,6 +194,26 @@ export function EditTaskDialog({
                     setForm((current) => ({
                       ...current,
                       dueDate: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor={`task-${task.id}-due-time`}
+                  className="text-sm font-medium"
+                >
+                  Due time <span className="text-muted-foreground">(optional)</span>
+                </label>
+                <Input
+                  id={`task-${task.id}-due-time`}
+                  type="time"
+                  value={form.dueTime}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      dueTime: event.target.value,
                     }))
                   }
                 />

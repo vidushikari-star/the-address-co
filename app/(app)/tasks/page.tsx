@@ -18,7 +18,13 @@ export const dynamic = "force-dynamic"
 
 
 
-export default async function TasksPage(){
+export default async function TasksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string }>
+}){
+
+  const params = await searchParams
 
 
   const tasks =
@@ -94,6 +100,9 @@ export default async function TasksPage(){
 
         tasks={
           tasks
+        }
+        initialFilter={
+          params.filter
         }
 
       />

@@ -9,6 +9,10 @@ import type {
   Activity,
 } from "@/types/activity"
 
+import {
+  formatIndiaDateTime,
+} from "@/lib/utils/india-date"
+
 
 
 type Props = {
@@ -140,6 +144,11 @@ export function PropertyActivityTimeline({
                   </p>
 
 
+                  <p className="text-xs text-muted-foreground">
+                    {activity.actorName ?? (activity.createdBy ? "Unknown user" : "System")}
+                  </p>
+
+
 
 
 
@@ -157,17 +166,7 @@ export function PropertyActivityTimeline({
 
 
 
-                    {
-                      activity.date
-                      ?
-                      new Date(
-                        activity.date
-                      ).toLocaleDateString(
-                        "en-IN"
-                      )
-                      :
-                      "-"
-                    }
+                    {activity.date ? formatIndiaDateTime(activity.date) : "-"}
 
 
                   </div>

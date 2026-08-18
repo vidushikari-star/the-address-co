@@ -40,6 +40,9 @@ export interface Activity {
 
   userId?: string
 
+  /** Resolved at the repository boundary; never render createdBy/userId IDs. */
+  actorName?: string
+
   contactId?: string
 
   propertyId?: string

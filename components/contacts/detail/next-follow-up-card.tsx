@@ -39,6 +39,11 @@ import {
   updateTask,
 } from "@/lib/repositories/task-repository"
 
+import {
+  formatIndiaDateOnly,
+  formatIndiaTime,
+} from "@/lib/utils/india-date"
+
 
 
 type Props = {
@@ -103,23 +108,9 @@ export function NextFollowUpCard({
           .sort(
             (a,b) => {
 
-              const dateA =
-                a.dueDate
-                  ? new Date(
-                      a.dueDate
-                    ).getTime()
-                  : Infinity
-
-
-              const dateB =
-                b.dueDate
-                  ? new Date(
-                      b.dueDate
-                    ).getTime()
-                  : Infinity
-
-
-              return dateA - dateB
+              return (a.dueDate ?? "9999-12-31").localeCompare(
+                b.dueDate ?? "9999-12-31"
+              )
 
             }
           )
@@ -306,21 +297,8 @@ export function NextFollowUpCard({
                       "
                     >
 
-                      {
-                        new Date(
-                          task.dueDate
-                        )
-                        .toLocaleString(
-                          "en-IN",
-                          {
-                            day:"numeric",
-                            month:"short",
-                            year:"numeric",
-                            hour:"numeric",
-                            minute:"2-digit",
-                          }
-                        )
-                      }
+                      {formatIndiaDateOnly(task.dueDate)}
+                      {task.dueTime ? `, ${formatIndiaTime(task.dueTime)}` : ""}
 
                     </p>
 
@@ -330,7 +308,7 @@ export function NextFollowUpCard({
 
 
                 {
-                  task.assignedTo && (
+                  (task.assignedTo || task.advisorName) && (
 
                     <p
                       className="
@@ -342,7 +320,7 @@ export function NextFollowUpCard({
 
                       Assigned to:
                       {" "}
-                      {task.assignedTo}
+                      {task.advisorName ?? "Unknown advisor"}
 
                     </p>
 

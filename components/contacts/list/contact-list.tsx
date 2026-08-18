@@ -22,6 +22,14 @@ import {
   ContactsRepository,
 } from "@/lib/supabase/repositories/contacts.repository"
 
+import {
+  supabase,
+} from "@/lib/supabase/client"
+
+import {
+  getIndiaDateKey,
+} from "@/lib/utils/india-date"
+
 import type {
   Contact,
 } from "@/types/contact"
@@ -31,6 +39,8 @@ import type {
 type Props = {
 
   stageFilter?: string
+  followUpFilter?: string
+  assignedToMe?: boolean
 
 }
 
@@ -38,6 +48,8 @@ type Props = {
 
 export function ContactList({
   stageFilter,
+  followUpFilter: initialFollowUpFilter,
+  assignedToMe = false,
 }: Props) {
 
 
@@ -71,23 +83,17 @@ export function ContactList({
   ] =
   useState("all")
 
-
-
   const [
     leadSourceFilter,
     setLeadSourceFilter,
   ] =
   useState("all")
 
-
-
   const [
     propertyTypeFilter,
     setPropertyTypeFilter,
   ] =
   useState("all")
-
-
 
   const [
     purposeFilter,
@@ -103,11 +109,19 @@ export function ContactList({
   ] =
   useState("all")
 
+  useEffect(() => {
+    setFollowUpFilter(
+      initialFollowUpFilter === "due"
+        ? "due"
+        : "all"
+    )
+  }, [initialFollowUpFilter])
+
   const [
-    currentTime,
-    setCurrentTime,
+    currentUserId,
+    setCurrentUserId,
   ] =
-  useState<number | null>(null)
+  useState<string | null>(null)
 
 
 
@@ -143,9 +157,11 @@ export function ContactList({
 
   useEffect(() => {
 
-    setCurrentTime(
-      Date.now()
-    )
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => {
+        setCurrentUserId(user?.id ?? null)
+      })
+      .catch(() => setCurrentUserId(null))
 
   }, [])
 
@@ -266,31 +282,35 @@ export function ContactList({
 
               &&
 
-              contact.lastActivityAt
-
-              &&
-
-              currentTime !== null
+              contact.nextFollowUpAt
 
               &&
 
               (
-                currentTime
-                -
                 new Date(
-                  contact.lastActivityAt
+                  contact.nextFollowUpAt
                 ).getTime()
               )
 
-              >=
+              <=
 
-              (
-                7 *
-                24 *
-                60 *
-                60 *
-                1000
-              )
+              new Date(
+                `${getIndiaDateKey()}T23:59:59+05:30`
+              ).getTime()
+            )
+
+          const matchesAssignee =
+
+            !assignedToMe
+
+            ||
+
+            (
+              currentUserId !== null
+
+              &&
+
+              contact.advisor === currentUserId
             )
 
 
@@ -337,6 +357,10 @@ export function ContactList({
 
             matchesStage
 
+            &&
+
+            matchesAssignee
+
           )
 
 
@@ -363,7 +387,9 @@ export function ContactList({
 
       stageFilter,
 
-      currentTime,
+      currentUserId,
+
+      assignedToMe,
 
     ])
 

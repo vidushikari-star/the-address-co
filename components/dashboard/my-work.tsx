@@ -41,7 +41,7 @@ const items = [
   label: "New Leads",
   value: data.newLeads,
   icon: Users,
-  href: "/contacts?stage=new",
+  href: "/contacts?stage=new&assigned_to=me",
 },
 
 
@@ -49,7 +49,7 @@ const items = [
   label: "Follow Ups",
   value: data.followUps,
   icon: CalendarCheck,
-  href: "/contacts",
+  href: "/contacts?follow_up=due&assigned_to=me",
 },
 
 
@@ -57,7 +57,7 @@ const items = [
   label: "Tasks",
   value: data.myTasks,
   icon: ClipboardList,
-  href: "/tasks",
+  href: "/tasks?filter=active",
 },
 
 
@@ -65,7 +65,7 @@ const items = [
   label: "Active Deals",
   value: data.activeDeals,
   icon: BriefcaseBusiness,
-  href: "/deals",
+  href: "/deals?filter=active",
 },
 
 
@@ -73,7 +73,7 @@ const items = [
   label: "Upcoming Visits",
   value: data.upcomingVisits,
   icon: MapPin,
-  href: "/calendar",
+  href: "/calendar?filter=site_visit&assigned_to=me",
 },
 
 ]

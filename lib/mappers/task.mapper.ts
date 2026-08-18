@@ -16,6 +16,12 @@ archived: boolean | null
 
 due_date: string | null
 
+due_time?: string | null
+
+advisor?: {
+  name?: string | null
+} | null
+
 assigned_to: string | null
 
 contact_id: string | null
@@ -47,12 +53,16 @@ export function mapTaskRow(
 
     priority: row.priority ?? "medium",
 
-    dueDate: row.due_date
-      ? new Date(row.due_date)
-      : undefined,
+    dueDate: row.due_date ?? undefined,
+
+    dueTime:
+      row.due_time ?? undefined,
 
     assignedTo:
       row.assigned_to ?? "",
+
+    advisorName:
+      row.advisor?.name ?? undefined,
 
     contactId:
       row.contact_id ?? undefined,

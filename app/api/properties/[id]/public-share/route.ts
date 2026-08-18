@@ -65,7 +65,7 @@ export async function PATCH(request: Request, context: Context) {
       ? admin.from("property_images").select("id").eq("property_id", id).in("id", parsed.data.imageIds)
       : Promise.resolve({ data: [], error: null }),
     parsed.data.documentIds.length
-      ? admin.from("property_documents").select("id").eq("property_id", id).in("id", parsed.data.documentIds)
+      ? admin.from("property_documents").select("id,category").eq("property_id", id).in("id", parsed.data.documentIds)
       : Promise.resolve({ data: [], error: null }),
   ])
 
@@ -73,6 +73,10 @@ export async function PATCH(request: Request, context: Context) {
   if (documents.error) throw documents.error
   if ((images.data?.length ?? 0) !== parsed.data.imageIds.length || (documents.data?.length ?? 0) !== parsed.data.documentIds.length) {
     return NextResponse.json({ error: "Selected media must belong to this property." }, { status: 400 })
+  }
+
+  if ((documents.data ?? []).some((document) => !["brochure", "floor_plan"].includes(document.category ?? ""))) {
+    return NextResponse.json({ error: "Only brochures and floor plans may be included in a public share." }, { status: 400 })
   }
 
   const token = property.public_share_token ?? crypto.randomUUID()

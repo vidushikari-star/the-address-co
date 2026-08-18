@@ -22,7 +22,16 @@ export const dynamic = "force-dynamic"
 
 
 
-export default async function CalendarPage(){
+export default async function CalendarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    filter?: string
+    assigned_to?: string
+  }>
+}){
+
+  const params = await searchParams
 
 
   const items =
@@ -145,6 +154,12 @@ export default async function CalendarPage(){
 
             items={
               items
+            }
+            initialFilter={
+              params.filter
+            }
+            assignedToMe={
+              params.assigned_to === "me"
             }
 
           />

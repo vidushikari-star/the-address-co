@@ -171,6 +171,9 @@ createdAt:
           ]
         : [],
 
+    notesText:
+      row.notes ?? undefined,
+
 
     privateNotes:
       row.private_notes ?? undefined,

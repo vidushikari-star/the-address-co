@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import Link from "next/link"
 
 import {
   getDealById,
@@ -669,9 +670,20 @@ dealStage={deal.stage}
 <section className="space-y-4">
 
 
+<div className="flex items-center justify-between gap-3">
+
 <h2 className="text-xl font-semibold">
 Activity Timeline
 </h2>
+
+<Link
+href={`/activities?entity=deal&id=${deal.id}`}
+className="text-sm font-medium text-primary hover:underline"
+>
+View all
+</Link>
+
+</div>
 
 
 <DealActivityTimeline

@@ -47,6 +47,7 @@ function createQuery(
     eq: vi.fn(),
     neq: vi.fn(),
     gte: vi.fn(),
+    lte: vi.fn(),
     not: vi.fn(),
     then: undefined as unknown,
   }
@@ -58,6 +59,7 @@ function createQuery(
     query.eq,
     query.neq,
     query.gte,
+    query.lte,
     query.not,
   ]) {
     method.mockReturnValue(query)

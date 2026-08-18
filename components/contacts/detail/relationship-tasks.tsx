@@ -20,8 +20,9 @@ import {
 } from "@/lib/repositories/task-repository"
 
 import {
-  createActivity,
-} from "@/lib/repositories/activity-repository"
+  formatIndiaDateOnly,
+  formatIndiaTime,
+} from "@/lib/utils/india-date"
 
 
 import {
@@ -256,40 +257,13 @@ contact.id
         title:
           title.trim(),
 
-        dueDate:
-          dueDate
-          ? new Date(dueDate)
-          : undefined,
+        dueDate: dueDate || undefined,
 
         assignedTo,
 
       })
 
 
-
-
-
-
-
-
-    await createActivity({
-
-      type:
-        "task_created",
-
-      title:
-        "Follow-up Created",
-
-      description:
-        `${title} created for ${contact.name}`,
-
-      contactId:
-        contact.id,
-
-      date:
-        new Date().toISOString(),
-
-    })
 
 
 
@@ -853,14 +827,8 @@ function TaskGroup({
                           "/>
 
 
-                          {
-                            new Date(
-                              task.dueDate
-                            )
-                            .toLocaleDateString(
-                              "en-IN"
-                            )
-                          }
+                          {formatIndiaDateOnly(task.dueDate)}
+                          {task.dueTime ? `, ${formatIndiaTime(task.dueTime)}` : ""}
 
 
                         </div>

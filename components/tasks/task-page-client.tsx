@@ -1,8 +1,12 @@
 "use client"
 
 import {
-  useState,
+useState,
 } from "react"
+
+import {
+  getIndiaDateKey,
+} from "@/lib/utils/india-date"
 
 import {
   useRouter,
@@ -20,6 +24,7 @@ import {
 
 type Props = {
   tasks: TaskWithContext[]
+  initialFilter?: string
 }
 
 
@@ -35,6 +40,7 @@ type Filter =
 
 export function TaskPageClient({
   tasks,
+  initialFilter,
 }: Props){
 
   const router =
@@ -47,22 +53,18 @@ export function TaskPageClient({
     setFilter,
   ] =
   useState<Filter>(
-    "all"
+    initialFilter === "active"
+    || initialFilter === "today"
+    || initialFilter === "upcoming"
+    || initialFilter === "completed"
+    || initialFilter === "archive"
+      ? (initialFilter === "active" ? "all" : initialFilter)
+      : "all"
   )
 
 
 
-  const today =
-    new Date()
-
-
-
-  today.setHours(
-    0,
-    0,
-    0,
-    0
-  )
+  const today = getIndiaDateKey()
 
 
 
@@ -72,6 +74,8 @@ export function TaskPageClient({
   tasks.filter(
     task =>
       !task.archived
+      &&
+      !task.completed
   ).length,
 
 
@@ -90,25 +94,7 @@ export function TaskPageClient({
           }
 
 
-          const date =
-            new Date(
-              task.dueDate
-            )
-
-
-          date.setHours(
-            0,
-            0,
-            0,
-            0
-          )
-
-
-          return (
-            date.getTime()
-            ===
-            today.getTime()
-          )
+          return task.dueDate === today
 
         }
       ).length,
@@ -129,24 +115,7 @@ export function TaskPageClient({
           }
 
 
-          const date =
-            new Date(
-              task.dueDate
-            )
-
-
-          date.setHours(
-            0,
-            0,
-            0,
-            0
-          )
-
-
-          return (
-            date >
-            today
-          )
+          return task.dueDate > today
 
         }
       ).length,
@@ -213,25 +182,7 @@ export function TaskPageClient({
           }
 
 
-          const date =
-            new Date(
-              task.dueDate
-            )
-
-
-          date.setHours(
-            0,
-            0,
-            0,
-            0
-          )
-
-
-          return (
-            date.getTime()
-            ===
-            today.getTime()
-          )
+          return task.dueDate === today
 
         }
 
@@ -253,24 +204,7 @@ export function TaskPageClient({
           }
 
 
-          const date =
-            new Date(
-              task.dueDate
-            )
-
-
-          date.setHours(
-            0,
-            0,
-            0,
-            0
-          )
-
-
-          return (
-            date >
-            today
-          )
+          return task.dueDate > today
 
         }
 
@@ -278,7 +212,7 @@ export function TaskPageClient({
 
 
         // Default: Active Tasks only
-        return !task.archived
+        return !task.archived && !task.completed
 
 
       }

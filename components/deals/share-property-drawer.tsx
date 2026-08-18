@@ -135,6 +135,16 @@ useState(false)
 
 useEffect(()=>{
 
+if(!open){
+
+setSearch("")
+setSelectedRecipients([])
+setLoading(false)
+
+return
+
+}
+
 
 async function load(){
 
@@ -427,6 +437,7 @@ window.open(
 
 
 onOpenChange(false)
+setSearch("")
 
 
 }

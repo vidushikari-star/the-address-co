@@ -583,6 +583,41 @@ export type Database = {
           },
         ]
       }
+      crm_drafts: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          payload: Json
+          updated_at: string
+          workflow: "relationship" | "deal" | "property"
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id: string
+          payload?: Json
+          updated_at?: string
+          workflow: "relationship" | "deal" | "property"
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          payload?: Json
+          updated_at?: string
+          workflow?: "relationship" | "deal" | "property"
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_drafts_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deals: {
         Row: {
           advisor: string | null
@@ -1143,6 +1178,7 @@ export type Database = {
           deal_id: string | null
           description: string | null
           due_date: string | null
+          due_time: string | null
           id: string
           priority: string | null
           status: string | null
@@ -1157,6 +1193,7 @@ export type Database = {
           deal_id?: string | null
           description?: string | null
           due_date?: string | null
+          due_time?: string | null
           id?: string
           priority?: string | null
           status?: string | null
@@ -1171,6 +1208,7 @@ export type Database = {
           deal_id?: string | null
           description?: string | null
           due_date?: string | null
+          due_time?: string | null
           id?: string
           priority?: string | null
           status?: string | null

@@ -28,6 +28,9 @@ export interface CalendarItem {
 
   assignedTo?:string
 
+  /** Internal ID used only for authenticated "my work" filtering. */
+  assignedToId?:string
+
   amount?:number
 
   contactName?: string

@@ -39,6 +39,7 @@ export default async function DealsPage({
 
   if(
     params.filter === "hot"
+    || params.filter === "active"
   ){
 
     deals =
@@ -54,6 +55,8 @@ export default async function DealsPage({
 
 
           const hot =
+            params.filter === "active"
+            ||
             deal.priority === "high"
             ||
             deal.stage === "negotiation"

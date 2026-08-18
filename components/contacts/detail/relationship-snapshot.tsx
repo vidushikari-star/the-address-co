@@ -55,6 +55,23 @@ export function RelationshipSnapshot({
   const locations =
     contact.locations ?? []
 
+  const requirementDetails = [
+    contact.bathrooms !== undefined ? ["Bathrooms", String(contact.bathrooms)] : null,
+    contact.purpose ? ["Purpose", contact.purpose.replaceAll("_", " ")] : null,
+    contact.financing ? ["Financing", contact.financing.replaceAll("_", " ")] : null,
+    contact.resident ? ["Residence", contact.resident.replaceAll("_", " ")] : null,
+    contact.minArea || contact.maxArea ? ["Area", `${contact.minArea?.toLocaleString("en-IN") ?? "—"} – ${contact.maxArea?.toLocaleString("en-IN") ?? "—"}`] : null,
+    contact.plotSize ? ["Plot size", contact.plotSize.toLocaleString("en-IN")] : null,
+    contact.mustHave?.length ? ["Must have", contact.mustHave.join(", ")] : null,
+    contact.niceToHave?.length ? ["Nice to have", contact.niceToHave.join(", ")] : null,
+  ].filter((detail): detail is [string, string] => Boolean(detail))
+
+  const relationshipDetails = [
+    contact.spouseName ? ["Spouse", contact.spouseName] : null,
+    contact.coBuyer ? ["Co-buyer", contact.coBuyer] : null,
+    contact.referralSource ? ["Referral", contact.referralSource] : null,
+  ].filter((detail): detail is [string, string] => Boolean(detail))
+
 
 
 
@@ -269,6 +286,41 @@ export function RelationshipSnapshot({
               </div>
 
             )
+          }
+
+          {
+            contact.country && (
+
+              <InfoRow
+                label="Country"
+                value={contact.country}
+              />
+
+            )
+          }
+
+          {
+            contact.whatsapp &&
+            contact.whatsapp !== contact.phone && (
+
+              <InfoRow
+                label="WhatsApp"
+                value={contact.whatsapp}
+              />
+
+            )
+          }
+
+          {
+            relationshipDetails.map(([label, value]) => (
+
+              <InfoRow
+                key={label}
+                label={label}
+                value={value}
+              />
+
+            ))
           }
 
 
@@ -564,6 +616,28 @@ export function RelationshipSnapshot({
 
                 </div>
 
+
+              </div>
+
+            )
+          }
+
+          {
+            requirementDetails.length > 0 && (
+
+              <div className="space-y-3 border-t pt-4">
+
+                {
+                  requirementDetails.map(([label, value]) => (
+
+                    <InfoRow
+                      key={label}
+                      label={label}
+                      value={value}
+                    />
+
+                  ))
+                }
 
               </div>
 

@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  useEffect,
   useState,
 } from "react"
 
@@ -19,6 +20,7 @@ import {
 import {
   ContactFormFields,
 } from "@/components/contacts/contact-form-fields"
+import { deleteCrmDraft, getCrmDraft, saveCrmDraft } from "@/lib/repositories/crm-draft-repository"
 
 
 
@@ -41,6 +43,9 @@ export default function NewRelationshipPage() {
     setLoading,
   ] =
   useState(false)
+
+  const [savingDraft, setSavingDraft] = useState(false)
+  const [draftUpdatedAt, setDraftUpdatedAt] = useState<string | null>(null)
 
 
 
@@ -150,6 +155,29 @@ export default function NewRelationshipPage() {
       })
     )
 
+  }
+
+  useEffect(() => {
+    getCrmDraft("relationship")
+      .then(draft => {
+        if (!draft) return
+        setForm(current => ({ ...current, ...draft.payload } as typeof current))
+        setDraftUpdatedAt(draft.updatedAt)
+      })
+      .catch(error => console.error("Unable to load relationship draft", error))
+  }, [])
+
+  async function saveDraft() {
+    setSavingDraft(true)
+    try {
+      const draft = await saveCrmDraft("relationship", form)
+      setDraftUpdatedAt(draft.updatedAt)
+    } catch (error) {
+      console.error("Unable to save relationship draft", error)
+      alert("Unable to save relationship draft")
+    } finally {
+      setSavingDraft(false)
+    }
   }
 
 
@@ -387,6 +415,7 @@ export default function NewRelationshipPage() {
 
 
 
+      await deleteCrmDraft("relationship")
       router.push(
         `/contacts/${contact.id}`
       )
@@ -523,10 +552,20 @@ export default function NewRelationshipPage() {
 
 
 
+        <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={saveDraft}
+          disabled={loading || savingDraft}
+          className="rounded-xl border px-6 py-3 text-sm font-medium"
+        >
+          {savingDraft ? "Saving draft..." : "Save Draft"}
+        </button>
+
         <button
 
           disabled={
-            loading
+            loading || savingDraft
           }
 
           className="
@@ -547,6 +586,8 @@ export default function NewRelationshipPage() {
 
 
         </button>
+        {draftUpdatedAt && <span className="text-xs text-muted-foreground">Draft saved {new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(draftUpdatedAt))}</span>}
+        </div>
 
 
       </form>

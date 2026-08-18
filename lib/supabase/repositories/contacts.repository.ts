@@ -8,6 +8,7 @@ import type {
   CreateContactDto,
   UpdateContactDto,
 } from "@/types/dto/contact"
+import { createActivity } from "@/lib/repositories/activity-repository"
 
 
 function splitFullName(fullName?: string) {
@@ -125,6 +126,7 @@ await supabase
 .select(`
   *,
   advisor:profiles!contacts_advisor_id_fkey(
+    id,
     full_name
   )
 `)
@@ -175,6 +177,7 @@ await supabase
 .select(`
   *,
   advisor:profiles!contacts_advisor_id_fkey(
+    id,
     full_name
   )
 `)
@@ -416,9 +419,18 @@ contact.notes ?? [],
 
 
 
-  return mapContactRow(
-    data as ContactRow
-  )
+  const created = mapContactRow(data as ContactRow)
+  try {
+    await createActivity({
+      contactId: created.id,
+      type: "contact_created",
+      title: "Created relationship",
+      description: "Created contact details",
+    })
+  } catch (activityError) {
+    console.error("Contact creation activity log failed", { code: activityError instanceof Error ? activityError.name : "unknown" })
+  }
+  return created
 
 },
 
@@ -510,6 +522,16 @@ contact.notes ?? [],
       payload.whatsapp =
         contact.whatsapp ?? null
 
+    if(contact.bedrooms !== undefined)
+
+      payload.bedrooms =
+        contact.bedrooms || null
+
+    if(contact.bathrooms !== undefined)
+
+      payload.bathrooms =
+        contact.bathrooms ?? null
+
 
 
 
@@ -594,6 +616,56 @@ if(contact.mustHave !== undefined)
   payload.must_have =
     contact.mustHave ?? null
 
+if(contact.niceToHave !== undefined)
+
+  payload.nice_to_have =
+    contact.niceToHave ?? null
+
+if(contact.resident !== undefined)
+
+  payload.resident =
+    contact.resident ?? null
+
+if(contact.minArea !== undefined)
+
+  payload.min_area =
+    contact.minArea ?? null
+
+if(contact.maxArea !== undefined)
+
+  payload.max_area =
+    contact.maxArea ?? null
+
+if(contact.plotSize !== undefined)
+
+  payload.plot_size =
+    contact.plotSize ?? null
+
+if(contact.spouseName !== undefined)
+
+  payload.spouse_name =
+    contact.spouseName ?? null
+
+if(contact.coBuyer !== undefined)
+
+  payload.co_buyer =
+    contact.coBuyer ?? null
+
+if(contact.referralSource !== undefined)
+
+  payload.referral_source =
+    contact.referralSource ?? null
+
+if(contact.notes !== undefined)
+
+  payload.notes =
+    contact.notes ?? null
+
+if(contact.privateNotes !== undefined)
+
+  payload.private_notes =
+    contact.privateNotes ?? null
+
 
 
 if(contact.leadSource !== undefined)
@@ -634,9 +706,18 @@ if(contact.leadSource !== undefined)
 
 
 
-    return mapContactRow(
-      data as ContactRow
-    )
+    const updated = mapContactRow(data as ContactRow)
+    try {
+      await createActivity({
+        contactId: updated.id,
+        type: "note",
+        title: "Updated contact details",
+        description: "Updated relationship details",
+      })
+    } catch (activityError) {
+      console.error("Contact update activity log failed", { code: activityError instanceof Error ? activityError.name : "unknown" })
+    }
+    return updated
 
 
   },

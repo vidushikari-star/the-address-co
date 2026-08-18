@@ -5,6 +5,7 @@ import {
   UserPlus,
   Building2,
   Handshake,
+  FilePenLine,
   LogOut,
   UserCircle,
 } from "lucide-react"
@@ -21,11 +22,6 @@ import {
 import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-
-
-import {
-  useDrawer,
-} from "@/components/providers/drawer-provider"
 
 
 import {
@@ -85,12 +81,6 @@ export function AppHeader({
   user,
   notifications,
 }: AppHeaderProps){
-
-
-  const {
-    openDrawer,
-  } = useDrawer()
-
 
 
   const router =
@@ -273,7 +263,7 @@ const today = new Intl.DateTimeFormat(
               <DropdownMenuItem
 
                 onClick={() =>
-                  openDrawer("property")
+                  router.push("/properties/new")
                 }
 
               >
@@ -291,7 +281,7 @@ const today = new Intl.DateTimeFormat(
               <DropdownMenuItem
 
                 onClick={() =>
-                  openDrawer("deal")
+                  router.push("/deals/new")
                 }
 
               >
@@ -299,6 +289,21 @@ const today = new Intl.DateTimeFormat(
                 <Handshake className="mr-2 h-4 w-4"/>
 
                 New Deal
+
+              </DropdownMenuItem>
+
+
+              <DropdownMenuItem
+
+                onClick={() =>
+                  router.push("/drafts")
+                }
+
+              >
+
+                <FilePenLine className="mr-2 h-4 w-4"/>
+
+                Resume Drafts
 
               </DropdownMenuItem>
 

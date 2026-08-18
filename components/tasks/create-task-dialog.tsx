@@ -32,6 +32,7 @@ const initialForm = {
   description: "",
   priority: "medium" as TaskPriority,
   dueDate: "",
+  dueTime: "",
   assignedTo: "",
 }
 
@@ -86,7 +87,8 @@ export function CreateTaskDialog({
         title: form.title.trim(),
         description: form.description.trim() || undefined,
         priority: form.priority,
-        dueDate: form.dueDate ? new Date(form.dueDate) : undefined,
+        dueDate: form.dueDate || undefined,
+        dueTime: form.dueTime || undefined,
         assignedTo: form.assignedTo || undefined,
         contactId,
         dealId,
@@ -147,7 +149,7 @@ export function CreateTaskDialog({
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <label htmlFor="task-priority" className="text-sm font-medium">
                   Priority
@@ -175,6 +177,18 @@ export function CreateTaskDialog({
                   type="date"
                   value={form.dueDate}
                   onChange={(event) => update("dueDate", event.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="task-due-time" className="text-sm font-medium">
+                  Due time <span className="text-muted-foreground">(optional)</span>
+                </label>
+                <Input
+                  id="task-due-time"
+                  type="time"
+                  value={form.dueTime}
+                  onChange={(event) => update("dueTime", event.target.value)}
                 />
               </div>
             </div>

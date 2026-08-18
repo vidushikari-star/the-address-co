@@ -99,6 +99,14 @@ import {
   MarketingStatusPill,
 } from "@/components/marketing/status-pill"
 
+import {
+  PropertyActivityTimeline,
+} from "@/components/properties/property-activity-timeline"
+
+import {
+  getActivityHistory,
+} from "@/lib/repositories/activity-history-server-repository"
+
 
 
 
@@ -192,6 +200,7 @@ const {
   propertySources,
   contacts,
   marketingHistory,
+  activityHistory,
 ] =
 await Promise.all([
 
@@ -219,6 +228,11 @@ await Promise.all([
         limit: 8,
       })
     : Promise.resolve([]),
+
+  getActivityHistory({
+    entity: "property",
+    entityId: property.id,
+  }),
 
 ])
 
@@ -540,6 +554,19 @@ const propertyValue =
   matches={buyerMatches}
   propertyId={property.id}
 />
+
+      <section className="rounded-3xl border bg-card p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold">Activity Timeline</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Recent activity for this property.</p>
+          </div>
+          <Link href={`/activities?entity=property&id=${property.id}`} className="text-sm font-medium text-primary hover:underline">View all</Link>
+        </div>
+        <div className="mt-5">
+          <PropertyActivityTimeline activities={activityHistory.items.slice(0, 5)} />
+        </div>
+      </section>
 
       <PropertyDeals
   deals={deals}

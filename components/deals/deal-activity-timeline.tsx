@@ -9,6 +9,10 @@ import type {
   Activity,
 } from "@/types/activity"
 
+import {
+  formatIndiaDateTime,
+} from "@/lib/utils/india-date"
+
 
 
 type Props = {
@@ -81,19 +85,16 @@ export function DealActivityTimeline({
 
                     <Calendar className="h-3 w-3" />
 
-                    {
-                      activity.date
-                        ? new Date(
-                            activity.date
-                          ).toLocaleDateString(
-                            "en-IN"
-                          )
-                        : "-"
-                    }
+                    {activity.date ? formatIndiaDateTime(activity.date) : "-"}
 
                   </div>
 
                 </div>
+
+
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {activity.actorName ?? (activity.createdBy ? "Unknown user" : "System")}
+                </p>
 
 
 

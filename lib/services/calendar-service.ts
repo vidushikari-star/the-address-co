@@ -14,6 +14,10 @@ import type {
   CalendarItem,
 } from "@/types/calendar"
 
+import {
+  formatIndiaTime as formatTaskTime,
+} from "@/lib/utils/india-date"
+
 
 
 function formatIndiaTime(
@@ -85,7 +89,11 @@ title:
 task.title,
 
 date:
-task.dueDate!.toISOString(),
+task.dueDate!,
+
+
+time:
+formatTaskTime(task.dueTime) ?? undefined,
 
 
 type:
@@ -107,6 +115,11 @@ task.dealId,
 assignedTo:
 task.advisorName
 ?? "Unassigned",
+
+
+assignedToId:
+task.assignedTo
+?? undefined,
 
 
 url:
@@ -194,6 +207,11 @@ visit.propertyName,
 assignedTo:
 visit.advisorName
 ?? "Unassigned",
+
+
+assignedToId:
+visit.advisorId
+?? undefined,
 
 
 url:
@@ -284,6 +302,11 @@ event.deal_name
 
 
 assignedTo:
+event.assigned_name
+?? "Unassigned",
+
+
+assignedToId:
 event.assigned_to
 ?? undefined,
 
@@ -361,6 +384,10 @@ name
 
 deals:deal_id(
 name
+),
+
+assigned:user_profiles!calendar_events_assigned_to_fkey(
+name
 )
 
 `)
@@ -412,6 +439,12 @@ null,
 
 deal_name:
 event.deals?.name
+??
+null,
+
+
+assigned_name:
+event.assigned?.name
 ??
 null,
 

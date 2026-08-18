@@ -6,6 +6,10 @@ useState,
 } from "react"
 
 import {
+  supabase,
+} from "@/lib/supabase/client"
+
+import {
 ChevronLeft,
 ChevronRight,
 CalendarDays,
@@ -31,6 +35,8 @@ SiteVisitStatus,
 
 type Props = {
 items: CalendarItem[]
+initialFilter?: string
+assignedToMe?: boolean
 }
 
 
@@ -82,6 +88,8 @@ timeZone:"Asia/Kolkata",
 
 export function CalendarView({
 items,
+initialFilter,
+assignedToMe = false,
 }:Props){
 
 
@@ -96,6 +104,12 @@ const [
 filter,
 setFilter,
 ]=useState<FilterType>("all")
+
+
+const [
+currentUserId,
+setCurrentUserId,
+]=useState<string | null>(null)
 
 
 
@@ -115,6 +129,39 @@ new Date()
 )
 
 },[])
+
+
+useEffect(()=>{
+
+setFilter(
+  initialFilter === "activity"
+  || initialFilter === "site_visit"
+  || initialFilter === "task"
+    ? initialFilter
+    : "all"
+)
+
+},[initialFilter])
+
+
+useEffect(()=>{
+
+if(!assignedToMe){
+
+setCurrentUserId(null)
+
+return
+
+}
+
+
+supabase.auth.getUser()
+.then(({ data: { user } }) =>
+  setCurrentUserId(user?.id ?? null)
+)
+.catch(() => setCurrentUserId(null))
+
+},[assignedToMe])
 
 
 
@@ -141,12 +188,19 @@ if(
 filter === "all"
 ){
 
-return true
+return !assignedToMe || item.assignedToId === currentUserId
 
 }
 
 
-return item.type === filter
+return (
+  item.type === filter
+  &&
+  (
+    !assignedToMe
+    || item.assignedToId === currentUserId
+  )
+)
 
 }
 

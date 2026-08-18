@@ -40,6 +40,7 @@ import {
 import {
   supabase,
 } from "@/lib/supabase/client"
+import { deleteCrmDraft, getCrmDraft, saveCrmDraft } from "@/lib/repositories/crm-draft-repository"
 
 
 import type {
@@ -104,7 +105,10 @@ export default function NewDealPage() {
     saving,
     setSaving,
   ] =
-    useState(false)
+  useState(false)
+
+  const [savingDraft, setSavingDraft] = useState(false)
+  const [draftUpdatedAt, setDraftUpdatedAt] = useState<string | null>(null)
 
 
 
@@ -205,6 +209,29 @@ export default function NewDealPage() {
 
 
   }, [])
+
+  useEffect(() => {
+    getCrmDraft("deal")
+      .then(draft => {
+        if (!draft) return
+        setForm(current => ({ ...current, ...draft.payload } as typeof current))
+        setDraftUpdatedAt(draft.updatedAt)
+      })
+      .catch(error => console.error("Unable to load deal draft", error))
+  }, [])
+
+  async function saveDraft() {
+    setSavingDraft(true)
+    try {
+      const draft = await saveCrmDraft("deal", form)
+      setDraftUpdatedAt(draft.updatedAt)
+    } catch (error) {
+      console.error("Unable to save deal draft", error)
+      alert("Unable to save deal draft")
+    } finally {
+      setSavingDraft(false)
+    }
+  }
 
 
 
@@ -383,6 +410,7 @@ export default function NewDealPage() {
 
 
 
+      await deleteCrmDraft("deal")
       router.push(
         `/deals/${deal.id}`
       )
@@ -685,7 +713,12 @@ export default function NewDealPage() {
 
 
 
-        <Button disabled={saving}>
+        <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="outline" onClick={saveDraft} disabled={saving || savingDraft}>
+          {savingDraft ? "Saving draft..." : "Save Draft"}
+        </Button>
+
+        <Button disabled={saving || savingDraft}>
 
           {
             saving
@@ -696,6 +729,8 @@ export default function NewDealPage() {
           }
 
         </Button>
+        {draftUpdatedAt && <span className="text-xs text-muted-foreground">Draft saved {new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(draftUpdatedAt))}</span>}
+        </div>
 
 
       </form>

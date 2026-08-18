@@ -20,8 +20,9 @@ import {
 } from "@/lib/repositories/task-repository"
 
 import {
-  createActivity,
-} from "@/lib/repositories/activity-repository"
+  formatIndiaDateOnly,
+  formatIndiaTime,
+} from "@/lib/utils/india-date"
 
 import {
   ADVISORS,
@@ -197,10 +198,7 @@ export function DealTasks({
         title,
 
 
-        dueDate:
-          dueDate
-            ? new Date(dueDate)
-            : undefined,
+        dueDate: dueDate || undefined,
 
 
         assignedTo,
@@ -212,36 +210,6 @@ export function DealTasks({
 
 
 
-    await createActivity({
-
-      type:
-        "task_created",
-
-
-      title:
-        "Follow-up Created",
-
-
-      description:
-        `${title} created for deal ${deal.name}`,
-
-
-      dealId:
-        deal.id,
-
-
-      contactId:
-        deal.contactId,
-
-
-      propertyId:
-        deal.propertyId,
-
-
-      date:
-        new Date().toISOString(),
-
-    })
 
 
 
@@ -539,16 +507,12 @@ export function DealTasks({
 
                               <CalendarClock className="h-3.5 w-3.5"/>
 
-                              {
-                                task.dueDate.toLocaleDateString(
-                                  "en-IN",
-                                  {
-                                    day:"2-digit",
-                                    month:"short",
-                                    year:"numeric",
-                                  }
-                                )
-                              }
+                              {formatIndiaDateOnly(task.dueDate, {
+                                day:"2-digit",
+                                month:"short",
+                                year:"numeric",
+                              })}
+                              {task.dueTime ? `, ${formatIndiaTime(task.dueTime)}` : ""}
 
                             </div>
 

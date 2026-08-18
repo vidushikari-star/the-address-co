@@ -139,23 +139,9 @@ row => {
 
 
 const resolvedAdvisor =
-
-advisors.find(
-advisor =>
-advisor.id === row.assigned_to
-)?.name
-
-??
-
-(
-row.assigned_to
-&&
-!row.assigned_to.includes("-")
-?
-row.assigned_to
-:
-undefined
-)
+  advisors.find(
+    advisor => advisor.id === row.assigned_to
+  )?.name
 
 
 
@@ -165,6 +151,14 @@ return {
 ...mapTaskRow(
 row
 ),
+
+advisorName:
+  resolvedAdvisor
+  ?? (
+    row.assigned_to
+    ? "Unknown advisor"
+    : undefined
+  ),
 
 
 contactId:
@@ -185,10 +179,6 @@ row.deal?.name ?? "",
 
 propertyName:
 "",
-
-
-advisorName:
-resolvedAdvisor,
 
 }
 

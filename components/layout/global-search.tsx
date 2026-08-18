@@ -2,10 +2,12 @@
 
 import {
   useEffect,
+  useRef,
   useState,
 } from "react"
 
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 
 import {
   getProperties,
@@ -40,6 +42,9 @@ type Deal = {
 
 export function GlobalSearch() {
 
+  const pathname = usePathname()
+  const rootRef = useRef<HTMLDivElement>(null)
+
 
   const [
     properties,
@@ -70,6 +75,8 @@ export function GlobalSearch() {
     setQuery,
   ] =
   useState("")
+
+  const [open, setOpen] = useState(false)
 
 
 
@@ -146,6 +153,40 @@ export function GlobalSearch() {
 
   },[])
 
+  function resetSearch() {
+    setQuery("")
+    setOpen(false)
+  }
+
+  useEffect(() => {
+    resetSearch()
+  }, [pathname])
+
+  useEffect(() => {
+    function closeWhenOutside(event: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        resetSearch()
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        resetSearch()
+      }
+    }
+
+    document.addEventListener("mousedown", closeWhenOutside)
+    document.addEventListener("keydown", closeOnEscape)
+    return () => {
+      document.removeEventListener("mousedown", closeWhenOutside)
+      document.removeEventListener("keydown", closeOnEscape)
+    }
+  }, [])
+
+  function selectResult() {
+    resetSearch()
+  }
+
 
 
 
@@ -217,7 +258,7 @@ export function GlobalSearch() {
 
   return (
 
-    <div className="
+    <div ref={rootRef} className="
       relative
       w-full
       max-w-md
@@ -232,10 +273,13 @@ export function GlobalSearch() {
 
         onChange={
           e =>
-            setQuery(
-              e.target.value
-            )
+            {
+              setQuery(e.target.value)
+              setOpen(true)
+            }
         }
+
+        onFocus={() => setOpen(true)}
 
         placeholder="
           Search contacts, properties, deals...
@@ -258,7 +302,7 @@ export function GlobalSearch() {
 
 
       {
-        q && (
+        q && open && (
 
           <div className="
             absolute
@@ -308,6 +352,8 @@ export function GlobalSearch() {
                           href={
                             `/contacts/${contact.id}`
                           }
+
+                          onClick={selectResult}
 
                           className="
                             block
@@ -368,8 +414,10 @@ export function GlobalSearch() {
                           }
 
                           href={
-                            `/properties/${property.id}`
+                            `/properties/${property.slug}`
                           }
+
+                          onClick={selectResult}
 
                           className="
                             block
@@ -433,6 +481,8 @@ export function GlobalSearch() {
                           href={
                             `/deals/${deal.id}`
                           }
+
+                          onClick={selectResult}
 
                           className="
                             block

@@ -23,10 +23,6 @@ import {
 } from "@/lib/supabase/repositories/contacts.repository"
 
 import {
-  createNote,
-} from "@/lib/repositories/note-repository"
-
-import {
   Button,
 } from "@/components/ui/button"
 
@@ -314,7 +310,7 @@ data.advisor ?? "",
 
 
         notes:
-          "",
+          data.notesText ?? "",
 
       })
 
@@ -557,27 +553,12 @@ form.advisorId || undefined,
           referralSource:
             form.referralSource || undefined,
 
+          notes:
+            form.notes || undefined,
+
 
         }
       )
-
-
-
-
-      if(
-        form.notes.trim()
-      ){
-
-        await createNote({
-
-          contactId:id,
-
-          content:
-            form.notes.trim(),
-
-        })
-
-      }
 
 
 

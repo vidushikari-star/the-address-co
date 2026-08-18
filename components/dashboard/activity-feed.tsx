@@ -45,6 +45,8 @@ type Activity = {
 
   propertyId?: string
 
+  actorName?: string
+
 }
 
 
@@ -247,6 +249,13 @@ export function ActivityFeed({
 
         </div>
 
+        <Link
+          href="/activities"
+          className="text-sm font-medium text-primary hover:underline"
+        >
+          View all activity
+        </Link>
+
 
       </DashboardCardHeader>
 
@@ -376,6 +385,10 @@ export function ActivityFeed({
 
                               )
                             }
+
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              {activity.actorName ?? "System"}
+                            </p>
 
 
 

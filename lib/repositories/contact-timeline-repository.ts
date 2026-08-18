@@ -22,6 +22,8 @@ export type TimelineEvent = {
 
   date:string
 
+  actorName?:string
+
 }
 
 
@@ -48,7 +50,7 @@ export async function getContactTimeline(
   } =
   await supabase
     .from("activities")
-    .select("*")
+    .select("*, actor:profiles!activities_created_by_fkey(full_name)")
     .eq(
       "contact_id",
       contactId
@@ -83,8 +85,16 @@ export async function getContactTimeline(
           activity.description,
 
         date:
-          activity.date ??
+          activity.activity_date ??
           activity.created_at,
+
+        actorName:
+          activity.actor?.full_name
+          ?? (
+            activity.created_by
+            ? "Unknown user"
+            : "System"
+          ),
 
       })
 

@@ -18,6 +18,11 @@ import {
 EditTaskDialog,
 } from "./edit-task-dialog"
 
+import {
+  formatIndiaDateOnly,
+  formatIndiaTime,
+} from "@/lib/utils/india-date"
+
 
 
 type Props = {
@@ -28,30 +33,6 @@ onComplete?:
 (
 task: TaskWithContext
 ) => void
-
-}
-
-
-
-function formatDate(
-date?: Date
-){
-
-if(!date){
-
-return "-"
-
-}
-
-return new Date(date)
-.toLocaleDateString(
-"en-IN",
-{
-day:"2-digit",
-month:"short",
-year:"numeric",
-}
-)
 
 }
 
@@ -106,12 +87,10 @@ const assignedName =
 task.advisorName ||
 (
 task.assignedTo &&
-!task.assignedTo.includes("-")
-?
-task.assignedTo
-:
-"Unassigned"
+"Unknown advisor"
 )
+||
+"Unassigned"
 
 
 
@@ -210,9 +189,9 @@ Due:
 
 {" "}
 
-{formatDate(
-task.dueDate
-)}
+{formatIndiaDateOnly(task.dueDate)}
+
+{task.dueTime ? `, ${formatIndiaTime(task.dueTime)}` : ""}
 
 </div>
 

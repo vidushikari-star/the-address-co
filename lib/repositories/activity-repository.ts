@@ -18,7 +18,7 @@ export async function getActivitiesByContactId(
   } =
     await supabase
       .from("activities")
-      .select("*")
+    .select("*, actor:profiles!activities_created_by_fkey(full_name)")
       .eq(
         "contact_id",
         contactId
@@ -55,7 +55,7 @@ export async function getActivitiesByDealId(
   } =
     await supabase
       .from("activities")
-      .select("*")
+    .select("*, actor:profiles!activities_created_by_fkey(full_name)")
       .eq(
         "deal_id",
         dealId
@@ -89,7 +89,7 @@ export async function getActivitiesByPropertyId(
   } =
     await supabase
       .from("activities")
-      .select("*")
+    .select("*, actor:profiles!activities_created_by_fkey(full_name)")
       .eq(
         "property_id",
         propertyId
@@ -271,7 +271,7 @@ export async function getAllActivities():Promise<Activity[]> {
   } =
     await supabase
       .from("activities")
-      .select("*")
+    .select("*, actor:profiles!activities_created_by_fkey(full_name)")
       .order(
         "created_at",
         {
