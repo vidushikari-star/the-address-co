@@ -3,23 +3,13 @@ import { notFound } from "next/navigation"
 import { RelationshipDetail } from "@/components/contacts/detail/relationship-detail"
 import { PageContainer } from "@/components/layout/page-container"
 
-import { ContactsRepository } from "@/lib/supabase/repositories/contacts.repository"
-
-import {
-  getContactSummary,
-} from "@/lib/repositories/contact-summary-repository"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { createAuthenticatedCrmReadRepository } from "@/lib/repositories/authenticated-crm-read-repository"
+import { loadAuthenticatedCrmData } from "@/lib/observability/crm-server-diagnostics"
 
 import {
   isInventoryContact,
 } from "@/lib/utils/is-inventory-contact"
-
-import {
-  getSiteVisitsByContactId,
-} from "@/lib/repositories/site-visit-repository"
-
-import {
-  getPropertiesByIds,
-} from "@/lib/repositories/property-repository"
 
 
 type ContactDetailPageProps = {
@@ -42,8 +32,13 @@ export default async function ContactDetailPage({
 
 
 
+  const crm = createAuthenticatedCrmReadRepository(await createServerSupabaseClient())
+
   const contact =
-    await ContactsRepository.getById(id)
+    await loadAuthenticatedCrmData(
+      { route: "/contacts/[id]", area: "contact detail" },
+      () => crm.getContactById(id),
+    )
 
 
 
@@ -64,9 +59,11 @@ export default async function ContactDetailPage({
     summary,
     siteVisits,
   ] =
-  await Promise.all([
+  await loadAuthenticatedCrmData(
+    { route: "/contacts/[id]", area: "contact detail related data" },
+    () => Promise.all([
 
-    getContactSummary(
+    crm.getContactSummary(
       contact.id,
       {
         useLinkedPropertyData:
@@ -74,16 +71,19 @@ export default async function ContactDetailPage({
       }
     ),
 
-    getSiteVisitsByContactId(
+    crm.getSiteVisitsByContactId(
       contact.id
     ),
 
-  ])
+    ]),
+  )
 
 
 
   const siteVisitProperties =
-    await getPropertiesByIds(
+    await loadAuthenticatedCrmData(
+      { route: "/contacts/[id]", area: "contact site-visit properties" },
+      () => crm.getPropertiesByIds(
       [
         ...new Set(
           siteVisits.map(
@@ -92,6 +92,7 @@ export default async function ContactDetailPage({
           )
         ),
       ]
+      ),
     )
 
 

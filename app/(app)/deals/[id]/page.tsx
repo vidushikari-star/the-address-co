@@ -1,42 +1,13 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
 
-import {
-  getDealById,
-} from "@/lib/repositories/deal-repository"
-
-import {
-  getPropertyById,
-  getPropertiesByIds,
-} from "@/lib/repositories/property-repository"
-
-import {
-  getPropertySources,
-} from "@/lib/repositories/property-contact-repository"
-
-import {
-  ContactsRepository,
-} from "@/lib/supabase/repositories/contacts.repository"
-
-import {
-  getActivitiesByDealId,
-} from "@/lib/repositories/activity-repository"
-
-import {
-  getPropertySharesByDealId,
-} from "@/lib/repositories/property-share-repository"
-
-import {
-  getSiteVisitsByDealId,
-} from "@/lib/repositories/site-visit-repository"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { createAuthenticatedCrmReadRepository } from "@/lib/repositories/authenticated-crm-read-repository"
+import { loadAuthenticatedCrmData } from "@/lib/observability/crm-server-diagnostics"
 
 import {
   getCommissionsByDealId,
 } from "@/lib/repositories/commission-server-repository"
-
-import {
-  getPaidDistributionAmount,
-} from "@/lib/repositories/commission-distribution-repository"
 
 import {
   getServerUserProfile,
@@ -122,13 +93,15 @@ export default async function DealPage({
   const user =
     await getServerUserProfile()
 
+  const crm = createAuthenticatedCrmReadRepository(await createServerSupabaseClient())
 
 
 
 
   const deal =
-    await getDealById(
-      id
+    await loadAuthenticatedCrmData(
+      { route: "/deals/[id]", area: "deal detail", userId: user?.id },
+      () => crm.getDealById(id),
     )
 
 
@@ -165,32 +138,34 @@ export default async function DealPage({
 
   ] =
 
-  await Promise.all([
+  await loadAuthenticatedCrmData(
+    { route: "/deals/[id]", area: "deal detail related data", userId: user?.id },
+    () => Promise.all([
 
     
 
 
-    ContactsRepository.getById(
+    crm.getContactById(
       deal.contactId
     ),
 
 
-    getPropertyById(
+    crm.getPropertyById(
       deal.propertyId
     ),
 
 
-    getActivitiesByDealId(
+    crm.getActivitiesByDealId(
       deal.id
     ),
 
 
-    getPropertySharesByDealId(
+    crm.getPropertySharesByDealId(
       deal.id
     ),
 
 
-    getSiteVisitsByDealId(
+    crm.getSiteVisitsByDealId(
       deal.id
     ),
 
@@ -200,12 +175,13 @@ export default async function DealPage({
     ),
 
 
-    getPropertySources(
+    crm.getPropertySources(
       deal.propertyId
     ),
 
 
-  ])
+    ]),
+  )
 
   if(!contact){
   notFound()
@@ -220,7 +196,9 @@ export default async function DealPage({
 
   const paidDistributionAmount =
 
-    await getPaidDistributionAmount(
+    await loadAuthenticatedCrmData(
+      { route: "/deals/[id]", area: "deal commission distributions", userId: user?.id },
+      () => crm.getPaidDistributionAmount(
 
       commissions.map(
 
@@ -229,6 +207,7 @@ export default async function DealPage({
 
       )
 
+      ),
     )
 
 
@@ -241,7 +220,9 @@ export default async function DealPage({
 
   const sharedPropertyDetails =
 
-    await getPropertiesByIds(
+    await loadAuthenticatedCrmData(
+      { route: "/deals/[id]", area: "shared property details", userId: user?.id },
+      () => crm.getPropertiesByIds(
 
       sharedProperties.map(
 
@@ -250,6 +231,7 @@ export default async function DealPage({
 
       )
 
+      ),
     )
 
 
@@ -262,7 +244,9 @@ export default async function DealPage({
 
   const siteVisitProperties =
 
-    await getPropertiesByIds(
+    await loadAuthenticatedCrmData(
+      { route: "/deals/[id]", area: "site-visit property details", userId: user?.id },
+      () => crm.getPropertiesByIds(
 
       siteVisits.map(
 
@@ -271,6 +255,7 @@ export default async function DealPage({
 
       )
 
+      ),
     )
 
 

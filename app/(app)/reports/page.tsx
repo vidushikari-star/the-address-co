@@ -3,9 +3,9 @@ import { redirect } from "next/navigation"
 
 import { getServerUserProfile } from "@/lib/auth/server-user-profile"
 
-import { getCommissions } from "@/lib/repositories/commission-repository"
-import { getExpenses } from "@/lib/repositories/expense-repository"
-import { getAllCommissionDistributions } from "@/lib/repositories/commission-distribution-repository"
+import { getCommissions } from "@/lib/repositories/commission-server-repository"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { createAuthenticatedCrmReadRepository } from "@/lib/repositories/authenticated-crm-read-repository"
 
 import { PnLReport } from "@/components/reports/pnl-report"
 import { CommissionReport } from "@/components/reports/commission-report"
@@ -135,6 +135,8 @@ redirect("/dashboard")
 const params =
 await searchParams
 
+const crm = createAuthenticatedCrmReadRepository(await createServerSupabaseClient())
+
 
 const range =
 params.range === "month" ||
@@ -163,9 +165,9 @@ sales,
 
 getCommissions(),
 
-getExpenses(),
+crm.getExpenses(),
 
-getAllCommissionDistributions(),
+crm.getAllCommissionDistributions(),
 
 getOverviewReport(),
 

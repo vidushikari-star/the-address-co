@@ -9,13 +9,7 @@ import {
   createServerSupabaseClient,
 } from "@/lib/supabase/server"
 
-import {
-  getAllUserProfiles,
-} from "@/lib/repositories/user-profile-repository"
-
-import {
-  getCompanySettings,
-} from "@/lib/repositories/company-settings-repository"
+import { createAuthenticatedCrmReadRepository } from "@/lib/repositories/authenticated-crm-read-repository"
 
 
 
@@ -85,9 +79,12 @@ error:"Forbidden",
 {
 status:403,
 }
+
 )
 
 }
+
+const crm = createAuthenticatedCrmReadRepository(await createServerSupabaseClient())
 
 
 
@@ -149,9 +146,9 @@ getTable("commission_distributions"),
 
 getTable("expenses"),
 
-getAllUserProfiles(),
+crm.getUserProfiles(),
 
-getCompanySettings(),
+crm.getCompanySettings(),
 
 
 ])

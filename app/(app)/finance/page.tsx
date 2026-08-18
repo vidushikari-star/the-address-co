@@ -8,15 +8,11 @@ import {
 
 import {
   getCommissions,
-} from "@/lib/repositories/commission-repository"
+} from "@/lib/repositories/commission-server-repository"
 
 import {
   CommissionTable,
 } from "@/components/finance/commission-table"
-
-import {
-  getExpenses,
-} from "@/lib/repositories/expense-repository"
 
 import {
   ExpenseSection,
@@ -26,9 +22,8 @@ import {
   FinanceSummary,
 } from "@/components/finance/finance-summary"
 
-import {
-  getAllCommissionDistributions,
-} from "@/lib/repositories/commission-distribution-repository"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { createAuthenticatedCrmReadRepository } from "@/lib/repositories/authenticated-crm-read-repository"
 
 
 import {
@@ -44,6 +39,8 @@ export default async function FinancePage() {
 
   const user =
   await getServerUserProfile()
+
+  const crm = createAuthenticatedCrmReadRepository(await createServerSupabaseClient())
 
 
 
@@ -74,10 +71,10 @@ export default async function FinancePage() {
 
 
   const expenses =
-    await getExpenses()
+    await crm.getExpenses()
 
     const distributions =
-  await getAllCommissionDistributions()
+  await crm.getAllCommissionDistributions()
 
 
 
@@ -278,4 +275,3 @@ export default async function FinancePage() {
   )
 
 }
-

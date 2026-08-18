@@ -6,9 +6,7 @@ import type {
   Commission,
 } from "@/types/commission"
 
-import {
-  createActivity,
-} from "@/lib/repositories/activity-repository"
+import { createServerActivity } from "@/lib/repositories/server-activity-repository"
 
 type CommissionRow = {
   id: string
@@ -214,11 +212,12 @@ async function attachAdvisorNames(
 }
 
 async function createCommissionActivity(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
   data: CommissionRow,
   title: string,
   body: string
 ) {
-  await createActivity({
+  await createServerActivity(supabase, {
     type: "commission",
 
     title,
@@ -429,6 +428,7 @@ export async function createCommission(
   }
 
   await createCommissionActivity(
+    supabase,
     data as CommissionRow,
     "Commission Created",
     `Commission created.
@@ -489,6 +489,7 @@ export async function markCommissionInvoiced(
   }
 
   await createCommissionActivity(
+    supabase,
     data as CommissionRow,
     "Commission Invoiced",
     `Commission marked as invoiced.
@@ -542,6 +543,7 @@ export async function markCommissionReceived(
   }
 
   await createCommissionActivity(
+    supabase,
     data as CommissionRow,
     "Commission Received",
     `Payment received.
@@ -626,6 +628,7 @@ export async function editCommission(
   }
 
   await createCommissionActivity(
+    supabase,
     data as CommissionRow,
     "Commission Updated",
     `Commission details updated.

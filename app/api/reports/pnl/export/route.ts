@@ -3,8 +3,9 @@ import * as XLSX from "xlsx"
 
 import { getServerUserProfile } from "@/lib/auth/server-user-profile"
 
-import { getCommissions } from "@/lib/repositories/commission-repository"
-import { getExpenses } from "@/lib/repositories/expense-repository"
+import { getCommissions } from "@/lib/repositories/commission-server-repository"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { createAuthenticatedCrmReadRepository } from "@/lib/repositories/authenticated-crm-read-repository"
 
 import { filterByDate } from "@/lib/reports/filter-report-data"
 
@@ -30,6 +31,8 @@ export async function GET(
     )
   }
 
+  const crm = createAuthenticatedCrmReadRepository(await createServerSupabaseClient())
+
   const { searchParams } =
     new URL(request.url)
 
@@ -46,7 +49,7 @@ export async function GET(
     ;[commissions, expenses] =
       await Promise.all([
         getCommissions(),
-        getExpenses(),
+        crm.getExpenses(),
       ])
 
     commissions = filterByDate(

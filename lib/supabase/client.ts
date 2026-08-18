@@ -2,6 +2,8 @@ import {
   createBrowserClient,
 } from "@supabase/ssr"
 
+import "client-only"
+
 
 
 export const supabase =
@@ -12,6 +14,5 @@ export const supabase =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
   )
-
 
 

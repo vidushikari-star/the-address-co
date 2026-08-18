@@ -3,12 +3,11 @@ import {
 } from "@/lib/repositories/task-server-repository"
 
 import {
-  getAllSiteVisits,
-} from "@/lib/repositories/site-visit-repository"
-
-import {
   createServerSupabaseClient,
 } from "@/lib/supabase/server"
+
+import { createAuthenticatedCrmReadRepository } from "@/lib/repositories/authenticated-crm-read-repository"
+import { loadAuthenticatedCrmData } from "@/lib/observability/crm-server-diagnostics"
 
 import type {
   CalendarItem,
@@ -43,6 +42,8 @@ return new Date(value)
 
 export async function getCalendarItems(): Promise<CalendarItem[]> {
 
+const supabase = await createServerSupabaseClient()
+const crm = createAuthenticatedCrmReadRepository(supabase)
 
 const [
 
@@ -53,15 +54,18 @@ siteVisits,
 calendarEvents,
 
 ] =
-await Promise.all([
+await loadAuthenticatedCrmData(
+  { route: "/calendar", area: "calendar CRM data" },
+  () => Promise.all([
 
 getAllTasks(),
 
-getAllSiteVisits(),
+crm.getAllSiteVisits(),
 
-getSharedCalendarEvents(),
+getSharedCalendarEvents(supabase),
 
-])
+  ]),
+)
 
 
 
@@ -357,11 +361,9 @@ b.date
 
 
 
-async function getSharedCalendarEvents(){
-
-
-const supabase =
-await createServerSupabaseClient()
+async function getSharedCalendarEvents(
+supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>
+){
 
 
 

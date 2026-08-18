@@ -8,9 +8,8 @@ import {
 } from "@/lib/auth/server-user-profile"
 
 
-import {
-  getAllUserProfiles,
-} from "@/lib/repositories/user-profile-repository"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { createAuthenticatedCrmReadRepository } from "@/lib/repositories/authenticated-crm-read-repository"
 
 
 import {
@@ -26,6 +25,8 @@ export default async function UsersSettingsPage(){
 
   const user =
     await getServerUserProfile()
+
+  const crm = createAuthenticatedCrmReadRepository(await createServerSupabaseClient())
 
 
 
@@ -45,7 +46,7 @@ export default async function UsersSettingsPage(){
 
 
   const users =
-    await getAllUserProfiles()
+    await crm.getUserProfiles()
 
 
 

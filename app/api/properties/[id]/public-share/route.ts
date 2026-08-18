@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 
 import { getServerUserProfile } from "@/lib/auth/server-user-profile"
-import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 
 const SettingsSchema = z.object({
   enabled: z.boolean(),
@@ -50,8 +50,8 @@ export async function PATCH(request: Request, context: Context) {
     return NextResponse.json({ error: "Property not found." }, { status: 404 })
   }
 
-  const admin = createAdminSupabaseClient()
-  const { data: property, error: propertyError } = await admin
+  const supabase = await createServerSupabaseClient()
+  const { data: property, error: propertyError } = await supabase
     .from("properties")
     .select("id,public_share_token")
     .eq("id", id)
@@ -62,10 +62,10 @@ export async function PATCH(request: Request, context: Context) {
 
   const [images, documents] = await Promise.all([
     parsed.data.imageIds.length
-      ? admin.from("property_images").select("id").eq("property_id", id).in("id", parsed.data.imageIds)
+      ? supabase.from("property_images").select("id").eq("property_id", id).in("id", parsed.data.imageIds)
       : Promise.resolve({ data: [], error: null }),
     parsed.data.documentIds.length
-      ? admin.from("property_documents").select("id,category").eq("property_id", id).in("id", parsed.data.documentIds)
+      ? supabase.from("property_documents").select("id,category").eq("property_id", id).in("id", parsed.data.documentIds)
       : Promise.resolve({ data: [], error: null }),
   ])
 
@@ -80,7 +80,7 @@ export async function PATCH(request: Request, context: Context) {
   }
 
   const token = property.public_share_token ?? crypto.randomUUID()
-  const { error: updateError } = await admin
+  const { error: updateError } = await supabase
     .from("properties")
     .update({
       public_share_token: token,
@@ -99,14 +99,14 @@ export async function PATCH(request: Request, context: Context) {
 
   if (updateError) throw updateError
 
-  const { error: clearImagesError } = await admin
+  const { error: clearImagesError } = await supabase
     .from("property_images")
     .update({ public_share_allowed: false })
     .eq("property_id", id)
   if (clearImagesError) throw clearImagesError
 
   if (parsed.data.imageIds.length) {
-    const { error } = await admin
+    const { error } = await supabase
       .from("property_images")
       .update({ public_share_allowed: true })
       .eq("property_id", id)
@@ -114,14 +114,14 @@ export async function PATCH(request: Request, context: Context) {
     if (error) throw error
   }
 
-  const { error: clearDocumentsError } = await admin
+  const { error: clearDocumentsError } = await supabase
     .from("property_documents")
     .update({ public_share_allowed: false })
     .eq("property_id", id)
   if (clearDocumentsError) throw clearDocumentsError
 
   if (parsed.data.documentIds.length) {
-    const { error } = await admin
+    const { error } = await supabase
       .from("property_documents")
       .update({ public_share_allowed: true })
       .eq("property_id", id)

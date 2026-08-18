@@ -3,8 +3,8 @@ import { redirect } from "next/navigation"
 import { HousingInventoryInbox } from "@/components/settings/housing-inventory-inbox"
 import { getServerUserProfile } from "@/lib/auth/server-user-profile"
 import { listHousingInventorySubmissions } from "@/lib/integrations/housing/inventory"
-import type { HousingInventoryInboxRow } from "@/lib/integrations/housing/inventory"
-import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import type { HousingInventoryInboxAdmin, HousingInventoryInboxRow } from "@/lib/integrations/housing/inventory"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 
 export default async function HousingIntegrationSettingsPage() {
   const user = await getServerUserProfile()
@@ -16,7 +16,8 @@ export default async function HousingIntegrationSettingsPage() {
 
   if (configured) {
     try {
-      submissions = await listHousingInventorySubmissions(createAdminSupabaseClient())
+      const supabase = await createServerSupabaseClient()
+      submissions = await listHousingInventorySubmissions(supabase as unknown as HousingInventoryInboxAdmin)
     } catch {
       loadError = true
     }

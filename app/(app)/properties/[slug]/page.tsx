@@ -2,17 +2,9 @@ import Link from "next/link"
 
 import { notFound } from "next/navigation"
 
-import {
-  getPropertyBySlug,
-} from "@/lib/repositories/property-repository"
-
-import {
-  getPropertyImages,
-} from "@/lib/repositories/property-image-repository"
-
-import {
-  getPropertyDocuments,
-} from "@/lib/repositories/property-document-repository"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { createAuthenticatedCrmReadRepository } from "@/lib/repositories/authenticated-crm-read-repository"
+import { loadAuthenticatedCrmData } from "@/lib/observability/crm-server-diagnostics"
 
 import {
   formatExactPropertyPrice
@@ -55,10 +47,6 @@ import {
 } from "@/components/properties/archive-property-button"
 
 import {
-  getDealsByPropertyId,
-} from "@/lib/repositories/deal-repository"
-
-import {
   PropertyDeals,
 } from "@/components/properties/property-deals"
 
@@ -67,17 +55,8 @@ import {
 } from "@/components/properties/property-created-banner"
 
 import {
-  getPropertySources,
-} from "@/lib/repositories/property-contact-repository"
-
-
-import {
   PropertySourcesCard,
 } from "@/components/properties/property-sources-card"
-
-import {
-  ContactsRepository,
-} from "@/lib/supabase/repositories/contacts.repository"
 
 import {
   PropertyBuyerMatches,
@@ -175,10 +154,15 @@ const {
   created,
 } = await searchParams
 
+const crm = createAuthenticatedCrmReadRepository(await createServerSupabaseClient())
+
 
 
   const property =
-    await getPropertyBySlug(slug)
+    await loadAuthenticatedCrmData(
+      { route: "/properties/[slug]", area: "property detail" },
+      () => crm.getPropertyBySlug(slug),
+    )
 
 
 
@@ -202,25 +186,27 @@ const {
   marketingHistory,
   activityHistory,
 ] =
-await Promise.all([
+await loadAuthenticatedCrmData(
+  { route: "/properties/[slug]", area: "property detail related data" },
+  () => Promise.all([
 
-  getPropertyImages(
+  crm.getPropertyImages(
     property.id
   ),
 
-  getPropertyDocuments(
+  crm.getPropertyDocuments(
     property.id
   ),
 
-  getDealsByPropertyId(
+  crm.getDealsByPropertyId(
     property.id
   ),
 
-  getPropertySources(
+  crm.getPropertySources(
     property.id
   ),
 
-  ContactsRepository.getAll(),
+  crm.getContacts(),
 
   canUseMarketing
     ? MarketingRepository.listContent({
@@ -234,7 +220,8 @@ await Promise.all([
     entityId: property.id,
   }),
 
-])
+  ]),
+)
 
 
 const buyerMatches =

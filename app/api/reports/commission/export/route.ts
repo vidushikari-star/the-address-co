@@ -3,7 +3,7 @@ import * as XLSX from "xlsx"
 
 import { getServerUserProfile } from "@/lib/auth/server-user-profile"
 
-import { getCommissions } from "@/lib/repositories/commission-repository"
+import { getCommissions } from "@/lib/repositories/commission-server-repository"
 
 import { filterByDate } from "@/lib/reports/filter-report-data"
 

@@ -1,6 +1,5 @@
-import {
-  getDeals,
-} from "@/lib/repositories/deal-repository"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { createAuthenticatedCrmReadRepository } from "@/lib/repositories/authenticated-crm-read-repository"
 
 import {
   DealFilters,
@@ -30,8 +29,10 @@ export default async function DealsPage({
 
 
 
+  const crm = createAuthenticatedCrmReadRepository(await createServerSupabaseClient())
+
   let deals =
-    await getDeals()
+    await crm.getDeals()
 
 
 
