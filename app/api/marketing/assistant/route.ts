@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
+import { defaultCarouselImageAssets } from "@/lib/marketing/content-delivery"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 import type { CreativeDirection, MarketingContentType } from "@/lib/marketing/types"
 
@@ -36,8 +37,11 @@ export async function POST(request: Request) {
   const property = await MarketingRepository.getPropertySnapshot(parsed.data.propertyId)
   if (!property) return NextResponse.json({ error: "Property not found." }, { status: 404 })
   const brief = inferBrief(parsed.data.prompt)
+  if (brief.contentType === "carousel" && property.media.filter(media => media.type === "image" && /^https:\/\//i.test(media.url)).length < 2) {
+    return NextResponse.json({ error: "A Carousel requires at least 2 accessible property gallery images. Videos are available for Reels only." }, { status: 409 })
+  }
   const account = await MarketingRepository.getInstagramAccount()
-  const content = await MarketingRepository.createContent({
+  let content = await MarketingRepository.createContent({
     ...brief,
     property,
     accountId: account?.id,
@@ -45,7 +49,13 @@ export async function POST(request: Request) {
     idempotencyKey: crypto.randomUUID(),
     title: `${property.title} · assistant draft`,
   })
-  await MarketingRepository.addSourceAssets(content.id, property)
+  const sourceAssets = await MarketingRepository.addSourceAssets(content.id, property)
+  if (content.contentType === "carousel") {
+    const selectedAssetIds = defaultCarouselImageAssets(sourceAssets).map(asset => asset.id)
+    content = await MarketingRepository.updateContent(content.id, {
+      composition: { format: "carousel", aspectRatio: "1:1", selectedAssetIds, audio: { type: "none", label: "No audio selected" } },
+    }, access.user.id)
+  }
   await MarketingRepository.enqueueJob({
     contentId: content.id,
     type: "generate_creative",

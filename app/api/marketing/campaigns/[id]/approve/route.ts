@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
+import { defaultCarouselImageAssets } from "@/lib/marketing/content-delivery"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 import type { PropertyFactSnapshot } from "@/lib/marketing/types"
 
@@ -22,8 +23,12 @@ export async function POST(_request: Request, context: Context) {
     for (const item of items) {
       try {
         const property = item.property_snapshot as PropertyFactSnapshot
-        const content = await MarketingRepository.createContent({
-          contentType: item.content_type as Parameters<typeof MarketingRepository.createContent>[0]["contentType"],
+        const contentType = item.content_type as Parameters<typeof MarketingRepository.createContent>[0]["contentType"]
+        if (contentType === "carousel" && property.media.filter(media => media.type === "image" && /^https:\/\//i.test(media.url)).length < 2) {
+          throw new Error("A Carousel requires at least 2 accessible property gallery images. Videos are available for Reels only.")
+        }
+        let content = await MarketingRepository.createContent({
+          contentType,
           creativeDirection: String(item.creative_direction ?? "surprise_me"),
           property,
           accountId: account?.id,
@@ -32,7 +37,13 @@ export async function POST(_request: Request, context: Context) {
           idempotencyKey: String(item.id),
           title: String(item.hook ?? property.title),
         })
-        await MarketingRepository.addSourceAssets(content.id, property)
+        const sourceAssets = await MarketingRepository.addSourceAssets(content.id, property)
+        if (content.contentType === "carousel") {
+          const selectedAssetIds = defaultCarouselImageAssets(sourceAssets).map(asset => asset.id)
+          content = await MarketingRepository.updateContent(content.id, {
+            composition: { format: "carousel", aspectRatio: "1:1", selectedAssetIds, audio: { type: "none", label: "No audio selected" } },
+          }, access.user.id)
+        }
         await MarketingRepository.updateContent(content.id, { proposed_publish_at: item.planned_for as string }, access.user.id)
         await MarketingRepository.linkCampaignItem(String(item.id), content.id)
         await MarketingRepository.enqueueJob({

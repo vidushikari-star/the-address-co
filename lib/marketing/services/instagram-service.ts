@@ -53,6 +53,21 @@ export class InstagramContainerTerminalError extends Error {
   }
 }
 
+/**
+ * Some Carousel children can be accepted before a later child creation
+ * fails. Keep those IDs so the CRM audit trail can explain the terminal
+ * stage, but never use them to retry publication automatically.
+ */
+export class InstagramCarouselChildContainerError extends Error {
+  constructor(
+    readonly childContainerIds: string[],
+    readonly originalError: unknown,
+  ) {
+    super("Instagram Carousel child-container creation failed. Review the selected images before creating a new publication attempt.")
+    this.name = "InstagramCarouselChildContainerError"
+  }
+}
+
 function oauthStateSecret() {
   const secret = process.env.MARKETING_OAUTH_STATE_SECRET
   if (!secret || secret.length < 32) {
@@ -239,7 +254,7 @@ export class InstagramService {
     mediaAssets: MarketingAsset[]
     accessToken: string
     instagramAccountId: string
-  }) {
+  }): Promise<{ containerId: string; diagnostics: GraphResponse; childContainerIds?: string[] }> {
     const caption = [input.content.caption, input.content.hashtags.join(" ")]
       .filter(Boolean)
       .join("\n\n")
@@ -258,17 +273,28 @@ export class InstagramService {
       body.set("share_to_feed", "true")
     } else if (input.content.contentType === "carousel") {
       if (assets.length < 2 || assets.length > 10) {
-        throw new Error("An Instagram carousel requires 2–10 approved media items.")
+        throw new Error("An Instagram Carousel requires 2–10 approved images.")
       }
-      const children = await Promise.all(assets.map(async asset => {
+      if (assets.some(asset => asset.mediaType !== "image")) {
+        throw new Error("Instagram Carousels in this CRM support images only. Remove unsupported video media before publishing.")
+      }
+      const children: string[] = []
+      for (const asset of assets) {
         const child = new URLSearchParams({ is_carousel_item: "true" })
-        child.set(asset.mediaType === "video" ? "video_url" : "image_url", mediaUrl(asset))
-        if (asset.mediaType === "video") child.set("media_type", "VIDEO")
-        const container = await requestGraph({ path: endpoint, accessToken: input.accessToken, method: "POST", body: child })
-        return String(container.id)
-      }))
+        child.set("image_url", mediaUrl(asset))
+        try {
+          const container = await requestGraph({ path: endpoint, accessToken: input.accessToken, method: "POST", body: child })
+          if (!container.id) throw new Error("Instagram did not return a Carousel child-container ID.")
+          children.push(String(container.id))
+        } catch (error) {
+          throw new InstagramCarouselChildContainerError(children, error)
+        }
+      }
       body.set("media_type", "CAROUSEL")
       body.set("children", children.join(","))
+      const container = await requestGraph({ path: endpoint, accessToken: input.accessToken, method: "POST", body })
+      if (!container.id) throw new Error("Instagram did not return a media-container ID.")
+      return { containerId: String(container.id), diagnostics: container, childContainerIds: children }
     } else if (input.content.contentType === "story") {
       const story = assets[0]
       if (!story) throw new Error("An Instagram Story requires approved media.")

@@ -1,6 +1,6 @@
 "use client"
 
-import { Clapperboard, ExternalLink, Loader2, RotateCcw } from "lucide-react"
+import { ArrowLeft, Clapperboard, ExternalLink, Loader2, RotateCcw } from "lucide-react"
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 
@@ -55,6 +55,16 @@ export function ContentWorkflowActions({
     })
   }
 
+  function returnToApproved() {
+    setMessage(null)
+    startTransition(async () => {
+      const response = await fetch(`/api/marketing/content/${content.id}/publication-recovery`, { method: "POST" })
+      const data = await response.json().catch(() => ({})) as { error?: string }
+      setMessage(response.ok ? "Returned to Approved. Review, schedule, or queue a new protected publication when ready." : data.error ?? "This publication cannot be returned to Approved safely.")
+      if (response.ok) router.refresh()
+    })
+  }
+
   function scheduledAction(action: "unschedule" | "delete") {
     setMessage(null)
     startTransition(async () => {
@@ -100,9 +110,10 @@ export function ContentWorkflowActions({
     </section>
   }
 
-  if (content.status === "failed" && publication) {
-    const safelyRetryable = publishingEnabled && !publication.instagramMediaId && !publication.publishAttemptedAt
-    return <section className="space-y-3 rounded-xl border border-red-200 p-4"><p className="text-sm font-semibold">Publishing failed</p><p className="text-xs text-muted-foreground">{publication.lastError ?? content.lastError ?? "The Instagram publication did not complete."}</p>{safelyRetryable ? <Button type="button" size="sm" variant="outline" onClick={retryPublishing} disabled={isPending}><RotateCcw className="h-4 w-4" />Retry Publishing</Button> : <p className="text-xs text-muted-foreground">Automatic retry is unavailable because Meta may already have received a publish request. Verify Instagram before creating another attempt.</p>}{message && <p className="text-xs text-muted-foreground" role="status">{message}</p>}</section>
+  if (content.status === "failed" && !requiresRender) {
+    const mayBeAmbiguous = Boolean(publication?.instagramMediaId || publication?.publishAttemptedAt)
+    const safelyRecoverable = !mayBeAmbiguous && hasReadyMedia
+    return <section className="space-y-3 rounded-xl border border-red-200 p-4"><p className="text-sm font-semibold">Publishing failed</p><p className="text-xs text-muted-foreground">{publication?.lastError ?? content.lastError ?? "The Instagram publication did not complete."}</p>{safelyRecoverable ? <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" onClick={returnToApproved} disabled={isPending}><ArrowLeft className="h-4 w-4" />Return to Approved</Button>{publishingEnabled && <Button type="button" size="sm" variant="outline" onClick={retryPublishing} disabled={isPending}><RotateCcw className="h-4 w-4" />Retry Publishing</Button>}</div> : <p className="text-xs text-muted-foreground">{mayBeAmbiguous ? "Publication outcome requires verification before retrying. Verify Instagram before creating another attempt." : "Correct the selected media before returning this item to Approved."}</p>}{message && <p className="text-xs text-muted-foreground" role="status">{message}</p>}</section>
   }
 
   if (content.status === "failed" && requiresRender) {

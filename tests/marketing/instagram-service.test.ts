@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { InstagramService } from "@/lib/marketing/services/instagram-service"
+import { InstagramCarouselChildContainerError, InstagramService } from "@/lib/marketing/services/instagram-service"
 
 const originalFetch = global.fetch
 
@@ -43,6 +43,37 @@ describe("InstagramService", () => {
     expect(reelBody).toContain("media_type=REELS")
     expect(reelBody).toContain("video_url=https%3A%2F%2Fproject.supabase.co%2Fsigned.mp4")
     expect(String(fetchMock.mock.calls[0][0])).not.toContain("server-token")
+  })
+
+  it("rejects Carousel video media before contacting Meta", async () => {
+    const fetchMock = vi.fn()
+    global.fetch = fetchMock
+    const content = { id: "content-1", contentType: "carousel" as const, caption: "Caption", hashtags: ["#tag"], altText: null }
+    const image = { id: "asset-image", contentId: "content-1", kind: "original_reference" as const, mediaType: "image" as const, sourceUrl: "https://crm.example/image.jpg", metadata: {}, sortOrder: 0, createdAt: "2026-08-10T00:00:00.000Z" }
+    const video = { ...image, id: "asset-video", mediaType: "video" as const, sourceUrl: "https://crm.example/tour.mp4" }
+
+    await expect(InstagramService.createContainer({ content: content as never, mediaAssets: [image, video], accessToken: "server-token", instagramAccountId: "ig-user" }))
+      .rejects.toThrow("images only")
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("retains created child IDs if a later Carousel child fails", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "child-1" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: "Unsupported image", code: 100 } }), { status: 400 }))
+    global.fetch = fetchMock
+    const content = { id: "content-1", contentType: "carousel" as const, caption: "Caption", hashtags: ["#tag"], altText: null }
+    const image = { id: "asset-image", contentId: "content-1", kind: "original_reference" as const, mediaType: "image" as const, sourceUrl: "https://crm.example/image.jpg", metadata: {}, sortOrder: 0, createdAt: "2026-08-10T00:00:00.000Z" }
+
+    await expect(InstagramService.createContainer({
+      content: content as never,
+      mediaAssets: [image, { ...image, id: "asset-image-2", sourceUrl: "https://crm.example/image-2.jpg" }],
+      accessToken: "server-token",
+      instagramAccountId: "ig-user",
+    })).rejects.toMatchObject({
+      name: InstagramCarouselChildContainerError.name,
+      childContainerIds: ["child-1"],
+    })
   })
 
   it("classifies Meta authentication failures without persisting the raw API message", async () => {

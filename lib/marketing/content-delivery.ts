@@ -8,6 +8,21 @@ function stableAssets(assets: MarketingAsset[]) {
   )
 }
 
+/** The deterministic default for a newly created Carousel; videos are never selected. */
+export function defaultCarouselImageAssets(assets: MarketingAsset[]) {
+  const images = stableAssets(assets).filter(asset =>
+    asset.kind === "original_reference" &&
+    asset.mediaType === "image" &&
+    typeof asset.sourceUrl === "string" &&
+    /^https:\/\//i.test(asset.sourceUrl)
+  )
+  const cover = images.find(asset => asset.metadata?.isCover === true)
+  return (cover
+    ? [cover, ...images.filter(asset => asset.id !== cover.id)]
+    : images
+  ).slice(0, 10)
+}
+
 function selectedAssetIds(content: Pick<MarketingContent, "composition">) {
   const composition = content.composition as { selectedAssetIds?: unknown }
   return Array.isArray(composition.selectedAssetIds)
@@ -16,12 +31,16 @@ function selectedAssetIds(content: Pick<MarketingContent, "composition">) {
 }
 
 /**
+ * The one authoritative resolver for Carousel review and publication.
+ *
  * A Carousel's composition stores the ordered membership of the existing
- * content-to-asset relation. Older drafts did not have that field; for those
+ * content-to-asset relation. Older records did not have that field; for those
  * records only, retain the already-snapshotted content assets in their stored
- * order rather than looking up every current property image.
+ * order rather than looking up every current property image. The caller must
+ * validate the returned set before use: returning a legacy video here lets us
+ * surface a repairable validation error instead of silently dropping media.
  */
-export function carouselAssets(
+export function getOrderedCarouselMedia(
   content: Pick<MarketingContent, "composition">,
   assets: MarketingAsset[],
 ) {
@@ -37,6 +56,9 @@ export function carouselAssets(
   return selected.map(id => byId.get(id)).filter((asset): asset is MarketingAsset => Boolean(asset))
 }
 
+/** @deprecated Use getOrderedCarouselMedia for new code. */
+export const carouselAssets = getOrderedCarouselMedia
+
 /** A human-readable, safe explanation for an invalid ordered Carousel set. */
 export function carouselAssetValidationError(
   content: Pick<MarketingContent, "composition">,
@@ -47,12 +69,21 @@ export function carouselAssetValidationError(
     return "Carousel media contains duplicate selected assets."
   }
 
-  const media = carouselAssets(content, assets)
+  const media = getOrderedCarouselMedia(content, assets)
   if (selected.length && media.length !== selected.length) {
-    return `Carousel cannot be scheduled because ${selected.length - media.length} selected media asset${selected.length - media.length === 1 ? "" : "s"} could not be resolved.`
+    return `Carousel cannot continue because ${selected.length - media.length} selected image${selected.length - media.length === 1 ? "" : "s"} could not be resolved.`
   }
   if (media.length < 2 || media.length > 10) {
-    return "A Carousel requires 2–10 selected image or video assets."
+    return "A Carousel requires 2–10 selected images."
+  }
+  if (media.some(asset => asset.mediaType === "video")) {
+    return "This Carousel contains unsupported video media. Remove the video before continuing."
+  }
+  if (media.some(asset => asset.mediaType !== "image")) {
+    return "This Carousel contains unsupported non-image media. Remove it before continuing."
+  }
+  if (media.some(asset => !asset.sourceUrl || !/^https:\/\//i.test(asset.sourceUrl))) {
+    return "Every selected Carousel image must have an accessible HTTPS source URL before continuing."
   }
   return null
 }
@@ -69,7 +100,7 @@ export function contentRequiresRendering(content: Pick<MarketingContent, "conten
 }
 
 export function publishableAssets(content: Pick<MarketingContent, "contentType" | "composition" | "activeReelVersionId">, assets: MarketingAsset[]) {
-  if (content.contentType === "carousel") return carouselAssets(content, assets)
+  if (content.contentType === "carousel") return getOrderedCarouselMedia(content, assets)
 
   return contentRequiresRendering(content)
     // Railway validates the encoded output with FFprobe before creating this

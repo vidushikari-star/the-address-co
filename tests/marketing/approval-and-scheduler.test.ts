@@ -125,7 +125,7 @@ describe("approval and scheduling guards", () => {
 
     await expect(SchedulerService.schedule({
       contentId: "content-1", scheduledFor: new Date(Date.now() + 3_600_000).toISOString(), timezone: "Asia/Kolkata", adminId: "admin-1",
-    })).rejects.toThrow("1 selected media asset could not be resolved")
+    })).rejects.toThrow("1 selected image could not be resolved")
     expect(repository.scheduleApprovedContent).not.toHaveBeenCalled()
   })
 
@@ -140,6 +140,30 @@ describe("approval and scheduling guards", () => {
       adminId: "admin-1",
     })).rejects.toThrow("Render the approved new Reel version")
     expect(repository.applyApproval).not.toHaveBeenCalled()
+  })
+
+  it("blocks approval and scheduling when a legacy Carousel selected a video", async () => {
+    const assets = [
+      { id: "asset-image", kind: "original_reference", mediaType: "image", sourceUrl: "https://images.example/cover.jpg", sortOrder: 0, createdAt: "2026-08-10T00:00:00.000Z", metadata: {} },
+      { id: "asset-video", kind: "original_reference", mediaType: "video", sourceUrl: "https://images.example/tour.mp4", sortOrder: 1, createdAt: "2026-08-10T00:00:00.000Z", metadata: {} },
+    ]
+    repository.getContentById.mockResolvedValue({
+      content: { ...record("draft", "carousel").content, composition: { format: "carousel", selectedAssetIds: assets.map(asset => asset.id) } },
+      assets,
+    })
+
+    await expect(ApprovalService.approve("content-1", "admin-1"))
+      .rejects.toThrow("This Carousel contains unsupported video media")
+    expect(repository.applyApproval).not.toHaveBeenCalled()
+
+    repository.getContentById.mockResolvedValue({
+      content: { ...record("approved", "carousel").content, composition: { format: "carousel", selectedAssetIds: assets.map(asset => asset.id) } },
+      assets,
+    })
+    await expect(SchedulerService.schedule({
+      contentId: "content-1", scheduledFor: new Date(Date.now() + 3_600_000).toISOString(), timezone: "Asia/Kolkata", adminId: "admin-1",
+    })).rejects.toThrow("This Carousel contains unsupported video media")
+    expect(repository.scheduleApprovedContent).not.toHaveBeenCalled()
   })
 
   it("does not schedule failed content", async () => {

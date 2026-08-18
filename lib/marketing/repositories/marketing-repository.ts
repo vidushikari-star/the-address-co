@@ -1363,38 +1363,18 @@ export class MarketingRepository {
    */
   static async prepareSafePublicationRetry(input: { contentId: string; updatedBy: string }) {
     const supabase = await createServerSupabaseClient()
-    const { data: publication, error: publicationError } = await supabase
-      .from("marketing_publications")
-      .select("id, status, external_publication_id, publish_attempted_at")
-      .eq("content_id", input.contentId)
-      .maybeSingle()
-    if (publicationError) throw publicationError
-    const row = object(publication)
-    if (!publication || row.status !== "failed" || row.external_publication_id || row.publish_attempted_at) {
-      throw new Error("This publication cannot be retried automatically. Verify Instagram before creating a new attempt.")
-    }
+    const { data, error } = await supabase.rpc("recover_marketing_publication", {
+      p_content_id: input.contentId,
+      p_updated_by: input.updatedBy,
+    }).maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error("This publication cannot be retried automatically. Verify Instagram before creating a new attempt.")
+    return mapContent(data as Row)
+  }
 
-    const { error: resetPublicationError } = await supabase
-      .from("marketing_publications")
-      .update({
-        status: "pending",
-        external_container_id: null,
-        last_error: null,
-        request_diagnostics: {},
-      })
-      .eq("id", row.id as string)
-      .eq("status", "failed")
-    if (resetPublicationError) throw resetPublicationError
-
-    const { data: content, error: contentError } = await supabase
-      .from("marketing_content")
-      .update({ status: "approved", last_error: null, updated_by: input.updatedBy })
-      .eq("id", input.contentId)
-      .eq("status", "failed")
-      .select("id")
-      .maybeSingle()
-    if (contentError) throw contentError
-    if (!content) throw new Error("Only failed content can be retried for publishing.")
+  /** Returns only a known-safe failed publication to Approved; it never queues Meta work. */
+  static async returnPublicationToApproved(input: { contentId: string; updatedBy: string }) {
+    return this.prepareSafePublicationRetry(input)
   }
 
   static async updateInstagramConnectionHealth(input: {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
+import { defaultCarouselImageAssets } from "@/lib/marketing/content-delivery"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 import { ContentUpdateSchema, CreateContentSchema } from "@/lib/marketing/schemas"
 
@@ -31,6 +32,12 @@ export async function POST(request: Request) {
   try {
     const property = await MarketingRepository.getPropertySnapshot(parsed.data.propertyId)
     if (!property) return NextResponse.json({ error: "Property not found." }, { status: 404 })
+    if (parsed.data.contentType === "carousel") {
+      const imageCount = property.media.filter(media => media.type === "image" && /^https:\/\//i.test(media.url)).length
+      if (imageCount < 2) {
+        return NextResponse.json({ error: "A Carousel requires at least 2 accessible property gallery images. Videos are available for Reels only." }, { status: 409 })
+      }
+    }
 
     const existing = await MarketingRepository.getContentByIdempotencyKey(parsed.data.idempotencyKey)
     if (existing) return NextResponse.json({ content: existing.content, duplicate: true })
@@ -48,14 +55,7 @@ export async function POST(request: Request) {
     // Persist the exact ordered relation this Carousel will review and
     // publish. The property itself is never changed; these remain references.
     if (content.contentType === "carousel") {
-      const selectedAssets = sourceAssets
-        .filter(asset => asset.kind === "original_reference" && ["image", "video"].includes(asset.mediaType) && Boolean(asset.sourceUrl))
-        .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id))
-        .slice(0, 10)
-      const cover = selectedAssets.find(asset => asset.metadata?.isCover === true)
-      const selectedAssetIds = cover
-        ? [cover, ...selectedAssets.filter(asset => asset.id !== cover.id)].map(asset => asset.id)
-        : selectedAssets.map(asset => asset.id)
+      const selectedAssetIds = defaultCarouselImageAssets(sourceAssets).map(asset => asset.id)
       content = await MarketingRepository.updateContent(content.id, {
         composition: {
           format: "carousel",
@@ -92,6 +92,9 @@ export async function PATCH(request: Request) {
   if (!current) return NextResponse.json({ error: "Content not found." }, { status: 404 })
   if (["approved", "scheduled", "blocked_connection", "publishing", "published"].includes(current.content.status)) {
     return NextResponse.json({ error: "Approved, scheduled, and published content is locked. Request changes before editing." }, { status: 409 })
+  }
+  if (current.content.contentType === "carousel" && parsed.data.composition && "selectedAssetIds" in parsed.data.composition) {
+    return NextResponse.json({ error: "Use Edit Carousel Media to choose, order, and set the cover image. Carousel media cannot be changed through this endpoint." }, { status: 409 })
   }
 
   const fieldMap = {

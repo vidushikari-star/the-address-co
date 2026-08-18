@@ -1,11 +1,12 @@
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
-import { contentRequiresRendering, publishableAssets } from "@/lib/marketing/content-delivery"
+import { carouselAssetValidationError, contentRequiresRendering, getOrderedCarouselMedia, publishableAssets } from "@/lib/marketing/content-delivery"
 import { isInstagramPublishingEnabled } from "@/lib/marketing/feature-flags"
 import { logRenderStage, RenderStageError, renderStageFailure, sanitizeRenderDiagnostic } from "@/lib/marketing/render-diagnostics"
 import { CompositionService } from "@/lib/marketing/services/composition-service"
 import { CreativeAIService } from "@/lib/marketing/services/creative-ai-service"
 import {
   InstagramApiError,
+  InstagramCarouselChildContainerError,
   InstagramContainerPendingError,
   InstagramContainerTerminalError,
   InstagramService,
@@ -162,6 +163,7 @@ function safeRenderDiagnostics(error: unknown) {
 function isTerminalPublishingFailure(job: MarketingJob, error: unknown) {
   return job.type === "publish_instagram" && (
     error instanceof PublishingTerminalError ||
+    error instanceof InstagramCarouselChildContainerError ||
     error instanceof InstagramContainerTerminalError ||
     (error instanceof InstagramApiError && !error.isRecoverable)
   )
@@ -183,8 +185,42 @@ export class MarketingWorkerService {
     const row = Array.isArray(result.data) ? result.data[0] : null
     const requeued = Number(record(row).requeued_count ?? 0)
     const failedPublish = Number(record(row).failed_publish_count ?? 0)
-    if (requeued || failedPublish) {
-      console.warn(`[marketing-worker] recovered stale jobs: requeued=${requeued} failed_publish=${failedPublish}`)
+    const reconciledPublish = Number(record(row).reconciled_publish_count ?? 0)
+    if (requeued || failedPublish || reconciledPublish) {
+      console.warn(`[marketing-worker] recovered stale jobs: requeued=${requeued} failed_publish=${failedPublish} reconciled_publish=${reconciledPublish}`)
+    }
+  }
+
+  /**
+   * Terminal publishing failures change the job, publication, and content in
+   * one database transaction. The sequential fallback keeps older test/local
+   * adapters useful, but production always has the SQL RPC from this phase.
+   */
+  private static async propagateTerminalPublishingFailure(
+    admin: ReturnType<typeof createAdminSupabaseClient>,
+    job: MarketingJob,
+    errorMessage: string,
+  ) {
+    if (job.contentId && typeof admin.rpc === "function") {
+      const result = await admin.rpc("fail_marketing_publication", {
+        p_job_id: job.id,
+        p_content_id: job.contentId,
+        p_error: errorMessage,
+      })
+      if (result && !result.error) return
+      if (result?.error) console.error("[marketing-worker] atomic publication failure transition failed", result.error)
+    }
+
+    await admin.from("marketing_jobs").update({
+      status: "failed",
+      error: errorMessage,
+      progress: 100,
+      locked_at: null,
+      locked_by: null,
+    }).eq("id", job.id)
+    if (job.contentId) {
+      await admin.from("marketing_publications").update({ status: "failed", last_error: errorMessage }).eq("content_id", job.contentId)
+      await admin.from("marketing_content").update({ status: "failed", last_error: errorMessage }).eq("id", job.contentId)
     }
   }
 
@@ -293,17 +329,7 @@ export class MarketingWorkerService {
           if (job.attempts >= job.maxAttempts) {
             const timeoutError = `Instagram media container did not finish after ${job.maxAttempts} processing checks.`
             logInstagramPublisher("processing", "failed", { checks: job.maxAttempts, reason: "processing_timeout" })
-            await admin.from("marketing_jobs").update({
-              status: "failed",
-              error: timeoutError,
-              progress: 100,
-              locked_at: null,
-              locked_by: null,
-            }).eq("id", job.id)
-            if (job.contentId) {
-              await admin.from("marketing_publications").update({ status: "failed", last_error: timeoutError }).eq("content_id", job.contentId)
-              await admin.from("marketing_content").update({ status: "failed", last_error: timeoutError }).eq("id", job.contentId)
-            }
+            await this.propagateTerminalPublishingFailure(admin, job, timeoutError)
             results.push({ id: job.id, status: "failed" })
             continue
           }
@@ -319,15 +345,19 @@ export class MarketingWorkerService {
           continue
         }
         const retry = !isTerminalRenderTermination(job, caught) && !isTerminalPublishingFailure(job, caught) && job.attempts < job.maxAttempts
-        await admin.from("marketing_jobs").update({
-          status: retry ? "queued" : "failed",
-          error: errorMessage,
-          progress: retry ? 0 : 100,
-          ...(renderDiagnostics ? { output: { ...job.output, render_diagnostics: renderDiagnostics } } : {}),
-          run_after: new Date(Date.now() + Math.min(30, 2 ** job.attempts) * 60_000).toISOString(),
-          locked_at: null,
-          locked_by: null,
-        }).eq("id", job.id)
+        if (job.type === "publish_instagram" && !retry) {
+          await this.propagateTerminalPublishingFailure(admin, job, errorMessage)
+        } else {
+          await admin.from("marketing_jobs").update({
+            status: retry ? "queued" : "failed",
+            error: errorMessage,
+            progress: retry ? 0 : 100,
+            ...(renderDiagnostics ? { output: { ...job.output, render_diagnostics: renderDiagnostics } } : {}),
+            run_after: new Date(Date.now() + Math.min(30, 2 ** job.attempts) * 60_000).toISOString(),
+            locked_at: null,
+            locked_by: null,
+          }).eq("id", job.id)
+        }
         if (job.contentId && job.type === "render_reel") {
           await admin.from("marketing_content").update({ last_error: errorMessage }).eq("id", job.contentId)
           const reelVersionId = typeof job.input.reelVersionId === "string" ? job.input.reelVersionId : null
@@ -338,17 +368,19 @@ export class MarketingWorkerService {
           }
         }
         if (job.contentId && job.type === "publish_instagram") {
-          await admin.from("marketing_content").update({ last_error: errorMessage }).eq("id", job.contentId)
+          if (retry) {
+            await admin.from("marketing_content").update({ last_error: errorMessage }).eq("id", job.contentId)
+          }
           if (caught instanceof InstagramApiError && caught.isAuthenticationFailure) {
             await admin.from("marketing_accounts").update({ status: "expired" })
               .eq("platform", "instagram")
               .in("status", ["connected", "expiring", "error"])
           }
-          if (!retry) {
-            await admin.from("marketing_publications").update({ status: "failed", last_error: errorMessage }).eq("content_id", job.contentId)
-          }
+          // A terminal publish failure was propagated atomically above. A
+          // retryable error remains in publishing while its protected job is
+          // still queued, never after the job becomes terminal.
         }
-        if (!retry && job.contentId) {
+        if (!retry && job.contentId && job.type !== "publish_instagram") {
           await admin.from("marketing_content").update({ status: "failed", last_error: errorMessage }).eq("id", job.contentId)
         }
         results.push({ id: job.id, status: "failed" })
@@ -429,6 +461,18 @@ export class MarketingWorkerService {
     const selected = MediaAnalysisService.analyze(property, assets)
       .filter(analysis => analysis.recommendedForReel)
       .map(analysis => analysis.assetId)
+    const carouselError = content.contentType === "carousel"
+      ? carouselAssetValidationError(content, assets)
+      : null
+    if (carouselError) {
+      throw new Error(carouselError)
+    }
+    // Preserve the exact user-selected order. Initial creation persists the
+    // image-only default before this job is queued, so generation must never
+    // replace a later Edit Carousel Media selection with a fresh AI choice.
+    const selectedCarouselImages = content.contentType === "carousel"
+      ? getOrderedCarouselMedia(content, assets).map(asset => asset.id)
+      : []
     const shouldRenderReel = content.contentType === "reel"
     const { data: activeLogo, error: activeLogoError } = shouldRenderReel && brandSettings.defaultReelLogoPlacement !== "none"
       ? await admin.from("marketing_brand_assets").select("id").eq("kind", "logo").eq("active", true).maybeSingle()
@@ -451,7 +495,7 @@ export class MarketingWorkerService {
           propertyId: property.id,
           format: content.contentType === "carousel" ? "carousel" : content.contentType === "story" ? "story" : "single_image",
           aspectRatio: content.contentType === "story" ? "9:16" : content.contentType === "carousel" ? "1:1" : "4:5",
-          selectedAssetIds: selected.slice(0, content.contentType === "carousel" ? 10 : 1),
+          selectedAssetIds: content.contentType === "carousel" ? selectedCarouselImages : selected.slice(0, 1),
           caption: creative.caption,
           hashtags: creative.hashtags,
           cta: creative.cta,
@@ -683,6 +727,10 @@ export class MarketingWorkerService {
         throw new PublishingDeferredError(content.proposedPublishAt)
       }
     }
+    const carouselError = content.contentType === "carousel"
+      ? carouselAssetValidationError(content, assets)
+      : null
+    if (carouselError) throw new PublishingTerminalError(carouselError)
     const media = publishableAssets(content, assets)
     if (!media.length) throw new PublishingTerminalError("Publishing safety check failed: approved publish media is missing.")
     const caption = [content.caption, content.hashtags.join(" ")].filter(Boolean).join(" ").trim()
@@ -755,16 +803,34 @@ export class MarketingWorkerService {
         return { ...asset, signedUrl: data.signedUrl }
       }))
       logInstagramPublisher("container", "started", { media_count: withSignedUrls.length })
-      const container = await InstagramService.createContainer({
-        content,
-        mediaAssets: withSignedUrls,
-        accessToken,
-        instagramAccountId: String(accountRow.external_account_id),
-      })
+      let container: Awaited<ReturnType<typeof InstagramService.createContainer>>
+      try {
+        container = await InstagramService.createContainer({
+          content,
+          mediaAssets: withSignedUrls,
+          accessToken,
+          instagramAccountId: String(accountRow.external_account_id),
+        })
+      } catch (error) {
+        if (error instanceof InstagramCarouselChildContainerError) {
+          await admin.from("marketing_publications").update({
+            request_diagnostics: {
+              ...record(publicationRow.request_diagnostics),
+              child_container_ids: error.childContainerIds,
+              failed_stage: "child_container",
+            },
+          }).eq("id", publicationRow.id as string)
+        }
+        throw error
+      }
       containerId = container.containerId
       const { error: containerPersistenceError } = await admin.from("marketing_publications").update({
         external_container_id: containerId,
-        request_diagnostics: { container_created: true },
+        request_diagnostics: {
+          ...record(publicationRow.request_diagnostics),
+          container_created: true,
+          ...(container.childContainerIds?.length ? { child_container_ids: container.childContainerIds } : {}),
+        },
         status: "processing",
         last_error: null,
       }).eq("id", publicationRow.id as string)

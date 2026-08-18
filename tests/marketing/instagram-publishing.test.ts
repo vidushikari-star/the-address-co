@@ -197,6 +197,20 @@ describe("Instagram publishing worker", () => {
     expect(InstagramService.createContainer).toHaveBeenCalledWith(expect.objectContaining({ mediaAssets: [expect.objectContaining({ signedUrl: "https://project.supabase.co/signed" })] }))
   })
 
+  it("fails an invalid scheduled Carousel before it can create any Meta container", async () => {
+    installPublishingAdmin({
+      content: contentRow({ content_type: "carousel", composition: { format: "carousel", selectedAssetIds: ["asset-image", "asset-video"] } }),
+      assets: [
+        assetRow({ id: "asset-image", media_type: "image" }),
+        assetRow({ id: "asset-video", media_type: "video", source_url: "https://crm.example/tour.mp4", sort_order: 1 }),
+      ],
+    })
+
+    await expect(privateWorker().publishInstagram(runningJob())).rejects.toThrow("This Carousel contains unsupported video media")
+    expect(InstagramService.createContainer).not.toHaveBeenCalled()
+    expect(InstagramService.publishContainer).not.toHaveBeenCalled()
+  })
+
   it("keeps a pending Reel container queued without calling media_publish and marks ERROR as terminal", async () => {
     installPublishingAdmin({ content: contentRow({ content_type: "reel", composition: { format: "reel" } }), assets: [assetRow({ kind: "rendered_media", media_type: "video", storage_path: "rendered.mp4", source_url: null })] })
     vi.spyOn(InstagramService, "getContainerStatus").mockResolvedValueOnce({ status_code: "IN_PROGRESS" })
@@ -229,7 +243,6 @@ describe("Instagram publishing worker", () => {
     })
     Object.assign(locked, { update: vi.fn().mockReturnValue(locked) })
     const jobFailure = updateQuery()
-    const contentError = updateQuery()
     const accountExpired = updateQuery()
     const publicationFailure = updateQuery()
     const contentFailed = updateQuery()
@@ -237,7 +250,7 @@ describe("Instagram publishing worker", () => {
     let contentCalls = 0
     admin.client.from.mockImplementation((table: string) => {
       if (table === "marketing_jobs") return [discovery, locked, jobFailure][jobCalls++]
-      if (table === "marketing_content") return [contentError, contentFailed][contentCalls++]
+      if (table === "marketing_content") return [contentFailed][contentCalls++]
       if (table === "marketing_accounts") return accountExpired
       if (table === "marketing_publications") return publicationFailure
       throw new Error(`Unexpected table: ${table}`)
