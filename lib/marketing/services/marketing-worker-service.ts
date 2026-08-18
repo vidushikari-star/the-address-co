@@ -225,6 +225,32 @@ export class MarketingWorkerService {
     }
   }
 
+  /**
+   * A user can safely regenerate a static creative while an earlier job is
+   * running. The earlier render will reject its obsolete token; do not let
+   * that expected stale-job failure overwrite the newer creative as failed.
+   */
+  private static async isCurrentStaticRenderJob(
+    admin: ReturnType<typeof createAdminSupabaseClient>,
+    job: MarketingJob,
+  ) {
+    if (!job.contentId || !["render_image", "render_carousel"].includes(job.type)) return true
+    const renderToken = typeof job.input.renderToken === "string" ? job.input.renderToken : null
+    if (!renderToken) return true
+
+    const table = admin.from("marketing_content")
+    // Small test adapters historically only implement update chains. Their
+    // default is the old behaviour; production Supabase always supports this
+    // read and gets stale-token protection.
+    if (typeof table.select !== "function") return true
+    const { data, error } = await table.select("composition").eq("id", job.contentId).maybeSingle()
+    if (error) {
+      console.error("Static render current-token check failed:", JSON.stringify({ contentId: job.contentId, error: error.name ?? "DatabaseError" }))
+      return false
+    }
+    return record(record(data).composition).renderToken === renderToken
+  }
+
   static async run(limit = 3, options?: { jobTypes?: readonly MarketingJobType[]; diagnosticsLabel?: string }) {
     const admin = createAdminSupabaseClient()
     await this.recoverExpiredLeases(admin)
@@ -345,6 +371,20 @@ export class MarketingWorkerService {
           results.push({ id: job.id, status: "skipped" })
           continue
         }
+        const staleStaticRender = ["render_image", "render_carousel"].includes(job.type) &&
+          !(await this.isCurrentStaticRenderJob(admin, job))
+        if (staleStaticRender) {
+          await admin.from("marketing_jobs").update({
+            status: "cancelled",
+            error: "Superseded by a newer static render request.",
+            progress: 100,
+            locked_at: null,
+            locked_by: null,
+          }).eq("id", job.id)
+          console.info("[marketing-worker] cancelled stale static render", JSON.stringify({ contentId: job.contentId, jobId: job.id }))
+          results.push({ id: job.id, status: "skipped" })
+          continue
+        }
         const retry = !isTerminalRenderTermination(job, caught) && !isTerminalPublishingFailure(job, caught) && job.attempts < job.maxAttempts
         if (job.type === "publish_instagram" && !retry) {
           await this.propagateTerminalPublishingFailure(admin, job, errorMessage)
@@ -382,7 +422,11 @@ export class MarketingWorkerService {
           // still queued, never after the job becomes terminal.
         }
         if (!retry && job.contentId && job.type !== "publish_instagram") {
-          await admin.from("marketing_content").update({ status: "failed", last_error: errorMessage }).eq("id", job.contentId)
+          if (await this.isCurrentStaticRenderJob(admin, job)) {
+            await admin.from("marketing_content").update({ status: "failed", last_error: errorMessage }).eq("id", job.contentId)
+          } else {
+            console.info("[marketing-worker] ignored stale static render failure", JSON.stringify({ contentId: job.contentId, jobId: job.id }))
+          }
         }
         results.push({ id: job.id, status: "failed" })
       }

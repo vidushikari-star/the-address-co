@@ -1017,6 +1017,76 @@ export class MarketingRepository {
   }
 
   /**
+   * Static renders cannot use the Reel queue RPC because their editable
+   * composition is stored in the same request. Keep the failure transition
+   * explicit: if the enqueue fails after content enters `rendering`, the
+   * record becomes recoverable `failed` rather than silently remaining stuck.
+   * A fresh render token supersedes queued static work for the same content.
+   */
+  static async queueStaticRender(input: {
+    contentId: string
+    updatedBy: string
+    type: "render_image" | "render_carousel"
+    renderToken: string
+    changes?: Record<string, unknown>
+    resumeApproved?: boolean
+  }) {
+    const content = await this.updateContent(input.contentId, {
+      ...(input.changes ?? {}),
+      status: "rendering",
+      last_error: null,
+    }, input.updatedBy)
+
+    try {
+      const supabase = await createServerSupabaseClient()
+      const { data: queued, error: queuedError } = await supabase
+        .from("marketing_jobs")
+        .select("id, input")
+        .eq("content_id", input.contentId)
+        .eq("status", "queued")
+        .in("type", ["render_image", "render_carousel"])
+      if (queuedError) throw queuedError
+
+      const superseded = ((queued ?? []) as Row[]).filter(job => object(job.input).renderToken !== input.renderToken)
+      for (const job of superseded) {
+        const { error } = await supabase.from("marketing_jobs")
+          .update({ status: "cancelled", error: "Superseded by a newer static render request.", locked_at: null, locked_by: null })
+          .eq("id", String(job.id))
+          .eq("status", "queued")
+        if (error) throw error
+      }
+
+      const job = await this.enqueueJob({
+        contentId: input.contentId,
+        type: input.type,
+        input: { resumeApproved: input.resumeApproved ?? false, renderToken: input.renderToken },
+        idempotencyKey: `${input.type}:${input.contentId}:${input.renderToken}`,
+      })
+      return { content, job }
+    } catch (caught) {
+      // Keep the browser error generic; the server log retains only safe
+      // request context and no marketing payload.
+      console.error("Static marketing render enqueue failed:", JSON.stringify({
+        contentId: input.contentId,
+        type: input.type,
+        error: caught instanceof Error ? caught.name : "UnknownError",
+      }))
+      try {
+        await this.updateContent(input.contentId, {
+          status: "failed",
+          last_error: "Render could not be queued. Retry the Story creative when the queue is available.",
+        }, input.updatedBy)
+      } catch (recoveryError) {
+        console.error("Static marketing render failure transition failed:", JSON.stringify({
+          contentId: input.contentId,
+          error: recoveryError instanceof Error ? recoveryError.name : "UnknownError",
+        }))
+      }
+      throw new Error("Render could not be queued. The Story was marked failed so it can be retried safely.")
+    }
+  }
+
+  /**
    * Transitions an approved Reel and inserts its runnable job in one database
    * transaction. This prevents a queue write failure from stranding content in
    * `rendering` with nothing for Railway to claim.

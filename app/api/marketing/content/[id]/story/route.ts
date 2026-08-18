@@ -5,6 +5,7 @@ import { staticRenderJobType } from "@/lib/marketing/instagram-static-compositio
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 import { CreativeOutputSchema, ImproveStorySchema, StoryCompositionSchema, StoryUpdateSchema } from "@/lib/marketing/schemas"
 import { CreativeAIService } from "@/lib/marketing/services/creative-ai-service"
+import { fitStoryCopy } from "@/lib/marketing/story-layout"
 import type { PropertyFactSnapshot } from "@/lib/marketing/types"
 
 type Context = { params: Promise<{ id: string }> }
@@ -25,7 +26,7 @@ export async function PATCH(request: Request, context: Context) {
     const record = await MarketingRepository.getContentById(id)
     if (!record) return NextResponse.json({ error: "Content not found." }, { status: 404 })
     if (record.content.contentType !== "story") return NextResponse.json({ error: "This editor is for Instagram Stories only." }, { status: 400 })
-    if (!["draft", "changes_requested", "ready_for_review", "failed"].includes(record.content.status)) {
+    if (!["draft", "changes_requested", "ready_for_review", "failed", "rendering"].includes(record.content.status)) {
       return NextResponse.json({ error: "Approved, scheduled, and published Stories are locked. Request changes before editing." }, { status: 409 })
     }
     const source = record.assets.find(asset => asset.id === parsed.data.sourceAssetId && asset.kind === "original_reference" && asset.mediaType === "image")
@@ -35,12 +36,14 @@ export async function PATCH(request: Request, context: Context) {
     if (parsed.data.logoEnabled && !logo) return NextResponse.json({ error: "Upload an active Brand Assets logo before enabling it on a Story." }, { status: 409 })
     const propertyId = record.content.primaryPropertyId ?? String(record.content.propertySnapshot.id ?? "")
     if (!propertyId) return NextResponse.json({ error: "The Story property facts are unavailable." }, { status: 409 })
+    const fit = fitStoryCopy(parsed.data.storyCopy)
+    if (!fit.fits) return NextResponse.json({ error: "Story copy cannot fit its mobile-safe layout. Shorten the visual copy and try again." }, { status: 422 })
     const composition = {
       propertyId,
       format: "story" as const,
       aspectRatio: "9:16" as const,
       sourceAssetId: source.id,
-      storyCopy: parsed.data.storyCopy,
+      storyCopy: fit.storyCopy,
       layoutStyle: parsed.data.layoutStyle,
       typographyStyle: existing.success ? existing.data.typographyStyle : "modern_sans" as const,
       renderToken: crypto.randomUUID(),
@@ -52,15 +55,15 @@ export async function PATCH(request: Request, context: Context) {
         assetId: logo?.id ?? null,
       },
     }
-    await MarketingRepository.updateContent(id, { composition, status: "rendering" }, access.user.id)
-    await MarketingRepository.enqueueJob({
+    await MarketingRepository.queueStaticRender({
       contentId: id,
       type: staticRenderJobType("story"),
-      input: { renderToken: composition.renderToken },
-      idempotencyKey: `render-image:${id}:${composition.renderToken}`,
+      renderToken: composition.renderToken,
+      updatedBy: access.user.id,
+      changes: { composition },
     })
     await MarketingRepository.addAuditLog({ actorId: access.user.id, contentId: id, action: "story.updated", metadata: { sourceAssetId: source.id, layoutStyle: composition.layoutStyle, logoEnabled: composition.logo.enabled } })
-    return NextResponse.json({ queued: true }, { status: 202 })
+    return NextResponse.json({ queued: true, storyCopy: fit.storyCopy, compacted: fit.adjusted }, { status: 202 })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to update Story creative." }, { status: 400 })
   }

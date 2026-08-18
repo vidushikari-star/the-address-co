@@ -16,6 +16,7 @@ const GENERATABLE_STATUSES: MarketingStatus[] = [
   "changes_requested",
   "ready_for_review",
   "failed",
+  "rendering",
 ]
 
 const ALL_COPY_FIELDS = ["headline", "hook", "caption", "cta", "hashtags", "story_copy"] as const
@@ -49,7 +50,7 @@ export async function POST(request: Request, context: Context) {
     const { id } = await context.params
     const record = await MarketingRepository.getContentById(id)
     if (!record) return NextResponse.json({ error: "Content not found." }, { status: 404 })
-    if (!GENERATABLE_STATUSES.includes(record.content.status)) {
+    if (!GENERATABLE_STATUSES.includes(record.content.status) || (record.content.status === "rendering" && record.content.contentType !== "story")) {
       return NextResponse.json({ error: "Request changes before regenerating approved, scheduled, or published content." }, { status: 409 })
     }
 
@@ -101,16 +102,19 @@ export async function POST(request: Request, context: Context) {
       })
     }
 
-    let content = await MarketingRepository.updateContent(id, changes, access.user.id)
+    let content: Awaited<ReturnType<typeof MarketingRepository.updateContent>>
     if (record.content.contentType !== "reel") {
       const composition = changes.composition as { renderToken: string }
-      await MarketingRepository.enqueueJob({
+      const queued = await MarketingRepository.queueStaticRender({
         contentId: id,
         type: staticRenderJobType(record.content.contentType),
-        input: { resumeApproved: false, renderToken: composition.renderToken },
-        idempotencyKey: `${staticRenderJobType(record.content.contentType)}:${id}:${composition.renderToken}`,
+        renderToken: composition.renderToken,
+        updatedBy: access.user.id,
+        changes,
       })
-      content = await MarketingRepository.updateContent(id, { status: "rendering" }, access.user.id)
+      content = queued.content
+    } else {
+      content = await MarketingRepository.updateContent(id, changes, access.user.id)
     }
     await MarketingRepository.addAuditLog({
       actorId: access.user.id,

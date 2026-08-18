@@ -119,6 +119,39 @@ describe("CreativeAIService", () => {
     expect(request.text.format).toMatchObject({ type: "json_schema", strict: true, name: "marketing_creative" })
   })
 
+  it("repairs oversized Story highlights once, then persists renderer-safe copy", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    const oversized = {
+      ...creative,
+      storyCopy: {
+        ...creative.storyCopy,
+        highlights: [
+          "Four bedrooms with a landscaped garden and private pool deck",
+          "Generous interiors for relaxed tropical living and guests",
+          "A quiet North Goa address close to everyday conveniences",
+        ],
+      },
+    }
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(completedResponse(oversized))
+      .mockResolvedValueOnce(completedResponse(creative))
+    global.fetch = fetchMock
+
+    const output = await CreativeAIService.generate({
+      property,
+      contentType: "story",
+      creativeDirection: "minimal",
+      settings,
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const firstRequest = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
+    const repairRequest = JSON.parse((fetchMock.mock.calls[1][1] as RequestInit).body as string)
+    expect(firstRequest.input[0].content).toContain("each one line")
+    expect(repairRequest.input[0].content).toContain("Repair only storyCopy")
+    expect(output.storyCopy.highlights.every(item => item.length <= 32)).toBe(true)
+  })
+
   it("returns an actionable error for an empty completed response", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     global.fetch = vi.fn().mockResolvedValue(response({

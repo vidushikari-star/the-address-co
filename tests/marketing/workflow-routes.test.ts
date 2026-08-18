@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const access = vi.hoisted(() => ({ requireMarketingApiAccess: vi.fn() }))
 const flags = vi.hoisted(() => ({ isInstagramPublishingEnabled: vi.fn() }))
-const repository = vi.hoisted(() => ({ getContentById: vi.fn(), enqueueJob: vi.fn(), queueReelRender: vi.fn(), addAuditLog: vi.fn(), getBrandSettings: vi.fn(), getActiveBrandLogo: vi.fn(), updateContent: vi.fn() }))
+const repository = vi.hoisted(() => ({ getContentById: vi.fn(), enqueueJob: vi.fn(), queueStaticRender: vi.fn(), queueReelRender: vi.fn(), addAuditLog: vi.fn(), getBrandSettings: vi.fn(), getActiveBrandLogo: vi.fn(), updateContent: vi.fn() }))
 
 vi.mock("@/lib/auth/marketing", () => access)
 vi.mock("@/lib/marketing/feature-flags", () => flags)
@@ -45,7 +45,7 @@ describe("Marketing workflow API guards", () => {
 
     expect(response.status).toBe(403)
     await expect(response.json()).resolves.toEqual({ error: "Instagram publishing is disabled by feature flag." })
-    expect(repository.enqueueJob).not.toHaveBeenCalled()
+    expect(repository.queueStaticRender).not.toHaveBeenCalled()
   })
 
   it("does not publish failed render content even when publishing is enabled", async () => {
@@ -85,7 +85,57 @@ describe("Marketing workflow API guards", () => {
 
     expect(response.status).toBe(409)
     await expect(response.json()).resolves.toEqual({ error: "Approved, scheduled, and published Stories are locked. Request changes before editing." })
+    expect(repository.queueStaticRender).not.toHaveBeenCalled()
+  })
+
+  it("recovers a stuck rendering Story through a fresh token without creating another content record", async () => {
+    const contentId = "1e149a39-7321-42d1-900c-7389c0da37a3"
+    const sourceAssetId = "b2041f1f-89e9-4a59-a8de-00169502f523"
+    repository.getContentById.mockResolvedValue({
+      content: {
+        id: contentId,
+        contentType: "story",
+        status: "rendering",
+        primaryPropertyId: contentId,
+        propertySnapshot: { id: contentId },
+        composition: {},
+      },
+      assets: [{ id: sourceAssetId, kind: "original_reference", mediaType: "image" }],
+    })
+    repository.queueStaticRender.mockResolvedValue({ content: { id: contentId }, job: { id: "new-story-job" } })
+    repository.addAuditLog.mockResolvedValue(undefined)
+
+    const response = await updateStory(new Request(`http://localhost/api/marketing/content/${contentId}/story`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        sourceAssetId,
+        storyCopy: {
+          headline: "Villa Verde in Parra",
+          supportingLine: "A considered North Goa address.",
+          highlights: [
+            "Four bedrooms with a private garden and pool deck",
+            "Generous interiors for slow tropical living",
+            "A quiet setting close to daily conveniences",
+          ],
+          priceLine: "",
+          cta: "Arrange a private viewing",
+        },
+        layoutStyle: "editorial_panel",
+        logoEnabled: false,
+      }),
+    }), { params: Promise.resolve({ id: contentId }) })
+
+    expect(response.status).toBe(202)
+    expect(repository.queueStaticRender).toHaveBeenCalledWith(expect.objectContaining({
+      contentId,
+      type: "render_image",
+      renderToken: expect.any(String),
+      changes: expect.objectContaining({
+        composition: expect.objectContaining({ storyCopy: expect.objectContaining({ highlights: expect.any(Array) }) }),
+      }),
+    }))
     expect(repository.enqueueJob).not.toHaveBeenCalled()
+    await expect(response.json()).resolves.toMatchObject({ queued: true, storyCopy: expect.any(Object) })
   })
 
   it("queues an approved Reel through the atomic render-job operation", async () => {

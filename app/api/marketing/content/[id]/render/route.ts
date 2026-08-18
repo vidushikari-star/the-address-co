@@ -43,12 +43,13 @@ export async function POST(_request: Request, context: Context) {
       }
       const renderToken = crypto.randomUUID()
       const composition = { ...record.content.composition, renderToken }
-      await MarketingRepository.updateContent(id, { composition, status: "rendering" }, access.user.id)
-      await MarketingRepository.enqueueJob({
+      await MarketingRepository.queueStaticRender({
         contentId: id,
         type: staticRenderJobType(record.content.contentType),
-        input: { resumeApproved: true, renderToken },
-        idempotencyKey: `${staticRenderJobType(record.content.contentType)}:${id}:${renderToken}`,
+        renderToken,
+        updatedBy: access.user.id,
+        resumeApproved: true,
+        changes: { composition },
       })
       await MarketingRepository.addAuditLog({ actorId: access.user.id, contentId: id, action: "render.requested", metadata: { format: record.content.contentType } })
       return NextResponse.json({ queued: true }, { status: 202 })

@@ -1,5 +1,5 @@
 import { getInstagramFormat } from "@/lib/marketing/instagram-format"
-import { storyLayoutError } from "@/lib/marketing/story-layout"
+import { fitStoryCopy, storyLayoutError } from "@/lib/marketing/story-layout"
 import type {
   MarketingAsset,
   MarketingContent,
@@ -61,12 +61,14 @@ export function composeStaticInstagramContent(input: {
   if (format.id === "story") {
     const source = selected[0]
     if (!source) throw new Error("A Story needs one selected image source before it can be rendered.")
+    const fit = fitStoryCopy(input.creative.storyCopy)
+    if (!fit.fits) throw new Error("Story copy cannot fit its mobile-safe layout. Shorten the visual copy and try again.")
     const composition: StoryComposition = {
       propertyId,
       format: "story",
       aspectRatio: "9:16",
       sourceAssetId: source.id,
-      storyCopy: input.creative.storyCopy,
+      storyCopy: fit.storyCopy,
       layoutStyle: "editorial_panel",
       typographyStyle: input.typographyStyle ?? "modern_sans",
       renderToken,

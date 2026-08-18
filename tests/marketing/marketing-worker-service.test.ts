@@ -321,6 +321,32 @@ describe("MarketingWorkerService render queue", () => {
     })
   })
 
+  it("cancels an obsolete static-render failure without changing the newer Story status", async () => {
+    const candidate = queuedJob({ type: "render_image", input: { renderToken: "old-token" } })
+    const discovery = queryWithRows([candidate])
+    const lock = lockQuery(queuedJob({ type: "render_image", status: "running", attempts: 1, progress: 5, input: { renderToken: "old-token" } }))
+    const currentContent = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn() }
+    currentContent.select.mockReturnValue(currentContent)
+    currentContent.eq.mockReturnValue(currentContent)
+    currentContent.maybeSingle.mockResolvedValue({ data: { composition: { renderToken: "new-token" } }, error: null })
+    const cancelled = terminalUpdateQuery()
+    vi.spyOn(privateWorker(), "process").mockRejectedValue(new Error("This static render is stale."))
+    let jobTableCalls = 0
+    admin.client.from.mockImplementation((table: string) => {
+      if (table === "marketing_jobs") return [discovery, lock, cancelled][jobTableCalls++]
+      if (table === "marketing_content") return currentContent
+      throw new Error(`Unexpected table: ${table}`)
+    })
+
+    await expect(MarketingWorkerService.run(1, { jobTypes: RENDER_JOB_TYPES }))
+      .resolves.toEqual([{ id: "job-1", status: "skipped" }])
+
+    expect(cancelled.update).toHaveBeenCalledWith(expect.objectContaining({
+      status: "cancelled",
+      error: "Superseded by a newer static render request.",
+    }))
+  })
+
   it("defers a render when the worker memory guard is below its safe threshold without failing the Reel", async () => {
     const candidate = queuedJob()
     const discovery = queryWithRows([candidate])

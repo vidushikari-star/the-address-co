@@ -13,7 +13,9 @@ export function StoryPreviewPanel({ content }: { content: MarketingContent }) {
     <div className="relative mx-auto aspect-[9/16] w-full max-w-sm overflow-hidden rounded-xl bg-zinc-900 shadow-sm">
       {content.renderedUrl
         ? <img className="absolute inset-0 h-full w-full object-cover" src={content.renderedUrl} alt="Rendered Instagram Story" />
-        : <div className="flex h-full items-center justify-center p-8 text-center text-sm text-zinc-300">Story creative is rendering. A raw CRM source image is never used as the final Story preview.</div>}
+        : content.status === "failed"
+          ? <div className="flex h-full items-center justify-center p-8 text-center text-sm text-zinc-300">Story rendering failed. Edit or regenerate the visual copy, then retry rendering. A raw CRM source image is never used as the final Story preview.</div>
+          : <div className="flex h-full items-center justify-center p-8 text-center text-sm text-zinc-300">Story creative is rendering. A raw CRM source image is never used as the final Story preview.</div>}
       <div aria-hidden className="pointer-events-none absolute border border-dashed border-white/45" style={{ top: `${STORY_LAYOUT.safe.top / STORY_LAYOUT.height * 100}%`, bottom: `${STORY_LAYOUT.safe.bottom / STORY_LAYOUT.height * 100}%`, left: `${STORY_LAYOUT.safe.left / STORY_LAYOUT.width * 100}%`, right: `${STORY_LAYOUT.safe.right / STORY_LAYOUT.width * 100}%` }} />
       {plans.map(plan => <span key={plan.role} className="sr-only">{plan.role}: {plan.text}</span>)}
     </div>

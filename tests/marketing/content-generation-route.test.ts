@@ -7,6 +7,7 @@ const repository = vi.hoisted(() => ({
   getActiveBrandLogo: vi.fn(),
   updateContent: vi.fn(),
   enqueueJob: vi.fn(),
+  queueStaticRender: vi.fn(),
   addAuditLog: vi.fn(),
   recordUsage: vi.fn(),
 }))
@@ -117,14 +118,14 @@ describe("POST /api/marketing/content/:id/generate", () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     const sourceAssetId = "34d1e601-18e9-4caa-9cc4-8af4c11888f1"
     repository.getContentById.mockResolvedValue({
-      content: { id: "1e149a39-7321-42d1-900c-7389c0da37a3", primaryPropertyId: property.id, propertySnapshot: property, contentType: "story", creativeDirection: "luxury_editorial", status: "draft", composition: {} },
+      content: { id: "1e149a39-7321-42d1-900c-7389c0da37a3", primaryPropertyId: property.id, propertySnapshot: property, contentType: "story", creativeDirection: "luxury_editorial", status: "rendering", composition: {} },
       assets: [{ id: sourceAssetId, kind: "original_reference", mediaType: "image", sourceUrl: "https://images.example/villa.jpg", metadata: {}, sortOrder: 0, createdAt: "2026-08-10T00:00:00.000Z" }],
     })
     repository.getPropertySnapshot.mockResolvedValue(property)
     repository.getBrandSettings.mockResolvedValue({ preferredTone: "Premium", defaultHashtags: ["#NorthGoa"], excludedWords: [], brandColors: {}, timezone: "Asia/Kolkata" })
     repository.getActiveBrandLogo.mockResolvedValue({ id: "8ae7a13d-bcaa-4b58-9355-c3d161f8ae42" })
     repository.updateContent.mockResolvedValue({ id: "1e149a39-7321-42d1-900c-7389c0da37a3", ...creative })
-    repository.enqueueJob.mockResolvedValue({ id: "job-1" })
+    repository.queueStaticRender.mockResolvedValue({ content: { id: "1e149a39-7321-42d1-900c-7389c0da37a3", ...creative }, job: { id: "job-1" } })
     repository.addAuditLog.mockResolvedValue(undefined)
     repository.recordUsage.mockResolvedValue(undefined)
     generate.mockResolvedValue(creative)
@@ -132,9 +133,13 @@ describe("POST /api/marketing/content/:id/generate", () => {
     const response = await POST(new Request("http://localhost/api/marketing/content/1e149a39-7321-42d1-900c-7389c0da37a3/generate", { method: "POST", body: JSON.stringify({}) }), { params: Promise.resolve({ id: "1e149a39-7321-42d1-900c-7389c0da37a3" }) })
 
     expect(response.status).toBe(200)
-    expect(repository.updateContent).toHaveBeenCalledWith("1e149a39-7321-42d1-900c-7389c0da37a3", expect.objectContaining({
-      composition: expect.objectContaining({ format: "story", aspectRatio: "9:16", sourceAssetId, storyCopy: creative.storyCopy }),
-    }), "admin-1")
-    expect(repository.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "render_image", idempotencyKey: expect.stringMatching(/^render_image:/) }))
+    expect(repository.queueStaticRender).toHaveBeenCalledWith(expect.objectContaining({
+      contentId: "1e149a39-7321-42d1-900c-7389c0da37a3",
+      type: "render_image",
+      renderToken: expect.any(String),
+      changes: expect.objectContaining({
+        composition: expect.objectContaining({ format: "story", aspectRatio: "9:16", sourceAssetId, storyCopy: creative.storyCopy }),
+      }),
+    }))
   })
 })

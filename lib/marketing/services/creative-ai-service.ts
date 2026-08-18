@@ -2,6 +2,7 @@ import OpenAI from "openai"
 import { zodTextFormat } from "openai/helpers/zod"
 
 import { CreativeOutputSchema, ReelStoryboardSchema, StoryCopySchema } from "@/lib/marketing/schemas"
+import { fitStoryCopy, STORY_COPY_GUIDANCE } from "@/lib/marketing/story-layout"
 import type {
   CreativeDirection,
   MarketingBrandSettings,
@@ -231,86 +232,90 @@ export class CreativeAIService {
       throw new Error("OPENAI_API_KEY is not configured")
     }
 
-    const instructions = [
-      "You are the private editorial marketing assistant for a luxury real-estate CRM.",
-      "Return the structured output that matches the supplied schema.",
-      "Use only the supplied inventory facts. Never invent amenities, views, ROI, availability, room counts, size, price, location facts, or urgency.",
-      "When a fact is absent, omit it. Generic stylistic language is allowed only when it does not imply an unsupported property fact.",
-      "Use premium, sophisticated, editorial wording. Avoid cheesy sales language and excessive emojis.",
-      input.contentType === "story"
-        ? "For Story output, make storyCopy a concise visual script: headline is at most two short mobile lines, supportingLine is a short fact-grounded phrase, highlights are compact, priceLine is empty when price should not be shown, and cta is one short line. Never put a paragraph or hashtags in storyCopy; it will be burned into a 9:16 creative. The feed-style caption remains separate metadata."
-        : "",
-      `Brand tone: ${input.settings.preferredTone}`,
-      input.settings.brandName ? `Brand name: ${input.settings.brandName}` : "",
-      input.settings.instagramHandle ? `Instagram handle: @${input.settings.instagramHandle}` : "",
-      input.settings.website ? `Website: ${input.settings.website}` : "",
-      input.settings.whatsappCta ? `Contact / WhatsApp CTA: ${input.settings.whatsappCta}` : "",
-      input.settings.preferredCta ? `Preferred CTA: ${input.settings.preferredCta}` : "",
-      input.settings.excludedWords.length ? `Excluded words: ${input.settings.excludedWords.join(", ")}` : "",
-      input.recentContent?.length
-        ? `Avoid repeating these recently used hooks/headlines for this property: ${input.recentContent.map(item => item.hook || item.headline).filter(Boolean).join(" | ")}`
-        : "",
-    ].filter(Boolean).join("\n")
-
     const openai = openAiClient()
+    const requestCreative = async (repairInstruction?: string) => {
+      const instructions = [
+        "You are the private editorial marketing assistant for a luxury real-estate CRM.",
+        "Return the structured output that matches the supplied schema.",
+        "Use only the supplied inventory facts. Never invent amenities, views, ROI, availability, room counts, size, price, location facts, or urgency.",
+        "When a fact is absent, omit it. Generic stylistic language is allowed only when it does not imply an unsupported property fact.",
+        "Use premium, sophisticated, editorial wording. Avoid cheesy sales language and excessive emojis.",
+        input.contentType === "story"
+          ? `For Story output, make storyCopy a concise visual script for a 1080×1920 mobile-safe renderer. Headline: at most ${STORY_COPY_GUIDANCE.headline.maximumLines} short lines / ${STORY_COPY_GUIDANCE.headline.recommendedCharacters} characters. Supporting line: at most ${STORY_COPY_GUIDANCE.supportingLine.maximumLines} short lines / ${STORY_COPY_GUIDANCE.supportingLine.recommendedCharacters} characters. Use no more than ${STORY_COPY_GUIDANCE.highlights.maximumItems} highlights, each one line and at most ${STORY_COPY_GUIDANCE.highlights.recommendedCharactersPerItem} characters. Price: at most ${STORY_COPY_GUIDANCE.priceLine.maximumLines} short lines / ${STORY_COPY_GUIDANCE.priceLine.recommendedCharacters} characters. CTA: at most ${STORY_COPY_GUIDANCE.cta.maximumLines} short lines / ${STORY_COPY_GUIDANCE.cta.recommendedCharacters} characters. Never put a paragraph or hashtags in storyCopy; it will be burned into a 9:16 creative. The feed-style caption remains separate metadata.`
+          : "",
+        `Brand tone: ${input.settings.preferredTone}`,
+        input.settings.brandName ? `Brand name: ${input.settings.brandName}` : "",
+        input.settings.instagramHandle ? `Instagram handle: @${input.settings.instagramHandle}` : "",
+        input.settings.website ? `Website: ${input.settings.website}` : "",
+        input.settings.whatsappCta ? `Contact / WhatsApp CTA: ${input.settings.whatsappCta}` : "",
+        input.settings.preferredCta ? `Preferred CTA: ${input.settings.preferredCta}` : "",
+        input.settings.excludedWords.length ? `Excluded words: ${input.settings.excludedWords.join(", ")}` : "",
+        input.recentContent?.length
+          ? `Avoid repeating these recently used hooks/headlines for this property: ${input.recentContent.map(item => item.hook || item.headline).filter(Boolean).join(" | ")}`
+          : "",
+        repairInstruction ?? "",
+      ].filter(Boolean).join("\n")
 
-    let response
-    try {
-      response = await openai.responses.parse({
-        model: process.env.OPENAI_MARKETING_MODEL ?? DEFAULT_MARKETING_MODEL,
-        max_output_tokens: MARKETING_MAX_OUTPUT_TOKENS,
-        input: [
-          { role: "system", content: instructions },
-          {
-            role: "user",
-            content: JSON.stringify({
-              requestedContentType: input.contentType,
-              creativeDirection: input.creativeDirection,
-              propertyFacts: factLines(input.property),
-              brandSettings: {
-                brandName: input.settings.brandName,
-                instagramHandle: input.settings.instagramHandle,
-                website: input.settings.website,
-                whatsappCta: input.settings.whatsappCta,
-                preferredTone: input.settings.preferredTone,
-                preferredCta: input.settings.preferredCta,
-                typographyPreference: input.settings.fontFamily,
-                defaultHashtags: input.settings.defaultHashtags,
-                excludedWords: input.settings.excludedWords,
-              },
-            }),
-          },
-        ],
-        text: {
-          format: zodTextFormat(CreativeOutputSchema, "marketing_creative"),
-        },
-      })
-    } catch (error) {
-      logRequestFailure(error)
-      if (isStructuredOutputParseError(error)) {
-        throw new Error("OpenAI structured output could not be parsed.")
+      let response
+      try {
+        response = await openai.responses.parse({
+          model: process.env.OPENAI_MARKETING_MODEL ?? DEFAULT_MARKETING_MODEL,
+          max_output_tokens: MARKETING_MAX_OUTPUT_TOKENS,
+          input: [
+            { role: "system", content: instructions },
+            {
+              role: "user",
+              content: JSON.stringify({
+                requestedContentType: input.contentType,
+                creativeDirection: input.creativeDirection,
+                propertyFacts: factLines(input.property),
+                brandSettings: {
+                  brandName: input.settings.brandName,
+                  instagramHandle: input.settings.instagramHandle,
+                  website: input.settings.website,
+                  whatsappCta: input.settings.whatsappCta,
+                  preferredTone: input.settings.preferredTone,
+                  preferredCta: input.settings.preferredCta,
+                  typographyPreference: input.settings.fontFamily,
+                  defaultHashtags: input.settings.defaultHashtags,
+                  excludedWords: input.settings.excludedWords,
+                },
+              }),
+            },
+          ],
+          text: { format: zodTextFormat(CreativeOutputSchema, "marketing_creative") },
+        })
+      } catch (error) {
+        logRequestFailure(error)
+        if (isStructuredOutputParseError(error)) throw new Error("OpenAI structured output could not be parsed.")
+        throw new Error("OpenAI generation request failed.")
       }
-      throw new Error("OpenAI generation request failed.")
-    }
 
-    const diagnostics = logResponseDiagnostics(response)
-    if (diagnostics.refused) throw new Error("OpenAI refused the request.")
-    if (response.status === "incomplete") {
-      if (response.incomplete_details?.reason === "max_output_tokens") {
-        throw new Error("OpenAI output exceeded configured token limit.")
+      const diagnostics = logResponseDiagnostics(response)
+      if (diagnostics.refused) throw new Error("OpenAI refused the request.")
+      if (response.status === "incomplete") {
+        if (response.incomplete_details?.reason === "max_output_tokens") throw new Error("OpenAI output exceeded configured token limit.")
+        throw new Error("OpenAI response was incomplete.")
       }
-      throw new Error("OpenAI response was incomplete.")
-    }
-    if (response.status && response.status !== "completed") {
-      throw new Error("OpenAI response was not completed.")
-    }
-    if (!response.output_parsed) {
-      if (diagnostics.hasText) throw new Error("OpenAI structured output could not be parsed.")
-      throw new Error("OpenAI returned no generated content.")
+      if (response.status && response.status !== "completed") throw new Error("OpenAI response was not completed.")
+      if (!response.output_parsed) {
+        if (diagnostics.hasText) throw new Error("OpenAI structured output could not be parsed.")
+        throw new Error("OpenAI returned no generated content.")
+      }
+      return CreativeOutputSchema.parse(response.output_parsed)
     }
 
-    // responses.parse validates with this same Zod schema before exposing output_parsed.
-    const output = CreativeOutputSchema.parse(response.output_parsed)
+    let output = await requestCreative()
+    if (input.contentType === "story") {
+      let fit = fitStoryCopy(output.storyCopy)
+      if (fit.requiresAiCondensation) {
+        console.info("OpenAI Story copy repair requested:", JSON.stringify({ reason: "mobile_safe_layout", attempts: 1 }))
+        output = await requestCreative("Repair only storyCopy: condense it to the explicit line and character limits above. Preserve supported facts, intent, and brand exclusions. Do not add new facts.")
+        fit = fitStoryCopy(output.storyCopy)
+      }
+      if (!fit.fits) throw new Error("AI Story copy could not be made mobile-safe. Please use a shorter creative instruction.")
+      output = { ...output, storyCopy: fit.storyCopy }
+    }
     return validateBrandSafety(output, input.settings)
   }
 
@@ -416,41 +421,53 @@ export class CreativeAIService {
     userPrompt: string
   }): Promise<CreativeOutput["storyCopy"]> {
     if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured")
-    let response
-    try {
-      response = await openAiClient().responses.parse({
-        model: process.env.OPENAI_MARKETING_MODEL ?? DEFAULT_MARKETING_MODEL,
-        max_output_tokens: 500,
-        input: [
-          { role: "system", content: [
-            "You are the visual Story editor for a luxury real-estate CRM.",
-            "Return only the supplied concise Story copy schema.",
-            "Use only supplied property facts. Never invent facts.",
-            "Every value is burned into a 1080×1920 Instagram Story: headline max two short lines, supporting line max three, highlights compact, price line optional, CTA one line.",
-            "Never include a full feed caption, paragraph, hashtag list, or unsupported claim.",
-            `Brand tone: ${input.settings.preferredTone}`,
-            input.settings.excludedWords.length ? `Excluded words: ${input.settings.excludedWords.join(", ")}` : "",
-            `Creative direction: ${input.creativeDirection}`,
-            `Requested improvement: ${input.userPrompt}`,
-          ].filter(Boolean).join("\n") },
-          { role: "user", content: JSON.stringify({ propertyFacts: factLines(input.property), currentStoryCopy: input.currentStoryCopy }) },
-        ],
-        text: { format: zodTextFormat(StoryCopySchema, "marketing_story_copy") },
-      })
-    } catch (error) {
-      logRequestFailure(error)
-      if (isStructuredOutputParseError(error)) throw new Error("OpenAI structured Story copy could not be parsed.")
-      throw new Error("OpenAI Story copy generation request failed.")
+    const requestStoryCopy = async (repairInstruction?: string) => {
+      let response
+      try {
+        response = await openAiClient().responses.parse({
+          model: process.env.OPENAI_MARKETING_MODEL ?? DEFAULT_MARKETING_MODEL,
+          max_output_tokens: 500,
+          input: [
+            { role: "system", content: [
+              "You are the visual Story editor for a luxury real-estate CRM.",
+              "Return only the supplied concise Story copy schema.",
+              "Use only supplied property facts. Never invent facts.",
+              `Every value is burned into a 1080×1920 Instagram Story. Headline: ≤${STORY_COPY_GUIDANCE.headline.maximumLines} short lines / ${STORY_COPY_GUIDANCE.headline.recommendedCharacters} characters. Supporting line: ≤${STORY_COPY_GUIDANCE.supportingLine.maximumLines} lines / ${STORY_COPY_GUIDANCE.supportingLine.recommendedCharacters} characters. Use ≤${STORY_COPY_GUIDANCE.highlights.maximumItems} highlights, each one line / ${STORY_COPY_GUIDANCE.highlights.recommendedCharactersPerItem} characters. Price: ≤${STORY_COPY_GUIDANCE.priceLine.maximumLines} lines / ${STORY_COPY_GUIDANCE.priceLine.recommendedCharacters} characters. CTA: ≤${STORY_COPY_GUIDANCE.cta.maximumLines} lines / ${STORY_COPY_GUIDANCE.cta.recommendedCharacters} characters.`,
+              "Never include a full feed caption, paragraph, hashtag list, or unsupported claim.",
+              `Brand tone: ${input.settings.preferredTone}`,
+              input.settings.excludedWords.length ? `Excluded words: ${input.settings.excludedWords.join(", ")}` : "",
+              `Creative direction: ${input.creativeDirection}`,
+              `Requested improvement: ${input.userPrompt}`,
+              repairInstruction ?? "",
+            ].filter(Boolean).join("\n") },
+            { role: "user", content: JSON.stringify({ propertyFacts: factLines(input.property), currentStoryCopy: input.currentStoryCopy }) },
+          ],
+          text: { format: zodTextFormat(StoryCopySchema, "marketing_story_copy") },
+        })
+      } catch (error) {
+        logRequestFailure(error)
+        if (isStructuredOutputParseError(error)) throw new Error("OpenAI structured Story copy could not be parsed.")
+        throw new Error("OpenAI Story copy generation request failed.")
+      }
+      const diagnostics = logResponseDiagnostics(response)
+      if (diagnostics.refused) throw new Error("OpenAI refused the Story copy request.")
+      if (response.status && response.status !== "completed") throw new Error("OpenAI Story copy response was not completed.")
+      if (!response.output_parsed) throw new Error("OpenAI returned no Story copy.")
+      return StoryCopySchema.parse(response.output_parsed)
     }
-    const diagnostics = logResponseDiagnostics(response)
-    if (diagnostics.refused) throw new Error("OpenAI refused the Story copy request.")
-    if (response.status && response.status !== "completed") throw new Error("OpenAI Story copy response was not completed.")
-    if (!response.output_parsed) throw new Error("OpenAI returned no Story copy.")
-    const storyCopy = StoryCopySchema.parse(response.output_parsed)
+
+    let storyCopy = await requestStoryCopy()
+    let fit = fitStoryCopy(storyCopy)
+    if (fit.requiresAiCondensation) {
+      console.info("OpenAI Story copy repair requested:", JSON.stringify({ reason: "mobile_safe_layout", attempts: 1 }))
+      storyCopy = await requestStoryCopy("Repair only the visual text to the explicit mobile-safe limits. Preserve supported facts, the requested edit, and brand exclusions; do not add facts.")
+      fit = fitStoryCopy(storyCopy)
+    }
+    if (!fit.fits) throw new Error("AI Story copy could not be made mobile-safe. Please use a shorter improvement instruction.")
     return validateBrandSafety({
-      campaignConcept: "story", hook: storyCopy.headline, headline: storyCopy.headline,
-      caption: "story", shortCaption: "story", cta: storyCopy.cta, hashtags: ["#story"],
-      onScreenText: [], carouselSlides: [], storyCopy, coverText: "", altText: "",
+      campaignConcept: "story", hook: fit.storyCopy.headline, headline: fit.storyCopy.headline,
+      caption: "story", shortCaption: "story", cta: fit.storyCopy.cta, hashtags: ["#story"],
+      onScreenText: [], carouselSlides: [], storyCopy: fit.storyCopy, coverText: "", altText: "",
       suggestedDuration: 15, transitions: [], audioStyle: "ambient", factsUsed: [],
     }, input.settings).storyCopy
   }
