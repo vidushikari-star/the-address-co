@@ -333,8 +333,12 @@ grant execute on function public.recover_marketing_publication(uuid, uuid) to au
 -- orphaned `publishing` content is reconciled without ever issuing a second
 -- media_publish request. An existing Meta media ID is durable success; every
 -- other prior publish attempt is deliberately marked ambiguous.
+-- Keep the original two-column return contract. The worker treats any future
+-- reconciliation count as optional, and changing OUT columns would require a
+-- DROP FUNCTION that could break unknown API callers despite there being no
+-- current catalog dependents.
 create or replace function public.recover_stale_marketing_jobs()
-returns table (requeued_count integer, failed_publish_count integer, reconciled_publish_count integer)
+returns table (requeued_count integer, failed_publish_count integer)
 language plpgsql
 security definer
 set search_path = public
@@ -343,7 +347,6 @@ declare
   stale_after timestamptz := now() - interval '1 hour';
   requeued integer := 0;
   failed_publishes integer := 0;
-  reconciled integer := 0;
 begin
   if coalesce(auth.role(), '') <> 'service_role' then
     raise exception 'Marketing worker access is required.';
@@ -413,12 +416,12 @@ begin
         select 1 from public.marketing_jobs as job
         where job.content_id = content.id and job.type = 'publish_instagram' and job.status in ('queued', 'running')
       )
-    returning content.id
+    returning content.id as content_id
   ), repaired_orphans as (
     update public.marketing_content as content
     set status = 'published', published_at = coalesce(content.published_at, now()), last_error = null
-    where content.id in (select id from recovered_orphans)
-    returning content.id
+    where content.id in (select content_id from recovered_orphans)
+    returning content.id as content_id
   ), ambiguous_publications as (
     update public.marketing_publications as publication
     set status = 'failed', last_error = case
@@ -433,13 +436,13 @@ begin
         select 1 from public.marketing_jobs as job
         where job.content_id = content.id and job.type = 'publish_instagram' and job.status in ('queued', 'running')
       )
-    returning content.id, publication.publish_attempted_at
+    returning content.id as content_id, publication.publish_attempted_at
   ), failed_orphans as (
     update public.marketing_content as content
     set status = 'failed', last_error = case
       when exists (
         select 1 from ambiguous_publications as publication
-        where publication.id = content.id and publication.publish_attempted_at is not null
+        where publication.content_id = content.id and publication.publish_attempted_at is not null
       ) then 'Publication outcome requires verification before retrying.'
       else 'Publishing worker disappeared before media_publish. It is safe to return this item to Approved.'
     end
@@ -448,12 +451,12 @@ begin
         select 1 from public.marketing_jobs as job
         where job.content_id = content.id and job.type = 'publish_instagram' and job.status in ('queued', 'running')
       )
-      and content.id not in (select id from repaired_orphans)
-    returning content.id
+      and content.id not in (select content_id from repaired_orphans)
+    returning content.id as content_id
   )
-  select count(*) into reconciled from failed_orphans;
+  perform 1 from failed_orphans;
 
-  return query select requeued, failed_publishes, reconciled;
+  return query select requeued, failed_publishes;
 end;
 $$;
 

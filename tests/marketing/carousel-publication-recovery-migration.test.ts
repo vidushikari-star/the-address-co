@@ -24,5 +24,8 @@ describe("Carousel publication recovery migration", () => {
     expect(migration).toContain("Publication outcome requires verification before retrying.")
     expect(migration).toContain("create or replace function public.fail_marketing_publication")
     expect(migration).toContain("create or replace function public.recover_stale_marketing_jobs()")
+    expect(migration).toContain("returns table (requeued_count integer, failed_publish_count integer)")
+    expect(migration).toContain("returning content.id as content_id, publication.publish_attempted_at")
+    expect(migration).toContain("where publication.content_id = content.id and publication.publish_attempted_at is not null")
   })
 })
