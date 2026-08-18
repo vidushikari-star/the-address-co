@@ -347,6 +347,7 @@ declare
   stale_after timestamptz := now() - interval '1 hour';
   requeued integer := 0;
   failed_publishes integer := 0;
+  reconciled_orphans integer := 0;
 begin
   if coalesce(auth.role(), '') <> 'service_role' then
     raise exception 'Marketing worker access is required.';
@@ -454,7 +455,8 @@ begin
       and content.id not in (select content_id from repaired_orphans)
     returning content.id as content_id
   )
-  perform 1 from failed_orphans;
+  select count(*) into reconciled_orphans
+  from failed_orphans;
 
   return query select requeued, failed_publishes;
 end;
