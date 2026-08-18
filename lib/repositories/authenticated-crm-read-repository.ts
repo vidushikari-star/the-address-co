@@ -525,7 +525,7 @@ export function createAuthenticatedCrmReadRepository(supabase: AuthenticatedCrmC
         useLinkedPropertyData
           ? propertyIds.length ? supabase.from("commissions").select("amount").in("property_id", propertyIds) : Promise.resolve({ data: [], error: null })
           : supabase.from("commissions").select("amount").eq("contact_id", contactId),
-        supabase.from("activities").select("date,created_at").eq("contact_id", contactId).order("created_at", { ascending: false }).limit(1),
+        supabase.from("activities").select("activity_date,created_at").eq("contact_id", contactId).order("created_at", { ascending: false }).limit(1),
       ])
 
       if (dealsResult.error) throw dealsResult.error
@@ -541,7 +541,7 @@ export function createAuthenticatedCrmReadRepository(supabase: AuthenticatedCrmC
         dealsCount: deals.length,
         closedDeals: deals.filter(deal => deal.stage === "closed_won").length,
         commissionGenerated: commissions.reduce((total, item) => total + Number(item.amount ?? 0), 0),
-        lastActivityAt: latestActivity?.date ?? latestActivity?.created_at,
+        lastActivityAt: latestActivity?.activity_date ?? latestActivity?.created_at,
       }
     },
 
