@@ -13,7 +13,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:integration": "vitest run tests/marketing/instagram-service.test.ts tests/marketing/rendering.integration.test.ts",
-    "test:smoke": "vitest run tests/properties/create-property.test.ts tests/deals/deal-stage-action.test.ts tests/marketing/content-creation-route.test.ts tests/marketing/content-delivery.test.ts tests/marketing/approval-and-scheduler.test.ts tests/marketing/reel-version-render-route.test.ts tests/marketing/marketing-worker-service.test.ts tests/marketing/instagram-publishing.test.ts tests/integrations/housing-inventory.test.ts"
+    "test:smoke": "vitest run tests/properties/create-property.test.ts tests/deals/deal-stage-action.test.ts tests/marketing/content-creation-route.test.ts tests/marketing/content-delivery.test.ts tests/marketing/approval-and-scheduler.test.ts tests/marketing/reel-version-render-route.test.ts tests/marketing/marketing-worker-service.test.ts tests/marketing/instagram-publishing.test.ts tests/integrations/housing-inventory.test.ts",
+    "test:e2e:stage1": "node scripts/e2e/run-stage1.mjs",
+    "test:e2e:cleanup": "node scripts/e2e/cleanup.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -42,6 +44,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

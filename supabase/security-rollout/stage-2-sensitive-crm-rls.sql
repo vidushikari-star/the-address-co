@@ -6,11 +6,15 @@
 -- established an authoritative row-ownership model for every table. Enabling
 -- RLS with guessed predicates would break active CRM workflows or leak data.
 --
--- Before converting this template into a timestamped migration, add and test
--- one reviewed policy per table/action:
+-- Batch 1 now has a separately reviewed, timestamped migration proposal:
+-- 20260819120000_enable_stage_2_batch_1_contacts_property_contacts_rls.sql.
+-- It supersedes the earlier open ownership questions for contacts and
+-- property_contacts with the approved shared-CRM model: any profiled CRM user
+-- may perform CRUD through public.is_crm_user(). Calendar remains Batch 1B.
 --
---   contacts                 CRM users read/write; owner/advisor scope needs verification
---   property_contacts        admin-only mutation; CRM-read policy needs verification
+-- Before converting the remaining template entries into timestamped
+-- migrations, add and test one reviewed policy per table/action:
+--
 --   property_commissions     admin-only; financial relationship data
 --   commissions              admin all; sales own rows only by advisor_id
 --   commission_distributions admin-only
