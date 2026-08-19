@@ -365,7 +365,11 @@ data: {
   scheduledDate?: string
   scheduledTime?: string
   advisorId?: string
+  contactId?: string
+  propertyId?: string
+  status?: SiteVisitStatus
   notes?: string
+  buyerFeedback?: string
 }
 ): Promise<SiteVisit> {
 
@@ -398,10 +402,46 @@ if(data.advisorId !== undefined){
 }
 
 
+
+if(data.contactId !== undefined){
+
+  payload.contact_id =
+    data.contactId
+
+}
+
+
+
+if(data.propertyId !== undefined){
+
+  payload.property_id =
+    data.propertyId
+
+}
+
+
+
+if(data.status !== undefined){
+
+  payload.status =
+    data.status
+
+}
+
+
 if(data.notes !== undefined){
 
   payload.notes =
     data.notes || null
+
+}
+
+
+
+if(data.buyerFeedback !== undefined){
+
+  payload.buyer_feedback =
+    data.buyerFeedback || null
 
 }
 
@@ -438,6 +478,26 @@ return mapSiteVisitRow(
 row as SiteVisitRow
 )
 
+}
+
+
+
+export async function deleteSiteVisit(
+  id: string
+): Promise<void> {
+  const {
+    error,
+  } = await supabase
+    .from("site_visits")
+    .delete()
+    .eq(
+      "id",
+      id
+    )
+
+  if (error) {
+    throw error
+  }
 }
 
 export async function getAllSiteVisits(): Promise<SiteVisit[]> {

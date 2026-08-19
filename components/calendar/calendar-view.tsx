@@ -805,7 +805,7 @@ buyerFeedback:
 undefined,
 
 notes:
-undefined,
+selectedSiteVisit.notes,
 
 createdAt:
 new Date().toISOString(),

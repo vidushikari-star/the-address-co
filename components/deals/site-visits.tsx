@@ -18,12 +18,8 @@ import type {
 } from "@/types/property"
 
 import {
-  updateSiteVisitStatus,
-} from "@/lib/repositories/site-visit-repository"
-
-import {
-  createActivity,
-} from "@/lib/repositories/activity-repository"
+  updateSiteVisitWithActivity,
+} from "@/lib/services/site-visit-workflow"
 
 import {
   updateDeal,
@@ -179,19 +175,22 @@ useState<SiteVisit | null>(null)
 
 
 
-    await updateSiteVisitStatus(
-
-      visit.id,
-
-      value.status,
-
-      value.feedback
-
-    )
-
-
-
     try {
+
+      await updateSiteVisitWithActivity(
+        visit,
+        {
+          status:
+            value.status,
+
+          buyerFeedback:
+            value.feedback,
+
+          activityDescription:
+            property?.name ??
+            "Property",
+        }
+      )
 
       if(
         value.status === "completed" &&
@@ -214,68 +213,6 @@ useState<SiteVisit | null>(null)
 
       }
 
-
-
-
-
-      await createActivity({
-
-      type:
-        "site_visit",
-
-
-      title:
-
-        value.status === "completed"
-
-          ? "Site visit completed"
-
-          : value.status === "cancelled"
-
-          ? "Site visit cancelled"
-
-          : value.status === "rescheduled"
-
-          ? "Site visit rescheduled"
-
-          : "Site visit updated",
-
-
-
-      description:
-        property?.name ??
-        "Property",
-
-
-
-      body:
-        `Site visit status:
-${value.status.replace(
-  /_/g,
-  " "
-)}
-
-Buyer Feedback:
-${value.feedback || "No feedback added"}`,
-
-
-
-      dealId:
-        visit.dealId,
-
-
-      contactId:
-        visit.contactId,
-
-
-      propertyId:
-        visit.propertyId,
-
-
-      date:
-        new Date().toISOString(),
-
-      })
     } finally {
       // The site-visit write above succeeded, so always show its persisted state.
       router.refresh()

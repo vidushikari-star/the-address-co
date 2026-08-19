@@ -33,6 +33,8 @@ export interface CalendarItem {
 
   amount?:number
 
+  notes?: string
+
   contactName?: string
 
 propertyName?: string 

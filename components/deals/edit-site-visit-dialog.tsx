@@ -16,9 +16,19 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { updateSiteVisit } from "@/lib/repositories/site-visit-repository"
+import { ContactsRepository } from "@/lib/supabase/repositories/contacts.repository"
+import { getProperties } from "@/lib/repositories/property-repository"
+import { updateSiteVisitWithActivity } from "@/lib/services/site-visit-workflow"
+import { supabase } from "@/lib/supabase/client"
 
+import type { Contact } from "@/types/contact"
+import type { Property } from "@/types/property"
 import type { SiteVisit } from "@/types/site-visit"
+
+type Advisor = {
+  id: string
+  name: string
+}
 
 type Props = {
   visit: SiteVisit
@@ -36,6 +46,13 @@ export function EditSiteVisitDialog({
   const [date, setDate] = useState(visit.scheduledDate)
   const [time, setTime] = useState(visit.scheduledTime)
   const [notes, setNotes] = useState(visit.notes ?? "")
+  const [contactId, setContactId] = useState(visit.contactId)
+  const [propertyId, setPropertyId] = useState(visit.propertyId)
+  const [advisorId, setAdvisorId] = useState(visit.advisorId ?? "")
+  const [status, setStatus] = useState(visit.status)
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [properties, setProperties] = useState<Property[]>([])
+  const [advisors, setAdvisors] = useState<Advisor[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -44,15 +61,34 @@ export function EditSiteVisitDialog({
       setDate(visit.scheduledDate)
       setTime(visit.scheduledTime)
       setNotes(visit.notes ?? "")
+      setContactId(visit.contactId)
+      setPropertyId(visit.propertyId)
+      setAdvisorId(visit.advisorId ?? "")
+      setStatus(visit.status)
       setError(null)
+
+      Promise.all([
+        ContactsRepository.getAll(),
+        getProperties(),
+        supabase.from("user_profiles").select("id,name").order("name"),
+      ])
+        .then(([contactRows, propertyRows, advisorResult]) => {
+          setContacts(contactRows)
+          setProperties(propertyRows)
+          setAdvisors(advisorResult.data ?? [])
+        })
+        .catch((loadError) => {
+          console.error("Unable to load site visit options", loadError)
+          setError("Unable to load visit options. Please try again.")
+        })
     }
   }, [open, visit])
 
   async function save(event: React.FormEvent) {
     event.preventDefault()
 
-    if (!date || !time) {
-      setError("Visit date and time are required.")
+    if (!date || !time || !contactId || !propertyId || !advisorId) {
+      setError("A contact, property, assigned advisor, date, and time are required.")
       return
     }
 
@@ -60,10 +96,15 @@ export function EditSiteVisitDialog({
     setError(null)
 
     try {
-      await updateSiteVisit(visit.id, {
+      await updateSiteVisitWithActivity(visit, {
         scheduledDate: date,
         scheduledTime: time,
-        notes: notes.trim() || undefined,
+        contactId,
+        propertyId,
+        advisorId,
+        status,
+        notes: notes.trim(),
+        activityDescription: properties.find((property) => property.id === propertyId)?.name ?? "Property",
       })
 
       onOpenChange(false)
@@ -83,7 +124,7 @@ export function EditSiteVisitDialog({
           <DialogHeader className="p-5 pr-12">
             <DialogTitle>Edit Site Visit</DialogTitle>
             <DialogDescription>
-              Update the scheduled time or visit notes.
+              Keep the visit schedule, assignee, property, and contact in sync.
             </DialogDescription>
           </DialogHeader>
 
@@ -119,6 +160,97 @@ export function EditSiteVisitDialog({
                   onChange={(event) => setTime(event.target.value)}
                   required
                 />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor={`site-visit-${visit.id}-contact`}
+                className="text-sm font-medium"
+              >
+                Contact <span className="text-destructive">*</span>
+              </label>
+              <select
+                id={`site-visit-${visit.id}-contact`}
+                className="w-full rounded-lg border bg-background p-3"
+                value={contactId}
+                onChange={(event) => setContactId(event.target.value)}
+                required
+              >
+                <option value="">Select contact</option>
+                {contacts.map((contact) => (
+                  <option key={contact.id} value={contact.id}>
+                    {contact.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor={`site-visit-${visit.id}-property`}
+                className="text-sm font-medium"
+              >
+                Property <span className="text-destructive">*</span>
+              </label>
+              <select
+                id={`site-visit-${visit.id}-property`}
+                className="w-full rounded-lg border bg-background p-3"
+                value={propertyId}
+                onChange={(event) => setPropertyId(event.target.value)}
+                required
+              >
+                <option value="">Select property</option>
+                {properties.map((property) => (
+                  <option key={property.id} value={property.id}>
+                    {property.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label
+                  htmlFor={`site-visit-${visit.id}-advisor`}
+                  className="text-sm font-medium"
+                >
+                  Assigned advisor <span className="text-destructive">*</span>
+                </label>
+                <select
+                  id={`site-visit-${visit.id}-advisor`}
+                  className="w-full rounded-lg border bg-background p-3"
+                  value={advisorId}
+                  onChange={(event) => setAdvisorId(event.target.value)}
+                  required
+                >
+                  <option value="">Select advisor</option>
+                  {advisors.map((advisor) => (
+                    <option key={advisor.id} value={advisor.id}>
+                      {advisor.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor={`site-visit-${visit.id}-status`}
+                  className="text-sm font-medium"
+                >
+                  Status
+                </label>
+                <select
+                  id={`site-visit-${visit.id}-status`}
+                  className="w-full rounded-lg border bg-background p-3"
+                  value={status}
+                  onChange={(event) => setStatus(event.target.value as SiteVisit["status"])}
+                >
+                  <option value="scheduled">Scheduled</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="rescheduled">Rescheduled</option>
+                </select>
               </div>
             </div>
 

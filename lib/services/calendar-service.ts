@@ -188,6 +188,10 @@ status:
 visit.status,
 
 
+notes:
+visit.notes,
+
+
 contactId:
 visit.contactId,
 

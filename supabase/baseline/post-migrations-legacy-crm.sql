@@ -404,6 +404,7 @@ $$;
 
 create index if not exists activities_contact_id_idx on public.activities (contact_id);
 create index if not exists activities_deal_id_idx on public.activities (deal_id);
+create index if not exists activities_property_id_idx on public.activities (property_id);
 create index if not exists calendar_events_assigned_to_idx on public.calendar_events (assigned_to);
 create index if not exists calendar_events_contact_idx on public.calendar_events (contact_id);
 create index if not exists calendar_events_start_time_idx on public.calendar_events (start_time);

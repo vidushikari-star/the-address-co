@@ -21,8 +21,13 @@ import {
 import {
   getCalendarUsers,
   createCalendarEvent,
+  deleteCalendarEvent,
   updateCalendarEvent,
 } from "@/lib/repositories/calendar-event-repository"
+
+import {
+  createSiteVisitWithActivity,
+} from "@/lib/services/site-visit-workflow"
 
 import type {
   UserProfile,
@@ -436,6 +441,22 @@ export function CalendarEventForm({
 
 
 
+    if(
+      form.eventType === "site_visit"
+      && (
+        !form.contactId
+        || !form.propertyId
+        || !form.assignedTo
+      )
+    ){
+
+      setError("Site visits require a contact, property, and assigned advisor.")
+      return
+
+    }
+
+
+
     setSaving(true)
     setError(null)
 
@@ -490,7 +511,65 @@ export function CalendarEventForm({
 
 
 
+      const currentUser =
+        await getCurrentUser()
+
+      if(!currentUser){
+
+        throw new Error("You need to be signed in to create an event.")
+
+      }
+
+
+
       if(
+        form.eventType === "site_visit"
+      ){
+
+        await createSiteVisitWithActivity({
+          dealId:
+            form.dealId || undefined,
+
+          contactId:
+            form.contactId,
+
+          propertyId:
+            form.propertyId,
+
+          scheduledDate:
+            form.date,
+
+          scheduledTime:
+            form.time,
+
+          notes:
+            form.description.trim() || undefined,
+
+          advisorId:
+            form.assignedTo,
+
+          activityDescription:
+            form.title,
+        })
+
+
+
+        if(
+          mode === "edit"
+          && event
+        ){
+
+          await deleteCalendarEvent(
+            event.id
+          )
+
+        }
+
+      }
+
+
+
+      else if(
         mode === "edit" &&
         event
       ){
@@ -504,18 +583,6 @@ export function CalendarEventForm({
 
       }
       else{
-
-
-        const currentUser =
-          await getCurrentUser()
-
-        if(!currentUser){
-
-          throw new Error("You need to be signed in to create an event.")
-
-        }
-
-
 
         await createCalendarEvent({
 

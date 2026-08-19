@@ -9,9 +9,8 @@ import { FormDrawer } from "@/components/forms/form-drawer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { createActivity } from "@/lib/repositories/activity-repository"
 import { getProperties } from "@/lib/repositories/property-repository"
-import { createSiteVisit } from "@/lib/repositories/site-visit-repository"
+import { createSiteVisitWithActivity } from "@/lib/services/site-visit-workflow"
 import { supabase } from "@/lib/supabase/client"
 
 import type { Property } from "@/types/property"
@@ -97,7 +96,7 @@ export function SiteVisitDrawer({
     setError(null)
 
     try {
-      await createSiteVisit({
+      await createSiteVisitWithActivity({
         dealId,
         contactId,
         propertyId: form.propertyId,
@@ -105,23 +104,9 @@ export function SiteVisitDrawer({
         scheduledTime: form.time,
         notes: form.notes.trim() || undefined,
         advisorId: advisorId || undefined,
-      })
-
-      const property = properties.find(
-        (item) => item.id === form.propertyId
-      )
-
-      await createActivity({
-        type: "site_visit",
-        title: "Site visit scheduled",
-        description: property?.name ?? "Property",
-        body: `${form.date} ${form.time}\n\n${
-          form.notes.trim() || "No notes added"
-        }`,
-        dealId,
-        contactId,
-        propertyId: form.propertyId,
-        date: new Date().toISOString(),
+        activityDescription: properties.find(
+          (item) => item.id === form.propertyId
+        )?.name ?? "Property",
       })
 
       setForm(emptyForm)
