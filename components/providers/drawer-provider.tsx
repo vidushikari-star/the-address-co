@@ -1,18 +1,22 @@
 "use client"
 
 import {
+  useCallback,
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
 import { BuyerDrawer } from "@/components/forms/buyer-drawer"
 import { PropertyDrawer } from "@/components/forms/property-drawer"
 import { DealDrawer } from "@/components/forms/deal-drawer"
+import { RelationshipDrawer } from "@/components/forms/relationship-drawer"
 
-type DrawerType = "buyer" | "property" | "deal" | null
+type DrawerType = "buyer" | "relationship" | "property" | "deal" | null
 
 type DrawerContextType = {
   openDrawer: (drawer: Exclude<DrawerType, null>) => void
@@ -21,34 +25,63 @@ type DrawerContextType = {
 
 const DrawerContext = createContext<DrawerContextType | null>(null)
 
+function isDashboardDrawer(value: string | null): value is Exclude<DrawerType, null> {
+  return value === "relationship" || value === "property" || value === "deal"
+}
+
 export function DrawerProvider({
   children,
 }: {
   children: ReactNode
 }) {
   const [drawer, setDrawer] = useState<DrawerType>(null)
+  const pathname = usePathname()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const requestedDrawer = pathname === "/dashboard" ? searchParams.get("new") : null
+
+  const closeDrawer = useCallback(() => {
+    setDrawer(null)
+
+    if (requestedDrawer) {
+      router.replace(pathname)
+    }
+  }, [pathname, requestedDrawer, router])
+
+  useEffect(() => {
+    if (isDashboardDrawer(requestedDrawer)) {
+      setDrawer(requestedDrawer)
+    }
+  }, [requestedDrawer])
 
   const value = useMemo(
     () => ({
       openDrawer: (drawer: Exclude<DrawerType, null>) => {
         setDrawer(drawer)
       },
-      closeDrawer: () => {
-        setDrawer(null)
-      },
+      closeDrawer,
     }),
-    []
+    [closeDrawer]
   )
 
   return (
     <DrawerContext.Provider value={value}>
       {children}
 
-     <BuyerDrawer
+<BuyerDrawer
   open={drawer === "buyer"}
   onOpenChange={(open) => {
     if (!open) {
-      setDrawer(null)
+      closeDrawer()
+    }
+  }}
+/>
+
+<RelationshipDrawer
+  open={drawer === "relationship"}
+  onOpenChange={(open) => {
+    if (!open) {
+      closeDrawer()
     }
   }}
 />
@@ -57,7 +90,7 @@ export function DrawerProvider({
   open={drawer === "property"}
   onOpenChange={(open) => {
     if (!open) {
-      setDrawer(null)
+      closeDrawer()
     }
   }}
 />
@@ -66,14 +99,10 @@ export function DrawerProvider({
   open={drawer === "deal"}
   onOpenChange={(open) => {
     if (!open) {
-      setDrawer(null)
+      closeDrawer()
     }
   }}
 />
-
-      {/* PropertyDrawer coming soon */}
-
-      {/* DealDrawer coming soon */}
     </DrawerContext.Provider>
   )
 }

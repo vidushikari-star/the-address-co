@@ -13,9 +13,9 @@ import {
 import { formatIndiaDateTime } from "@/lib/utils/india-date"
 
 const workflowDetails: Record<CrmDraftWorkflow, { label: string; href: string }> = {
-  property: { label: "Property", href: "/properties/new" },
-  relationship: { label: "Relationship", href: "/contacts/new" },
-  deal: { label: "Deal", href: "/deals/new" },
+  property: { label: "Property", href: "/dashboard?new=property" },
+  relationship: { label: "Relationship", href: "/dashboard?new=relationship" },
+  deal: { label: "Deal", href: "/dashboard?new=deal" },
 }
 
 export default function CrmDraftsPage() {

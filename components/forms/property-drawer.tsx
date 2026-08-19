@@ -7,6 +7,7 @@ import {
   useState,
 } from "react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 
 import {
   FormDrawer,
@@ -56,6 +57,11 @@ import {
 import {
   addContactRelationshipType,
 } from "@/lib/supabase/repositories/contact-relationship.repository"
+import {
+  deleteCrmDraft,
+  getCrmDraft,
+  saveCrmDraft,
+} from "@/lib/repositories/crm-draft-repository"
 import type {
   Contact,
 } from "@/types/contact"
@@ -80,6 +86,29 @@ type PropertyDrawerProps = {
 
   }
 
+}
+
+type PropertySource = {
+  contactId: string
+  relationshipType: "owner" | "developer" | "mou_holder" | "broker"
+  commissionPercentage: string
+}
+
+const propertySourceRelationshipTypes = new Set<PropertySource["relationshipType"]>([
+  "owner",
+  "developer",
+  "mou_holder",
+  "broker",
+])
+
+function isPropertySource(value: unknown): value is PropertySource {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false
+
+  const source = value as Record<string, unknown>
+  return typeof source.contactId === "string"
+    && typeof source.commissionPercentage === "string"
+    && typeof source.relationshipType === "string"
+    && propertySourceRelationshipTypes.has(source.relationshipType as PropertySource["relationshipType"])
 }
 
 
@@ -119,6 +148,7 @@ export function PropertyDrawer({
 
 }:PropertyDrawerProps){
 
+const router = useRouter()
 
 const [
   contacts,
@@ -130,19 +160,7 @@ const [
   propertySources,
   setPropertySources,
 ] =
-useState<
-  {
-    contactId:string
-    relationshipType:
-      | "owner"
-      | "developer"
-      | "mou_holder"
-      | "broker"
-
-    commissionPercentage:string
-
-  }[]
->([])
+useState<PropertySource[]>([])
 
 
   const [
@@ -150,6 +168,16 @@ useState<
     setLoading,
   ] =
   useState(false)
+
+  const [
+    savingDraft,
+    setSavingDraft,
+  ] = useState(false)
+
+  const [
+    draftUpdatedAt,
+    setDraftUpdatedAt,
+  ] = useState<string | null>(null)
 
 
 
@@ -521,6 +549,7 @@ function removeDocument(index:number){
   setDocuments([])
 
   setPropertySources([])
+  setDraftUpdatedAt(null)
 
 
 
@@ -572,12 +601,46 @@ catch(error){
 
   useEffect(()=>{
 
+let cancelled = false
+
 if(open){
 
   resetForm()
 
   void loadContacts()
 
+  getCrmDraft("property")
+    .then(draft => {
+      if(cancelled || !draft){
+        return
+      }
+
+      const {
+        __propertySources: sources,
+        ...draftForm
+      } = draft.payload
+
+      setForm(current => ({
+        ...current,
+        ...draftForm,
+      } as typeof current))
+
+      if(Array.isArray(sources)){
+        setPropertySources(sources.filter(isPropertySource))
+      }
+
+      setDraftUpdatedAt(draft.updatedAt)
+    })
+    .catch(error => {
+      if(!cancelled){
+        console.error("Unable to load property draft", error)
+      }
+    })
+
+}
+
+return () => {
+  cancelled = true
 }
 
 },[
@@ -585,6 +648,32 @@ if(open){
   resetForm,
   loadContacts,
 ])
+
+  async function saveDraft(){
+
+    setSavingDraft(true)
+
+    try{
+
+      const draft = await saveCrmDraft("property", {
+        ...form,
+        __propertySources: propertySources,
+      })
+
+      setDraftUpdatedAt(draft.updatedAt)
+
+    } catch(error){
+
+      console.error("Unable to save property draft", error)
+      alert("Unable to save property draft")
+
+    } finally{
+
+      setSavingDraft(false)
+
+    }
+
+  }
 
 
 
@@ -859,12 +948,17 @@ property.id
 
 )
 
+      await deleteCrmDraft("property")
+
 
 
 
 
 
       resetForm()
+
+
+      router.refresh()
 
 
       onOpenChange(false)
@@ -1885,9 +1979,9 @@ onChange={
 
             variant="outline"
 
-            onClick={() =>
-              onOpenChange(false)
-            }
+            onClick={() => onOpenChange(false)}
+
+            disabled={loading || savingDraft}
 
           >
 
@@ -1899,9 +1993,26 @@ onChange={
 
           <Button
 
+            type="button"
+
+            variant="outline"
+
+            onClick={saveDraft}
+
+            disabled={loading || savingDraft}
+
+          >
+
+            {savingDraft ? "Saving draft..." : "Save Draft"}
+
+          </Button>
+
+
+          <Button
+
             type="submit"
 
-            disabled={loading}
+            disabled={loading || savingDraft}
 
           >
 
@@ -1912,6 +2023,12 @@ onChange={
             }
 
           </Button>
+
+          {draftUpdatedAt && (
+            <span className="self-center text-xs text-muted-foreground">
+              Draft saved {new Intl.DateTimeFormat("en-IN", { dateStyle:"medium", timeStyle:"short" }).format(new Date(draftUpdatedAt))}
+            </span>
+          )}
 
 
         </div>

@@ -4,6 +4,7 @@ import {
   useEffect,
   useState,
 } from "react"
+import { useRouter } from "next/navigation"
 
 import {
   FormDrawer,
@@ -32,6 +33,11 @@ import {
 import {
   supabase,
 } from "@/lib/supabase/client"
+import {
+  deleteCrmDraft,
+  getCrmDraft,
+  saveCrmDraft,
+} from "@/lib/repositories/crm-draft-repository"
 
 import type {
   Contact,
@@ -63,6 +69,17 @@ type SalesUser = {
 
 }
 
+function createInitialForm(){
+  return {
+    name:"",
+    contactId:"",
+    propertyId:"",
+    advisor:"",
+    advisorId:"",
+    price:"",
+  }
+}
+
 
 
 
@@ -75,6 +92,7 @@ export function DealDrawer({
 
 }:DealDrawerProps){
 
+  const router = useRouter()
 
 
   const [
@@ -88,6 +106,16 @@ export function DealDrawer({
     setError,
   ] =
   useState<string | null>(null)
+
+  const [
+    savingDraft,
+    setSavingDraft,
+  ] = useState(false)
+
+  const [
+    draftUpdatedAt,
+    setDraftUpdatedAt,
+  ] = useState<string | null>(null)
 
 
 
@@ -121,21 +149,7 @@ export function DealDrawer({
     form,
     setForm,
   ] =
-  useState({
-
-    name:"",
-
-    contactId:"",
-
-    propertyId:"",
-
-    advisor:"",
-
-    advisorId:"",
-
-    price:"",
-
-  })
+  useState(createInitialForm)
 
 
 
@@ -170,6 +184,8 @@ export function DealDrawer({
 
 
   useEffect(()=>{
+
+    let cancelled = false
 
 
     async function loadData(){
@@ -245,12 +261,61 @@ export function DealDrawer({
 
     if(open){
 
+      setForm(createInitialForm())
+      setDraftUpdatedAt(null)
+      setError(null)
+
       loadData()
 
+      getCrmDraft("deal")
+        .then(draft => {
+          if(cancelled || !draft){
+            return
+          }
+
+          setForm(current => ({
+            ...current,
+            ...draft.payload,
+          } as typeof current))
+          setDraftUpdatedAt(draft.updatedAt)
+        })
+        .catch(error => {
+          if(!cancelled){
+            console.error("Unable to load deal draft", error)
+          }
+        })
+
+    }
+
+    return () => {
+      cancelled = true
     }
 
 
   },[open])
+
+  async function saveDraft(){
+
+    setSavingDraft(true)
+    setError(null)
+
+    try{
+
+      const draft = await saveCrmDraft("deal", form)
+      setDraftUpdatedAt(draft.updatedAt)
+
+    } catch(error){
+
+      console.error("Unable to save deal draft", error)
+      setError("Unable to save the deal draft. Please try again.")
+
+    } finally{
+
+      setSavingDraft(false)
+
+    }
+
+  }
 
 
 
@@ -505,24 +570,15 @@ const commissionAmount =
 
       })
 
+      await deleteCrmDraft("deal")
 
 
-      setForm({
 
-        name:"",
+      setForm(createInitialForm())
+      setDraftUpdatedAt(null)
 
-        contactId:"",
 
-        propertyId:"",
-
-        advisor:"",
-
-        advisorId:"",
-
-        price:"",
-
-      })
-
+      router.refresh()
 
 
       onOpenChange(false)
@@ -814,7 +870,7 @@ const commissionAmount =
 
           variant="outline"
 
-          disabled={loading}
+          disabled={loading || savingDraft}
 
           onClick={() => onOpenChange(false)}
 
@@ -826,10 +882,26 @@ const commissionAmount =
 
         <Button
 
+          type="button"
+
+          variant="outline"
+
+          disabled={loading || savingDraft}
+
+          onClick={saveDraft}
+
+        >
+
+          {savingDraft ? "Saving draft..." : "Save Draft"}
+
+        </Button>
+
+        <Button
+
           type="submit"
 
           disabled={
-            loading
+            loading || savingDraft
           }
 
           className="w-full sm:w-auto"
@@ -845,6 +917,7 @@ const commissionAmount =
           }
 
         </Button>
+        {draftUpdatedAt && <span className="self-center text-xs text-muted-foreground">Draft saved {new Intl.DateTimeFormat("en-IN", { dateStyle:"medium", timeStyle:"short" }).format(new Date(draftUpdatedAt))}</span>}
         </div>
 
 

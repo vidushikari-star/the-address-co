@@ -23,6 +23,10 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 
+import {
+  useDrawer,
+} from "@/components/providers/drawer-provider"
+
 
 import {
   supabase,
@@ -81,6 +85,10 @@ export function AppHeader({
   user,
   notifications,
 }: AppHeaderProps){
+
+  const {
+    openDrawer,
+  } = useDrawer()
 
 
   const router =
@@ -245,7 +253,7 @@ const today = new Intl.DateTimeFormat(
               <DropdownMenuItem
 
                 onClick={() =>
-                  router.push("/contacts/new")
+                  openDrawer("relationship")
                 }
 
               >
@@ -263,7 +271,7 @@ const today = new Intl.DateTimeFormat(
               <DropdownMenuItem
 
                 onClick={() =>
-                  router.push("/properties/new")
+                  openDrawer("property")
                 }
 
               >
@@ -281,7 +289,7 @@ const today = new Intl.DateTimeFormat(
               <DropdownMenuItem
 
                 onClick={() =>
-                  router.push("/deals/new")
+                  openDrawer("deal")
                 }
 
               >
