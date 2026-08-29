@@ -202,13 +202,23 @@ export const ImproveReelSchema = z.object({
   prompt: z.string().trim().min(3).max(600),
 })
 
+/** The hard persisted and structured-output bounds for visual Story copy. */
+export const STORY_COPY_SCHEMA_LIMITS = Object.freeze({
+  headline: 72,
+  supportingLine: 150,
+  highlight: 60,
+  maximumHighlights: 3,
+  priceLine: 64,
+  cta: 60,
+})
+
 /** Mobile-readable, visual Story copy. It is deliberately separate from feed captions. */
 export const StoryCopySchema = z.object({
-  headline: z.string().trim().min(1).max(72),
-  supportingLine: z.string().trim().max(150),
-  highlights: z.array(z.string().trim().min(1).max(60)).max(3),
-  priceLine: z.string().trim().max(64),
-  cta: z.string().trim().min(1).max(60),
+  headline: z.string().trim().min(1).max(STORY_COPY_SCHEMA_LIMITS.headline),
+  supportingLine: z.string().trim().max(STORY_COPY_SCHEMA_LIMITS.supportingLine),
+  highlights: z.array(z.string().trim().min(1).max(STORY_COPY_SCHEMA_LIMITS.highlight)).max(STORY_COPY_SCHEMA_LIMITS.maximumHighlights),
+  priceLine: z.string().trim().max(STORY_COPY_SCHEMA_LIMITS.priceLine),
+  cta: z.string().trim().min(1).max(STORY_COPY_SCHEMA_LIMITS.cta),
 })
 
 export const StoryCompositionSchema = z.object({
@@ -293,11 +303,11 @@ const CompactStoryCopySchema = z.object({
   // These hard caps keep the structured response bounded. The stricter
   // mobile-safe editorial target remains in the prompt and layout service,
   // where a single bounded condensation repair can still be attempted.
-  headline: z.string().trim().min(1).max(72),
-  supportingLine: z.string().trim().max(150),
-  highlights: z.array(z.string().trim().min(1).max(60)).max(3),
-  priceLine: z.string().trim().max(64),
-  cta: z.string().trim().min(1).max(60),
+  headline: z.string().trim().min(1).max(STORY_COPY_SCHEMA_LIMITS.headline),
+  supportingLine: z.string().trim().max(STORY_COPY_SCHEMA_LIMITS.supportingLine),
+  highlights: z.array(z.string().trim().min(1).max(STORY_COPY_SCHEMA_LIMITS.highlight)).max(STORY_COPY_SCHEMA_LIMITS.maximumHighlights),
+  priceLine: z.string().trim().max(STORY_COPY_SCHEMA_LIMITS.priceLine),
+  cta: z.string().trim().min(1).max(STORY_COPY_SCHEMA_LIMITS.cta),
 })
 
 export const FeedCreativeGenerationSchema = z.object({

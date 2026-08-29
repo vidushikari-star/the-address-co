@@ -4,6 +4,7 @@ import {
   CONTENT_GENERATION_TOO_LONG_MESSAGE,
   CreativeAIService,
   MARKETING_OUTPUT_TOKEN_BUDGETS,
+  STORY_COPY_TOO_LONG_MESSAGE,
   fitStoryboardCopyForReelLayout,
 } from "@/lib/marketing/services/creative-ai-service"
 import type { MarketingBrandSettings, PropertyFactSnapshot, ReelStoryboard } from "@/lib/marketing/types"
@@ -31,7 +32,7 @@ const property: PropertyFactSnapshot = {
   bedrooms: 4,
   amenities: [],
   features: [],
-  media: [],
+  media: [{ id: "selected-image", url: "https://images.example/villa.jpg", type: "image", isCover: true }],
 }
 
 const creative = {
@@ -64,6 +65,13 @@ const storyboard: ReelStoryboard = {
   scenes: [{ assetId: sourceAssetId, overlayText: "Villa Verde", durationSeconds: 5, overlayPosition: "top_left", overlayType: "hook" }],
   endCard: { headline: "Villa Verde", cta: "Arrange a private viewing." },
 }
+
+const expectedPromptLimits = {
+  feed_single: ["headline ≤120", "caption ≤900", "short caption ≤220", "CTA ≤120", "hashtags, each ≤48", "alt text ≤300"],
+  carousel: ["caption ≤900", "CTA ≤120", "hashtags, each ≤48", "alt text ≤300"],
+  story: ["headline ≤72", "supporting line ≤150", "highlights, each ≤60", "price line ≤64", "CTA ≤60", "caption ≤700", "hashtags, each ≤48", "alt text ≤300"],
+  reel: ["hook ≤100", "caption ≤1000", "short caption ≤220", "CTA ≤120", "hashtags, each ≤48", "alt text ≤300", "cover text ≤80", "at most 6 overlays, each ≤80", "at most 4 transitions"],
+} as const
 
 const originalApiKey = process.env.OPENAI_API_KEY
 const originalFetch = global.fetch
@@ -150,6 +158,9 @@ describe("CreativeAIService", () => {
       expect(request.max_output_tokens).toBe(MARKETING_OUTPUT_TOKEN_BUDGETS[format])
       expect(fields).toEqual(expect.arrayContaining([...required]))
       expect(fields).not.toEqual(expect.arrayContaining([...omitted]))
+      for (const limit of expectedPromptLimits[format]) {
+        expect(request.input[0].content).toContain(limit)
+      }
       if (format === "carousel") {
         expect(request.input[0].content).toContain("Carousel images are intentionally clean")
         expect(output.carouselSlides).toEqual([])
@@ -198,9 +209,109 @@ describe("CreativeAIService", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
     const firstRequest = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
     const repairRequest = JSON.parse((fetchMock.mock.calls[1][1] as RequestInit).body as string)
-    expect(firstRequest.input[0].content).toContain("each one line")
+    expect(firstRequest.input[0].content).toContain("headline ≤72 characters")
+    expect(firstRequest.input[0].content).toContain("supporting line ≤150")
+    expect(firstRequest.input[0].content).toContain("price line ≤64")
+    expect(firstRequest.input[0].content).toContain("CTA ≤60")
     expect(repairRequest.input[0].content).toContain("Repair only storyCopy")
     expect(output.storyCopy.highlights.every(item => item.length <= 32)).toBe(true)
+  })
+
+  it("repairs an otherwise-valid Story CTA that exceeds 60 characters once", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    const tooLongCta = "Request a private presentation and personalised property details today."
+    expect(tooLongCta.length).toBeGreaterThan(60)
+    const originalProperty = structuredClone(property)
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(completedResponse({ ...creative, storyCopy: { ...creative.storyCopy, cta: tooLongCta } }))
+      .mockResolvedValueOnce(completedResponse(creative))
+    global.fetch = fetchMock
+
+    const output = await CreativeAIService.generate({
+      property,
+      format: "story",
+      objective: "property_spotlight",
+      creativeDirection: "luxury_editorial",
+      settings,
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(output.storyCopy.cta.length).toBeLessThanOrEqual(60)
+    const firstRequest = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
+    const repairRequest = JSON.parse((fetchMock.mock.calls[1][1] as RequestInit).body as string)
+    expect(repairRequest.input[0].content).toContain("Repair only storyCopy")
+    expect(repairRequest.input[0].content).toContain("same factual content and editorial direction")
+    expect(repairRequest.input[1].content).toBe(firstRequest.input[1].content)
+    expect(property).toEqual(originalProperty)
+  })
+
+  it("repairs other bounded Story text fields with the same one-attempt path", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(completedResponse({ ...creative, storyCopy: { ...creative.storyCopy, supportingLine: "A".repeat(151) } }))
+      .mockResolvedValueOnce(completedResponse(creative))
+    global.fetch = fetchMock
+
+    const output = await CreativeAIService.generate({
+      property,
+      format: "story",
+      objective: "property_spotlight",
+      creativeDirection: "luxury_editorial",
+      settings,
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(output.storyCopy.supportingLine.length).toBeLessThanOrEqual(150)
+    const repairRequest = JSON.parse((fetchMock.mock.calls[1][1] as RequestInit).body as string)
+    expect(repairRequest.input[0].content).toContain("Repair only storyCopy")
+  })
+
+  it("stops after a second invalid Story schema response without exposing Zod details", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    const tooLongCta = "Request a private presentation and personalised property details today."
+    const fetchMock = vi.fn()
+      .mockImplementation(() => Promise.resolve(completedResponse({ ...creative, storyCopy: { ...creative.storyCopy, cta: tooLongCta } })))
+    global.fetch = fetchMock
+
+    await expect(CreativeAIService.generate({
+      property,
+      format: "story",
+      objective: "property_spotlight",
+      creativeDirection: "luxury_editorial",
+      settings,
+    })).rejects.toThrow(STORY_COPY_TOO_LONG_MESSAGE)
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it("keeps one token recovery separate from one Story schema repair", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    const tokenLimited = response({
+      id: "resp_incomplete",
+      status: "incomplete",
+      incomplete_details: { reason: "max_output_tokens" },
+      output: [],
+    })
+    const tooLongCta = "Request a private presentation and personalised property details today."
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(tokenLimited)
+      .mockResolvedValueOnce(completedResponse({ ...creative, storyCopy: { ...creative.storyCopy, cta: tooLongCta } }))
+      .mockResolvedValueOnce(completedResponse(creative))
+    global.fetch = fetchMock
+
+    await expect(CreativeAIService.generate({
+      property,
+      format: "story",
+      objective: "property_spotlight",
+      creativeDirection: "luxury_editorial",
+      settings,
+    })).resolves.toMatchObject({ storyCopy: { cta: creative.storyCopy.cta } })
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const tokenRecovery = JSON.parse((fetchMock.mock.calls[1][1] as RequestInit).body as string)
+    const schemaRepair = JSON.parse((fetchMock.mock.calls[2][1] as RequestInit).body as string)
+    expect(tokenRecovery.input[0].content).toContain("previous response exceeded its output budget")
+    expect(schemaRepair.input[0].content).toContain("Repair only storyCopy")
   })
 
   it("returns an actionable error for an empty completed response", async () => {

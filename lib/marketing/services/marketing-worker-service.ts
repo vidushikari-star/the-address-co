@@ -6,7 +6,7 @@ import { isInstagramPublishingEnabled } from "@/lib/marketing/feature-flags"
 import { logRenderStage, RenderStageError, renderStageFailure, sanitizeRenderDiagnostic } from "@/lib/marketing/render-diagnostics"
 import { CompositionService } from "@/lib/marketing/services/composition-service"
 import { BrandAssetService } from "@/lib/marketing/services/brand-asset-service"
-import { ContentGenerationTooLongError, CreativeAIService } from "@/lib/marketing/services/creative-ai-service"
+import { ContentGenerationTooLongError, CreativeAIService, StoryCopyTooLongError } from "@/lib/marketing/services/creative-ai-service"
 import {
   InstagramApiError,
   InstagramCarouselChildContainerError,
@@ -426,6 +426,7 @@ export class MarketingWorkerService {
           continue
         }
         const retry = !(caught instanceof ContentGenerationTooLongError) &&
+          !(caught instanceof StoryCopyTooLongError) &&
           !isTerminalRenderTermination(job, caught) &&
           !isTerminalPublishingFailure(job, caught) &&
           job.attempts < job.maxAttempts

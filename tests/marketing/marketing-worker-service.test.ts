@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { MarketingJob } from "@/lib/marketing/types"
 import { RenderStageError } from "@/lib/marketing/render-diagnostics"
-import { ContentGenerationTooLongError } from "@/lib/marketing/services/creative-ai-service"
+import { ContentGenerationTooLongError, StoryCopyTooLongError } from "@/lib/marketing/services/creative-ai-service"
 
 const admin = vi.hoisted(() => ({ client: { from: vi.fn(), rpc: vi.fn(), storage: { from: vi.fn() } } }))
 const renderService = vi.hoisted(() => ({
@@ -268,6 +268,31 @@ describe("MarketingWorkerService render queue", () => {
     expect(failedJob.update).toHaveBeenCalledWith(expect.objectContaining({
       status: "failed",
       error: "Content generation was too long to complete. Please try again or shorten the creative brief.",
+    }))
+    expect(failedContent.update).toHaveBeenCalledWith(expect.objectContaining({ status: "failed" }))
+  })
+
+  it("does not requeue a generation whose one Story schema repair remains too long", async () => {
+    const candidate = queuedJob({ type: "generate_creative" })
+    const locked = queuedJob({ type: "generate_creative", status: "running", attempts: 1, progress: 5 })
+    const discovery = queryWithRows([candidate])
+    const lock = lockQuery(locked)
+    const failedJob = terminalUpdateQuery()
+    const failedContent = terminalUpdateQuery()
+    const process = vi.spyOn(privateWorker(), "process").mockRejectedValue(new StoryCopyTooLongError())
+    let jobTableCalls = 0
+    admin.client.from.mockImplementation((table: string) => {
+      if (table === "marketing_jobs") return [discovery, lock, failedJob][jobTableCalls++]
+      if (table === "marketing_content") return failedContent
+      throw new Error(`Unexpected table: ${table}`)
+    })
+
+    await expect(MarketingWorkerService.run(1, { jobTypes: ["generate_creative"] })).resolves.toEqual([{ id: "job-1", status: "failed" }])
+
+    expect(process).toHaveBeenCalledWith(expect.objectContaining({ type: "generate_creative", attempts: 1 }))
+    expect(failedJob.update).toHaveBeenCalledWith(expect.objectContaining({
+      status: "failed",
+      error: "Story copy was too long to format. Please regenerate the Story copy.",
     }))
     expect(failedContent.update).toHaveBeenCalledWith(expect.objectContaining({ status: "failed" }))
   })

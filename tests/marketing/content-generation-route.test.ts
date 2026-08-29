@@ -223,4 +223,39 @@ describe("POST /api/marketing/content/:id/generate", () => {
     expect(response.status).toBe(502)
     await expect(response.json()).resolves.toEqual({ error: "Content generation was too long to complete. Please try again or shorten the creative brief." })
   })
+
+  it("returns a friendly Story-schema repair error without raw Zod details", async () => {
+    vi.clearAllMocks()
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    repository.getContentById.mockResolvedValue({
+      content: {
+        id: "1e149a39-7321-42d1-900c-7389c0da37a3",
+        primaryPropertyId: property.id,
+        propertySnapshot: property,
+        contentType: "story",
+        creativeDirection: "luxury_editorial",
+        status: "draft",
+        composition: {},
+      },
+      assets: [{
+        id: "34d1e601-18e9-4caa-9cc4-8af4c11888f1",
+        kind: "original_reference",
+        mediaType: "image",
+        sourceUrl: "https://images.example/villa.jpg",
+        metadata: {},
+        sortOrder: 0,
+        createdAt: "2026-08-10T00:00:00.000Z",
+      }],
+    })
+    repository.getBrandSettings.mockResolvedValue({ preferredTone: "Premium", defaultHashtags: [], excludedWords: [], brandColors: {}, timezone: "Asia/Kolkata" })
+    generate.mockRejectedValue(new Error("Story copy was too long to format. Please regenerate the Story copy."))
+
+    const response = await POST(new Request("http://localhost/api/marketing/content/1e149a39-7321-42d1-900c-7389c0da37a3/generate", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }), { params: Promise.resolve({ id: "1e149a39-7321-42d1-900c-7389c0da37a3" }) })
+
+    expect(response.status).toBe(502)
+    await expect(response.json()).resolves.toEqual({ error: "Story copy was too long to format. Please regenerate the Story copy." })
+  })
 })

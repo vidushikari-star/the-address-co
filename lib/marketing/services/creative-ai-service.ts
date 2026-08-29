@@ -4,6 +4,7 @@ import { zodTextFormat } from "openai/helpers/zod"
 import {
   CreativeOutputSchema,
   ReelStoryboardSchema,
+  STORY_COPY_SCHEMA_LIMITS,
   StoryCopySchema,
   creativeGenerationSchemaForFormat,
   type MarketingGeneratedCreative,
@@ -43,6 +44,7 @@ export const MARKETING_OUTPUT_TOKEN_BUDGETS = Object.freeze({
 })
 
 export const CONTENT_GENERATION_TOO_LONG_MESSAGE = "Content generation was too long to complete. Please try again or shorten the creative brief."
+export const STORY_COPY_TOO_LONG_MESSAGE = "Story copy was too long to format. Please regenerate the Story copy."
 
 class OutputTokenLimitError extends Error {
   constructor() {
@@ -56,6 +58,14 @@ export class ContentGenerationTooLongError extends Error {
   constructor() {
     super(CONTENT_GENERATION_TOO_LONG_MESSAGE)
     this.name = "ContentGenerationTooLongError"
+  }
+}
+
+/** A terminal, user-safe error after the one Story schema-length repair. */
+export class StoryCopyTooLongError extends Error {
+  constructor() {
+    super(STORY_COPY_TOO_LONG_MESSAGE)
+    this.name = "StoryCopyTooLongError"
   }
 }
 
@@ -83,14 +93,23 @@ function luxuryEditorialInstructions() {
 function formatConcisenessInstructions(format: MarketingFormat) {
   switch (format) {
     case "feed_single":
-      return "Post copy: one compact caption (maximum 900 characters), one CTA line, at most 8 restrained hashtags, and concise accessibility text."
+      return "Post schema limits: headline ≤120 characters; caption ≤900; short caption ≤220; one CTA ≤120; 1–8 restrained hashtags, each ≤48; alt text ≤300."
     case "carousel":
-      return "Carousel copy: one compact caption (maximum 900 characters), one CTA line, at most 8 restrained hashtags, and concise accessibility text. Do not write slide copy."
+      return "Carousel schema limits: one caption ≤900 characters; one CTA ≤120; 1–8 restrained hashtags, each ≤48; alt text ≤300. Do not write slide copy."
     case "story":
-      return "Story copy: keep the separate feed caption compact; the headline, supporting line, highlights, price line, and CTA must stay within the supplied mobile-safe schema bounds."
+      return `${storyCopySchemaInstructions()} Story metadata schema limits: caption ≤700 characters; 1–8 hashtags, each ≤48; alt text ≤300.`
     case "reel":
-      return "Reel copy: keep the hook, cover text, CTA, overlays, and sequence guidance concise. Use at most 6 short overlays and at most 4 transitions."
+      return "Reel schema limits: hook ≤100 characters; caption ≤1000; short caption ≤220; one CTA ≤120; 1–8 hashtags, each ≤48; alt text ≤300; cover text ≤80; at most 6 overlays, each ≤80; at most 4 transitions."
   }
+}
+
+function storyCopySchemaInstructions() {
+  return [
+    `Story schema limits: headline ≤${STORY_COPY_SCHEMA_LIMITS.headline} characters; supporting line ≤${STORY_COPY_SCHEMA_LIMITS.supportingLine}; up to ${STORY_COPY_SCHEMA_LIMITS.maximumHighlights} highlights, each ≤${STORY_COPY_SCHEMA_LIMITS.highlight}; price line ≤${STORY_COPY_SCHEMA_LIMITS.priceLine}; CTA ≤${STORY_COPY_SCHEMA_LIMITS.cta}.`,
+    `CTA MUST be ${STORY_COPY_SCHEMA_LIMITS.cta} characters or fewer. Prefer 2–6 words where practical: one short action only, with no explanatory sentence or duplicated property facts.`,
+    `For mobile readability, aim for the existing editorial targets: headline about ${STORY_COPY_GUIDANCE.headline.recommendedCharacters} characters, supporting line about ${STORY_COPY_GUIDANCE.supportingLine.recommendedCharacters}, highlights about ${STORY_COPY_GUIDANCE.highlights.recommendedCharactersPerItem} each, and CTA about ${STORY_COPY_GUIDANCE.cta.recommendedCharacters}.`,
+    "Never put a paragraph or hashtags in storyCopy; it is burned into a 9:16 creative. The feed-style caption remains separate metadata.",
+  ].join(" ")
 }
 
 function validateBrandSafety<T extends CreativeOutput | ReelStoryboard>(output: T, settings: MarketingBrandSettings): T {
@@ -203,6 +222,38 @@ function isOverlayLengthValidationError(error: unknown) {
     const path = issue.path.map(String)
     return path[0] === "scenes" || path[0] === "endCard" || path.includes("overlay") || path.includes("overlayText")
   })
+}
+
+function storyCopyLengthValidationFields(error: unknown) {
+  const issues = validationIssues(error)
+  if (!issues.length) return []
+
+  const fields: string[] = []
+  for (const issue of issues) {
+    if (issue.code !== "too_big" || !Array.isArray(issue.path)) return []
+    const path = (issue.path as unknown[]).map(String)
+    const storyPath = path[0] === "storyCopy" ? path.slice(1) : path
+    if (!["headline", "supportingLine", "highlights", "priceLine", "cta"].includes(storyPath[0] ?? "")) return []
+    fields.push(storyPath.join("."))
+  }
+  return fields
+}
+
+class StoryCopySchemaLengthError extends Error {
+  constructor(readonly fields: string[]) {
+    super("Story structured output exceeded a Story copy length limit.")
+    this.name = "StoryCopySchemaLengthError"
+  }
+}
+
+function storyCopyLengthError(error: unknown) {
+  const fields = storyCopyLengthValidationFields(error)
+  return fields.length ? new StoryCopySchemaLengthError(fields) : null
+}
+
+function logStoryCopySchemaRepair(status: "requested" | "exhausted", fields: string[]) {
+  // Validation metadata only; do not log generated copy or property facts.
+  console[status === "requested" ? "info" : "error"]("OpenAI Story schema repair:", JSON.stringify({ status, fields, attempts: status === "requested" ? 1 : 2 }))
 }
 
 /**
@@ -420,9 +471,7 @@ export class CreativeAIService {
         generationOutputInstructions(format),
         formatConcisenessInstructions(format),
         `Objective: ${objective}.`,
-        format === "story"
-          ? `For Story output, make storyCopy a concise visual script for a 1080×1920 mobile-safe renderer. Headline: at most ${STORY_COPY_GUIDANCE.headline.maximumLines} short lines / ${STORY_COPY_GUIDANCE.headline.recommendedCharacters} characters. Supporting line: at most ${STORY_COPY_GUIDANCE.supportingLine.maximumLines} short lines / ${STORY_COPY_GUIDANCE.supportingLine.recommendedCharacters} characters. Use no more than ${STORY_COPY_GUIDANCE.highlights.maximumItems} highlights, each one line and at most ${STORY_COPY_GUIDANCE.highlights.recommendedCharactersPerItem} characters. Price: at most ${STORY_COPY_GUIDANCE.priceLine.maximumLines} short lines / ${STORY_COPY_GUIDANCE.priceLine.recommendedCharacters} characters. CTA: at most ${STORY_COPY_GUIDANCE.cta.maximumLines} short lines / ${STORY_COPY_GUIDANCE.cta.recommendedCharacters} characters. Never put a paragraph or hashtags in storyCopy; it will be burned into a 9:16 creative. The feed-style caption remains separate metadata.`
-          : "",
+        format === "story" ? "Story output is a concise visual script for a 1080×1920 mobile-safe renderer." : "",
         `Brand tone: ${input.settings.preferredTone}`,
         input.settings.brandName ? `Brand name: ${input.settings.brandName}` : "",
         input.settings.instagramHandle ? `Instagram handle: @${input.settings.instagramHandle}` : "",
@@ -453,6 +502,10 @@ export class CreativeAIService {
         })
       } catch (error) {
         logRequestFailure(error)
+        if (format === "story") {
+          const lengthError = storyCopyLengthError(error)
+          if (lengthError) throw lengthError
+        }
         if (isStructuredOutputParseError(error)) throw new Error("OpenAI structured output could not be parsed.")
         throw new Error("OpenAI generation request failed.")
       }
@@ -469,25 +522,65 @@ export class CreativeAIService {
         throw new Error("OpenAI returned no generated content.")
       }
       const parsed = creativeGenerationSchemaForFormat(format).safeParse(response.output_parsed)
-      if (!parsed.success) throw new Error("OpenAI structured output could not be parsed.")
-      return normalizeGeneratedCreative({ format, property: input.property, generated: parsed.data })
+      if (!parsed.success) {
+        if (format === "story") {
+          const lengthError = storyCopyLengthError(parsed.error)
+          if (lengthError) throw lengthError
+        }
+        throw new Error("OpenAI structured output could not be parsed.")
+      }
+      try {
+        return normalizeGeneratedCreative({ format, property: input.property, generated: parsed.data })
+      } catch (error) {
+        if (format === "story") {
+          const lengthError = storyCopyLengthError(error)
+          if (lengthError) throw lengthError
+        }
+        throw error
+      }
+    }
+
+    const requestWithTokenRecovery = async (repairInstruction?: string) => {
+      try {
+        return await requestCreative(repairInstruction)
+      } catch (error) {
+        if (!(error instanceof OutputTokenLimitError)) throw error
+        console.warn("OpenAI output-token recovery requested:", JSON.stringify({ format, maxOutputTokens: MARKETING_OUTPUT_TOKEN_BUDGETS[format], attempts: 1 }))
+        const tokenRecoveryInstruction = [
+          repairInstruction,
+          "The previous response exceeded its output budget. Return one concise, valid response within every stated field limit. Preserve only essential fact-grounded editorial copy and compact provenance.",
+        ].filter(Boolean).join(" ")
+        try {
+          return await requestCreative(tokenRecoveryInstruction)
+        } catch (recoveryError) {
+          if (recoveryError instanceof OutputTokenLimitError) {
+            console.error("OpenAI output-token recovery exhausted:", JSON.stringify({ format, maxOutputTokens: MARKETING_OUTPUT_TOKEN_BUDGETS[format], attempts: 2 }))
+            throw new ContentGenerationTooLongError()
+          }
+          throw recoveryError
+        }
+      }
+    }
+
+    const repairStoryCopySchema = async (error: StoryCopySchemaLengthError) => {
+      logStoryCopySchemaRepair("requested", error.fields)
+      try {
+        return await requestWithTokenRecovery("Repair only storyCopy. Return the same factual content and editorial direction, but shorten the invalid fields to satisfy every Story schema limit. Keep the CTA to one short action, 60 characters or fewer. Do not add facts.")
+      } catch (repairError) {
+        if (repairError instanceof StoryCopySchemaLengthError) {
+          logStoryCopySchemaRepair("exhausted", repairError.fields)
+          throw new StoryCopyTooLongError()
+        }
+        throw repairError
+      }
     }
 
     let output: CreativeOutput
     try {
-      output = await requestCreative()
+      output = await requestWithTokenRecovery()
     } catch (error) {
-      if (!(error instanceof OutputTokenLimitError)) throw error
-      console.warn("OpenAI output-token recovery requested:", JSON.stringify({ format, maxOutputTokens: MARKETING_OUTPUT_TOKEN_BUDGETS[format], attempts: 1 }))
-      try {
-        output = await requestCreative("The previous response exceeded its output budget. Return one concise, valid response within every stated field limit. Preserve only essential fact-grounded editorial copy and compact provenance.")
-      } catch (recoveryError) {
-        if (recoveryError instanceof OutputTokenLimitError) {
-          console.error("OpenAI output-token recovery exhausted:", JSON.stringify({ format, maxOutputTokens: MARKETING_OUTPUT_TOKEN_BUDGETS[format], attempts: 2 }))
-          throw new ContentGenerationTooLongError()
-        }
-        throw recoveryError
-      }
+      if (!(error instanceof StoryCopySchemaLengthError)) throw error
+      output = await repairStoryCopySchema(error)
     }
     const copyForClaims = [
       output.hook, output.headline, output.caption, output.shortCaption, output.cta,
@@ -506,10 +599,18 @@ export class CreativeAIService {
       let fit = fitStoryCopy(output.storyCopy)
       if (fit.requiresAiCondensation) {
         console.info("OpenAI Story copy repair requested:", JSON.stringify({ reason: "mobile_safe_layout", attempts: 1 }))
-        output = await requestCreative("Repair only storyCopy: condense it to the explicit line and character limits above. Preserve supported facts, intent, and brand exclusions. Do not add new facts.")
+        try {
+          output = await requestWithTokenRecovery("Repair only storyCopy: preserve the same factual content and editorial direction, but shorten the visual fields to satisfy every Story schema limit. Do not add facts.")
+        } catch (error) {
+          if (error instanceof StoryCopySchemaLengthError) {
+            logStoryCopySchemaRepair("exhausted", error.fields)
+            throw new StoryCopyTooLongError()
+          }
+          throw error
+        }
         fit = fitStoryCopy(output.storyCopy)
       }
-      if (!fit.fits) throw new Error("AI Story copy could not be made mobile-safe. Please use a shorter creative instruction.")
+      if (!fit.fits) throw new StoryCopyTooLongError()
       output = { ...output, storyCopy: fit.storyCopy }
     }
     return validateBrandSafety(output, input.settings)
@@ -621,7 +722,8 @@ export class CreativeAIService {
               "You are the visual Story editor for a luxury real-estate CRM.",
               "Return only the supplied concise Story copy schema.",
               "Use only supplied property facts. Never invent facts.",
-              `Every value is burned into a 1080×1920 Instagram Story. Headline: ≤${STORY_COPY_GUIDANCE.headline.maximumLines} short lines / ${STORY_COPY_GUIDANCE.headline.recommendedCharacters} characters. Supporting line: ≤${STORY_COPY_GUIDANCE.supportingLine.maximumLines} lines / ${STORY_COPY_GUIDANCE.supportingLine.recommendedCharacters} characters. Use ≤${STORY_COPY_GUIDANCE.highlights.maximumItems} highlights, each one line / ${STORY_COPY_GUIDANCE.highlights.recommendedCharactersPerItem} characters. Price: ≤${STORY_COPY_GUIDANCE.priceLine.maximumLines} lines / ${STORY_COPY_GUIDANCE.priceLine.recommendedCharacters} characters. CTA: ≤${STORY_COPY_GUIDANCE.cta.maximumLines} lines / ${STORY_COPY_GUIDANCE.cta.recommendedCharacters} characters.`,
+              "Every value is burned into a 1080×1920 Instagram Story.",
+              storyCopySchemaInstructions(),
               "Never include a full feed caption, paragraph, hashtag list, or unsupported claim.",
               `Brand tone: ${input.settings.preferredTone}`,
               input.settings.excludedWords.length ? `Excluded words: ${input.settings.excludedWords.join(", ")}` : "",
@@ -635,6 +737,8 @@ export class CreativeAIService {
         })
       } catch (error) {
         logRequestFailure(error)
+        const lengthError = storyCopyLengthError(error)
+        if (lengthError) throw lengthError
         if (isStructuredOutputParseError(error)) throw new Error("OpenAI structured Story copy could not be parsed.")
         throw new Error("OpenAI Story copy generation request failed.")
       }
@@ -642,17 +746,46 @@ export class CreativeAIService {
       if (diagnostics.refused) throw new Error("OpenAI refused the Story copy request.")
       if (response.status && response.status !== "completed") throw new Error("OpenAI Story copy response was not completed.")
       if (!response.output_parsed) throw new Error("OpenAI returned no Story copy.")
-      return StoryCopySchema.parse(response.output_parsed)
+      try {
+        return StoryCopySchema.parse(response.output_parsed)
+      } catch (error) {
+        const lengthError = storyCopyLengthError(error)
+        if (lengthError) throw lengthError
+        throw error
+      }
     }
 
-    let storyCopy = await requestStoryCopy()
+    let storyCopy: CreativeOutput["storyCopy"]
+    try {
+      storyCopy = await requestStoryCopy()
+    } catch (error) {
+      if (!(error instanceof StoryCopySchemaLengthError)) throw error
+      logStoryCopySchemaRepair("requested", error.fields)
+      try {
+        storyCopy = await requestStoryCopy("Repair only the invalid Story fields. Return the same factual content and requested edit, but shorten them to satisfy every Story schema limit. Keep the CTA to one short action, 60 characters or fewer. Do not add facts.")
+      } catch (repairError) {
+        if (repairError instanceof StoryCopySchemaLengthError) {
+          logStoryCopySchemaRepair("exhausted", repairError.fields)
+          throw new StoryCopyTooLongError()
+        }
+        throw repairError
+      }
+    }
     let fit = fitStoryCopy(storyCopy)
     if (fit.requiresAiCondensation) {
       console.info("OpenAI Story copy repair requested:", JSON.stringify({ reason: "mobile_safe_layout", attempts: 1 }))
-      storyCopy = await requestStoryCopy("Repair only the visual text to the explicit mobile-safe limits. Preserve supported facts, the requested edit, and brand exclusions; do not add facts.")
+      try {
+        storyCopy = await requestStoryCopy("Repair only the visual text. Preserve supported facts, the requested edit, and brand exclusions; shorten it to satisfy every Story schema limit. Do not add facts.")
+      } catch (error) {
+        if (error instanceof StoryCopySchemaLengthError) {
+          logStoryCopySchemaRepair("exhausted", error.fields)
+          throw new StoryCopyTooLongError()
+        }
+        throw error
+      }
       fit = fitStoryCopy(storyCopy)
     }
-    if (!fit.fits) throw new Error("AI Story copy could not be made mobile-safe. Please use a shorter improvement instruction.")
+    if (!fit.fits) throw new StoryCopyTooLongError()
     const checked = validateBrandSafety({
       campaignConcept: "story", hook: fit.storyCopy.headline, headline: fit.storyCopy.headline,
       caption: "story", shortCaption: "story", cta: fit.storyCopy.cta, hashtags: ["#story"],
