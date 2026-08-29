@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { MarketingJob } from "@/lib/marketing/types"
 import { RenderStageError } from "@/lib/marketing/render-diagnostics"
+import { StoryCopySchema } from "@/lib/marketing/schemas"
 import { ContentGenerationTooLongError, StoryCopyTooLongError } from "@/lib/marketing/services/creative-ai-service"
 
 const admin = vi.hoisted(() => ({ client: { from: vi.fn(), rpc: vi.fn(), storage: { from: vi.fn() } } }))
@@ -295,6 +296,44 @@ describe("MarketingWorkerService render queue", () => {
       error: "Story copy was too long to format. Please regenerate the Story copy.",
     }))
     expect(failedContent.update).toHaveBeenCalledWith(expect.objectContaining({ status: "failed" }))
+  })
+
+  it("does not persist an unexpected raw Story Zod error from a generation job", async () => {
+    const candidate = queuedJob({ type: "generate_creative" })
+    const locked = queuedJob({ type: "generate_creative", status: "running", attempts: 1, progress: 5 })
+    const discovery = queryWithRows([candidate])
+    const lock = lockQuery(locked)
+    const failedJob = terminalUpdateQuery()
+    const failedContent = terminalUpdateQuery()
+    let zodError: unknown
+    try {
+      StoryCopySchema.parse({
+        headline: "Villa Verde",
+        supportingLine: "",
+        highlights: [],
+        priceLine: "",
+        cta: "Request a private presentation and personalised property details today.",
+      })
+    } catch (error) {
+      zodError = error
+    }
+    // Worker persistence must be safe even when only serialized Zod issues
+    // survive an upstream provider boundary.
+    const process = vi.spyOn(privateWorker(), "process").mockRejectedValue(new Error(zodError instanceof Error ? zodError.message : "[]"))
+    let jobTableCalls = 0
+    admin.client.from.mockImplementation((table: string) => {
+      if (table === "marketing_jobs") return [discovery, lock, failedJob][jobTableCalls++]
+      if (table === "marketing_content") return failedContent
+      throw new Error(`Unexpected table: ${table}`)
+    })
+
+    await expect(MarketingWorkerService.run(1, { jobTypes: ["generate_creative"] })).resolves.toEqual([{ id: "job-1", status: "failed" }])
+
+    const persisted = failedJob.update.mock.calls[0]![0] as { error: string }
+    expect(persisted.error).toBe("Story copy was too long to format. Please regenerate the Story copy.")
+    expect(persisted.error).not.toContain("too_big")
+    expect(persisted.error).not.toContain("storyCopy")
+    expect(process).toHaveBeenCalledTimes(1)
   })
 
   it("discovers and claims queued render_reel jobs for Railway", async () => {

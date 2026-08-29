@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
 import { resolveMarketingContract, withMarketingContract } from "@/lib/marketing/content-contract"
+import { marketingGenerationErrorDiagnostics, safeMarketingGenerationErrorMessage } from "@/lib/marketing/generation-errors"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 import { composeStaticInstagramContent, staticRenderJobType } from "@/lib/marketing/instagram-static-composition"
 import { GenerateContentCopySchema } from "@/lib/marketing/schemas"
@@ -166,7 +167,11 @@ export async function POST(request: Request, context: Context) {
     })
     return NextResponse.json({ content, fields })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "AI copy generation failed."
+    // Never serialize provider or Zod internals to the browser. These are
+    // metadata-only diagnostics: no prompt, property facts, generated copy,
+    // or credentials are logged here.
+    console.error("Marketing AI generation failed:", JSON.stringify(marketingGenerationErrorDiagnostics(error)))
+    const message = safeMarketingGenerationErrorMessage(error)
     return NextResponse.json({ error: message }, { status: 502 })
   }
 }

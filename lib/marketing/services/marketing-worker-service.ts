@@ -1,6 +1,7 @@
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { publishableAssets, validateInstagramPublishability } from "@/lib/marketing/content-delivery"
 import { resolveMarketingContract } from "@/lib/marketing/content-contract"
+import { safeMarketingGenerationErrorMessage } from "@/lib/marketing/generation-errors"
 import { composeStaticInstagramContent, staticRenderJobType } from "@/lib/marketing/instagram-static-composition"
 import { isInstagramPublishingEnabled } from "@/lib/marketing/feature-flags"
 import { logRenderStage, RenderStageError, renderStageFailure, sanitizeRenderDiagnostic } from "@/lib/marketing/render-diagnostics"
@@ -316,7 +317,11 @@ export class MarketingWorkerService {
         await admin.from("marketing_jobs").update({ status: "completed", progress: 100, output, error: null }).eq("id", job.id)
         results.push({ id: job.id, status: "completed" })
       } catch (caught) {
-        const errorMessage = safeError(caught)
+        // Generation failures are persisted and later displayed in Marketing,
+        // so apply the same safe validation mapping as the direct Studio API.
+        const errorMessage = job.type === "generate_creative"
+          ? safeMarketingGenerationErrorMessage(caught)
+          : safeError(caught)
         const renderDiagnostics = safeRenderDiagnostics(caught)
         if (caught instanceof PublishingDisabledError) {
           await admin.from("marketing_jobs").update({

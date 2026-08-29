@@ -2,6 +2,12 @@ import OpenAI from "openai"
 import { zodTextFormat } from "openai/helpers/zod"
 
 import {
+  CONTENT_GENERATION_TOO_LONG_MESSAGE,
+  STORY_COPY_TOO_LONG_MESSAGE,
+  boundedStoryLengthValidationFields,
+  marketingGenerationValidationIssues,
+} from "@/lib/marketing/generation-errors"
+import {
   CreativeOutputSchema,
   ReelStoryboardSchema,
   STORY_COPY_SCHEMA_LIMITS,
@@ -27,6 +33,8 @@ import type {
 type CreativeOutput = ReturnType<typeof CreativeOutputSchema.parse>
 type ReelStoryboardOutput = ReturnType<typeof ReelStoryboardSchema.parse>
 
+export { CONTENT_GENERATION_TOO_LONG_MESSAGE, STORY_COPY_TOO_LONG_MESSAGE } from "@/lib/marketing/generation-errors"
+
 const DEFAULT_MARKETING_MODEL = "gpt-5.2"
 
 /**
@@ -42,9 +50,6 @@ export const MARKETING_OUTPUT_TOKEN_BUDGETS = Object.freeze({
   reel_storyboard: 1_000,
   story_copy: 450,
 })
-
-export const CONTENT_GENERATION_TOO_LONG_MESSAGE = "Content generation was too long to complete. Please try again or shorten the creative brief."
-export const STORY_COPY_TOO_LONG_MESSAGE = "Story copy was too long to format. Please regenerate the Story copy."
 
 class OutputTokenLimitError extends Error {
   constructor() {
@@ -202,17 +207,12 @@ function isStructuredOutputParseError(error: unknown) {
   if (error instanceof SyntaxError) return true
   if (!error || typeof error !== "object") return false
   const candidate = error as { name?: unknown; issues?: unknown; message?: unknown }
-  return Array.isArray(candidate.issues) || candidate.name === "ZodError" ||
+  return marketingGenerationValidationIssues(error).length > 0 || candidate.name === "ZodError" ||
     (typeof candidate.message === "string" && candidate.message.includes("JSON"))
 }
 
 function validationIssues(error: unknown) {
-  if (!error || typeof error !== "object") return []
-  const candidate = error as { issues?: unknown }
-  return Array.isArray(candidate.issues) ? candidate.issues.filter(issue => issue && typeof issue === "object") as Array<{
-    code?: unknown
-    path?: unknown
-  }> : []
+  return marketingGenerationValidationIssues(error)
 }
 
 function isOverlayLengthValidationError(error: unknown) {
@@ -225,18 +225,7 @@ function isOverlayLengthValidationError(error: unknown) {
 }
 
 function storyCopyLengthValidationFields(error: unknown) {
-  const issues = validationIssues(error)
-  if (!issues.length) return []
-
-  const fields: string[] = []
-  for (const issue of issues) {
-    if (issue.code !== "too_big" || !Array.isArray(issue.path)) return []
-    const path = (issue.path as unknown[]).map(String)
-    const storyPath = path[0] === "storyCopy" ? path.slice(1) : path
-    if (!["headline", "supportingLine", "highlights", "priceLine", "cta"].includes(storyPath[0] ?? "")) return []
-    fields.push(storyPath.join("."))
-  }
-  return fields
+  return boundedStoryLengthValidationFields(error)
 }
 
 class StoryCopySchemaLengthError extends Error {

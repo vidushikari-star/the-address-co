@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 
+import { StoryCopySchema } from "@/lib/marketing/schemas"
+
 const repository = vi.hoisted(() => ({
   getContentById: vi.fn(),
   getPropertySnapshot: vi.fn(),
@@ -257,5 +259,52 @@ describe("POST /api/marketing/content/:id/generate", () => {
 
     expect(response.status).toBe(502)
     await expect(response.json()).resolves.toEqual({ error: "Story copy was too long to format. Please regenerate the Story copy." })
+  })
+
+  it("sanitizes an unexpected raw Story Zod error at the Create Studio API boundary", async () => {
+    vi.clearAllMocks()
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    repository.getContentById.mockResolvedValue({
+      content: {
+        id: "1e149a39-7321-42d1-900c-7389c0da37a3",
+        primaryPropertyId: property.id,
+        propertySnapshot: property,
+        contentType: "story",
+        creativeDirection: "luxury_editorial",
+        status: "draft",
+        composition: {},
+      },
+      assets: [{
+        id: "34d1e601-18e9-4caa-9cc4-8af4c11888f1",
+        kind: "original_reference",
+        mediaType: "image",
+        sourceUrl: "https://images.example/villa.jpg",
+        metadata: {},
+        sortOrder: 0,
+        createdAt: "2026-08-10T00:00:00.000Z",
+      }],
+    })
+    repository.getBrandSettings.mockResolvedValue({ preferredTone: "Premium", defaultHashtags: [], excludedWords: [], brandColors: {}, timezone: "Asia/Kolkata" })
+    const tooLongCta = "Request a private presentation and personalised property details today."
+    let zodError: unknown
+    try {
+      StoryCopySchema.parse({ headline: "Villa Verde", supportingLine: "", highlights: [], priceLine: "", cta: tooLongCta })
+    } catch (error) {
+      zodError = error
+    }
+    // Match the observed leakage shape: an upstream layer can leave only the
+    // serialized Zod issues in an ordinary Error message.
+    generate.mockRejectedValue(new Error(zodError instanceof Error ? zodError.message : "[]"))
+
+    const response = await POST(new Request("http://localhost/api/marketing/content/1e149a39-7321-42d1-900c-7389c0da37a3/generate", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }), { params: Promise.resolve({ id: "1e149a39-7321-42d1-900c-7389c0da37a3" }) })
+
+    const body = await response.json()
+    expect(response.status).toBe(502)
+    expect(body).toEqual({ error: "Story copy was too long to format. Please regenerate the Story copy." })
+    expect(JSON.stringify(body)).not.toContain("too_big")
+    expect(JSON.stringify(body)).not.toContain("storyCopy")
   })
 })
