@@ -250,7 +250,9 @@ export const CreativeOutputSchema = z.object({
   cta: z.string().trim().min(1).max(240),
   hashtags: z.array(z.string().trim().min(2).max(80)).min(1).max(30),
   onScreenText: z.array(z.string().max(120)).max(12),
-  carouselSlides: z.array(z.string().max(300)).min(1).max(10),
+  // Historic drafts can retain this legacy field, but new clean-image
+  // Carousel generation deliberately leaves it empty.
+  carouselSlides: z.array(z.string().max(300)).max(10),
   storyCopy: StoryCopySchema,
   coverText: z.string().max(120),
   altText: z.string().max(500),
@@ -265,5 +267,92 @@ export const CreativeOutputSchema = z.object({
     factValue: z.string().trim().min(1).max(240),
   })).max(30).default([]),
 })
+
+/**
+ * The persisted creative shape is intentionally broader than an individual
+ * generation request so historic drafts remain readable. These schemas are
+ * the much smaller, format-specific contracts sent to OpenAI. In particular,
+ * a clean-image Carousel must never spend output tokens on slide copy.
+ */
+const CompactHashtagsSchema = z.array(z.string().trim().min(2).max(48)).min(1).max(8)
+const CompactFactsUsedSchema = z.array(z.enum(MARKETING_SAFE_FACT_KEYS)).max(8)
+const CompactClaimProvenanceSchema = z.array(z.object({
+  // A claim is a short factual phrase, never a duplicate of the full caption.
+  text: z.string().trim().min(1).max(120),
+  factKey: z.enum(MARKETING_SAFE_FACT_KEYS),
+  // This may be a compact exact excerpt of a longer supplied property fact.
+  factValue: z.string().trim().min(1).max(160),
+})).max(8)
+
+const CompactGroundingFields = {
+  factsUsed: CompactFactsUsedSchema,
+  claimProvenance: CompactClaimProvenanceSchema,
+}
+
+const CompactStoryCopySchema = z.object({
+  // These hard caps keep the structured response bounded. The stricter
+  // mobile-safe editorial target remains in the prompt and layout service,
+  // where a single bounded condensation repair can still be attempted.
+  headline: z.string().trim().min(1).max(72),
+  supportingLine: z.string().trim().max(150),
+  highlights: z.array(z.string().trim().min(1).max(60)).max(3),
+  priceLine: z.string().trim().max(64),
+  cta: z.string().trim().min(1).max(60),
+})
+
+export const FeedCreativeGenerationSchema = z.object({
+  headline: z.string().trim().min(1).max(120),
+  caption: z.string().trim().min(1).max(900),
+  shortCaption: z.string().trim().min(1).max(220),
+  cta: z.string().trim().min(1).max(120),
+  hashtags: CompactHashtagsSchema,
+  altText: z.string().trim().min(1).max(300),
+  ...CompactGroundingFields,
+})
+
+export const CarouselCreativeGenerationSchema = z.object({
+  caption: z.string().trim().min(1).max(900),
+  cta: z.string().trim().min(1).max(120),
+  hashtags: CompactHashtagsSchema,
+  altText: z.string().trim().min(1).max(300),
+  ...CompactGroundingFields,
+})
+
+export const StoryCreativeGenerationSchema = z.object({
+  caption: z.string().trim().min(1).max(700),
+  hashtags: CompactHashtagsSchema,
+  altText: z.string().trim().min(1).max(300),
+  storyCopy: CompactStoryCopySchema,
+  ...CompactGroundingFields,
+})
+
+export const ReelCreativeGenerationSchema = z.object({
+  hook: z.string().trim().min(1).max(100),
+  caption: z.string().trim().min(1).max(1_000),
+  shortCaption: z.string().trim().min(1).max(220),
+  cta: z.string().trim().min(1).max(120),
+  hashtags: CompactHashtagsSchema,
+  altText: z.string().trim().min(1).max(300),
+  coverText: z.string().trim().min(1).max(80),
+  onScreenText: z.array(z.string().trim().min(1).max(80)).max(6),
+  suggestedDuration: z.union([z.literal(15), z.literal(20), z.literal(30), z.literal(45), z.literal(60)]),
+  transitions: z.array(z.enum(["fade", "cross_dissolve", "slide", "zoom", "blur"])).max(4),
+  ...CompactGroundingFields,
+})
+
+export type MarketingGeneratedCreative =
+  | z.infer<typeof FeedCreativeGenerationSchema>
+  | z.infer<typeof CarouselCreativeGenerationSchema>
+  | z.infer<typeof StoryCreativeGenerationSchema>
+  | z.infer<typeof ReelCreativeGenerationSchema>
+
+export function creativeGenerationSchemaForFormat(format: (typeof MARKETING_FORMATS)[number]) {
+  switch (format) {
+    case "feed_single": return FeedCreativeGenerationSchema
+    case "carousel": return CarouselCreativeGenerationSchema
+    case "story": return StoryCreativeGenerationSchema
+    case "reel": return ReelCreativeGenerationSchema
+  }
+}
 
 export const MarketingStatusSchema = z.enum(MARKETING_STATUSES)

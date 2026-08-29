@@ -34,6 +34,14 @@ function normalize(value: unknown) {
   return String(value ?? "").replace(/\s+/g, " ").trim().toLocaleLowerCase()
 }
 
+function compact(value: unknown, maximum: number) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim()
+  if (text.length <= maximum) return text
+  const bounded = text.slice(0, maximum)
+  const withinLimit = bounded.replace(/\s+\S*$/, "").trim()
+  return withinLimit || bounded.trim()
+}
+
 function stringValues(value: unknown) {
   return Array.isArray(value)
     ? value.map(normalize).filter(Boolean)
@@ -65,6 +73,45 @@ export function marketingSafeFacts(property: PropertyFactSnapshot): Record<Marke
   }
 }
 
+/**
+ * The complete safe snapshot remains the source of truth for validation. The
+ * generation prompt receives a compact, de-duplicated view so a long CRM
+ * description or repeated amenity tags cannot consume the model's context.
+ */
+export function marketingPromptFacts(property: PropertyFactSnapshot): Partial<Record<MarketingSafeFactKey, string | number | string[]>> {
+  const facts = marketingSafeFacts(property)
+  const compacted: Partial<Record<MarketingSafeFactKey, string | number | string[]>> = {}
+  const seenListValues = new Set<string>()
+
+  for (const key of MARKETING_SAFE_FACT_KEYS) {
+    const value = facts[key]
+    if (value === undefined || value === null || value === "") continue
+    if (Array.isArray(value)) {
+      const values = value
+        .map(item => compact(item, 80))
+        .filter(Boolean)
+        .filter(item => {
+          const normalized = normalize(item)
+          if (seenListValues.has(normalized)) return false
+          seenListValues.add(normalized)
+          return true
+        })
+        .slice(0, 12)
+      if (values.length) compacted[key] = values
+      continue
+    }
+    if (typeof value === "number") {
+      compacted[key] = value
+      continue
+    }
+    const maximum = key === "description" ? 600 : 180
+    const valueForPrompt = compact(value, maximum)
+    if (valueForPrompt) compacted[key] = valueForPrompt
+  }
+
+  return compacted
+}
+
 export function factValues(property: PropertyFactSnapshot, key: MarketingSafeFactKey) {
   return stringValues(marketingSafeFacts(property)[key])
 }
@@ -86,7 +133,11 @@ export function validateClaimProvenance(input: {
   }
   for (const claim of input.claims) {
     const allowed = factValues(input.property, claim.factKey)
-    if (!allowed.length || !allowed.includes(normalize(claim.factValue))) {
+    const factValue = normalize(claim.factValue)
+    // A long description may be compacted before it reaches the model. An
+    // exact source excerpt remains grounded while avoiding provenance that
+    // repeats an entire internal description or generated caption.
+    if (!allowed.length || !allowed.some(value => value === factValue || value.includes(factValue))) {
       throw new Error(`Generated claim is not grounded in the property snapshot: ${claim.factKey}.`)
     }
     if (!normalize(input.copy).includes(normalize(claim.text))) {

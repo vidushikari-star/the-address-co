@@ -1,8 +1,14 @@
 import OpenAI from "openai"
 import { zodTextFormat } from "openai/helpers/zod"
 
-import { CreativeOutputSchema, ReelStoryboardSchema, StoryCopySchema } from "@/lib/marketing/schemas"
-import { detectUnsupportedNumericClaim, marketingSafeFacts, validateClaimProvenance } from "@/lib/marketing/fact-contract"
+import {
+  CreativeOutputSchema,
+  ReelStoryboardSchema,
+  StoryCopySchema,
+  creativeGenerationSchemaForFormat,
+  type MarketingGeneratedCreative,
+} from "@/lib/marketing/schemas"
+import { detectUnsupportedNumericClaim, marketingPromptFacts, validateClaimProvenance } from "@/lib/marketing/fact-contract"
 import { legacyContractForContentType } from "@/lib/marketing/content-contract"
 import { generationOutputInstructions } from "@/lib/marketing/generation-output-contract"
 import { fitStoryCopy, STORY_COPY_GUIDANCE } from "@/lib/marketing/story-layout"
@@ -21,10 +27,40 @@ type CreativeOutput = ReturnType<typeof CreativeOutputSchema.parse>
 type ReelStoryboardOutput = ReturnType<typeof ReelStoryboardSchema.parse>
 
 const DEFAULT_MARKETING_MODEL = "gpt-5.2"
-const MARKETING_MAX_OUTPUT_TOKENS = 1_200
+
+/**
+ * These budgets cover compact JSON and its provenance, not long-form prose.
+ * Reels need the largest allowance because they include concise overlays and
+ * sequence guidance; the other formats intentionally remain smaller.
+ */
+export const MARKETING_OUTPUT_TOKEN_BUDGETS = Object.freeze({
+  feed_single: 700,
+  carousel: 700,
+  story: 750,
+  reel: 1_100,
+  reel_storyboard: 1_000,
+  story_copy: 450,
+})
+
+export const CONTENT_GENERATION_TOO_LONG_MESSAGE = "Content generation was too long to complete. Please try again or shorten the creative brief."
+
+class OutputTokenLimitError extends Error {
+  constructor() {
+    super("OpenAI output exceeded the format token budget.")
+    this.name = "OutputTokenLimitError"
+  }
+}
+
+/** A terminal, user-safe generation error. The worker must not retry it. */
+export class ContentGenerationTooLongError extends Error {
+  constructor() {
+    super(CONTENT_GENERATION_TOO_LONG_MESSAGE)
+    this.name = "ContentGenerationTooLongError"
+  }
+}
 
 function factLines(property: PropertyFactSnapshot) {
-  return marketingSafeFacts(property)
+  return marketingPromptFacts(property)
 }
 
 export const LUXURY_EDITORIAL_POLICY = Object.freeze({
@@ -40,7 +76,21 @@ function luxuryEditorialInstructions() {
     `Prefer: ${LUXURY_EDITORIAL_POLICY.tone.join(", ")}.`,
     `Never use these phrases: ${LUXURY_EDITORIAL_POLICY.avoidPhrases.join("; ")}.`,
     `Avoid: ${LUXURY_EDITORIAL_POLICY.avoidPatterns.join("; ")}.`,
+    "Keep every field concise and editorial. Prefer one clear idea over explanatory prose.",
   ].join("\n")
+}
+
+function formatConcisenessInstructions(format: MarketingFormat) {
+  switch (format) {
+    case "feed_single":
+      return "Post copy: one compact caption (maximum 900 characters), one CTA line, at most 8 restrained hashtags, and concise accessibility text."
+    case "carousel":
+      return "Carousel copy: one compact caption (maximum 900 characters), one CTA line, at most 8 restrained hashtags, and concise accessibility text. Do not write slide copy."
+    case "story":
+      return "Story copy: keep the separate feed caption compact; the headline, supporting line, highlights, price line, and CTA must stay within the supplied mobile-safe schema bounds."
+    case "reel":
+      return "Reel copy: keep the hook, cover text, CTA, overlays, and sequence guidance concise. Use at most 6 short overlays and at most 4 transitions."
+  }
 }
 
 function validateBrandSafety<T extends CreativeOutput | ReelStoryboard>(output: T, settings: MarketingBrandSettings): T {
@@ -179,6 +229,114 @@ function structuredTextFallback(response: {
   return null
 }
 
+function compactSummary(value: string, maximum = 220) {
+  const text = value.replace(/\s+/g, " ").trim()
+  if (text.length <= maximum) return text
+  const words = text.slice(0, maximum + 1).replace(/\s+\S*$/, "").trim()
+  return `${words || text.slice(0, maximum).trimEnd()}…`
+}
+
+function fallbackStoryCopy(headline: string, cta: string): StoryCopy {
+  return { headline, supportingLine: "", highlights: [], priceLine: "", cta }
+}
+
+/**
+ * The API receives only fields relevant to its delivery format. Downstream
+ * storage intentionally keeps the historic full creative shape, with unused
+ * fields deterministic rather than model-generated.
+ */
+function normalizeGeneratedCreative(input: {
+  format: MarketingFormat
+  property: PropertyFactSnapshot
+  generated: MarketingGeneratedCreative
+}): CreativeOutput {
+  const defaults = {
+    onScreenText: [] as string[],
+    carouselSlides: [] as string[],
+    coverText: "",
+    suggestedDuration: 30 as const,
+    transitions: ["fade"] as Array<"fade" | "cross_dissolve" | "slide" | "zoom" | "blur">,
+    audioStyle: "manual_instagram" as const,
+  }
+
+  switch (input.format) {
+    case "feed_single": {
+      const output = input.generated as Extract<MarketingGeneratedCreative, { headline: string; shortCaption: string }>
+      return CreativeOutputSchema.parse({
+        campaignConcept: output.headline,
+        hook: output.headline,
+        headline: output.headline,
+        caption: output.caption,
+        shortCaption: output.shortCaption,
+        cta: output.cta,
+        hashtags: output.hashtags,
+        altText: output.altText,
+        storyCopy: fallbackStoryCopy(output.headline, output.cta),
+        factsUsed: output.factsUsed,
+        claimProvenance: output.claimProvenance,
+        ...defaults,
+      })
+    }
+    case "carousel": {
+      const output = input.generated as Extract<MarketingGeneratedCreative, { caption: string; cta: string; altText: string }>
+      const derivedHeadline = input.property.title
+      return CreativeOutputSchema.parse({
+        campaignConcept: derivedHeadline,
+        hook: derivedHeadline,
+        headline: derivedHeadline,
+        caption: output.caption,
+        shortCaption: compactSummary(output.caption),
+        cta: output.cta,
+        hashtags: output.hashtags,
+        altText: output.altText,
+        storyCopy: fallbackStoryCopy(derivedHeadline, output.cta),
+        factsUsed: output.factsUsed,
+        claimProvenance: output.claimProvenance,
+        ...defaults,
+      })
+    }
+    case "story": {
+      const output = input.generated as Extract<MarketingGeneratedCreative, { storyCopy: StoryCopy; caption: string; altText: string }>
+      return CreativeOutputSchema.parse({
+        campaignConcept: output.storyCopy.headline,
+        hook: output.storyCopy.headline,
+        headline: output.storyCopy.headline,
+        caption: output.caption,
+        shortCaption: compactSummary(output.caption),
+        cta: output.storyCopy.cta,
+        hashtags: output.hashtags,
+        altText: output.altText,
+        storyCopy: output.storyCopy,
+        factsUsed: output.factsUsed,
+        claimProvenance: output.claimProvenance,
+        ...defaults,
+      })
+    }
+    case "reel": {
+      const output = input.generated as Extract<MarketingGeneratedCreative, { hook: string; coverText: string; onScreenText: string[] }>
+      return CreativeOutputSchema.parse({
+        campaignConcept: output.hook,
+        hook: output.hook,
+        headline: output.hook,
+        caption: output.caption,
+        shortCaption: output.shortCaption,
+        cta: output.cta,
+        hashtags: output.hashtags,
+        altText: output.altText,
+        coverText: output.coverText,
+        onScreenText: output.onScreenText,
+        suggestedDuration: output.suggestedDuration,
+        transitions: output.transitions,
+        storyCopy: fallbackStoryCopy(output.hook, output.cta),
+        factsUsed: output.factsUsed,
+        claimProvenance: output.claimProvenance,
+        carouselSlides: [],
+        audioStyle: "manual_instagram",
+      })
+    }
+  }
+}
+
 class StoryboardOverlayLengthError extends Error {
   constructor() {
     super("AI generated text that was too long for the Reel layout.")
@@ -251,14 +409,17 @@ export class CreativeAIService {
 
     const openai = openAiClient()
     const requestCreative = async (repairInstruction?: string) => {
+      const maxOutputTokens = MARKETING_OUTPUT_TOKEN_BUDGETS[format]
       const instructions = [
         "You are the private editorial marketing assistant for a luxury real-estate CRM.",
         "Return the structured output that matches the supplied schema.",
         "Use only the supplied inventory facts. Never invent amenities, views, ROI, availability, room counts, size, price, location facts, or urgency.",
         "When a fact is absent, omit it. Generic stylistic language is allowed only when it does not imply an unsupported property fact.",
-        "For every factual claim, return claimProvenance with the exact claim text, supplied fact key, and exact supplied fact value. Do not add provenance for generic stylistic copy.",
+        "For every factual claim, return one compact claimProvenance entry: quote only the factual phrase, identify the supplied fact key, and use the exact supplied fact value or a compact exact excerpt. Never duplicate a full caption in provenance. Do not add provenance for generic stylistic copy.",
         luxuryEditorialInstructions(),
         generationOutputInstructions(format),
+        formatConcisenessInstructions(format),
+        `Objective: ${objective}.`,
         format === "story"
           ? `For Story output, make storyCopy a concise visual script for a 1080×1920 mobile-safe renderer. Headline: at most ${STORY_COPY_GUIDANCE.headline.maximumLines} short lines / ${STORY_COPY_GUIDANCE.headline.recommendedCharacters} characters. Supporting line: at most ${STORY_COPY_GUIDANCE.supportingLine.maximumLines} short lines / ${STORY_COPY_GUIDANCE.supportingLine.recommendedCharacters} characters. Use no more than ${STORY_COPY_GUIDANCE.highlights.maximumItems} highlights, each one line and at most ${STORY_COPY_GUIDANCE.highlights.recommendedCharactersPerItem} characters. Price: at most ${STORY_COPY_GUIDANCE.priceLine.maximumLines} short lines / ${STORY_COPY_GUIDANCE.priceLine.recommendedCharacters} characters. CTA: at most ${STORY_COPY_GUIDANCE.cta.maximumLines} short lines / ${STORY_COPY_GUIDANCE.cta.recommendedCharacters} characters. Never put a paragraph or hashtags in storyCopy; it will be burned into a 9:16 creative. The feed-style caption remains separate metadata.`
           : "",
@@ -268,6 +429,7 @@ export class CreativeAIService {
         input.settings.website ? `Website: ${input.settings.website}` : "",
         input.settings.whatsappCta ? `Contact / WhatsApp CTA: ${input.settings.whatsappCta}` : "",
         input.settings.preferredCta ? `Preferred CTA: ${input.settings.preferredCta}` : "",
+        input.settings.defaultHashtags.length ? `Prefer these relevant existing hashtags where suitable: ${input.settings.defaultHashtags.join(" ")}` : "",
         input.settings.excludedWords.length ? `Excluded words: ${input.settings.excludedWords.join(", ")}` : "",
         input.recentContent?.length
           ? `Avoid repeating these recently used hooks/headlines for this property: ${input.recentContent.map(item => item.hook || item.headline).filter(Boolean).join(" | ")}`
@@ -279,31 +441,15 @@ export class CreativeAIService {
       try {
         response = await openai.responses.parse({
           model: process.env.OPENAI_MARKETING_MODEL ?? DEFAULT_MARKETING_MODEL,
-          max_output_tokens: MARKETING_MAX_OUTPUT_TOKENS,
+          max_output_tokens: maxOutputTokens,
           input: [
             { role: "system", content: instructions },
             {
               role: "user",
-              content: JSON.stringify({
-                deliveryFormat: format,
-                objective,
-                creativeDirection: "luxury_editorial",
-                propertyFacts: factLines(input.property),
-                brandSettings: {
-                  brandName: input.settings.brandName,
-                  instagramHandle: input.settings.instagramHandle,
-                  website: input.settings.website,
-                  whatsappCta: input.settings.whatsappCta,
-                  preferredTone: input.settings.preferredTone,
-                  preferredCta: input.settings.preferredCta,
-                  typographyPreference: input.settings.fontFamily,
-                  defaultHashtags: input.settings.defaultHashtags,
-                  excludedWords: input.settings.excludedWords,
-                },
-              }),
+              content: JSON.stringify({ propertyFacts: factLines(input.property) }),
             },
           ],
-          text: { format: zodTextFormat(CreativeOutputSchema, "marketing_creative") },
+          text: { format: zodTextFormat(creativeGenerationSchemaForFormat(format), "marketing_creative") },
         })
       } catch (error) {
         logRequestFailure(error)
@@ -314,7 +460,7 @@ export class CreativeAIService {
       const diagnostics = logResponseDiagnostics(response)
       if (diagnostics.refused) throw new Error("OpenAI refused the request.")
       if (response.status === "incomplete") {
-        if (response.incomplete_details?.reason === "max_output_tokens") throw new Error("OpenAI output exceeded configured token limit.")
+        if (response.incomplete_details?.reason === "max_output_tokens") throw new OutputTokenLimitError()
         throw new Error("OpenAI response was incomplete.")
       }
       if (response.status && response.status !== "completed") throw new Error("OpenAI response was not completed.")
@@ -322,10 +468,27 @@ export class CreativeAIService {
         if (diagnostics.hasText) throw new Error("OpenAI structured output could not be parsed.")
         throw new Error("OpenAI returned no generated content.")
       }
-      return CreativeOutputSchema.parse(response.output_parsed)
+      const parsed = creativeGenerationSchemaForFormat(format).safeParse(response.output_parsed)
+      if (!parsed.success) throw new Error("OpenAI structured output could not be parsed.")
+      return normalizeGeneratedCreative({ format, property: input.property, generated: parsed.data })
     }
 
-    let output = await requestCreative()
+    let output: CreativeOutput
+    try {
+      output = await requestCreative()
+    } catch (error) {
+      if (!(error instanceof OutputTokenLimitError)) throw error
+      console.warn("OpenAI output-token recovery requested:", JSON.stringify({ format, maxOutputTokens: MARKETING_OUTPUT_TOKEN_BUDGETS[format], attempts: 1 }))
+      try {
+        output = await requestCreative("The previous response exceeded its output budget. Return one concise, valid response within every stated field limit. Preserve only essential fact-grounded editorial copy and compact provenance.")
+      } catch (recoveryError) {
+        if (recoveryError instanceof OutputTokenLimitError) {
+          console.error("OpenAI output-token recovery exhausted:", JSON.stringify({ format, maxOutputTokens: MARKETING_OUTPUT_TOKEN_BUDGETS[format], attempts: 2 }))
+          throw new ContentGenerationTooLongError()
+        }
+        throw recoveryError
+      }
+    }
     const copyForClaims = [
       output.hook, output.headline, output.caption, output.shortCaption, output.cta,
       output.coverText, output.altText, ...output.onScreenText, ...output.carouselSlides,
@@ -372,7 +535,7 @@ export class CreativeAIService {
       try {
         response = await openAiClient().responses.parse({
         model: process.env.OPENAI_MARKETING_MODEL ?? DEFAULT_MARKETING_MODEL,
-        max_output_tokens: MARKETING_MAX_OUTPUT_TOKENS,
+        max_output_tokens: MARKETING_OUTPUT_TOKEN_BUDGETS.reel_storyboard,
         input: [
           { role: "system", content: storyboardInstructions({ ...input, repairInstruction }) },
           {
@@ -381,13 +544,6 @@ export class CreativeAIService {
               propertyFacts: factLines(input.property),
               sourceAssetIds: input.sourceAssetIds,
               currentStoryboard: input.currentStoryboard ?? null,
-              brandSettings: {
-                brandName: input.settings.brandName,
-                preferredTone: input.settings.preferredTone,
-                preferredCta: input.settings.preferredCta,
-                defaultHashtags: input.settings.defaultHashtags,
-                excludedWords: input.settings.excludedWords,
-              },
             }),
           },
         ],
@@ -459,7 +615,7 @@ export class CreativeAIService {
       try {
         response = await openAiClient().responses.parse({
           model: process.env.OPENAI_MARKETING_MODEL ?? DEFAULT_MARKETING_MODEL,
-          max_output_tokens: 500,
+          max_output_tokens: MARKETING_OUTPUT_TOKEN_BUDGETS.story_copy,
           input: [
             { role: "system", content: [
               "You are the visual Story editor for a luxury real-estate CRM.",

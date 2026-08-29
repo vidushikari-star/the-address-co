@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { CreativeAIService, fitStoryboardCopyForReelLayout } from "@/lib/marketing/services/creative-ai-service"
+import {
+  CONTENT_GENERATION_TOO_LONG_MESSAGE,
+  CreativeAIService,
+  MARKETING_OUTPUT_TOKEN_BUDGETS,
+  fitStoryboardCopyForReelLayout,
+} from "@/lib/marketing/services/creative-ai-service"
 import type { MarketingBrandSettings, PropertyFactSnapshot, ReelStoryboard } from "@/lib/marketing/types"
 
 const settings: MarketingBrandSettings = {
@@ -104,7 +109,7 @@ describe("CreativeAIService", () => {
 
   it("uses native Responses structured parsing and returns validated creative output", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
-    const fetchMock = vi.fn().mockResolvedValue(completedResponse())
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(completedResponse()))
     global.fetch = fetchMock
 
     const output = await CreativeAIService.generate({
@@ -114,16 +119,42 @@ describe("CreativeAIService", () => {
       settings,
     })
 
-    expect(output).toMatchObject({ headline: creative.headline, hook: creative.hook, caption: creative.caption, cta: creative.cta, hashtags: creative.hashtags })
+    expect(output).toMatchObject({ headline: creative.hook, hook: creative.hook, caption: creative.caption, cta: creative.cta, hashtags: creative.hashtags })
     expect(fetchMock).toHaveBeenCalledWith("https://api.openai.com/v1/responses", expect.objectContaining({ method: "POST" }))
     const request = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
     const input = JSON.parse(request.input[1].content)
     expect(input.propertyFacts).toMatchObject({ title: "Villa Verde", location: "Parra, Goa", bedrooms: 4 })
-    expect(input.brandSettings).toMatchObject({ brandName: "The Address Co", instagramHandle: "theaddressco", website: "https://theaddressco.example" })
-    expect(request).toMatchObject({ model: "gpt-5.2", max_output_tokens: 1_200 })
+    expect(input).not.toHaveProperty("brandSettings")
+    expect(input).not.toHaveProperty("deliveryFormat")
+    expect(request).toMatchObject({ model: "gpt-5.2", max_output_tokens: MARKETING_OUTPUT_TOKEN_BUDGETS.reel })
     expect(request.text.format).toMatchObject({ type: "json_schema", strict: true, name: "marketing_creative" })
     expect(request.input[0].content).toContain("dream home")
-    expect(input).toMatchObject({ deliveryFormat: "reel", objective: "property_spotlight", creativeDirection: "luxury_editorial" })
+    expect(request.input[0].content).toContain("Objective: property_spotlight")
+    expect(request.input[0].content.match(/The Address Co/g)).toHaveLength(1)
+  })
+
+  it("uses compact, format-specific schemas and token budgets", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(completedResponse()))
+    global.fetch = fetchMock
+
+    for (const [format, required, omitted] of [
+      ["feed_single", ["headline", "caption", "altText"], ["carouselSlides", "storyCopy", "onScreenText"]],
+      ["carousel", ["caption", "cta", "altText"], ["carouselSlides", "storyCopy", "onScreenText", "coverText"]],
+      ["story", ["caption", "storyCopy", "altText"], ["carouselSlides", "onScreenText", "coverText"]],
+      ["reel", ["hook", "onScreenText", "coverText", "transitions"], ["carouselSlides", "storyCopy"]],
+    ] as const) {
+      const output = await CreativeAIService.generate({ property, format, objective: "property_spotlight", creativeDirection: "luxury_editorial", settings })
+      const request = JSON.parse((fetchMock.mock.calls.at(-1)![1] as RequestInit).body as string)
+      const fields = Object.keys(request.text.format.schema.properties)
+      expect(request.max_output_tokens).toBe(MARKETING_OUTPUT_TOKEN_BUDGETS[format])
+      expect(fields).toEqual(expect.arrayContaining([...required]))
+      expect(fields).not.toEqual(expect.arrayContaining([...omitted]))
+      if (format === "carousel") {
+        expect(request.input[0].content).toContain("Carousel images are intentionally clean")
+        expect(output.carouselSlides).toEqual([])
+      }
+    }
   })
 
   it("rejects factual output that omits the required claim provenance", async () => {
@@ -188,21 +219,51 @@ describe("CreativeAIService", () => {
     })).rejects.toThrow("OpenAI returned no generated content")
   })
 
-  it("returns an actionable error when the response is incomplete due to token limits", async () => {
+  it("recovers once from an output-token limit with the same bounded format budget", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
-    global.fetch = vi.fn().mockResolvedValue(response({
+    const tokenLimited = response({
       id: "resp_incomplete",
       status: "incomplete",
       incomplete_details: { reason: "max_output_tokens" },
       output: [],
-    }))
+    })
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(tokenLimited)
+      .mockResolvedValueOnce(completedResponse())
+    global.fetch = fetchMock
 
     await expect(CreativeAIService.generate({
       property,
       contentType: "reel",
       creativeDirection: "minimal",
       settings,
-    })).rejects.toThrow("OpenAI output exceeded configured token limit")
+    })).resolves.toMatchObject({ caption: creative.caption })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const first = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
+    const recovery = JSON.parse((fetchMock.mock.calls[1][1] as RequestInit).body as string)
+    expect(first.max_output_tokens).toBe(MARKETING_OUTPUT_TOKEN_BUDGETS.reel)
+    expect(recovery.max_output_tokens).toBe(MARKETING_OUTPUT_TOKEN_BUDGETS.reel)
+    expect(recovery.input[0].content).toContain("previous response exceeded its output budget")
+  })
+
+  it("stops after one output-token recovery and returns a user-safe error", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(response({
+      id: "resp_incomplete",
+      status: "incomplete",
+      incomplete_details: { reason: "max_output_tokens" },
+      output: [],
+    })))
+    global.fetch = fetchMock
+
+    await expect(CreativeAIService.generate({
+      property,
+      contentType: "reel",
+      creativeDirection: "minimal",
+      settings,
+    })).rejects.toThrow(CONTENT_GENERATION_TOO_LONG_MESSAGE)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it("returns an actionable error for malformed structured output", async () => {
@@ -239,7 +300,12 @@ describe("CreativeAIService", () => {
 
   it("rejects excluded language from otherwise valid AI output", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
-    global.fetch = vi.fn().mockResolvedValue(completedResponse({ ...creative, caption: "Guaranteed returns at Villa Verde." }))
+    global.fetch = vi.fn().mockResolvedValue(completedResponse({
+      ...creative,
+      caption: "Guaranteed returns at Villa Verde.",
+      factsUsed: ["title"],
+      claimProvenance: [{ text: "Villa Verde", factKey: "title", factValue: "Villa Verde" }],
+    }))
     await expect(CreativeAIService.generate({
       property,
       contentType: "reel",
@@ -258,6 +324,8 @@ describe("CreativeAIService", () => {
     const request = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
     expect(request.input[0].content).toContain("hook/title overlay ≤80 characters")
     expect(request.input[0].content).toContain("at most 2–3 short lines")
+    expect(request.max_output_tokens).toBe(MARKETING_OUTPUT_TOKEN_BUDGETS.reel_storyboard)
+    expect(JSON.parse(request.input[1].content)).not.toHaveProperty("brandSettings")
   })
 
   it("deterministically fits overly long storyboard overlays to the mobile-safe layout", () => {

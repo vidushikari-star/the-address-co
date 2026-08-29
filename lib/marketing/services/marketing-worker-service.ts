@@ -6,7 +6,7 @@ import { isInstagramPublishingEnabled } from "@/lib/marketing/feature-flags"
 import { logRenderStage, RenderStageError, renderStageFailure, sanitizeRenderDiagnostic } from "@/lib/marketing/render-diagnostics"
 import { CompositionService } from "@/lib/marketing/services/composition-service"
 import { BrandAssetService } from "@/lib/marketing/services/brand-asset-service"
-import { CreativeAIService } from "@/lib/marketing/services/creative-ai-service"
+import { ContentGenerationTooLongError, CreativeAIService } from "@/lib/marketing/services/creative-ai-service"
 import {
   InstagramApiError,
   InstagramCarouselChildContainerError,
@@ -425,7 +425,10 @@ export class MarketingWorkerService {
           results.push({ id: job.id, status: "skipped" })
           continue
         }
-        const retry = !isTerminalRenderTermination(job, caught) && !isTerminalPublishingFailure(job, caught) && job.attempts < job.maxAttempts
+        const retry = !(caught instanceof ContentGenerationTooLongError) &&
+          !isTerminalRenderTermination(job, caught) &&
+          !isTerminalPublishingFailure(job, caught) &&
+          job.attempts < job.maxAttempts
         if (job.type === "publish_instagram" && !retry) {
           await this.propagateTerminalPublishingFailure(admin, job, errorMessage)
         } else {

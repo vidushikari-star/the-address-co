@@ -20,9 +20,9 @@ export const EDITORIAL_GENERATION_CONTRACT = Object.freeze({
   }),
   carousel: Object.freeze({
     format: "carousel",
-    metadataFields: ["headline", "caption", "shortCaption", "cta", "hashtags", "altText", "carouselSlides"],
+    metadataFields: ["caption", "cta", "hashtags", "altText"],
     deterministicVisualFields: [],
-    prohibitedVisualFields: ["headline", "caption", "cta", "hashtags", "carouselSlides"],
+    prohibitedVisualFields: ["headline", "caption", "cta", "hashtags"],
   }),
   story: Object.freeze({
     format: "story",
@@ -47,5 +47,8 @@ export function generationOutputInstructions(format: MarketingFormat) {
     contract.prohibitedVisualFields.length
       ? `Never imply these fields are visual pixels for this format: ${contract.prohibitedVisualFields.join(", ")}.`
       : "Visual fields must remain within the controlled renderer contract.",
+    format === "carousel"
+      ? "Carousel images are intentionally clean. Do not generate slide copy, image overlays, or slide-by-slide marketing text."
+      : "",
   ].join("\n")
 }

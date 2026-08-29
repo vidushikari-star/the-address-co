@@ -42,7 +42,7 @@ describe("Marketing V2 content contracts", () => {
 
   it("keeps generated metadata separate from allowed deterministic visual fields", () => {
     expect(EDITORIAL_GENERATION_CONTRACT.feed_single).toMatchObject({ deterministicVisualFields: [], prohibitedVisualFields: expect.arrayContaining(["caption", "headline"]) })
-    expect(EDITORIAL_GENERATION_CONTRACT.carousel).toMatchObject({ deterministicVisualFields: [], prohibitedVisualFields: expect.arrayContaining(["carouselSlides"]) })
+    expect(EDITORIAL_GENERATION_CONTRACT.carousel).toMatchObject({ deterministicVisualFields: [], metadataFields: ["caption", "cta", "hashtags", "altText"] })
     expect(EDITORIAL_GENERATION_CONTRACT.story.deterministicVisualFields).toEqual(["storyCopy"])
     expect(EDITORIAL_GENERATION_CONTRACT.reel.deterministicVisualFields).toContain("onScreenText")
   })

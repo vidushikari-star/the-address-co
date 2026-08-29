@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { detectUnsupportedNumericClaim, marketingSafeFacts, validateClaimProvenance } from "@/lib/marketing/fact-contract"
+import { detectUnsupportedNumericClaim, marketingPromptFacts, marketingSafeFacts, validateClaimProvenance } from "@/lib/marketing/fact-contract"
 import type { PropertyFactSnapshot } from "@/lib/marketing/types"
 
 const property: PropertyFactSnapshot = {
@@ -38,6 +38,27 @@ describe("Marketing fact contract", () => {
       ],
       copy: "A 3-bedroom residence with a private pool.",
     })).toBe(true)
+  })
+
+  it("compacts prompt facts while accepting an exact excerpt of a long source fact", () => {
+    const longProperty = {
+      ...property,
+      description: "A considered villa with a courtyard, private pool, and shaded entertaining terrace. ".repeat(20),
+      amenities: ["private pool", "private pool", "shaded entertaining terrace"],
+      features: ["private pool", "courtyard"],
+    }
+    const promptFacts = marketingPromptFacts(longProperty)
+
+    expect(String(promptFacts.description).length).toBeLessThanOrEqual(600)
+    expect(promptFacts.amenities).toEqual(["private pool", "shaded entertaining terrace"])
+    expect(promptFacts.features).toEqual(["courtyard"])
+    expect(validateClaimProvenance({
+      property: longProperty,
+      factsUsed: ["description"],
+      claims: [{ text: "private pool", factKey: "description", factValue: "private pool" }],
+      copy: "A private pool anchors the outdoor setting.",
+    })).toBe(true)
+    expect(String(marketingPromptFacts({ ...property, description: "x".repeat(700) }).description)).toHaveLength(600)
   })
 
   it("rejects unsupported or unavailable factual claims before approval", () => {
