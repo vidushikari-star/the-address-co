@@ -17,6 +17,7 @@ import type {
   MarketingReelVersion,
   ReelComposition,
 } from "@/lib/marketing/types"
+import { defaultMarketingContract, resolveMarketingContract, storageContentTypeForFormat } from "@/lib/marketing/content-contract"
 
 type Row = Record<string, unknown>
 
@@ -44,6 +45,10 @@ function mapContent(row: Row): MarketingContent {
 
   const activeReelVersionId = row.active_reel_version_id as string | null
   const composition = object(row.composition)
+  const marketingContract = resolveMarketingContract({
+    contentType: row.content_type as MarketingContentType,
+    composition,
+  })
   const renderToken = composition.renderToken as string | undefined
   const storySourceAssetId = composition.sourceAssetId as string | undefined
   const renderedAsset = assets.find(asset => asset.kind === "rendered_media" && (
@@ -70,6 +75,8 @@ function mapContent(row: Row): MarketingContent {
     primaryPropertyId: row.primary_property_id as string | null,
     propertySnapshot: object(row.property_snapshot),
     contentType: row.content_type as MarketingContentType,
+    format: marketingContract.format,
+    objective: marketingContract.objective,
     creativeDirection: String(row.creative_direction ?? "surprise_me"),
     title: row.title as string | null,
     status: row.status as MarketingStatus,
@@ -394,11 +401,19 @@ export class MarketingRepository {
     id: string
     composition: ReelComposition
     audioSettings: ReelComposition["audio"]
+    sourceAssetIds?: string[]
+    logoSettings?: ReelComposition["logo"] | null
   }) {
     const supabase = await createServerSupabaseClient()
     const { data, error } = await supabase
       .from("marketing_reel_versions")
-      .update({ composition: input.composition, audio_settings: input.audioSettings, last_error: null })
+      .update({
+        composition: input.composition,
+        audio_settings: input.audioSettings,
+        ...(input.sourceAssetIds ? { source_asset_ids: input.sourceAssetIds } : {}),
+        ...(input.logoSettings !== undefined ? { logo_settings: input.logoSettings } : {}),
+        last_error: null,
+      })
       .eq("id", input.id)
       .eq("status", "draft")
       .select("*")
@@ -688,7 +703,8 @@ export class MarketingRepository {
   }
 
   static async createContent(input: {
-    contentType: MarketingContentType
+    format: import("@/lib/marketing/types").MarketingFormat
+    objective: import("@/lib/marketing/types").MarketingObjective
     creativeDirection: string
     property: PropertyFactSnapshot
     accountId?: string | null
@@ -698,16 +714,22 @@ export class MarketingRepository {
     campaignId?: string
   }) {
     const supabase = await createServerSupabaseClient()
+    const contract = defaultMarketingContract({
+      format: input.format,
+      objective: input.objective,
+      creativeDirection: input.creativeDirection,
+    })
     const { data, error } = await supabase
       .from("marketing_content")
       .insert({
-        content_type: input.contentType,
+        content_type: storageContentTypeForFormat(input.format),
         creative_direction: input.creativeDirection,
         primary_property_id: input.property.id,
         property_snapshot: input.property,
+        composition: { marketingContract: contract },
         account_id: input.accountId ?? null,
         campaign_id: input.campaignId ?? null,
-        title: input.title ?? `${input.property.title} · ${input.contentType.replaceAll("_", " ")}`,
+        title: input.title ?? `${input.property.title} · ${input.format.replaceAll("_", " ")}`,
         created_by: input.createdBy,
         updated_by: input.createdBy,
         idempotency_key: input.idempotencyKey,
@@ -732,7 +754,19 @@ export class MarketingRepository {
         media_type: media.type,
         source_url: media.url,
         sort_order: sortOrder,
-        metadata: { isCover: media.isCover },
+        metadata: {
+          isCover: media.isCover,
+          propertyId: property.id,
+          declaredMediaType: media.type,
+          mimeType: media.mimeType,
+          width: media.width,
+          height: media.height,
+          fileSize: media.fileSize,
+          durationSeconds: media.durationSeconds,
+          codec: media.codec,
+          container: media.container,
+          sourceFingerprint: media.hash,
+        },
       })))
       .select("*")
 
@@ -1542,8 +1576,12 @@ export class MarketingRepository {
       amenities: stringArray(row.amenities),
       features: stringArray(row.tags),
       propertyType: row.property_type as string | undefined,
+      listingType: row.listing_type as string | undefined,
+      transactionType: row.transaction_type as string | undefined,
+      furnishing: row.furnishing as string | undefined,
       developmentStage: row.development_stage as string | undefined,
       status: row.status as string | undefined,
+      developer: row.developer as string | undefined,
       marketingPriority: row.marketing_priority as PropertyFactSnapshot["marketingPriority"],
       media: ((images ?? []) as Row[]).map(image => ({
         id: String(image.id),

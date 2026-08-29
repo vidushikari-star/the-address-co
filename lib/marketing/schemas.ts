@@ -2,18 +2,50 @@ import { z } from "zod"
 
 import {
   CREATIVE_DIRECTIONS,
-  MARKETING_CONTENT_TYPES,
+  MARKETING_FORMATS,
+  MARKETING_OBJECTIVES,
   MARKETING_STATUSES,
   STORY_LAYOUT_STYLES,
 } from "@/lib/marketing/types"
 import { REEL_TYPOGRAPHY_STYLES } from "@/lib/marketing/reel-typography"
+import { MARKETING_SAFE_FACT_KEYS } from "@/lib/marketing/fact-contract"
+
+const MarketingContractSchema = z.object({
+  version: z.literal("v2"),
+  format: z.enum(MARKETING_FORMATS),
+  objective: z.enum(MARKETING_OBJECTIVES),
+  creativeDirection: z.literal("luxury_editorial"),
+  mediaSelection: z.object({
+    mode: z.enum(["automatic", "curated"]),
+    assetIds: z.array(z.string().uuid()).max(12),
+  }),
+  brandTreatment: z.object({
+    version: z.literal("v1"),
+    logo: z.object({
+      enabled: z.boolean(),
+      assetId: z.string().uuid().nullable(),
+      placement: z.enum(["none", "top_left", "top_right", "bottom_left", "bottom_right", "end_card_only"]),
+      scale: z.enum(["small", "medium", "large"]),
+      opacity: z.number().min(0.1).max(1),
+    }),
+  }),
+})
 
 export const CreateContentSchema = z.object({
   propertyId: z.string().uuid(),
-  contentType: z.enum(MARKETING_CONTENT_TYPES),
-  creativeDirection: z.enum(CREATIVE_DIRECTIONS).default("surprise_me"),
+  format: z.enum(MARKETING_FORMATS),
+  objective: z.enum(MARKETING_OBJECTIVES),
+  creativeDirection: z.enum(CREATIVE_DIRECTIONS).default("luxury_editorial"),
+  /** Property-image IDs are resolved to immutable Marketing asset IDs server-side. */
+  propertyMediaIds: z.array(z.string().uuid()).min(1).max(12).optional(),
+  brandTreatment: z.object({
+    enabled: z.boolean().default(false),
+    placement: z.enum(["auto", "top_left", "top_right", "bottom_left", "bottom_right", "end_card_only"]).default("auto"),
+    scale: z.enum(["small", "medium", "large"]).default("small"),
+    opacity: z.number().min(0.1).max(1).default(0.8),
+  }).default({ enabled: false, placement: "auto", scale: "small", opacity: 0.8 }),
   idempotencyKey: z.string().uuid(),
-})
+}).strict()
 
 export const ContentUpdateSchema = z.object({
   caption: z.string().max(2_200).optional(),
@@ -22,6 +54,7 @@ export const ContentUpdateSchema = z.object({
   hook: z.string().max(160).optional(),
   cta: z.string().max(240).optional(),
   hashtags: z.array(z.string().min(2).max(80)).max(30).optional(),
+  altText: z.string().max(500).optional(),
   composition: z.record(z.string(), z.unknown()).optional(),
 })
 
@@ -80,6 +113,15 @@ export const ReelSceneSchema = z.object({
   transitionOut: z.enum(["fade", "cross_dissolve", "slide", "zoom", "blur"]),
 })
 
+export const ReelStoryboardUpdateSchema = z.object({
+  scenes: z.array(ReelSceneSchema).min(1).max(10),
+}).superRefine((value, context) => {
+  const ids = value.scenes.map(scene => scene.assetId)
+  if (new Set(ids).size !== ids.length) {
+    context.addIssue({ code: "custom", path: ["scenes"], message: "A Reel scene can use each selected property asset only once." })
+  }
+})
+
 export const ReelCompositionSchema = z.object({
   propertyId: z.string().uuid(),
   format: z.enum(["reel", "carousel", "single_image", "story", "infographic"]),
@@ -108,6 +150,7 @@ export const ReelCompositionSchema = z.object({
     margin: z.number().int().min(0).max(160).optional(),
     assetId: z.string().uuid().nullable().optional(),
   }).optional(),
+  marketingContract: MarketingContractSchema.optional(),
 })
 
 const ReelStoryboardSceneSchema = z.object({
@@ -184,6 +227,7 @@ export const StoryCompositionSchema = z.object({
     opacity: z.number().min(0.1).max(1),
     assetId: z.string().uuid().nullable().optional(),
   }),
+  marketingContract: MarketingContractSchema.optional(),
 })
 
 export const StoryUpdateSchema = z.object({
@@ -213,11 +257,13 @@ export const CreativeOutputSchema = z.object({
   suggestedDuration: z.union([z.literal(15), z.literal(20), z.literal(30), z.literal(45), z.literal(60)]),
   transitions: z.array(z.enum(["fade", "cross_dissolve", "slide", "zoom", "blur"])).max(8),
   audioStyle: z.enum(["cinematic", "luxury_lounge", "tropical", "upbeat", "ambient", "architectural", "emotional", "trending_style", "manual_instagram"]),
-  factsUsed: z.array(z.enum([
-    "title", "location", "price", "bedrooms", "bathrooms", "carpet_area",
-    "built_up_area", "plot_area", "description", "amenities", "features",
-    "property_type", "development_stage",
-  ])).max(14),
+  factsUsed: z.array(z.enum(MARKETING_SAFE_FACT_KEYS)).max(20),
+  /** Stored beside creative JSON; legacy output can be reviewed without a migration. */
+  claimProvenance: z.array(z.object({
+    text: z.string().trim().min(1).max(240),
+    factKey: z.enum(MARKETING_SAFE_FACT_KEYS),
+    factValue: z.string().trim().min(1).max(240),
+  })).max(30).default([]),
 })
 
 export const MarketingStatusSchema = z.enum(MARKETING_STATUSES)

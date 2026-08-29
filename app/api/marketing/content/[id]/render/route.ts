@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
+import { resolveMarketingContract } from "@/lib/marketing/content-contract"
 import { staticRenderJobType } from "@/lib/marketing/instagram-static-composition"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 import { CreativeOutputSchema, ReelCompositionSchema } from "@/lib/marketing/schemas"
 import { CompositionService } from "@/lib/marketing/services/composition-service"
+import { MediaEligibilityService } from "@/lib/marketing/services/media-eligibility-service"
 import type { ReelComposition } from "@/lib/marketing/types"
 
 type Context = { params: Promise<{ id: string }> }
@@ -36,8 +38,18 @@ export async function POST(_request: Request, context: Context) {
     if (!["approved", "failed"].includes(record.content.status)) {
       return NextResponse.json({ error: "Approve the creative before rendering it." }, { status: 409 })
     }
+    const marketingContract = resolveMarketingContract(record.content)
+    const selection = marketingContract.mediaSelection.assetIds.length
+      ? marketingContract.mediaSelection
+      : MediaEligibilityService.automaticSelection(marketingContract.format, record.assets)
+    const selectedAssets = MediaEligibilityService.validate({
+      format: marketingContract.format,
+      selection,
+      assets: record.assets,
+    })
+    if (selectedAssets.error) return NextResponse.json({ error: selectedAssets.error }, { status: 409 })
 
-    if (record.content.contentType !== "reel") {
+    if (marketingContract.format !== "reel") {
       if (!record.content.composition || typeof record.content.composition !== "object") {
         return NextResponse.json({ error: "Generate the static creative before rendering it." }, { status: 409 })
       }
@@ -45,7 +57,7 @@ export async function POST(_request: Request, context: Context) {
       const composition = { ...record.content.composition, renderToken }
       await MarketingRepository.queueStaticRender({
         contentId: id,
-        type: staticRenderJobType(record.content.contentType),
+        type: staticRenderJobType(marketingContract.format),
         renderToken,
         updatedBy: access.user.id,
         resumeApproved: true,
@@ -64,9 +76,7 @@ export async function POST(_request: Request, context: Context) {
         ? record.content.propertySnapshot.id
         : record.content.primaryPropertyId
       if (!propertyId) throw new Error("The source property facts are unavailable for this Reel.")
-      const assetIds = record.assets
-        .filter(asset => asset.kind === "original_reference" && ["image", "video"].includes(asset.mediaType))
-        .map(asset => asset.id)
+      const assetIds = selectedAssets.assets.map(asset => asset.id)
       composition = CompositionService.composeReel({
         propertyId,
         assetIds,

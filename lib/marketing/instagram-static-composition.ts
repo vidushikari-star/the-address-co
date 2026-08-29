@@ -1,4 +1,5 @@
 import { getInstagramFormat } from "@/lib/marketing/instagram-format"
+import { resolveMarketingContract } from "@/lib/marketing/content-contract"
 import { fitStoryCopy, storyLayoutError } from "@/lib/marketing/story-layout"
 import type {
   MarketingAsset,
@@ -25,8 +26,10 @@ function orderedImages(assets: MarketingAsset[]) {
   return cover ? [cover, ...images.filter(asset => asset.id !== cover.id)] : images
 }
 
-function selectedIds(content: Pick<MarketingContent, "composition">) {
+function selectedIds(content: Pick<MarketingContent, "composition" | "contentType">) {
   const composition = content.composition as { selectedAssetIds?: unknown }
+  const contract = resolveMarketingContract(content)
+  if (contract.mediaSelection.assetIds.length) return contract.mediaSelection.assetIds
   return Array.isArray(composition.selectedAssetIds)
     ? composition.selectedAssetIds.filter((id): id is string => typeof id === "string")
     : []
@@ -45,7 +48,8 @@ export function composeStaticInstagramContent(input: {
   logo?: { id: string; enabled?: boolean } | null
   typographyStyle?: StoryComposition["typographyStyle"]
 }) {
-  const format = getInstagramFormat(input.content.contentType)
+  const marketingContract = resolveMarketingContract(input.content)
+  const format = getInstagramFormat(marketingContract.format)
   if (format.id === "reel") throw new Error("Reels require a Reel composition.")
 
   const propertyId = input.content.primaryPropertyId ?? String(input.content.propertySnapshot.id ?? "")
@@ -79,6 +83,18 @@ export function composeStaticInstagramContent(input: {
         opacity: 0.8,
         assetId: input.logo?.id ?? null,
       },
+      marketingContract: {
+        ...marketingContract,
+        brandTreatment: {
+          ...marketingContract.brandTreatment,
+          logo: {
+            ...marketingContract.brandTreatment.logo,
+            enabled: Boolean(input.logo?.enabled ?? input.logo),
+            assetId: input.logo?.id ?? null,
+            placement: "top_right",
+          },
+        },
+      },
     }
     const layoutError = storyLayoutError(composition.storyCopy)
     if (layoutError) throw new Error(layoutError)
@@ -105,9 +121,10 @@ export function composeStaticInstagramContent(input: {
     cta: input.creative.cta,
     coverText: input.creative.coverText,
     carouselSlides: input.creative.carouselSlides,
+    marketingContract,
   }
 }
 
-export function staticRenderJobType(contentType: MarketingContentType) {
-  return getInstagramFormat(contentType).id === "carousel" ? "render_carousel" as const : "render_image" as const
+export function staticRenderJobType(formatOrContentType: MarketingContentType | "feed_single" | "carousel" | "story") {
+  return getInstagramFormat(formatOrContentType).id === "carousel" ? "render_carousel" as const : "render_image" as const
 }

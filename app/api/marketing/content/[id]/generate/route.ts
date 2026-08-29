@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
+import { resolveMarketingContract, withMarketingContract } from "@/lib/marketing/content-contract"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 import { composeStaticInstagramContent, staticRenderJobType } from "@/lib/marketing/instagram-static-composition"
 import { GenerateContentCopySchema } from "@/lib/marketing/schemas"
 import { CreativeAIService } from "@/lib/marketing/services/creative-ai-service"
+import { CompositionService } from "@/lib/marketing/services/composition-service"
+import { MediaEligibilityService } from "@/lib/marketing/services/media-eligibility-service"
 import type { MarketingStatus, PropertyFactSnapshot } from "@/lib/marketing/types"
 
 export const runtime = "nodejs"
@@ -54,18 +57,27 @@ export async function POST(request: Request, context: Context) {
       return NextResponse.json({ error: "Request changes before regenerating approved, scheduled, or published content." }, { status: 409 })
     }
 
-    const sourceProperty = record.content.primaryPropertyId
-      ? await MarketingRepository.getPropertySnapshot(record.content.primaryPropertyId)
-      : null
-    const property = sourceProperty ?? record.content.propertySnapshot
+    const property = record.content.propertySnapshot
     if (!isPropertySnapshot(property)) {
       return NextResponse.json({ error: "The source property facts are unavailable for this content." }, { status: 409 })
     }
 
+    const marketingContract = resolveMarketingContract(record.content)
+    const selection = marketingContract.mediaSelection.assetIds.length
+      ? marketingContract.mediaSelection
+      : MediaEligibilityService.automaticSelection(marketingContract.format, record.assets)
+    const selectedAssets = MediaEligibilityService.validate({
+      format: marketingContract.format,
+      selection,
+      assets: record.assets,
+    })
+    if (selectedAssets.error) return NextResponse.json({ error: selectedAssets.error }, { status: 409 })
+
     const settings = await MarketingRepository.getBrandSettings()
     const creative = await CreativeAIService.generate({
       property,
-      contentType: record.content.contentType,
+      format: marketingContract.format,
+      objective: marketingContract.objective,
       creativeDirection: record.content.creativeDirection,
       settings,
     })
@@ -90,10 +102,13 @@ export async function POST(request: Request, context: Context) {
     if (record.content.status === "ready_for_review") changes.status = "changes_requested"
     if (record.content.status === "failed") changes.status = "draft"
 
-    if (record.content.contentType !== "reel") {
-      const logo = record.content.contentType === "story"
+    if (marketingContract.format !== "reel") {
+      const logo = marketingContract.format === "story" && marketingContract.brandTreatment.logo.enabled
         ? await MarketingRepository.getActiveBrandLogo()
         : null
+      if (marketingContract.format === "story" && marketingContract.brandTreatment.logo.enabled && (!logo || (marketingContract.brandTreatment.logo.assetId && logo.id !== marketingContract.brandTreatment.logo.assetId))) {
+        return NextResponse.json({ error: "The selected brand logo is unavailable. Disable it or choose an active logo before generating." }, { status: 409 })
+      }
       changes.composition = composeStaticInstagramContent({
         content: record.content,
         assets: record.assets,
@@ -103,18 +118,39 @@ export async function POST(request: Request, context: Context) {
     }
 
     let content: Awaited<ReturnType<typeof MarketingRepository.updateContent>>
-    if (record.content.contentType !== "reel") {
+    if (marketingContract.format !== "reel") {
       const composition = changes.composition as { renderToken: string }
       const queued = await MarketingRepository.queueStaticRender({
         contentId: id,
-        type: staticRenderJobType(record.content.contentType),
+        type: staticRenderJobType(marketingContract.format),
         renderToken: composition.renderToken,
         updatedBy: access.user.id,
         changes,
       })
       content = queued.content
     } else {
-      content = await MarketingRepository.updateContent(id, changes, access.user.id)
+      const treatment = marketingContract.brandTreatment.logo
+      const logo = treatment.enabled ? await MarketingRepository.getActiveBrandLogo() : null
+      if (treatment.enabled && (!logo || (treatment.assetId && logo.id !== treatment.assetId))) {
+        return NextResponse.json({ error: "The selected brand logo is unavailable. Disable it or choose an active logo before generating." }, { status: 409 })
+      }
+      const composition = CompositionService.composeReel({
+        propertyId: property.id,
+        assetIds: selectedAssets.assets.map(asset => asset.id),
+        creative,
+        logo: treatment.enabled ? {
+          placement: treatment.placement,
+          scale: treatment.scale,
+          opacity: treatment.opacity,
+          assetId: logo!.id,
+        } : undefined,
+      })
+      content = await MarketingRepository.updateContent(id, { ...changes, composition: withMarketingContract(composition, marketingContract) }, access.user.id)
+      await MarketingRepository.queueReelRender({
+        contentId: id,
+        updatedBy: access.user.id,
+        idempotencyKey: `render-reel:${id}:${crypto.randomUUID()}`,
+      })
     }
     await MarketingRepository.addAuditLog({
       actorId: access.user.id,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
+import { defaultMarketingContract, resolveMarketingContract, withMarketingContract } from "@/lib/marketing/content-contract"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 
 type Context = { params: Promise<{ id: string }> }
@@ -22,15 +23,26 @@ export async function POST(request: Request, context: Context) {
     const { id } = await context.params
     const record = await MarketingRepository.getContentById(id)
     if (!record) return NextResponse.json({ error: "Content not found." }, { status: 404 })
-    if (record.content.contentType !== "reel") return NextResponse.json({ error: "Logo controls are available for Reels only." }, { status: 400 })
+    const marketingContract = resolveMarketingContract(record.content)
+    if (marketingContract.format !== "reel") return NextResponse.json({ error: "Logo controls are available for Reels only." }, { status: 400 })
     if (!EDITABLE_STATUSES.includes(record.content.status)) return NextResponse.json({ error: "Return this Reel to edits before changing its logo treatment." }, { status: 409 })
     const logo = parsed.data.placement === "none" ? null : await MarketingRepository.getActiveBrandLogo()
     if (parsed.data.placement !== "none" && !logo) return NextResponse.json({ error: "Upload a private brand logo in Marketing Settings before selecting a logo placement." }, { status: 409 })
     const changes: Record<string, unknown> = {
-      composition: {
+      composition: withMarketingContract({
         ...(record.content.composition as Record<string, unknown>),
         logo: { ...parsed.data, assetId: logo?.id ?? null },
-      },
+      }, defaultMarketingContract({
+        format: "reel",
+        objective: marketingContract.objective,
+        assetIds: marketingContract.mediaSelection.assetIds,
+        selectionMode: marketingContract.mediaSelection.mode,
+        creativeDirection: record.content.creativeDirection,
+        brandTreatment: {
+          version: "v1",
+          logo: { enabled: parsed.data.placement !== "none", assetId: logo?.id ?? null, ...parsed.data },
+        },
+      })),
     }
     if (record.content.status === "failed") { changes.status = "draft"; changes.last_error = null }
     const content = await MarketingRepository.updateContent(id, changes, access.user.id)

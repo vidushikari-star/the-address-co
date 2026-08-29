@@ -14,6 +14,14 @@ import { StoryCompositionSchema } from "@/lib/marketing/schemas"
 import { storyCopyEditorFeedback, STORY_COPY_GUIDANCE } from "@/lib/marketing/story-layout"
 import { setStoryCreativeDirty } from "@/lib/marketing/story-editor-state"
 
+const storyLayoutLabels: Record<(typeof STORY_LAYOUT_STYLES)[number], string> = {
+  full_bleed_gradient: "Minimal",
+  editorial_panel: "Editorial",
+  lower_third: "Architectural",
+  dark_panel: "Statement",
+  light_panel: "Detail",
+}
+
 function initialCopy(content: MarketingContent): StoryCopy {
   const composition = StoryCompositionSchema.safeParse(content.composition)
   if (composition.success) return composition.data.storyCopy
@@ -142,7 +150,7 @@ export function StoryCreativeEditor({ content, assets, hasActiveLogo }: { conten
     <label className="grid gap-1 text-xs font-medium">Supporting line <span className="font-normal text-muted-foreground">Up to {STORY_COPY_GUIDANCE.supportingLine.maximumLines} short lines</span><Input value={copy.supportingLine} maxLength={STORY_COPY_GUIDANCE.supportingLine.recommendedCharacters} onChange={event => setCopy({ ...copy, supportingLine: event.target.value })} /></label>
     <label className="grid gap-1 text-xs font-medium">Highlights (one per line, up to {STORY_COPY_GUIDANCE.highlights.maximumItems})<Textarea rows={3} maxLength={STORY_COPY_GUIDANCE.highlights.maximumItems * (STORY_COPY_GUIDANCE.highlights.recommendedCharactersPerItem + 1)} value={copy.highlights.join("\n")} onChange={event => setCopy({ ...copy, highlights: event.target.value.split("\n").map(item => item.trim().slice(0, STORY_COPY_GUIDANCE.highlights.recommendedCharactersPerItem)).filter(Boolean).slice(0, STORY_COPY_GUIDANCE.highlights.maximumItems) })} /></label>
     <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-xs font-medium">Price line (optional)<Input value={copy.priceLine} maxLength={STORY_COPY_GUIDANCE.priceLine.recommendedCharacters} onChange={event => setCopy({ ...copy, priceLine: event.target.value })} /></label><label className="grid gap-1 text-xs font-medium">CTA<Input value={copy.cta} maxLength={STORY_COPY_GUIDANCE.cta.recommendedCharacters} onChange={event => setCopy({ ...copy, cta: event.target.value })} /></label></div>
-    <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-xs font-medium">Layout<select className="h-9 rounded-md border bg-background px-2 text-sm" value={layoutStyle} onChange={event => setLayoutStyle(event.target.value as typeof layoutStyle)}>{STORY_LAYOUT_STYLES.map(style => <option key={style} value={style}>{style.replaceAll("_", " ")}</option>)}</select></label><label className="flex items-center gap-2 pt-5 text-xs font-medium"><input type="checkbox" checked={logoEnabled} disabled={!hasActiveLogo} onChange={event => setLogoEnabled(event.target.checked)} />Include active brand logo{!hasActiveLogo && " (no active logo)"}</label></div>
+    <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-xs font-medium">Layout<select className="h-9 rounded-md border bg-background px-2 text-sm" value={layoutStyle} onChange={event => setLayoutStyle(event.target.value as typeof layoutStyle)}>{STORY_LAYOUT_STYLES.map(style => <option key={style} value={style}>{storyLayoutLabels[style]}</option>)}</select></label><label className="flex items-center gap-2 pt-5 text-xs font-medium"><input type="checkbox" checked={logoEnabled} disabled={!hasActiveLogo} onChange={event => setLogoEnabled(event.target.checked)} />Include active brand logo{!hasActiveLogo && " (no active logo)"}</label></div>
     <div className="flex flex-wrap gap-2"><Button type="button" size="sm" onClick={() => save()} disabled={pending || !sourceAssetId || (!dirty && !needsRender)}>{pending ? "Saving..." : dirty ? "Save Story creative" : needsRender ? "Render Story creative" : "Story creative saved"}</Button><Button type="button" size="sm" variant="outline" onClick={regenerate} disabled={pending}>Regenerate Story copy</Button></div>
     <div className="flex gap-2"><Input value={prompt} maxLength={600} placeholder="Improve with AI, e.g. Make this more minimal and editorial." onChange={event => setPrompt(event.target.value)} /><Button type="button" size="sm" variant="outline" onClick={improve} disabled={pending || prompt.trim().length < 3}><Sparkles className="h-4 w-4" />Improve</Button></div>
     {layoutFeedback && <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-950">{layoutFeedback}</p>}

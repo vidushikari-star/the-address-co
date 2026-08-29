@@ -1,7 +1,9 @@
 import { CreativeOutputSchema, ReelCompositionSchema } from "@/lib/marketing/schemas"
+import { defaultMarketingContract, resolveMarketingContract, withMarketingContract } from "@/lib/marketing/content-contract"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 import { CompositionService } from "@/lib/marketing/services/composition-service"
 import { CreativeAIService } from "@/lib/marketing/services/creative-ai-service"
+import { MediaEligibilityService } from "@/lib/marketing/services/media-eligibility-service"
 import type { MarketingContent, PropertyFactSnapshot, ReelComposition, ReelStoryboard } from "@/lib/marketing/types"
 
 function currentStoryboard(content: MarketingContent, composition: ReelComposition): ReelStoryboard {
@@ -117,6 +119,118 @@ export class ReelVersionService {
       status,
       last_error: null,
     }, input.adminId)
+    return { content, version, createdDraft: !editableDraft }
+  }
+
+  /**
+   * M3's intentionally small storyboard editor changes only a mutable draft
+   * composition. It preserves historic rendered versions and the persisted
+   * source snapshot while making the user's scene order authoritative.
+   */
+  static async updateStoryboard(input: {
+    contentId: string
+    scenes: ReelComposition["scenes"]
+    adminId: string
+  }) {
+    const record = await MarketingRepository.getContentById(input.contentId)
+    if (!record) throw new Error("Content not found.")
+    if (record.content.contentType !== "reel") throw new Error("Storyboard editing is available for Reels only.")
+    if (!["draft", "changes_requested", "ready_for_review", "failed"].includes(record.content.status)) {
+      throw new Error("Return this Reel to edits before changing its storyboard.")
+    }
+
+    const contract = resolveMarketingContract(record.content)
+    const visualScenes = input.scenes.filter(scene => scene.overlay?.type !== "end_card")
+    const sourceAssetIds = visualScenes.map(scene => scene.assetId)
+    if (!sourceAssetIds.length) throw new Error("A Reel needs at least one property media scene.")
+    if (new Set(sourceAssetIds).size !== sourceAssetIds.length) throw new Error("A Reel scene can use each selected property asset only once.")
+    const selection = { mode: "curated" as const, assetIds: sourceAssetIds }
+    MediaEligibilityService.assert({ format: "reel", selection, assets: record.assets })
+
+    const current = existingComposition(record.content, sourceAssetIds)
+    let cursor = 0
+    const normalizedVisualScenes = visualScenes.map(scene => {
+      const duration = Math.max(1.5, Math.min(12, Number(scene.duration.toFixed(2))))
+      const next = { ...scene, start: cursor, duration }
+      cursor += duration
+      return next
+    })
+    const existingEndCard = current.scenes.find(scene => scene.overlay?.type === "end_card")
+    const scenes = existingEndCard ? [
+      ...normalizedVisualScenes,
+      { ...existingEndCard, assetId: normalizedVisualScenes[normalizedVisualScenes.length - 1]!.assetId, start: cursor },
+    ] : normalizedVisualScenes
+    const nextContract = defaultMarketingContract({
+      format: "reel",
+      objective: contract.objective,
+      assetIds: sourceAssetIds,
+      selectionMode: "curated",
+      creativeDirection: contract.creativeDirection,
+      brandTreatment: contract.brandTreatment,
+    })
+    const composition = ReelCompositionSchema.parse(withMarketingContract({
+      ...current,
+      scenes,
+      duration: scenes.reduce((total, scene) => total + scene.duration, 0),
+    }, nextContract))
+
+    const versions = await MarketingRepository.listReelVersions(record.content.id)
+    const editableDraft = versions.find(version => version.status === "draft")
+    if (!editableDraft && !versions.length) {
+      // Older Reels may have a rendered asset but no version-history record.
+      // Keep that production output immutable before opening the first M3 edit.
+      const existingRender = record.assets.find(asset => asset.kind === "rendered_media" && asset.mediaType === "video")
+      if (existingRender) {
+        const originalSourceAssetIds = record.assets
+          .filter(asset => asset.kind === "original_reference" && (asset.mediaType === "image" || asset.mediaType === "video"))
+          .map(asset => asset.id)
+        const baseline = await MarketingRepository.createReelVersion({
+          contentId: record.content.id,
+          composition: current,
+          sourceAssetIds: sourceAssetIdsForComposition(current, originalSourceAssetIds),
+          logoSettings: current.logo ?? null,
+          audioSettings: current.audio,
+          userPrompt: "Initial Reel version",
+          createdBy: input.adminId,
+          status: "rendered",
+        })
+        await MarketingRepository.markReelVersionRendered({ id: baseline.id, renderedAssetId: existingRender.id, makeCurrent: true })
+      }
+    }
+    const version = editableDraft
+      ? await MarketingRepository.updateDraftReelVersion({
+          id: editableDraft.id,
+          composition,
+          sourceAssetIds,
+          logoSettings: composition.logo ?? null,
+          audioSettings: composition.audio,
+        })
+      : await MarketingRepository.createReelVersion({
+          contentId: record.content.id,
+          composition,
+          sourceAssetIds,
+          logoSettings: composition.logo ?? null,
+          audioSettings: composition.audio,
+          userPrompt: "Storyboard edited manually",
+          createdBy: input.adminId,
+          status: "draft",
+        })
+    const status = record.content.status === "ready_for_review"
+      ? "changes_requested"
+      : record.content.status === "failed"
+        ? "draft"
+        : record.content.status
+    const content = await MarketingRepository.updateContent(record.content.id, {
+      composition,
+      status,
+      last_error: null,
+    }, input.adminId)
+    await MarketingRepository.addAuditLog({
+      actorId: input.adminId,
+      contentId: record.content.id,
+      action: "reel.storyboard_updated",
+      metadata: { versionId: version.id, sceneCount: normalizedVisualScenes.length, sourceAssetIds },
+    })
     return { content, version, createdDraft: !editableDraft }
   }
 

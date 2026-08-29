@@ -26,6 +26,7 @@ export function MarketingContentEditor({ content }: { content: MarketingContent 
   const [caption, setCaption] = useState(content.caption ?? "")
   const [cta, setCta] = useState(content.cta ?? "")
   const [hashtags, setHashtags] = useState(content.hashtags.join(" "))
+  const [altText, setAltText] = useState(content.altText ?? "")
   const [message, setMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const hasGeneratedCopy = Boolean(
@@ -42,6 +43,7 @@ export function MarketingContentEditor({ content }: { content: MarketingContent 
     setCaption(next.caption ?? "")
     setCta(next.cta ?? "")
     setHashtags(next.hashtags.join(" "))
+    setAltText(next.altText ?? "")
   }
 
   useEffect(() => {
@@ -50,6 +52,7 @@ export function MarketingContentEditor({ content }: { content: MarketingContent 
     setCaption(content.caption ?? "")
     setCta(content.cta ?? "")
     setHashtags(content.hashtags.join(" "))
+    setAltText(content.altText ?? "")
   }, [content])
 
   function generate(fields?: CopyField[]) {
@@ -84,6 +87,7 @@ export function MarketingContentEditor({ content }: { content: MarketingContent 
           hook,
           cta,
           hashtags: hashtags.split(/[\s,]+/).map(tag => tag.trim()).filter(Boolean),
+          altText,
         }),
       })
       const data = await response.json().catch(() => ({})) as { error?: string }
@@ -120,6 +124,7 @@ export function MarketingContentEditor({ content }: { content: MarketingContent 
     <label className="grid gap-1 text-xs font-medium">Caption<Textarea value={caption} onChange={event => setCaption(event.target.value)} rows={6} maxLength={2200} placeholder="Generated Instagram caption" /></label>
     <label className="grid gap-1 text-xs font-medium">Hashtags<Input value={hashtags} onChange={event => setHashtags(event.target.value)} placeholder="#goarealestate #luxuryhomes" /></label>
     <label className="grid gap-1 text-xs font-medium">CTA<Input value={cta} onChange={event => setCta(event.target.value)} maxLength={240} placeholder="Generated call to action" /></label>
+    <label className="grid gap-1 text-xs font-medium">Alt text<Textarea value={altText} onChange={event => setAltText(event.target.value)} rows={3} maxLength={500} placeholder="Describe the property image accurately for accessibility." /></label>
     <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" onClick={save} disabled={isPending}><Save className="h-4 w-4" />Save edits</Button>{hasGeneratedCopy && targetActions.map(action => <Button key={action.field} type="button" size="sm" variant="ghost" onClick={() => generate([action.field])} disabled={isPending}>{action.label}</Button>)}{content.status === "draft" && <Button type="button" size="sm" variant="destructive" onClick={deleteDraft} disabled={isPending}><Trash2 className="h-4 w-4" />Delete draft</Button>}</div>
     {message && <p className="rounded-lg bg-muted p-3 text-xs text-muted-foreground" role="status">{message}</p>}
   </div>

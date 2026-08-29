@@ -8,7 +8,7 @@ const second = "b2041f1f-89e9-4a59-a8de-00169502f523"
 
 function item(id: string, status: MarketingContent["status"]): MarketingContent {
   return {
-    id, contentType: "reel", creativeDirection: "minimal", status, hashtags: [], creative: {}, composition: {}, propertySnapshot: {}, createdAt: "2026-08-11T00:00:00.000Z", updatedAt: "2026-08-11T00:00:00.000Z",
+    id, contentType: "reel", format: "reel", objective: "property_spotlight", creativeDirection: "minimal", status, hashtags: [], creative: {}, composition: {}, propertySnapshot: {}, createdAt: "2026-08-11T00:00:00.000Z", updatedAt: "2026-08-11T00:00:00.000Z",
   }
 }
 

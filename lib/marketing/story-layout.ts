@@ -6,6 +6,7 @@ import type {
   ReelTypographyStyle,
   StoryComposition,
   StoryCopy,
+  StoryLayoutStyle,
 } from "@/lib/marketing/types"
 
 /** Conservative editorial areas inside a 1080×1920 Story canvas. */
@@ -367,8 +368,28 @@ export function fitStoryCopy(copy: StoryCopy): StoryCopyFit {
  * review overlay. It is deliberately also the final fallback for legacy copy,
  * so no valid creative is clipped by a stale character-count gate.
  */
-export function layoutStoryCopy(copy: StoryCopy): StoryTextLayout[] {
-  return fitStoryCopy(copy).plans
+function applyEditorialLayout(plan: StoryTextLayout, style: StoryLayoutStyle): StoryTextLayout {
+  if (style === "editorial_panel") return plan
+  const y = {
+    full_bleed_gradient: { headline: 320, supporting_line: 565, highlights: 855, price: 1250, cta: 1460 },
+    lower_third: { headline: 835, supporting_line: 1050, highlights: 1230, price: 1400, cta: 1515 },
+    dark_panel: { headline: 390, supporting_line: 635, highlights: 910, price: 1280, cta: 1470 },
+    light_panel: { headline: 365, supporting_line: 610, highlights: 905, price: 1280, cta: 1470 },
+  }[style][plan.role]
+  const centered = style === "light_panel" && ["headline", "supporting_line", "cta"].includes(plan.role)
+  const boxOpacity = style === "full_bleed_gradient"
+    ? Math.min(plan.boxOpacity, 0.18)
+    : style === "dark_panel"
+      ? Math.max(plan.boxOpacity, 0.72)
+      : style === "light_panel"
+        ? Math.min(plan.boxOpacity, 0.28)
+        : Math.max(plan.boxOpacity, 0.62)
+  return { ...plan, y, alignment: centered ? "center" : plan.alignment, boxOpacity }
+}
+
+/** Five deliberate layouts share one safe typography contract but have visibly distinct hierarchy and placement. */
+export function layoutStoryCopy(copy: StoryCopy, style: StoryLayoutStyle = "editorial_panel"): StoryTextLayout[] {
+  return fitStoryCopy(copy).plans.map(plan => applyEditorialLayout(plan, style))
 }
 
 export function storyLayoutError(copy: StoryCopy): string | null {

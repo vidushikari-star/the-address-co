@@ -37,6 +37,16 @@ describe("Story mobile-safe layout", () => {
     expect(plans.find(plan => plan.role === "headline")?.lines.length).toBeLessThanOrEqual(STORY_COPY_GUIDANCE.headline.maximumLines)
   })
 
+  it("makes each selected editorial Story layout materially distinct while preserving the safe copy contract", () => {
+    const editorial = layoutStoryCopy(shortCopy, "editorial_panel")
+    const lowerThird = layoutStoryCopy(shortCopy, "lower_third")
+    const statement = layoutStoryCopy(shortCopy, "dark_panel")
+
+    expect(lowerThird.find(plan => plan.role === "headline")?.y).not.toBe(editorial.find(plan => plan.role === "headline")?.y)
+    expect(statement.find(plan => plan.role === "headline")?.boxOpacity).toBeGreaterThan(editorial.find(plan => plan.role === "headline")!.boxOpacity)
+    expect([...editorial, ...lowerThird, ...statement].every(plan => plan.fits)).toBe(true)
+  })
+
   it("reduces type and spacing before shortening visual text", () => {
     const copy = {
       ...shortCopy,

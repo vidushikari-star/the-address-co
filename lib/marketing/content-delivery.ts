@@ -1,5 +1,6 @@
 import type { MarketingAsset, MarketingContent } from "@/lib/marketing/types"
 import { getInstagramFormat, type InstagramFormatId } from "@/lib/marketing/instagram-format"
+import { resolveMarketingContract } from "@/lib/marketing/content-contract"
 import { StoryCompositionSchema } from "@/lib/marketing/schemas"
 import { storyLayoutError } from "@/lib/marketing/story-layout"
 
@@ -31,6 +32,10 @@ function selectedAssetIds(content: Pick<MarketingContent, "composition">) {
   return Array.isArray(composition.selectedAssetIds)
     ? composition.selectedAssetIds.filter((id): id is string => typeof id === "string" && id.length > 0)
     : []
+}
+
+function contentFormat(content: Pick<MarketingContent, "contentType" | "composition">) {
+  return getInstagramFormat(resolveMarketingContract(content).format)
 }
 
 /**
@@ -92,7 +97,7 @@ export function carouselAssetValidationError(
 }
 
 export function contentRequiresRendering(content: Pick<MarketingContent, "contentType" | "composition">) {
-  return getInstagramFormat(content.contentType).renderingRequired
+  return contentFormat(content).renderingRequired
 }
 
 function compositionRecord(content: Pick<MarketingContent, "composition">) {
@@ -116,13 +121,14 @@ function matchingRenderedAssets(input: {
   const renderToken = typeof composition.renderToken === "string" ? composition.renderToken : null
   const sourceAssetId = typeof composition.sourceAssetId === "string" ? composition.sourceAssetId : null
   return stableAssets(input.assets).filter(asset => {
-    if (asset.kind !== "rendered_media" || asset.mediaType !== getInstagramFormat(input.content.contentType).outputMediaType || !asset.storagePath) return false
+    const contract = contentFormat(input.content)
+    if (asset.kind !== "rendered_media" || asset.mediaType !== contract.outputMediaType || !asset.storagePath) return false
     if (input.format === "reel") return asset.storagePath.toLowerCase().endsWith(".mp4") &&
       (!input.content.activeReelVersionId || asset.metadata.reelVersionId === input.content.activeReelVersionId)
     return Boolean(
       renderToken &&
       asset.metadata.renderToken === renderToken &&
-      asset.metadata.instagramFormat === input.format &&
+      (asset.metadata.instagramFormat === input.format || asset.metadata.instagramFormat === contract.legacyId) &&
       (input.format !== "story" || asset.metadata.sourceAssetId === sourceAssetId)
     )
   })
@@ -165,7 +171,7 @@ function storyValidationError(
 }
 
 export function publishableAssets(content: Pick<MarketingContent, "contentType" | "composition" | "activeReelVersionId">, assets: MarketingAsset[]) {
-  const format = getInstagramFormat(content.contentType)
+  const format = contentFormat(content)
   const rendered = matchingRenderedAssets({ content, assets, format: format.id })
   if (format.id !== "carousel") return rendered.slice(0, format.maximumMediaCount)
 
@@ -176,7 +182,7 @@ export function publishableAssets(content: Pick<MarketingContent, "contentType" 
 
 export function hasPublishableMedia(content: Pick<MarketingContent, "contentType" | "composition" | "activeReelVersionId">, assets: MarketingAsset[]) {
   const media = publishableAssets(content, assets)
-  const format = getInstagramFormat(content.contentType)
+  const format = contentFormat(content)
   return media.length >= format.minimumMediaCount && media.length <= format.maximumMediaCount &&
     media.every(asset => asset.mediaType === format.outputMediaType)
 }
@@ -186,7 +192,7 @@ export function validateInstagramPublishability(
   content: Pick<MarketingContent, "contentType" | "composition" | "activeReelVersionId" | "caption" | "hashtags">,
   assets: MarketingAsset[],
 ) {
-  const format = getInstagramFormat(content.contentType)
+  const format = contentFormat(content)
   if (format.captionRequired && ![content.caption, content.hashtags.join(" ")].filter(Boolean).join(" ").trim()) {
     return "Complete the separate Instagram caption before continuing."
   }

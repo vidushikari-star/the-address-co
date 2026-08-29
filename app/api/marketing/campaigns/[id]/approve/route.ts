@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
-import { defaultCarouselImageAssets } from "@/lib/marketing/content-delivery"
+import { defaultMarketingContract, legacyContractForContentType, withMarketingContract } from "@/lib/marketing/content-contract"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
+import { MediaEligibilityService } from "@/lib/marketing/services/media-eligibility-service"
 import type { PropertyFactSnapshot } from "@/lib/marketing/types"
 
 type Context = { params: Promise<{ id: string }> }
@@ -23,12 +24,14 @@ export async function POST(_request: Request, context: Context) {
     for (const item of items) {
       try {
         const property = item.property_snapshot as PropertyFactSnapshot
-        const contentType = item.content_type as Parameters<typeof MarketingRepository.createContent>[0]["contentType"]
-        if (contentType === "carousel" && property.media.filter(media => media.type === "image" && /^https:\/\//i.test(media.url)).length < 2) {
+        const contentType = item.content_type as Parameters<typeof legacyContractForContentType>[0]
+        const contract = legacyContractForContentType(contentType)
+        if (contract.format === "carousel" && property.media.filter(media => media.type === "image" && /^https:\/\//i.test(media.url)).length < 2) {
           throw new Error("A Carousel requires at least 2 accessible property gallery images. Videos are available for Reels only.")
         }
         let content = await MarketingRepository.createContent({
-          contentType,
+          format: contract.format,
+          objective: contract.objective,
           creativeDirection: String(item.creative_direction ?? "surprise_me"),
           property,
           accountId: account?.id,
@@ -38,18 +41,28 @@ export async function POST(_request: Request, context: Context) {
           title: String(item.hook ?? property.title),
         })
         const sourceAssets = await MarketingRepository.addSourceAssets(content.id, property)
-        if (content.contentType === "carousel") {
-          const selectedAssetIds = defaultCarouselImageAssets(sourceAssets).map(asset => asset.id)
-          content = await MarketingRepository.updateContent(content.id, {
-            composition: { format: "carousel", aspectRatio: "1:1", selectedAssetIds, audio: { type: "none", label: "No audio selected" } },
-          }, access.user.id)
-        }
+        const selection = MediaEligibilityService.automaticSelection(contract.format, sourceAssets)
+        const eligibility = MediaEligibilityService.validate({ format: contract.format, selection, assets: sourceAssets })
+        if (eligibility.error) throw new Error(eligibility.error)
+        content = await MarketingRepository.updateContent(content.id, {
+          composition: withMarketingContract(
+            contract.format === "carousel"
+              ? { format: "carousel", aspectRatio: "4:5", selectedAssetIds: selection.assetIds, audio: { type: "none", label: "No audio selected" } }
+              : { selectedAssetIds: selection.assetIds },
+            defaultMarketingContract({
+              format: contract.format,
+              objective: contract.objective,
+              assetIds: selection.assetIds,
+              creativeDirection: String(item.creative_direction ?? "luxury_editorial"),
+            }),
+          ),
+        }, access.user.id)
         await MarketingRepository.updateContent(content.id, { proposed_publish_at: item.planned_for as string }, access.user.id)
         await MarketingRepository.linkCampaignItem(String(item.id), content.id)
         await MarketingRepository.enqueueJob({
           contentId: content.id,
           type: "generate_creative",
-          input: { propertySnapshot: property },
+          input: {},
           idempotencyKey: `generate-creative:${content.id}`,
         })
         results.push({ itemId: String(item.id), contentId: content.id })

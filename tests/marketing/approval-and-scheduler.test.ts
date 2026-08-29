@@ -42,9 +42,22 @@ beforeEach(() => {
   repository.listReelVersions.mockResolvedValue([])
   repository.scheduleApprovedContent.mockResolvedValue({ id: "content-1", status: "scheduled" })
   vi.stubEnv("INSTAGRAM_PUBLISHING_ENABLED", "false")
+  vi.stubEnv("MARKETING_SCHEDULING_ENABLED", "true")
 })
 
 describe("approval and scheduling guards", () => {
+  it("blocks scheduling completely when the environment safety flag is disabled", async () => {
+    vi.stubEnv("MARKETING_SCHEDULING_ENABLED", "false")
+
+    await expect(SchedulerService.schedule({
+      contentId: "content-1",
+      scheduledFor: new Date(Date.now() + 3_600_000).toISOString(),
+      timezone: "Asia/Kolkata",
+      adminId: "admin-1",
+    })).rejects.toThrow("Marketing scheduling is disabled in this environment")
+    expect(repository.scheduleApprovedContent).not.toHaveBeenCalled()
+  })
+
   it("approves a Story from its persisted composition even when the legacy headline column is empty", async () => {
     const sourceAssetId = "34d1e601-18e9-4caa-9cc4-8af4c11888f1"
     const storyToken = "1e149a39-7321-42d1-900c-7389c0da37a3"

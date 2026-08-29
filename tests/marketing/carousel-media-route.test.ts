@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const access = vi.hoisted(() => ({ requireMarketingApiAccess: vi.fn() }))
-const repository = vi.hoisted(() => ({ updateCarouselMedia: vi.fn() }))
+const repository = vi.hoisted(() => ({ updateCarouselMedia: vi.fn(), updateContent: vi.fn() }))
 const cache = vi.hoisted(() => ({ revalidatePath: vi.fn() }))
 
 vi.mock("@/lib/auth/marketing", () => access)
@@ -19,7 +19,8 @@ const imageIds = [
 beforeEach(() => {
   vi.clearAllMocks()
   access.requireMarketingApiAccess.mockResolvedValue({ user: { id: "admin-1" }, error: null, status: null })
-  repository.updateCarouselMedia.mockResolvedValue({ id: contentId, status: "draft" })
+  repository.updateCarouselMedia.mockResolvedValue({ id: contentId, contentType: "carousel", status: "draft", creativeDirection: "luxury_editorial", composition: { selectedAssetIds: imageIds } })
+  repository.updateContent.mockResolvedValue({ id: contentId, contentType: "carousel", status: "draft" })
 })
 
 describe("Carousel media route", () => {
@@ -32,6 +33,9 @@ describe("Carousel media route", () => {
 
     expect(response.status).toBe(200)
     expect(repository.updateCarouselMedia).toHaveBeenCalledWith({ contentId, propertyImageIds: imageIds, updatedBy: "admin-1" })
+    expect(repository.updateContent).toHaveBeenCalledWith(contentId, expect.objectContaining({
+      composition: expect.objectContaining({ marketingContract: expect.objectContaining({ mediaSelection: { mode: "curated", assetIds: imageIds } }) }),
+    }), "admin-1")
     expect(cache.revalidatePath).toHaveBeenCalledWith("/marketing/content")
     expect(cache.revalidatePath).toHaveBeenCalledWith("/marketing/calendar")
   })

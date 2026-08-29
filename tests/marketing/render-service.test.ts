@@ -35,7 +35,7 @@ beforeEach(() => {
   admin.client.storage.from.mockReturnValue({ upload: vi.fn().mockResolvedValue({ error: null }) })
   vi.stubGlobal("fetch", vi.fn(async (url: URL | string) => ({
     ok: true,
-    headers: new Headers({ "content-type": String(url).includes("licensed") ? "audio/mp4" : String(url).includes("logo") ? "image/png" : "image/jpeg", "content-length": "2048" }),
+    headers: new Headers({ "content-type": String(url).includes("licensed") ? "audio/mp4" : String(url).includes("logo") ? "image/png" : String(url).includes(".mp4") ? "video/mp4" : "image/jpeg", "content-length": "2048" }),
     arrayBuffer: async () => new ArrayBuffer(2_048),
   })))
   childProcess.spawn.mockImplementation((executable: string) => {
@@ -379,5 +379,90 @@ describe("RenderService audio mixing", () => {
     }
 
     await expect(RenderService.renderReel(input)).rejects.toThrow("Render ffmpeg failed: Scene 7: FFmpeg process was terminated externally by SIGKILL")
+  })
+
+  it("rejects AI marketing text before a Feed property image can render", async () => {
+    const input = {
+      contentId: "1e149a39-7321-42d1-900c-7389c0da37a3",
+      asset: {
+        id: "b2041f1f-89e9-4a59-a8de-00169502f523",
+        contentId: "1e149a39-7321-42d1-900c-7389c0da37a3",
+        kind: "original_reference" as const,
+        mediaType: "image" as const,
+        sourceUrl: "https://project.supabase.co/storage/v1/object/sign/villa.jpg",
+        metadata: {},
+        sortOrder: 0,
+        createdAt: "2026-08-10T00:00:00.000Z",
+      },
+      aspectRatio: "4:5" as const,
+      // Deliberately emulate an untyped future caller. The public TypeScript
+      // contract does not permit this field, and the runtime contract blocks it.
+      overlayText: "AI headline that must remain separate from the photograph",
+    }
+
+    await expect(RenderService.renderImage(input as Parameters<typeof RenderService.renderImage>[0]))
+      .rejects.toThrow("Static Instagram property images do not permit text overlays.")
+    expect(fetch).not.toHaveBeenCalled()
+    expect(childProcess.spawn).not.toHaveBeenCalled()
+  })
+
+  it("still renders a clean Feed property image after removing text-overlay support", async () => {
+    await expect(RenderService.renderImage({
+      contentId: "1e149a39-7321-42d1-900c-7389c0da37a3",
+      asset: {
+        id: "b2041f1f-89e9-4a59-a8de-00169502f523",
+        contentId: "1e149a39-7321-42d1-900c-7389c0da37a3",
+        kind: "original_reference",
+        mediaType: "image",
+        sourceUrl: "https://project.supabase.co/storage/v1/object/sign/villa.jpg",
+        metadata: {},
+        sortOrder: 0,
+        createdAt: "2026-08-10T00:00:00.000Z",
+      },
+      aspectRatio: "4:5",
+    })).resolves.toMatchObject({ storagePath: expect.stringContaining("/rendered/") })
+
+    const ffmpeg = childProcess.spawn.mock.calls.find(([executable]) => !String(executable).endsWith("ffprobe"))
+    const args = ffmpeg?.[1] as string[]
+    expect(args.join(" ")).not.toContain("drawtext")
+  })
+
+  it("rejects an image selection when the delivered media MIME proves it is video", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ "content-type": "video/mp4", "content-length": "2048" }),
+      arrayBuffer: async () => new ArrayBuffer(2_048),
+    }))
+
+    await expect(RenderService.renderImage({
+      contentId: "1e149a39-7321-42d1-900c-7389c0da37a3",
+      asset: { id: "b2041f1f-89e9-4a59-a8de-00169502f523", contentId: "content-1", kind: "original_reference", mediaType: "image", sourceUrl: "https://project.supabase.co/storage/v1/object/sign/villa.jpg", metadata: {}, sortOrder: 0, createdAt: "2026-08-10T00:00:00.000Z" },
+      aspectRatio: "4:5",
+    })).rejects.toThrow("delivered MIME type")
+    expect(childProcess.spawn).not.toHaveBeenCalled()
+  })
+
+  it("renders a clean Carousel property image with crop-only FFmpeg filters", async () => {
+    await RenderService.renderImage({
+      contentId: "1e149a39-7321-42d1-900c-7389c0da37a3",
+      asset: {
+        id: "b2041f1f-89e9-4a59-a8de-00169502f523",
+        contentId: "1e149a39-7321-42d1-900c-7389c0da37a3",
+        kind: "original_reference",
+        mediaType: "image",
+        sourceUrl: "https://project.supabase.co/storage/v1/object/sign/villa.jpg",
+        metadata: {},
+        sortOrder: 0,
+        createdAt: "2026-08-10T00:00:00.000Z",
+      },
+      aspectRatio: "4:5",
+    })
+
+    const ffmpeg = childProcess.spawn.mock.calls.find(([executable]) => !String(executable).endsWith("ffprobe"))
+    const args = ffmpeg?.[1] as string[]
+    expect(args).toContain("-vf")
+    expect(args[args.indexOf("-vf") + 1]).toBe("scale=1080:1350:force_original_aspect_ratio=increase,crop=1080:1350")
+    expect(args.join(" ")).not.toContain("drawtext")
+    expect(files.writeFile.mock.calls.some(([path]) => String(path).endsWith("overlay.txt"))).toBe(false)
   })
 })

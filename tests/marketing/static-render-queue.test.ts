@@ -16,7 +16,7 @@ function contentUpdateQuery(updates: Record<string, unknown>[]) {
   })
   query.eq.mockReturnValue(query)
   query.select.mockReturnValue(query)
-  query.single.mockResolvedValue({ data: { id: contentId, created_at: "2026-08-18T00:00:00.000Z", updated_at: "2026-08-18T00:00:00.000Z" }, error: null })
+  query.single.mockResolvedValue({ data: { id: contentId, content_type: "single_image", composition: {}, created_at: "2026-08-18T00:00:00.000Z", updated_at: "2026-08-18T00:00:00.000Z" }, error: null })
   return query
 }
 

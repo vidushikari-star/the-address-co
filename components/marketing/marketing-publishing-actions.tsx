@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-export function MarketingPublishingActions({ contentId, canPublishNow }: { contentId: string; canPublishNow: boolean }) {
+export function MarketingPublishingActions({ contentId, canPublishNow, canSchedule }: { contentId: string; canPublishNow: boolean; canSchedule: boolean }) {
   const router = useRouter()
   const [scheduledFor, setScheduledFor] = useState("")
   const [message, setMessage] = useState<string | null>(null)
@@ -37,6 +37,13 @@ export function MarketingPublishingActions({ contentId, canPublishNow }: { conte
       setMessage(response.ok ? "Controlled publishing test queued for the protected worker." : data.error ?? "Could not queue publishing.")
       if (response.ok) router.refresh()
     })
+  }
+
+  if (!canSchedule) {
+    return <div className="space-y-2 rounded-xl border p-4">
+      <p className="text-sm font-semibold">Publishing controls</p>
+      <p className="text-xs text-muted-foreground">Scheduling and publishing are disabled in this QA environment.</p>
+    </div>
   }
 
   return <div className="space-y-3 rounded-xl border p-4">

@@ -87,9 +87,12 @@ async function downloadAsset(asset: MarketingAsset, destination: string) {
   const response = await fetch(url, { signal: AbortSignal.timeout(30_000) })
   if (!response.ok) throw new Error(`Unable to fetch render asset (${response.status}).`)
 
-  const mime = response.headers.get("content-type") ?? ""
+  const mime = (response.headers.get("content-type") ?? "").split(";", 1)[0]?.toLocaleLowerCase() ?? ""
   if (!mime.startsWith("image/") && !mime.startsWith("video/")) {
     throw new Error("Renderer received an unsupported asset MIME type.")
+  }
+  if (!mime.startsWith(`${asset.mediaType}/`)) {
+    throw new Error("Renderer rejected media whose delivered MIME type does not match the selected asset type.")
   }
 
   return { byteLength: await saveResponseToFile(response, destination, MAX_RENDER_INPUT_BYTES, "A render asset exceeds the 75 MB safety limit.") }
@@ -153,6 +156,24 @@ async function downloadLogo(input: { sourceUrl: string; mimeType: "image/png" | 
   const mime = (response.headers.get("content-type") ?? "").split(";", 1)[0]?.toLocaleLowerCase()
   if (!mime || !["image/png", "image/webp"].includes(mime)) throw new Error("Renderer received an unsupported logo MIME type.")
   await saveResponseToFile(response, destination, MAX_LOGO_INPUT_BYTES, "Selected logo exceeds the 5 MB safety limit.")
+}
+
+type StaticLogo = {
+  sourceUrl: string
+  mimeType: "image/png" | "image/webp"
+  placement: "top_left" | "top_right" | "bottom_left" | "bottom_right"
+  scale: "small" | "medium" | "large"
+  opacity: number
+}
+
+function staticLogoLayout(input: Pick<StaticLogo, "placement" | "scale">) {
+  const size = { small: 76, medium: 108, large: 142 }[input.scale]
+  const margin = 44
+  return {
+    size,
+    x: input.placement.endsWith("right") ? `W-w-${margin}` : String(margin),
+    y: input.placement.startsWith("bottom") ? `H-h-${margin}` : String(margin),
+  }
 }
 
 type FfmpegRenderContext = {
@@ -653,17 +674,28 @@ export class RenderService {
     contentId: string
     asset: MarketingAsset
     aspectRatio?: "9:16" | "1:1" | "4:5"
-    overlayText?: string
+    /** Deterministic brand mark only; AI copy is never accepted as pixels. */
+    logo?: StaticLogo | null
   }) {
+    // Feed and Carousel property photography is intentionally clean. Keep
+    // this guard at the renderer boundary so an accidental future caller
+    // cannot turn generated marketing copy into pixels.
+    const legacyOverlay = (input as { overlayText?: unknown }).overlayText
+    if (legacyOverlay !== undefined && legacyOverlay !== null && String(legacyOverlay).trim()) {
+      throw new Error("Static Instagram property images do not permit text overlays.")
+    }
+    if (input.asset.mediaType !== "image") {
+      throw new Error("Static Instagram rendering requires a verified still image source.")
+    }
+    if (input.asset.metadata.probedMediaType && input.asset.metadata.probedMediaType !== "image") {
+      throw new Error("Static Instagram rendering rejected media whose verified type is not an image.")
+    }
     // These are worker-only temporary files, not application assets. Keep
     // Turbopack from attempting to trace the runtime-generated OS path.
     const workspace = await mkdtemp(join(/* turbopackIgnore: true */ tmpdir(), "marketing-image-"))
     const sourcePath = join(/* turbopackIgnore: true */ workspace, `source.${safeExtension(input.asset)}`)
     const outputPath = join(/* turbopackIgnore: true */ workspace, "rendered.jpg")
-    const overlayLayout = layoutReelOverlay({ text: input.overlayText, position: "bottom" })
-    const overlayTextPath = overlayLayout
-      ? join(/* turbopackIgnore: true */ workspace, "overlay.txt")
-      : null
+    const logoPath = input.logo ? join(/* turbopackIgnore: true */ workspace, `logo.${input.logo.mimeType === "image/webp" ? "webp" : "png"}`) : null
     const dimensions = input.aspectRatio === "1:1"
       ? { width: 1080, height: 1080 }
       : input.aspectRatio === "4:5"
@@ -672,14 +704,22 @@ export class RenderService {
 
     try {
       await downloadAsset(input.asset, sourcePath)
-      if (overlayLayout && overlayTextPath) await writeFile(overlayTextPath, overlayLayout.text, "utf8")
-      await runFfmpeg([
-        "-y", "-loglevel", "warning", "-i", sourcePath,
-        "-vf", `scale=${dimensions.width}:${dimensions.height}:force_original_aspect_ratio=increase,crop=${dimensions.width}:${dimensions.height}${textOverlayFilter({ layout: overlayLayout, textFilePath: overlayTextPath })}`,
-        "-frames:v", "1",
-        "-q:v", "2",
-        outputPath,
-      ], 1, false, 0)
+      if (input.logo && logoPath) await downloadLogo(input.logo, logoPath)
+      const base = `scale=${dimensions.width}:${dimensions.height}:force_original_aspect_ratio=increase,crop=${dimensions.width}:${dimensions.height}`
+      if (input.logo && logoPath) {
+        const layout = staticLogoLayout(input.logo)
+        await runFfmpeg([
+          "-y", "-loglevel", "warning", "-i", sourcePath, "-i", logoPath,
+          "-filter_complex", `[0:v]${base}[image];[1:v]scale=${layout.size}:-1,format=rgba,colorchannelmixer=aa=${input.logo.opacity.toFixed(2)}[logo];[image][logo]overlay=${layout.x}:${layout.y}:format=auto`,
+          "-frames:v", "1", "-q:v", "2", outputPath,
+        ], 2, false, 0, { phase: "image" })
+      } else {
+        await runFfmpeg([
+          "-y", "-loglevel", "warning", "-i", sourcePath,
+          "-vf", base,
+          "-frames:v", "1", "-q:v", "2", outputPath,
+        ], 1, false, 0, { phase: "image" })
+      }
       const rendered = await readFile(outputPath)
       if (rendered.byteLength < 1_024) throw new Error("FFmpeg produced an invalid image asset.")
       const storagePath = `${input.contentId}/rendered/${crypto.randomUUID()}.jpg`
@@ -690,7 +730,7 @@ export class RenderService {
         { contentType: "image/jpeg", upsert: false }
       )
       if (error) throw error
-      return { storagePath, byteLength: rendered.byteLength }
+      return { storagePath, byteLength: rendered.byteLength, logoApplied: Boolean(input.logo) }
     } finally {
       await rm(workspace, { recursive: true, force: true })
     }
@@ -712,7 +752,7 @@ export class RenderService {
     const workspace = await mkdtemp(join(/* turbopackIgnore: true */ tmpdir(), "marketing-story-"))
     const sourcePath = join(/* turbopackIgnore: true */ workspace, `source.${safeExtension(input.asset)}`)
     const outputPath = join(/* turbopackIgnore: true */ workspace, "rendered-story.jpg")
-    const plans = layoutStoryCopy(input.composition.storyCopy)
+    const plans = layoutStoryCopy(input.composition.storyCopy, input.composition.layoutStyle)
     if (plans.some(plan => !plan.fits)) throw new Error("Story copy does not fit its mobile-safe layout.")
     const textPaths = plans.map((plan, index) => join(/* turbopackIgnore: true */ workspace, `story-${index}.txt`))
     const logoLayout = input.logo ? storyLogoLayout(input.composition) : null

@@ -21,6 +21,65 @@ export const MARKETING_CONTENT_TYPES = [
 export type MarketingContentType =
   (typeof MARKETING_CONTENT_TYPES)[number]
 
+/**
+ * The delivery surface is deliberately distinct from the legacy database
+ * content type. New content always persists one of these values in its
+ * versioned Marketing contract; legacy content types remain readable history.
+ */
+export const MARKETING_FORMATS = [
+  "feed_single",
+  "carousel",
+  "story",
+  "reel",
+] as const
+
+export type MarketingFormat = (typeof MARKETING_FORMATS)[number]
+
+export const MARKETING_OBJECTIVES = [
+  "new_listing",
+  "property_spotlight",
+  "architecture",
+  "interiors",
+  "amenities_features",
+  "lifestyle",
+  "location",
+  "investment",
+  "price_update",
+  "availability",
+  "construction_update",
+  "open_house",
+  "recently_sold",
+  "brand_editorial",
+] as const
+
+export type MarketingObjective = (typeof MARKETING_OBJECTIVES)[number]
+
+export type MarketingMediaSelection = {
+  mode: "automatic" | "curated"
+  assetIds: string[]
+}
+
+export type MarketingBrandTreatment = {
+  version: "v1"
+  logo: {
+    enabled: boolean
+    assetId: string | null
+    placement: "none" | "top_left" | "top_right" | "bottom_left" | "bottom_right" | "end_card_only"
+    scale: "small" | "medium" | "large"
+    opacity: number
+  }
+}
+
+/** Persisted inside composition so it is versioned with render inputs. */
+export type MarketingContentContract = {
+  version: "v2"
+  format: MarketingFormat
+  objective: MarketingObjective
+  creativeDirection: "luxury_editorial"
+  mediaSelection: MarketingMediaSelection
+  brandTreatment: MarketingBrandTreatment
+}
+
 export const MARKETING_STATUSES = [
   "draft",
   "rendering",
@@ -63,6 +122,25 @@ export type MarketingAsset = {
   metadata: Record<string, unknown>
   sortOrder: number
   createdAt: string
+}
+
+/** A capability record captured by ingestion/probing when it is available. */
+export type MarketingMediaCapability = {
+  assetId: string
+  propertyId?: string | null
+  declaredMediaType: "image" | "video" | "audio" | "document"
+  probedMediaType?: "image" | "video"
+  mimeType?: string
+  width?: number
+  height?: number
+  aspectRatio?: number
+  orientation?: "landscape" | "portrait" | "square"
+  fileSize?: number
+  durationSeconds?: number
+  codec?: string
+  container?: string
+  available: boolean
+  sourceFingerprint?: string
 }
 
 /** Metadata for private, administrator-uploaded music the business owns or is licensed to use. */
@@ -130,6 +208,7 @@ export type StoryComposition = {
     opacity: number
     assetId?: string | null
   }
+  marketingContract?: MarketingContentContract
 }
 
 /** A private, administrator-uploaded brand asset. It is never source property media. */
@@ -154,6 +233,10 @@ export type MarketingContent = {
   primaryPropertyId?: string | null
   propertySnapshot: Record<string, unknown>
   contentType: MarketingContentType
+  /** Canonical V2 delivery format; derived explicitly for untouched legacy records. */
+  format: MarketingFormat
+  /** Canonical V2 editorial objective; derived explicitly for untouched legacy records. */
+  objective: MarketingObjective
   creativeDirection: CreativeDirection | string
   title?: string | null
   status: MarketingStatus
@@ -194,14 +277,26 @@ export type PropertyFactSnapshot = {
   amenities: string[]
   features: string[]
   propertyType?: string
+  listingType?: string
+  transactionType?: string
+  furnishing?: string
   developmentStage?: string
   status?: string
+  developer?: string
   marketingPriority?: "high" | "normal" | "low" | "paused"
   media: Array<{
     id: string
     url: string
     type: "image" | "video"
     isCover: boolean
+    mimeType?: string
+    width?: number
+    height?: number
+    fileSize?: number
+    durationSeconds?: number
+    codec?: string
+    container?: string
+    hash?: string
   }>
 }
 
@@ -245,6 +340,7 @@ export type ReelComposition = {
     margin?: number
     assetId?: string | null
   }
+  marketingContract?: MarketingContentContract
 }
 
 export type ReelStoryboard = {

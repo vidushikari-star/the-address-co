@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
+import { defaultMarketingContract, resolveMarketingContract } from "@/lib/marketing/content-contract"
 import { staticRenderJobType } from "@/lib/marketing/instagram-static-composition"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 import { CreativeOutputSchema, ImproveStorySchema, StoryCompositionSchema, StoryUpdateSchema } from "@/lib/marketing/schemas"
 import { CreativeAIService } from "@/lib/marketing/services/creative-ai-service"
+import { MediaEligibilityService } from "@/lib/marketing/services/media-eligibility-service"
 import { fitStoryCopy } from "@/lib/marketing/story-layout"
 import type { PropertyFactSnapshot, StoryComposition, StoryCopy } from "@/lib/marketing/types"
 
@@ -46,6 +48,26 @@ async function persistAndQueueStoryCreative(input: {
     asset.mediaType === "image"
   )
   if (!source) throw new Error("Select an available property image for the Story.")
+  const previousContract = resolveMarketingContract(record.content)
+  if (previousContract.format !== "story") throw new Error("This editor is for Instagram Stories only.")
+  const nextContract = defaultMarketingContract({
+    format: "story",
+    objective: previousContract.objective,
+    assetIds: [source.id],
+    selectionMode: "curated",
+    creativeDirection: record.content.creativeDirection,
+    brandTreatment: {
+      version: "v1",
+      logo: {
+        enabled: input.logoEnabled,
+        assetId: input.logoEnabled ? null : null,
+        placement: "top_right",
+        scale: "small",
+        opacity: 0.8,
+      },
+    },
+  })
+  MediaEligibilityService.assert({ format: "story", selection: nextContract.mediaSelection, assets: record.assets })
 
   const existing = StoryCompositionSchema.safeParse(record.content.composition)
   const logo = input.logoEnabled ? await MarketingRepository.getActiveBrandLogo() : null
@@ -76,6 +98,13 @@ async function persistAndQueueStoryCreative(input: {
       scale: existing.success ? existing.data.logo.scale : "small",
       opacity: existing.success ? existing.data.logo.opacity : 0.8,
       assetId: logo?.id ?? null,
+    },
+    marketingContract: {
+      ...nextContract,
+      brandTreatment: {
+        ...nextContract.brandTreatment,
+        logo: { ...nextContract.brandTreatment.logo, assetId: logo?.id ?? null },
+      },
     },
   }
 
@@ -134,9 +163,7 @@ export async function POST(request: Request, context: Context) {
     if (!["draft", "changes_requested", "ready_for_review", "failed", "rendering"].includes(record.content.status)) {
       return NextResponse.json({ error: "Approved, scheduled, and published Stories are locked. Request changes before editing." }, { status: 409 })
     }
-    const property = record.content.primaryPropertyId
-      ? await MarketingRepository.getPropertySnapshot(record.content.primaryPropertyId)
-      : record.content.propertySnapshot
+    const property = record.content.propertySnapshot
     if (!propertySnapshot(property)) return NextResponse.json({ error: "The Story property facts are unavailable." }, { status: 409 })
     const composition = StoryCompositionSchema.safeParse(record.content.composition)
     const creative = CreativeOutputSchema.safeParse(record.content.creative)

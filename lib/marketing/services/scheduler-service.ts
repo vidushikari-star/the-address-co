@@ -1,5 +1,5 @@
 import { validateInstagramPublishability } from "@/lib/marketing/content-delivery"
-import { isInstagramPublishingEnabled } from "@/lib/marketing/feature-flags"
+import { isInstagramPublishingEnabled, isMarketingSchedulingEnabled } from "@/lib/marketing/feature-flags"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 
 export class SchedulerService {
@@ -9,6 +9,9 @@ export class SchedulerService {
     timezone: string
     adminId: string
   }) {
+    if (!isMarketingSchedulingEnabled()) {
+      throw new Error("Marketing scheduling is disabled in this environment.")
+    }
     const scheduledFor = new Date(input.scheduledFor)
     if (Number.isNaN(scheduledFor.valueOf()) || scheduledFor <= new Date()) {
       throw new Error("Choose a future publication time.")

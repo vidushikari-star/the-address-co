@@ -46,6 +46,11 @@ const creative = {
   transitions: ["fade"],
   audioStyle: "manual_instagram",
   factsUsed: ["title", "location", "bedrooms"],
+  claimProvenance: [
+    { text: "Villa Verde", factKey: "title", factValue: "Villa Verde" },
+    { text: "Parra, Goa", factKey: "location", factValue: "Parra, Goa" },
+    { text: "Four bedrooms", factKey: "bedrooms", factValue: "4" },
+  ],
 }
 
 const sourceAssetId = "1e149a39-7321-42d1-900c-7389c0da37a3"
@@ -117,6 +122,21 @@ describe("CreativeAIService", () => {
     expect(input.brandSettings).toMatchObject({ brandName: "The Address Co", instagramHandle: "theaddressco", website: "https://theaddressco.example" })
     expect(request).toMatchObject({ model: "gpt-5.2", max_output_tokens: 1_200 })
     expect(request.text.format).toMatchObject({ type: "json_schema", strict: true, name: "marketing_creative" })
+    expect(request.input[0].content).toContain("dream home")
+    expect(input).toMatchObject({ deliveryFormat: "reel", objective: "property_spotlight", creativeDirection: "luxury_editorial" })
+  })
+
+  it("rejects factual output that omits the required claim provenance", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    global.fetch = vi.fn().mockResolvedValue(completedResponse({ ...creative, claimProvenance: [] }))
+
+    await expect(CreativeAIService.generate({
+      property,
+      format: "feed_single",
+      objective: "property_spotlight",
+      creativeDirection: "luxury_editorial",
+      settings,
+    })).rejects.toThrow("missing claim provenance")
   })
 
   it("repairs oversized Story highlights once, then persists renderer-safe copy", async () => {

@@ -2,13 +2,19 @@ import OpenAI from "openai"
 import { zodTextFormat } from "openai/helpers/zod"
 
 import { CreativeOutputSchema, ReelStoryboardSchema, StoryCopySchema } from "@/lib/marketing/schemas"
+import { detectUnsupportedNumericClaim, marketingSafeFacts, validateClaimProvenance } from "@/lib/marketing/fact-contract"
+import { legacyContractForContentType } from "@/lib/marketing/content-contract"
+import { generationOutputInstructions } from "@/lib/marketing/generation-output-contract"
 import { fitStoryCopy, STORY_COPY_GUIDANCE } from "@/lib/marketing/story-layout"
 import type {
   CreativeDirection,
   MarketingBrandSettings,
   MarketingContentType,
+  MarketingFormat,
+  MarketingObjective,
   PropertyFactSnapshot,
   ReelStoryboard,
+  StoryCopy,
 } from "@/lib/marketing/types"
 
 type CreativeOutput = ReturnType<typeof CreativeOutputSchema.parse>
@@ -18,21 +24,23 @@ const DEFAULT_MARKETING_MODEL = "gpt-5.2"
 const MARKETING_MAX_OUTPUT_TOKENS = 1_200
 
 function factLines(property: PropertyFactSnapshot) {
-  return {
-    title: property.title,
-    location: property.location,
-    price: property.price,
-    bedrooms: property.bedrooms,
-    bathrooms: property.bathrooms,
-    carpetArea: property.carpetArea,
-    builtUpArea: property.builtUpArea,
-    plotArea: property.plotArea,
-    description: property.description,
-    amenities: property.amenities,
-    features: property.features,
-    propertyType: property.propertyType,
-    developmentStage: property.developmentStage,
-  }
+  return marketingSafeFacts(property)
+}
+
+export const LUXURY_EDITORIAL_POLICY = Object.freeze({
+  id: "luxury_editorial",
+  tone: ["restrained", "sophisticated", "architectural", "intelligent", "property-led", "premium", "editorial rather than promotional"],
+  avoidPhrases: ["dream home", "luxury redefined", "paradise found", "your dream awaits", "once-in-a-lifetime opportunity"],
+  avoidPatterns: ["excessive exclamation marks", "excessive emojis", "fake urgency", "unsupported superlatives", "exaggerated ROI language", "generic sales language"],
+})
+
+function luxuryEditorialInstructions() {
+  return [
+    `Creative direction policy: ${LUXURY_EDITORIAL_POLICY.id}.`,
+    `Prefer: ${LUXURY_EDITORIAL_POLICY.tone.join(", ")}.`,
+    `Never use these phrases: ${LUXURY_EDITORIAL_POLICY.avoidPhrases.join("; ")}.`,
+    `Avoid: ${LUXURY_EDITORIAL_POLICY.avoidPatterns.join("; ")}.`,
+  ].join("\n")
 }
 
 function validateBrandSafety<T extends CreativeOutput | ReelStoryboard>(output: T, settings: MarketingBrandSettings): T {
@@ -223,7 +231,10 @@ function logRequestFailure(error: unknown) {
 export class CreativeAIService {
   static async generate(input: {
     property: PropertyFactSnapshot
-    contentType: MarketingContentType
+    format?: MarketingFormat
+    objective?: MarketingObjective
+    /** Compatibility input for older worker callers; it maps through a finite table. */
+    contentType?: MarketingContentType
     creativeDirection: CreativeDirection | string
     settings: MarketingBrandSettings
     recentContent?: Array<{ hook?: string | null; headline?: string | null; creativeDirection?: string | null }>
@@ -231,6 +242,12 @@ export class CreativeAIService {
     if (!process.env.OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY is not configured")
     }
+    const legacy = input.format && input.objective
+      ? null
+      : input.contentType ? legacyContractForContentType(input.contentType) : null
+    const format = input.format ?? legacy?.format
+    const objective = input.objective ?? legacy?.objective
+    if (!format || !objective) throw new Error("Marketing generation requires an explicit delivery format and objective.")
 
     const openai = openAiClient()
     const requestCreative = async (repairInstruction?: string) => {
@@ -239,8 +256,10 @@ export class CreativeAIService {
         "Return the structured output that matches the supplied schema.",
         "Use only the supplied inventory facts. Never invent amenities, views, ROI, availability, room counts, size, price, location facts, or urgency.",
         "When a fact is absent, omit it. Generic stylistic language is allowed only when it does not imply an unsupported property fact.",
-        "Use premium, sophisticated, editorial wording. Avoid cheesy sales language and excessive emojis.",
-        input.contentType === "story"
+        "For every factual claim, return claimProvenance with the exact claim text, supplied fact key, and exact supplied fact value. Do not add provenance for generic stylistic copy.",
+        luxuryEditorialInstructions(),
+        generationOutputInstructions(format),
+        format === "story"
           ? `For Story output, make storyCopy a concise visual script for a 1080×1920 mobile-safe renderer. Headline: at most ${STORY_COPY_GUIDANCE.headline.maximumLines} short lines / ${STORY_COPY_GUIDANCE.headline.recommendedCharacters} characters. Supporting line: at most ${STORY_COPY_GUIDANCE.supportingLine.maximumLines} short lines / ${STORY_COPY_GUIDANCE.supportingLine.recommendedCharacters} characters. Use no more than ${STORY_COPY_GUIDANCE.highlights.maximumItems} highlights, each one line and at most ${STORY_COPY_GUIDANCE.highlights.recommendedCharactersPerItem} characters. Price: at most ${STORY_COPY_GUIDANCE.priceLine.maximumLines} short lines / ${STORY_COPY_GUIDANCE.priceLine.recommendedCharacters} characters. CTA: at most ${STORY_COPY_GUIDANCE.cta.maximumLines} short lines / ${STORY_COPY_GUIDANCE.cta.recommendedCharacters} characters. Never put a paragraph or hashtags in storyCopy; it will be burned into a 9:16 creative. The feed-style caption remains separate metadata.`
           : "",
         `Brand tone: ${input.settings.preferredTone}`,
@@ -266,8 +285,9 @@ export class CreativeAIService {
             {
               role: "user",
               content: JSON.stringify({
-                requestedContentType: input.contentType,
-                creativeDirection: input.creativeDirection,
+                deliveryFormat: format,
+                objective,
+                creativeDirection: "luxury_editorial",
                 propertyFacts: factLines(input.property),
                 brandSettings: {
                   brandName: input.settings.brandName,
@@ -306,7 +326,20 @@ export class CreativeAIService {
     }
 
     let output = await requestCreative()
-    if (input.contentType === "story") {
+    const copyForClaims = [
+      output.hook, output.headline, output.caption, output.shortCaption, output.cta,
+      output.coverText, output.altText, ...output.onScreenText, ...output.carouselSlides,
+      output.storyCopy.headline, output.storyCopy.supportingLine, ...output.storyCopy.highlights,
+      output.storyCopy.priceLine, output.storyCopy.cta,
+    ].join(" ")
+    if (output.factsUsed.length && !output.claimProvenance.length) {
+      throw new Error("Generated factual copy is missing claim provenance. Try generation again.")
+    }
+    validateClaimProvenance({ property: input.property, claims: output.claimProvenance, factsUsed: output.factsUsed, copy: copyForClaims })
+    const unsupportedNumericClaim = detectUnsupportedNumericClaim(copyForClaims, input.property)
+    if (unsupportedNumericClaim) throw new Error(unsupportedNumericClaim)
+
+    if (format === "story") {
       let fit = fitStoryCopy(output.storyCopy)
       if (fit.requiresAiCondensation) {
         console.info("OpenAI Story copy repair requested:", JSON.stringify({ reason: "mobile_safe_layout", attempts: 1 }))
@@ -464,11 +497,12 @@ export class CreativeAIService {
       fit = fitStoryCopy(storyCopy)
     }
     if (!fit.fits) throw new Error("AI Story copy could not be made mobile-safe. Please use a shorter improvement instruction.")
-    return validateBrandSafety({
+    const checked = validateBrandSafety({
       campaignConcept: "story", hook: fit.storyCopy.headline, headline: fit.storyCopy.headline,
       caption: "story", shortCaption: "story", cta: fit.storyCopy.cta, hashtags: ["#story"],
       onScreenText: [], carouselSlides: [], storyCopy: fit.storyCopy, coverText: "", altText: "",
-      suggestedDuration: 15, transitions: [], audioStyle: "ambient", factsUsed: [],
-    }, input.settings).storyCopy
+      suggestedDuration: 15, transitions: [], audioStyle: "ambient", factsUsed: [], claimProvenance: [],
+    }, input.settings) as { storyCopy: StoryCopy }
+    return checked.storyCopy
   }
 }

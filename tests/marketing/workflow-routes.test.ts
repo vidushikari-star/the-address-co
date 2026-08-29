@@ -103,7 +103,7 @@ describe("Marketing workflow API guards", () => {
         propertySnapshot: { id: contentId },
         composition: {},
       },
-      assets: [{ id: sourceAssetId, kind: "original_reference", mediaType: "image" }],
+      assets: [{ id: sourceAssetId, kind: "original_reference", mediaType: "image", sourceUrl: "https://project.supabase.co/storage/v1/object/sign/villa.jpg" }],
     })
     repository.queueStaticRender.mockResolvedValue({ content: { id: contentId }, job: { id: "new-story-job" } })
     repository.addAuditLog.mockResolvedValue(undefined)
@@ -166,7 +166,7 @@ describe("Marketing workflow API guards", () => {
           logo: { enabled: false, placement: "top_right", scale: "small", opacity: 0.8 },
         },
       },
-      assets: [{ id: sourceAssetId, kind: "original_reference", mediaType: "image" }],
+      assets: [{ id: sourceAssetId, kind: "original_reference", mediaType: "image", sourceUrl: "https://project.supabase.co/storage/v1/object/sign/villa.jpg" }],
     })
     repository.getPropertySnapshot.mockResolvedValue(property)
     repository.getBrandSettings.mockResolvedValue({})
@@ -214,7 +214,7 @@ describe("Marketing workflow API guards", () => {
           audio: { type: "none", label: "No audio selected" },
         },
       },
-      assets: [],
+      assets: [{ id: assetId, kind: "original_reference", mediaType: "image", sourceUrl: "https://project.supabase.co/storage/v1/object/sign/villa.jpg" }],
     })
     repository.queueReelRender.mockResolvedValue({ id: "job-1", type: "render_reel", status: "queued" })
 

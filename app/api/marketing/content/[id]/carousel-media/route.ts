@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
+import { defaultMarketingContract, resolveMarketingContract, withMarketingContract } from "@/lib/marketing/content-contract"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 import { CarouselMediaUpdateSchema } from "@/lib/marketing/schemas"
 
@@ -17,11 +18,28 @@ export async function PATCH(request: Request, context: Context) {
 
   const { id } = await context.params
   try {
-    const content = await MarketingRepository.updateCarouselMedia({
+    const selected = await MarketingRepository.updateCarouselMedia({
       contentId: id,
       propertyImageIds: parsed.data.propertyImageIds,
       updatedBy: access.user.id,
     })
+    const currentContract = resolveMarketingContract(selected)
+    if (currentContract.format !== "carousel") throw new Error("Only Carousel content can change selected media.")
+    const selectedComposition = selected.composition as Record<string, unknown>
+    const rawAssetIds = selectedComposition.selectedAssetIds
+    const assetIds = Array.isArray(rawAssetIds)
+      ? rawAssetIds.filter((assetId): assetId is string => typeof assetId === "string")
+      : []
+    const content = await MarketingRepository.updateContent(id, {
+      composition: withMarketingContract(selected.composition, defaultMarketingContract({
+        format: "carousel",
+        objective: currentContract.objective,
+        assetIds,
+        selectionMode: "curated",
+        creativeDirection: selected.creativeDirection,
+        brandTreatment: currentContract.brandTreatment,
+      })),
+    }, access.user.id)
     revalidatePath("/marketing/content")
     revalidatePath("/marketing/calendar")
     return NextResponse.json({ content })

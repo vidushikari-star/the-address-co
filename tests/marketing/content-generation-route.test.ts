@@ -7,6 +7,7 @@ const repository = vi.hoisted(() => ({
   getActiveBrandLogo: vi.fn(),
   updateContent: vi.fn(),
   enqueueJob: vi.fn(),
+  queueReelRender: vi.fn(),
   queueStaticRender: vi.fn(),
   addAuditLog: vi.fn(),
   recordUsage: vi.fn(),
@@ -59,7 +60,7 @@ const creative = {
 }
 
 describe("POST /api/marketing/content/:id/generate", () => {
-  it("persists generated headline, hook, caption, CTA, and hashtags", async () => {
+  it("creates and queues a valid Reel composition from the main Create Studio generation path", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     repository.getContentById.mockResolvedValue({
       content: {
@@ -70,7 +71,15 @@ describe("POST /api/marketing/content/:id/generate", () => {
         creativeDirection: "luxury_editorial",
         status: "draft",
       },
-      assets: [],
+      assets: [{
+        id: "34d1e601-18e9-4caa-9cc4-8af4c11888f1",
+        kind: "original_reference",
+        mediaType: "image",
+        sourceUrl: "https://project.supabase.co/storage/v1/object/sign/villa.jpg",
+        metadata: { isCover: true },
+        sortOrder: 0,
+        createdAt: "2026-08-10T00:00:00.000Z",
+      }],
     })
     repository.getPropertySnapshot.mockResolvedValue(property)
     repository.getBrandSettings.mockResolvedValue({
@@ -79,11 +88,16 @@ describe("POST /api/marketing/content/:id/generate", () => {
       excludedWords: [],
       brandColors: {},
       timezone: "Asia/Kolkata",
+      defaultReelLogoPlacement: "none",
+      defaultReelLogoScale: "small",
+      defaultReelLogoOpacity: 0.65,
     })
+    repository.getActiveBrandLogo.mockResolvedValue(null)
     generate.mockResolvedValue(creative)
     repository.updateContent.mockResolvedValue({ id: "1e149a39-7321-42d1-900c-7389c0da37a3", ...creative })
     repository.addAuditLog.mockResolvedValue(undefined)
     repository.recordUsage.mockResolvedValue(undefined)
+    repository.queueReelRender.mockResolvedValue({ id: "reel-job-1", status: "queued" })
 
     const response = await POST(
       new Request("http://localhost/api/marketing/content/1e149a39-7321-42d1-900c-7389c0da37a3/generate", {
@@ -105,9 +119,25 @@ describe("POST /api/marketing/content/:id/generate", () => {
         creative,
         short_caption: creative.shortCaption,
         alt_text: creative.altText,
+        composition: expect.objectContaining({
+          format: "reel",
+          aspectRatio: "9:16",
+          scenes: [expect.objectContaining({ assetId: "34d1e601-18e9-4caa-9cc4-8af4c11888f1" })],
+        }),
       }),
       "admin-1"
     )
+    expect(repository.queueReelRender).toHaveBeenCalledWith(expect.objectContaining({
+      contentId: "1e149a39-7321-42d1-900c-7389c0da37a3",
+      updatedBy: "admin-1",
+      idempotencyKey: expect.stringMatching(/^render-reel:1e149a39-7321-42d1-900c-7389c0da37a3:/),
+    }))
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({
+      property,
+      format: "reel",
+      objective: "property_spotlight",
+    }))
+    expect(repository.getPropertySnapshot).not.toHaveBeenCalled()
     await expect(response.json()).resolves.toMatchObject({
       fields: ["headline", "hook", "caption", "cta", "hashtags", "story_copy"],
       content: expect.objectContaining({ headline: creative.headline, hashtags: creative.hashtags }),
@@ -141,5 +171,21 @@ describe("POST /api/marketing/content/:id/generate", () => {
         composition: expect.objectContaining({ format: "story", aspectRatio: "9:16", sourceAssetId, storyCopy: creative.storyCopy }),
       }),
     }))
+  })
+
+  it("rejects invalid selected media before AI generation or rendering can begin", async () => {
+    vi.clearAllMocks()
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    repository.getContentById.mockResolvedValue({
+      content: { id: "1e149a39-7321-42d1-900c-7389c0da37a3", propertySnapshot: property, contentType: "single_image", creativeDirection: "luxury_editorial", status: "draft", composition: {} },
+      assets: [{ id: "34d1e601-18e9-4caa-9cc4-8af4c11888f1", kind: "original_reference", mediaType: "video", sourceUrl: "https://project.supabase.co/storage/v1/object/sign/tour.mp4", metadata: { probedMediaType: "video" }, sortOrder: 0, createdAt: "2026-08-10T00:00:00.000Z" }],
+    })
+
+    const response = await POST(new Request("http://localhost/api/marketing/content/1e149a39-7321-42d1-900c-7389c0da37a3/generate", { method: "POST", body: JSON.stringify({}) }), { params: Promise.resolve({ id: "1e149a39-7321-42d1-900c-7389c0da37a3" }) })
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toMatchObject({ error: expect.stringContaining("still image") })
+    expect(generate).not.toHaveBeenCalled()
+    expect(repository.queueStaticRender).not.toHaveBeenCalled()
   })
 })

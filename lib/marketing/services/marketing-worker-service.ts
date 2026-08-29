@@ -1,9 +1,11 @@
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
-import { carouselAssetValidationError, getOrderedCarouselMedia, publishableAssets, validateInstagramPublishability } from "@/lib/marketing/content-delivery"
+import { publishableAssets, validateInstagramPublishability } from "@/lib/marketing/content-delivery"
+import { resolveMarketingContract } from "@/lib/marketing/content-contract"
 import { composeStaticInstagramContent, staticRenderJobType } from "@/lib/marketing/instagram-static-composition"
 import { isInstagramPublishingEnabled } from "@/lib/marketing/feature-flags"
 import { logRenderStage, RenderStageError, renderStageFailure, sanitizeRenderDiagnostic } from "@/lib/marketing/render-diagnostics"
 import { CompositionService } from "@/lib/marketing/services/composition-service"
+import { BrandAssetService } from "@/lib/marketing/services/brand-asset-service"
 import { CreativeAIService } from "@/lib/marketing/services/creative-ai-service"
 import {
   InstagramApiError,
@@ -12,7 +14,7 @@ import {
   InstagramContainerTerminalError,
   InstagramService,
 } from "@/lib/marketing/services/instagram-service"
-import { MediaAnalysisService } from "@/lib/marketing/services/media-analysis-service"
+import { MediaEligibilityService } from "@/lib/marketing/services/media-eligibility-service"
 import { RenderDeferredError, RenderService } from "@/lib/marketing/services/render-service"
 import { normalizeReelTypographyStyle } from "@/lib/marketing/reel-typography"
 import { TokenCryptoService } from "@/lib/marketing/services/token-crypto-service"
@@ -57,13 +59,18 @@ function mapAsset(row: Row): MarketingAsset {
 }
 
 function mapContent(row: Row): MarketingContent {
+  const contentType = row.content_type as MarketingContent["contentType"]
+  const composition = record(row.composition)
+  const marketingContract = resolveMarketingContract({ contentType, composition })
   return {
     id: String(row.id),
     campaignId: row.campaign_id as string | null,
     accountId: row.account_id as string | null,
     primaryPropertyId: row.primary_property_id as string | null,
     propertySnapshot: record(row.property_snapshot),
-    contentType: row.content_type as MarketingContent["contentType"],
+    contentType,
+    format: marketingContract.format,
+    objective: marketingContract.objective,
     creativeDirection: String(row.creative_direction ?? "surprise_me"),
     title: row.title as string | null,
     status: row.status as MarketingContent["status"],
@@ -75,7 +82,7 @@ function mapContent(row: Row): MarketingContent {
     hashtags: strings(row.hashtags),
     altText: row.alt_text as string | null,
     creative: record(row.creative),
-    composition: record(row.composition),
+    composition,
     proposedPublishAt: row.proposed_publish_at as string | null,
     publishedAt: row.published_at as string | null,
     rejectionReason: row.rejection_reason as string | null,
@@ -324,9 +331,42 @@ export class MarketingWorkerService {
           continue
         }
         if (caught instanceof RenderDeferredError && job.type === "render_reel") {
+          const deferredMessage = `Reel render deferred for worker capacity (attempt ${job.attempts} of ${job.maxAttempts}).`
+          if (job.attempts >= job.maxAttempts) {
+            const terminalMessage = `Reel render stopped after ${job.maxAttempts} worker-capacity attempts. Retry rendering when worker capacity is available.`
+            await admin.from("marketing_jobs").update({
+              status: "failed",
+              error: terminalMessage,
+              progress: 100,
+              output: {
+                ...job.output,
+                render_diagnostics: {
+                  failure_category: "resource_deferred",
+                  attempts: job.attempts,
+                  max_attempts: job.maxAttempts,
+                  last_failure: safeError(caught),
+                },
+              },
+              locked_at: null,
+              locked_by: null,
+            }).eq("id", job.id)
+            if (job.contentId) {
+              await admin.from("marketing_content")
+                .update({ status: "failed", last_error: terminalMessage })
+                .eq("id", job.contentId)
+              const reelVersionId = typeof job.input.reelVersionId === "string" ? job.input.reelVersionId : null
+              if (reelVersionId) {
+                await admin.from("marketing_reel_versions")
+                  .update({ status: "failed", last_error: terminalMessage })
+                  .eq("id", reelVersionId)
+              }
+            }
+            results.push({ id: job.id, status: "failed" })
+            continue
+          }
           await admin.from("marketing_jobs").update({
             status: "queued",
-            error: safeError(caught),
+            error: deferredMessage,
             progress: 0,
             run_after: new Date(Date.now() + 2 * 60_000).toISOString(),
             locked_at: null,
@@ -334,7 +374,7 @@ export class MarketingWorkerService {
           }).eq("id", job.id)
           if (job.contentId) {
             await admin.from("marketing_content")
-              .update({ last_error: safeError(caught) })
+              .update({ last_error: deferredMessage })
               .eq("id", job.contentId)
           }
           results.push({ id: job.id, status: "skipped" })
@@ -482,7 +522,7 @@ export class MarketingWorkerService {
       .maybeSingle()
     if (error) throw error
 
-    const property = (job.input.propertySnapshot ?? content.propertySnapshot) as PropertyFactSnapshot
+    const property = content.propertySnapshot as PropertyFactSnapshot
     const { data: recent } = await admin
       .from("marketing_content")
       .select("hook, headline, creative_direction")
@@ -494,7 +534,8 @@ export class MarketingWorkerService {
     const brandSettings = mapSettings(record(settings))
     const creative = await CreativeAIService.generate({
       property,
-      contentType: content.contentType,
+      format: content.format,
+      objective: content.objective,
       creativeDirection: content.creativeDirection,
       settings: brandSettings,
       recentContent: ((recent ?? []) as Row[]).map(item => ({
@@ -503,52 +544,49 @@ export class MarketingWorkerService {
         creativeDirection: item.creative_direction as string | null,
       })),
     })
-    const selected = MediaAnalysisService.analyze(property, assets)
-      .filter(analysis => analysis.recommendedForReel)
-      .map(analysis => analysis.assetId)
-    const carouselError = content.contentType === "carousel"
-      ? carouselAssetValidationError(content, assets)
-      : null
-    if (carouselError) {
-      throw new Error(carouselError)
+    const contract = resolveMarketingContract(content)
+    const selection = contract.mediaSelection.assetIds.length
+      ? contract.mediaSelection
+      : MediaEligibilityService.automaticSelection(contract.format, assets)
+    const selected = MediaEligibilityService.assert({ format: contract.format, selection, assets })
+    const shouldRenderReel = contract.format === "reel"
+    const logoTreatment = contract.brandTreatment.logo
+    let activeLogo: Row | null = null
+    let activeLogoError: { message: string } | null = null
+    if (logoTreatment.enabled) {
+      let logoQuery = admin.from("marketing_brand_assets").select("id").eq("kind", "logo").eq("active", true)
+      if (logoTreatment.assetId) logoQuery = logoQuery.eq("id", logoTreatment.assetId)
+      const result = await logoQuery.maybeSingle()
+      activeLogo = result.data as Row | null
+      activeLogoError = result.error
+      if (!activeLogo) throw new Error("The selected brand logo is unavailable. Choose an active logo or disable the logo and generate again.")
     }
-    // Preserve the exact user-selected order. Initial creation persists the
-    // image-only default before this job is queued, so generation must never
-    // replace a later Edit Carousel Media selection with a fresh AI choice.
-    const selectedCarouselImages = content.contentType === "carousel"
-      ? getOrderedCarouselMedia(content, assets).map(asset => asset.id)
-      : []
-    const shouldRenderReel = content.contentType === "reel"
-    const needsLogo = (shouldRenderReel && brandSettings.defaultReelLogoPlacement !== "none") || content.contentType === "story"
-    const { data: activeLogo, error: activeLogoError } = needsLogo
-      ? await admin.from("marketing_brand_assets").select("id").eq("kind", "logo").eq("active", true).maybeSingle()
-      : { data: null, error: null }
     if (activeLogoError) throw activeLogoError
     const composition = shouldRenderReel
       ? CompositionService.composeReel({
           propertyId: property.id,
-          assetIds: selected,
+          assetIds: selected.map(asset => asset.id),
           creative,
-          logo: {
-            placement: brandSettings.defaultReelLogoPlacement,
-            scale: brandSettings.defaultReelLogoScale,
-            opacity: brandSettings.defaultReelLogoOpacity,
-            assetId: activeLogo ? String((activeLogo as Row).id) : null,
-          },
+          logo: logoTreatment.enabled ? {
+            placement: logoTreatment.placement,
+            scale: logoTreatment.scale,
+            opacity: logoTreatment.opacity,
+            assetId: String(activeLogo!.id),
+          } : undefined,
           typographyStyle: normalizeReelTypographyStyle(brandSettings.fontFamily),
         })
       : composeStaticInstagramContent({
           content: {
             ...content,
-            composition: selectedCarouselImages.length ? { selectedAssetIds: selectedCarouselImages } : content.composition,
+            composition: content.composition,
           },
           assets,
           creative,
-          logo: activeLogo ? { id: String((activeLogo as Row).id), enabled: true } : null,
+          logo: activeLogo ? { id: String(activeLogo.id), enabled: true } : null,
           typographyStyle: normalizeReelTypographyStyle(brandSettings.fontFamily),
         })
 
-    const renderType = shouldRenderReel ? "render_reel" : staticRenderJobType(content.contentType)
+    const renderType = shouldRenderReel ? "render_reel" : staticRenderJobType(contract.format)
     await admin.from("marketing_content").update({
       ...(shouldRenderReel ? {} : { status: content.status }),
       creative,
@@ -585,7 +623,7 @@ export class MarketingWorkerService {
     await admin.from("marketing_audit_logs").insert({
       content_id: content.id,
       action: "content.generated",
-      metadata: { provider: process.env.OPENAI_API_KEY ? "openai" : "deterministic_fallback", selectedAssetCount: selected.length },
+      metadata: { provider: process.env.OPENAI_API_KEY ? "openai" : "deterministic_fallback", selectedAssetCount: selected.length, format: contract.format, objective: contract.objective },
     })
     await admin.from("marketing_usage_events").insert({
       content_id: content.id,
@@ -635,6 +673,20 @@ export class MarketingWorkerService {
     } catch (error) {
       throw renderStageFailure("input", error)
     }
+    const marketingContract = resolveMarketingContract(content)
+    if (marketingContract.format !== "reel") throw renderStageFailure("input", new Error("Reel render job does not match the stored delivery format."))
+    try {
+      MediaEligibilityService.assert({
+        format: "reel",
+        selection: {
+          mode: marketingContract.mediaSelection.mode,
+          assetIds: [...new Set(composition.scenes.map(scene => scene.assetId))],
+        },
+        assets,
+      })
+    } catch (error) {
+      throw renderStageFailure("input", error)
+    }
     let audio: Parameters<typeof RenderService.renderReel>[0]["audio"] = null
     if (composition.audio.type === "uploaded" && composition.audio.id) {
       try {
@@ -667,20 +719,16 @@ export class MarketingWorkerService {
     let logo: Parameters<typeof RenderService.renderReel>[0]["logo"] = null
     if (composition.logo?.placement && composition.logo.placement !== "none") {
       try {
-        let query = admin.from("marketing_brand_assets").select("storage_path, mime_type")
-        query = composition.logo.assetId ? query.eq("id", composition.logo.assetId) : query.eq("active", true)
-        const { data: brandAsset, error: logoError } = await query.maybeSingle()
-        if (logoError) throw logoError
         // Removing/replacing a logo must not corrupt an already-created Reel
         // version. A later render without that private asset simply omits it.
+        const brandAsset = await BrandAssetService.resolveLogo({
+          assetId: composition.logo.assetId,
+          activeOnly: true,
+        })
         if (brandAsset) {
-          const logoRow = brandAsset as Row
-          const { data: signed, error: signedError } = await admin.storage.from("marketing-brand-assets")
-            .createSignedUrl(String(logoRow.storage_path), 60 * 60)
-          if (signedError || !signed?.signedUrl) throw signedError ?? new Error("Unable to sign selected logo for rendering.")
           logo = {
-            sourceUrl: signed.signedUrl,
-            mimeType: logoRow.mime_type as NonNullable<typeof logo>["mimeType"],
+            sourceUrl: brandAsset.signedUrl,
+            mimeType: brandAsset.mimeType,
             placement: composition.logo.placement,
             scale: composition.logo.scale,
             opacity: composition.logo.opacity,
@@ -735,10 +783,11 @@ export class MarketingWorkerService {
     if (!renderToken || (requestedRenderToken && requestedRenderToken !== renderToken)) {
       throw new Error("This static render is stale. Regenerate the creative before rendering it again.")
     }
-    if ((content.contentType === "carousel") !== carousel) {
+    const marketingContract = resolveMarketingContract(content)
+    if ((marketingContract.format === "carousel") !== carousel || !["feed_single", "carousel", "story"].includes(marketingContract.format)) {
       throw new Error("Static render job type does not match this Instagram format.")
     }
-    if (content.contentType === "story") {
+    if (marketingContract.format === "story") {
       if (carousel) throw new Error("A Story cannot be rendered as a Carousel.")
       const parsed = StoryCompositionSchema.safeParse(content.composition)
       if (!parsed.success) throw new Error("Story composition is invalid. Edit the Story creative before rendering.")
@@ -746,17 +795,13 @@ export class MarketingWorkerService {
       if (!source || source.mediaType !== "image") throw new Error("Story source must be an available property image.")
       let logo: { sourceUrl: string; mimeType: "image/png" | "image/webp" } | null = null
       if (parsed.data.logo.enabled && parsed.data.logo.assetId) {
-        const { data: logoRow, error: logoError } = await admin.from("marketing_brand_assets")
-          .select("storage_path, mime_type").eq("id", parsed.data.logo.assetId).eq("kind", "logo").eq("active", true).maybeSingle()
-        if (logoError) throw logoError
-        if (!logoRow) throw new Error("The selected Story logo is no longer available.")
-        const row = logoRow as Row
-        const mimeType = row.mime_type === "image/png" || row.mime_type === "image/webp" ? row.mime_type : null
-        if (!mimeType) throw new Error("The selected Story logo has an unsupported format.")
-        const { data: signed, error: signedError } = await admin.storage.from("marketing-assets")
-          .createSignedUrl(String(row.storage_path), 60 * 60)
-        if (signedError || !signed?.signedUrl) throw signedError ?? new Error("Unable to sign selected Story logo for rendering.")
-        logo = { sourceUrl: signed.signedUrl, mimeType }
+        const brandAsset = await BrandAssetService.resolveLogo({
+          assetId: parsed.data.logo.assetId,
+          activeOnly: true,
+          required: true,
+        })
+        if (!brandAsset) throw new Error("The selected brand logo is unavailable. Choose an active logo or disable the logo and render again.")
+        logo = { sourceUrl: brandAsset.signedUrl, mimeType: brandAsset.mimeType }
       }
       const output = await RenderService.renderStory({ contentId: content.id, asset: source, composition: parsed.data, logo })
       const { error: assetError } = await admin.from("marketing_content_assets").insert({
@@ -784,21 +829,30 @@ export class MarketingWorkerService {
       return { imageCount: 1, instagramFormat: "story" }
     }
 
-    const selectedIds = strings(composition.selectedAssetIds)
-    const originals = selectedIds
-      .map(id => assets.find(asset => asset.id === id && asset.kind === "original_reference" && asset.mediaType === "image"))
-      .filter((asset): asset is MarketingAsset => Boolean(asset))
-    if (!originals.length) throw new Error("No usable image source assets were selected for this render.")
-    const sources = carousel ? originals.slice(0, 10) : originals.slice(0, 1)
-    if (carousel && (sources.length < 2 || sources.length > 10)) throw new Error("A Carousel requires 2–10 selected image sources.")
-    const creative = record(content.creative)
-    const carouselSlides = strings(creative.carouselSlides)
-    const defaultOverlay = String(creative.coverText ?? content.headline ?? "")
+    const selection = marketingContract.mediaSelection.assetIds.length
+      ? marketingContract.mediaSelection
+      : MediaEligibilityService.automaticSelection(marketingContract.format, assets)
+    const sources = MediaEligibilityService.assert({ format: marketingContract.format, selection, assets })
+    const logoTreatment = marketingContract.brandTreatment.logo
+    const logo = logoTreatment.enabled
+      ? await BrandAssetService.resolveLogo({ assetId: logoTreatment.assetId, activeOnly: true, required: true })
+      : null
+    if (logoTreatment.enabled && (logoTreatment.placement === "none" || logoTreatment.placement === "end_card_only")) {
+      throw new Error("Static Post and Carousel logo treatment needs a corner placement. Choose a corner or disable the logo.")
+    }
     const outputs = await Promise.all(sources.map((asset, index) => RenderService.renderImage({
       contentId: content.id,
       asset,
       aspectRatio: "4:5",
-      overlayText: carousel ? carouselSlides[index] ?? defaultOverlay : defaultOverlay,
+      // The Carousel policy is intentionally cover-only. Every other slide
+      // remains unmarked clean property photography.
+      logo: logo && (!carousel || index === 0) ? {
+        sourceUrl: logo.signedUrl,
+        mimeType: logo.mimeType,
+        placement: logoTreatment.placement as "top_left" | "top_right" | "bottom_left" | "bottom_right",
+        scale: logoTreatment.scale,
+        opacity: logoTreatment.opacity,
+      } : null,
     })))
     await admin.from("marketing_content_assets").insert(outputs.map((output, index) => ({
       content_id: content.id,
@@ -807,12 +861,13 @@ export class MarketingWorkerService {
       storage_path: output.storagePath,
       metadata: {
         byteLength: output.byteLength,
-        instagramFormat: carousel ? "carousel" : "single_image",
+        instagramFormat: carousel ? "carousel" : "feed_single",
         sourceAssetId: sources[index]!.id,
         renderToken,
         width: 1080,
         height: 1350,
         aspectRatio: "4:5",
+        logoApplied: outputs[index]!.logoApplied,
       },
       sort_order: index,
     })))
@@ -852,7 +907,7 @@ export class MarketingWorkerService {
     const media = publishableAssets(content, assets)
     if (!media.length) throw new PublishingTerminalError("Publishing safety check failed: approved publish media is missing.")
     const caption = [content.caption, content.hashtags.join(" ")].filter(Boolean).join(" ").trim()
-    if (content.contentType !== "story" && !caption) throw new PublishingTerminalError("Publishing safety check failed: a caption is required.")
+    if (content.format !== "story" && !caption) throw new PublishingTerminalError("Publishing safety check failed: a caption is required.")
 
     let accountQuery = admin
       .from("marketing_accounts")

@@ -15,6 +15,7 @@ export function ContentWorkflowActions({
   content,
   hasReadyMedia,
   publishingEnabled,
+  schedulingEnabled,
   publication,
   hasApprovedVersionAwaitingRender = false,
   approvalDisabledReason,
@@ -22,6 +23,7 @@ export function ContentWorkflowActions({
   content: MarketingContent
   hasReadyMedia: boolean
   publishingEnabled: boolean
+  schedulingEnabled: boolean
   publication?: MarketingPublication | null
   /** A newer approved version must render before it can replace the active one. */
   hasApprovedVersionAwaitingRender?: boolean
@@ -112,7 +114,7 @@ export function ContentWorkflowActions({
     }
     return <section className="space-y-4">
       <div className="rounded-xl border p-4"><p className="text-sm font-semibold">Approved</p><p className="mt-1 text-xs text-muted-foreground">{hasReadyMedia ? "The approved, format-validated creative can now be scheduled." : "This approved creative needs a valid rendered Instagram output before it can be scheduled."}</p><div className="mt-3"><ApprovalActions contentId={content.id} status="approved" /></div></div>
-      {requiresRender && !hasReadyMedia ? <div className="space-y-2 rounded-xl border p-4"><Button type="button" size="sm" onClick={render} disabled={isPending}><Clapperboard className="h-4 w-4" />Render creative</Button>{isPending && <Loader2 className="inline h-4 w-4 animate-spin text-muted-foreground" />}{message && <p className="text-xs text-muted-foreground" role="status">{message}</p>}</div> : <MarketingPublishingActions contentId={content.id} canPublishNow={publishingEnabled} />}
+      {requiresRender && !hasReadyMedia ? <div className="space-y-2 rounded-xl border p-4"><Button type="button" size="sm" onClick={render} disabled={isPending}><Clapperboard className="h-4 w-4" />Render creative</Button>{isPending && <Loader2 className="inline h-4 w-4 animate-spin text-muted-foreground" />}{message && <p className="text-xs text-muted-foreground" role="status">{message}</p>}</div> : <MarketingPublishingActions contentId={content.id} canPublishNow={publishingEnabled} canSchedule={schedulingEnabled} />}
     </section>
   }
 

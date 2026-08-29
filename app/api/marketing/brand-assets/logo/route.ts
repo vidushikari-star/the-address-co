@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
+import { inspectBrandLogo } from "@/lib/marketing/brand-asset-validation"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 
@@ -40,9 +41,13 @@ export async function POST(request: Request) {
     if (!(file instanceof File) || !file.size) return NextResponse.json({ error: "Choose a PNG or WebP logo." }, { status: 400 })
     if (file.size > MAX_LOGO_BYTES) return NextResponse.json({ error: "Brand logos must be 5 MB or smaller." }, { status: 400 })
     const format = logoFormat(file)
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    const inspection = inspectBrandLogo(bytes)
+    if (inspection.mimeType !== format.mimeType) {
+      return NextResponse.json({ error: "The uploaded logo bytes do not match its PNG or WebP filename/MIME type." }, { status: 400 })
+    }
     const storagePath = `${access.user.id}/${crypto.randomUUID()}.${format.extension}`
     const supabase = await createServerSupabaseClient()
-    const bytes = new Uint8Array(await file.arrayBuffer())
     const { error: uploadError } = await supabase.storage
       .from("marketing-brand-assets")
       .upload(storagePath, bytes, { contentType: format.mimeType, upsert: false })
@@ -52,9 +57,11 @@ export async function POST(request: Request) {
         storagePath,
         filename: file.name.slice(0, 255),
         mimeType: format.mimeType,
+        width: inspection.width,
+        height: inspection.height,
         createdBy: access.user.id,
       })
-      await MarketingRepository.addAuditLog({ actorId: access.user.id, action: "brand_logo.uploaded", metadata: { logoId: logo.id, mimeType: logo.mimeType } })
+      await MarketingRepository.addAuditLog({ actorId: access.user.id, action: "brand_logo.uploaded", metadata: { logoId: logo.id, mimeType: logo.mimeType, width: inspection.width, height: inspection.height, hasAlpha: inspection.hasAlpha } })
       return NextResponse.json({ logo }, { status: 201 })
     } catch (error) {
       await supabase.storage.from("marketing-brand-assets").remove([storagePath])
