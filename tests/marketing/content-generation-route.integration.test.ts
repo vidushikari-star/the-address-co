@@ -127,10 +127,11 @@ afterEach(() => {
 })
 
 describe("Create Studio Story generation route with the real repair-aware generator", () => {
-  it("repairs an overlong Story CTA once and returns a successful Create Studio response", async () => {
+  it("accepts a CTA of 71 characters at the OpenAI structured-output boundary, then repairs it", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     configureStoryStudioRoute()
     const tooLongCta = "Request a private presentation and personalised property details today."
+    expect(tooLongCta).toHaveLength(71)
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(providerResponse({
         ...validStoryProviderOutput,
@@ -148,6 +149,10 @@ describe("Create Studio Story generation route with the real repair-aware genera
     const repairRequest = JSON.parse((fetchMock.mock.calls[1]![1] as RequestInit).body as string)
     expect(Object.keys(firstRequest.text.format.schema.properties)).toContain("storyCopy")
     expect(Object.keys(firstRequest.text.format.schema.properties)).not.toContain("campaignConcept")
+    // This is the actual schema sent through zodTextFormat to OpenAI. The
+    // renderer's 60-character CTA cap must not appear at this boundary.
+    expect(firstRequest.text.format.schema.properties.storyCopy.properties.cta.maxLength).toBe(1_000)
+    expect(firstRequest.text.format.schema.properties.storyCopy.properties.cta.maxLength).not.toBe(60)
     expect(repairRequest.input[0].content).toContain("Repair only storyCopy")
     expect(body).toMatchObject({ content: { creative: { storyCopy: { cta: validStoryProviderOutput.storyCopy.cta } } } })
     expect(JSON.stringify(body)).not.toContain("Too big")
@@ -177,6 +182,24 @@ describe("Create Studio Story generation route with the real repair-aware genera
     expect(body.content.creative.storyCopy.highlights.every((highlight: string) => highlight.length <= 60)).toBe(true)
     expect(body.content.creative.storyCopy.priceLine.length).toBeLessThanOrEqual(64)
     expect(JSON.stringify(body)).not.toContain("Too big")
+    expect(JSON.stringify(body)).not.toContain("storyCopy.cta")
+  })
+
+  it("rejects structurally unreasonable Story output without a visual repair", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    configureStoryStudioRoute()
+    const fetchMock = vi.fn().mockResolvedValue(providerResponse({
+      ...validStoryProviderOutput,
+      storyCopy: { ...validStoryProviderOutput.storyCopy, cta: "A".repeat(1_001) },
+    }))
+    global.fetch = fetchMock
+
+    const response = await generateRequest()
+    const body = await response.json()
+
+    expect(response.status).toBe(502)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(body).toEqual({ error: INVALID_MARKETING_GENERATION_OUTPUT_MESSAGE })
     expect(JSON.stringify(body)).not.toContain("storyCopy.cta")
   })
 

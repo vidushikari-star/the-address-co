@@ -239,9 +239,49 @@ class StoryCopySchemaLengthError extends Error {
   }
 }
 
+type StoryVisualLengthField = "headline" | "supportingLine" | "priceLine" | "cta" | `highlights[${number}]`
+
+type StoryVisualLength = {
+  field: StoryVisualLengthField
+  characters: number
+  maximum: number
+}
+
+function storyVisualLengths(storyCopy: StoryCopy): StoryVisualLength[] {
+  return [
+    { field: "headline", characters: storyCopy.headline.length, maximum: STORY_COPY_SCHEMA_LIMITS.headline },
+    { field: "supportingLine", characters: storyCopy.supportingLine.length, maximum: STORY_COPY_SCHEMA_LIMITS.supportingLine },
+    ...storyCopy.highlights.map((highlight, index) => ({
+      field: `highlights[${index}]` as const,
+      characters: highlight.length,
+      maximum: STORY_COPY_SCHEMA_LIMITS.highlight,
+    })),
+    { field: "priceLine", characters: storyCopy.priceLine.length, maximum: STORY_COPY_SCHEMA_LIMITS.priceLine },
+    { field: "cta", characters: storyCopy.cta.length, maximum: STORY_COPY_SCHEMA_LIMITS.cta },
+  ]
+}
+
+function storyVisualOverflow(storyCopy: StoryCopy) {
+  return storyVisualLengths(storyCopy).filter(field => field.characters > field.maximum)
+}
+
+function storyVisualMaximum(field: StoryVisualLengthField | "highlights") {
+  switch (field) {
+    case "headline": return STORY_COPY_SCHEMA_LIMITS.headline
+    case "supportingLine": return STORY_COPY_SCHEMA_LIMITS.supportingLine
+    case "priceLine": return STORY_COPY_SCHEMA_LIMITS.priceLine
+    case "cta": return STORY_COPY_SCHEMA_LIMITS.cta
+    default: return STORY_COPY_SCHEMA_LIMITS.highlight
+  }
+}
+
 function storyCopyLengthError(error: unknown) {
   const fields = storyCopyLengthValidationFields(error)
   return fields.length ? new StoryCopySchemaLengthError(fields) : null
+}
+
+function storyVisualLengthError(fields: StoryVisualLength[]) {
+  return new StoryCopySchemaLengthError(fields.map(field => field.field))
 }
 
 function logStoryCopySchemaRepair(status: "requested" | "exhausted", fields: string[]) {
@@ -249,10 +289,44 @@ function logStoryCopySchemaRepair(status: "requested" | "exhausted", fields: str
   console[status === "requested" ? "info" : "error"]("OpenAI Story schema repair:", JSON.stringify({ status, fields, attempts: status === "requested" ? 1 : 2 }))
 }
 
+function logStoryVisualParse(stage: "provider_parse" | "repair_parse", fields: StoryVisualLength[]) {
+  if (!fields.length) return
+  // Validation metadata only; do not log generated copy or property facts.
+  console.info("Story visual length:", JSON.stringify({
+    stage,
+    fields: fields.map(field => ({
+      field: `storyCopy.${field.field}`,
+      [stage === "provider_parse" ? "originalCharacters" : "repairedCharacters"]: field.characters,
+      rendererMaximum: field.maximum,
+    })),
+  }))
+}
+
 function logStoryVisualNormalization(diagnostics: ReturnType<typeof normalizeStoryCopyForLayout>["diagnostics"]) {
   if (!diagnostics.length) return
   // Length metadata only; copy, facts, prompts, and credentials stay out of logs.
-  console.info("Story visual copy normalized:", JSON.stringify({ fields: diagnostics }))
+  console.info("Story visual length:", JSON.stringify({
+    stage: "normalization",
+    fields: diagnostics.map(diagnostic => ({
+      field: `storyCopy.${diagnostic.field}`,
+      originalCharacters: diagnostic.originalCharacters,
+      normalizedCharacters: diagnostic.finalCharacters,
+      rendererMaximum: storyVisualMaximum(diagnostic.field),
+    })),
+  }))
+}
+
+function logStoryFinalVisualValidation(diagnostics: ReturnType<typeof normalizeStoryCopyForLayout>["diagnostics"]) {
+  if (!diagnostics.length) return
+  // Final validation logs only field names and lengths, never model output.
+  console.info("Story visual length:", JSON.stringify({
+    stage: "final_visual_validation",
+    fields: diagnostics.map(diagnostic => ({
+      field: `storyCopy.${diagnostic.field}`,
+      normalizedCharacters: diagnostic.finalCharacters,
+      rendererMaximum: storyVisualMaximum(diagnostic.field),
+    })),
+  }))
 }
 
 /**
@@ -580,10 +654,6 @@ export class CreativeAIService {
         })
       } catch (error) {
         logRequestFailure(error)
-        if (format === "story") {
-          const lengthError = storyCopyLengthError(error)
-          if (lengthError) throw lengthError
-        }
         if (isStructuredOutputParseError(error)) throw new Error("OpenAI structured output could not be parsed.")
         throw new Error("OpenAI generation request failed.")
       }
@@ -612,19 +682,19 @@ export class CreativeAIService {
           claimProvenance: candidate.claimProvenance,
           copy: generatedStoryCopyForClaims(candidate),
         })
-        const strictStory = StoryCreativeGenerationSchema.safeParse(parsed.data)
-        if (!strictStory.success) {
-          const lengthError = storyCopyLengthError(strictStory.error)
-          if (!lengthError) throw new Error("OpenAI structured output could not be parsed.")
-          if (!normalizeRemainingVisualLength) throw lengthError
-          const normalized = normalizeStoryCopyForLayout({ storyCopy: candidate.storyCopy, objective })
-          logStoryVisualNormalization(normalized.diagnostics)
-          const finalStory = StoryCreativeGenerationSchema.safeParse({ ...candidate, storyCopy: normalized.storyCopy })
-          if (!finalStory.success) throw new Error("Story visual copy could not be normalized safely.")
-          generated = finalStory.data
-        } else {
-          generated = strictStory.data
+        const visualOverflow = storyVisualOverflow(candidate.storyCopy)
+        if (visualOverflow.length) {
+          logStoryVisualParse(normalizeRemainingVisualLength ? "repair_parse" : "provider_parse", visualOverflow)
+          if (!normalizeRemainingVisualLength) throw storyVisualLengthError(visualOverflow)
         }
+        // This is intentionally before the only strict Story schema parse:
+        // visual copy is deterministic renderer-safe before it is persisted.
+        const normalized = normalizeStoryCopyForLayout({ storyCopy: candidate.storyCopy, objective })
+        logStoryVisualNormalization(normalized.diagnostics)
+        const finalStory = StoryCreativeGenerationSchema.safeParse({ ...candidate, storyCopy: normalized.storyCopy })
+        if (!finalStory.success) throw new Error("Story visual copy could not be normalized safely.")
+        logStoryFinalVisualValidation(normalized.diagnostics)
+        generated = finalStory.data
       } else {
         generated = parsed.data as MarketingGeneratedCreative
       }
@@ -682,9 +752,7 @@ export class CreativeAIService {
       output = await repairStoryCopySchema(error)
     }
     if (format === "story") {
-      const normalized = normalizeStoryCopyForLayout({ storyCopy: output.storyCopy, objective })
-      logStoryVisualNormalization(normalized.diagnostics)
-      output = removeOmittedStoryClaims({ ...output, storyCopy: normalized.storyCopy })
+      output = removeOmittedStoryClaims(output)
     }
     validateGeneratedFacts({
       property: input.property,
@@ -816,8 +884,6 @@ export class CreativeAIService {
         })
       } catch (error) {
         logRequestFailure(error)
-        const lengthError = storyCopyLengthError(error)
-        if (lengthError) throw lengthError
         if (isStructuredOutputParseError(error)) throw new Error("OpenAI structured Story copy could not be parsed.")
         throw new Error("OpenAI Story copy generation request failed.")
       }
@@ -828,17 +894,16 @@ export class CreativeAIService {
       const parsed = StoryCopyStructuralSchema.safeParse(response.output_parsed)
       if (!parsed.success) throw new Error("OpenAI structured Story copy could not be parsed.")
       validateStoryCopyNumericFacts(parsed.data, input.property)
-      const strictStory = StoryCopySchema.safeParse(parsed.data)
-      if (strictStory.success) return strictStory.data
-      const lengthError = storyCopyLengthError(strictStory.error)
-      if (!lengthError) throw new Error("OpenAI structured Story copy could not be parsed.")
-      if (!normalizeRemainingVisualLength) throw lengthError
+      const visualOverflow = storyVisualOverflow(parsed.data)
+      if (visualOverflow.length) {
+        logStoryVisualParse(normalizeRemainingVisualLength ? "repair_parse" : "provider_parse", visualOverflow)
+        if (!normalizeRemainingVisualLength) throw storyVisualLengthError(visualOverflow)
+      }
       const normalized = normalizeStoryCopyForLayout({ storyCopy: parsed.data })
       logStoryVisualNormalization(normalized.diagnostics)
       const finalStory = StoryCopySchema.safeParse(normalized.storyCopy)
-      if (!finalStory.success) {
-        throw new Error("Story visual copy could not be normalized safely.")
-      }
+      if (!finalStory.success) throw new Error("Story visual copy could not be normalized safely.")
+      logStoryFinalVisualValidation(normalized.diagnostics)
       return finalStory.data
     }
 
@@ -858,12 +923,10 @@ export class CreativeAIService {
         throw repairError
       }
     }
-    const normalized = normalizeStoryCopyForLayout({ storyCopy })
-    logStoryVisualNormalization(normalized.diagnostics)
     const checked = validateBrandSafety({
-      campaignConcept: "story", hook: normalized.storyCopy.headline, headline: normalized.storyCopy.headline,
-      caption: "story", shortCaption: "story", cta: normalized.storyCopy.cta, hashtags: ["#story"],
-      onScreenText: [], carouselSlides: [], storyCopy: normalized.storyCopy, coverText: "", altText: "",
+      campaignConcept: "story", hook: storyCopy.headline, headline: storyCopy.headline,
+      caption: "story", shortCaption: "story", cta: storyCopy.cta, hashtags: ["#story"],
+      onScreenText: [], carouselSlides: [], storyCopy, coverText: "", altText: "",
       suggestedDuration: 15, transitions: [], audioStyle: "ambient", factsUsed: [], claimProvenance: [],
     }, input.settings) as { storyCopy: StoryCopy }
     return checked.storyCopy
