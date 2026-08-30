@@ -12,6 +12,8 @@ type MediaOption = {
 }
 
 type Props = {
+  /** Server-authorized capability; the PATCH route remains authoritative. */
+  canManage: boolean
   property: {
     id: string
     publicShareToken?: string
@@ -55,7 +57,7 @@ function toggle(items: string[], id: string) {
   return items.includes(id) ? items.filter(item => item !== id) : [...items, id]
 }
 
-export function PublicShareSettings({ property, images, documents }: Props) {
+export function PublicShareSettings({ canManage, property, images, documents }: Props) {
   const router = useRouter()
   const [settings, setSettings] = useState<Settings>({
     enabled: property.publicShareEnabled ?? false,
@@ -141,6 +143,11 @@ export function PublicShareSettings({ property, images, documents }: Props) {
         {shareUrl && <Button type="button" variant="outline" onClick={copyShareUrl}>Copy public link</Button>}
       </div>
 
+      {!canManage ? (
+        <p className="mt-6 text-sm text-muted-foreground">
+          Public sharing settings can be managed only by authorized users.
+        </p>
+      ) : (
       <div className="mt-6 space-y-5">
         <label className="flex items-start gap-3 rounded-xl border p-4">
           <input type="checkbox" checked={settings.enabled} onChange={event => setBoolean("enabled", event.target.checked)} />
@@ -194,6 +201,7 @@ export function PublicShareSettings({ property, images, documents }: Props) {
         {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
         <Button type="button" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save public share settings"}</Button>
       </div>
+      )}
     </section>
   )
 }

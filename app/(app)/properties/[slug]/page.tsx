@@ -71,6 +71,14 @@ import {
 } from "@/lib/auth/marketing"
 
 import {
+  getServerUserProfile,
+} from "@/lib/auth/server-user-profile"
+
+import {
+  canManagePropertyPublicSharing,
+} from "@/lib/auth/permissions"
+
+import {
   MarketingRepository,
 } from "@/lib/marketing/repositories/marketing-repository"
 
@@ -172,8 +180,19 @@ const crm = createAuthenticatedCrmReadRepository(await createServerSupabaseClien
 
   }
 
-  const canUseMarketing =
-    await hasMarketingAdminPermission()
+  const [
+    canUseMarketing,
+    currentUser,
+  ] =
+    await Promise.all([
+      hasMarketingAdminPermission(),
+      getServerUserProfile(),
+    ])
+
+  const canManagePublicSharing =
+    canManagePropertyPublicSharing(
+      currentUser
+    )
 
 
 
@@ -496,6 +515,7 @@ const propertyValue =
 
       <PublicShareSettings
         property={property}
+        canManage={canManagePublicSharing}
         images={images.map(image => ({
           id: image.id,
           label: image.mediaType === "video" ? "Property video" : "Property image",

@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
+import { canManagePropertyPublicSharing } from "@/lib/auth/permissions"
 import { getServerUserProfile } from "@/lib/auth/server-user-profile"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 
@@ -36,8 +37,8 @@ function cleanOptional(value: string | null) {
 
 export async function PATCH(request: Request, context: Context) {
   const profile = await getServerUserProfile()
-  if (!profile || profile.role !== "admin") {
-    return NextResponse.json({ error: "Administrator access is required." }, { status: 403 })
+  if (!canManagePropertyPublicSharing(profile)) {
+    return NextResponse.json({ error: "Public-sharing management access is required." }, { status: 403 })
   }
 
   const parsed = SettingsSchema.safeParse(await request.json().catch(() => null))
