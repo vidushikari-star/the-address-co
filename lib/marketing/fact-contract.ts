@@ -149,15 +149,17 @@ export function validateClaimProvenance(input: {
 
 /** Detects common unsupported factual assertions even before a human review. */
 export function detectUnsupportedNumericClaim(copy: string, property: PropertyFactSnapshot) {
+  const normalizedNumeric = (value: string) => value.replace(/[.,]+$/u, "").replaceAll(",", "")
   const permitted = new Set<string>()
   for (const key of ["price", "bedrooms", "bathrooms", "carpet_area", "built_up_area", "plot_area"] as const) {
     for (const value of factValues(property, key)) {
-      for (const numeric of value.match(/\d+(?:[\d,.]*)?/g) ?? []) permitted.add(numeric.replaceAll(",", ""))
+      for (const numeric of value.match(/\d+(?:[\d,.]*)?/g) ?? []) permitted.add(normalizedNumeric(numeric))
     }
   }
   const numbers = copy.match(/(?:₹\s*)?\d+(?:[\d,.]*)?(?:\s*(?:cr|crore|lakh|sq\.?\s*(?:ft|m)|bed(?:room)?s?|bath(?:room)?s?))?/gi) ?? []
   const unsupported = numbers.find(value => {
-    const numeric = value.match(/\d+(?:[\d,.]*)?/g)?.[0]?.replaceAll(",", "")
+    const matchedNumeric = value.match(/\d+(?:[\d,.]*)?/g)?.[0]
+    const numeric = matchedNumeric ? normalizedNumeric(matchedNumeric) : undefined
     return numeric && !permitted.has(numeric)
   })
   return unsupported ? `Generated copy contains an unsupported numeric claim: ${unsupported.trim()}.` : null

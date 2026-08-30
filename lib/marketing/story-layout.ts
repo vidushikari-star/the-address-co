@@ -267,6 +267,13 @@ function shortenForRole(role: StoryTextRole, value: string) {
   return fittedPlan(role, ellipsized)?.fits ? ellipsized : safeWord
 }
 
+/** A price is factual copy: when its exact representation cannot fit, omit it. */
+function fitPriceLine(value: string) {
+  const original = normalize(value)
+  if (!original || fittedPlan("price", original)?.fits) return original
+  return ""
+}
+
 function shortenHighlights(highlights: string[]) {
   const style = styleFor("highlights")
   const bulletWidth = measuredWidth("• ", style.minimumFontSize)
@@ -323,7 +330,7 @@ export function fitStoryCopy(copy: StoryCopy): StoryCopyFit {
   const safeText = {
     headline: shortenForRole("headline", storyCopy.headline),
     supportingLine: shortenForRole("supporting_line", storyCopy.supportingLine),
-    priceLine: shortenForRole("price", storyCopy.priceLine),
+    priceLine: fitPriceLine(storyCopy.priceLine),
     cta: shortenForRole("cta", storyCopy.cta),
   }
   if (Object.entries(safeText).some(([key, value]) => value !== storyCopy[key as keyof typeof safeText])) {
@@ -343,7 +350,7 @@ export function fitStoryCopy(copy: StoryCopy): StoryCopyFit {
       headline: shortenForRole("headline", storyCopy.headline),
       supportingLine: shortenForRole("supporting_line", storyCopy.supportingLine),
       highlights: shortenHighlights(storyCopy.highlights),
-      priceLine: shortenForRole("price", storyCopy.priceLine),
+      priceLine: fitPriceLine(storyCopy.priceLine),
       cta: shortenForRole("cta", storyCopy.cta),
     }
     truncatedHighlights = truncatedHighlights || storyCopy.highlights.join("\n") !== original.highlights.join("\n")

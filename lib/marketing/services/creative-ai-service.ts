@@ -11,14 +11,18 @@ import {
   CreativeOutputSchema,
   ReelStoryboardSchema,
   STORY_COPY_SCHEMA_LIMITS,
+  StoryCreativeGenerationSchema,
+  StoryCopyStructuralSchema,
   StoryCopySchema,
-  creativeGenerationSchemaForFormat,
+  type StoryGeneratedCreativeCandidate,
+  creativeGenerationProviderSchemaForFormat,
   type MarketingGeneratedCreative,
 } from "@/lib/marketing/schemas"
 import { detectUnsupportedNumericClaim, marketingPromptFacts, validateClaimProvenance } from "@/lib/marketing/fact-contract"
 import { legacyContractForContentType } from "@/lib/marketing/content-contract"
 import { generationOutputInstructions } from "@/lib/marketing/generation-output-contract"
-import { fitStoryCopy, STORY_COPY_GUIDANCE } from "@/lib/marketing/story-layout"
+import { normalizeStoryCopyForLayout } from "@/lib/marketing/story-copy-normalization"
+import { STORY_COPY_GUIDANCE } from "@/lib/marketing/story-layout"
 import type {
   CreativeDirection,
   MarketingBrandSettings,
@@ -245,6 +249,12 @@ function logStoryCopySchemaRepair(status: "requested" | "exhausted", fields: str
   console[status === "requested" ? "info" : "error"]("OpenAI Story schema repair:", JSON.stringify({ status, fields, attempts: status === "requested" ? 1 : 2 }))
 }
 
+function logStoryVisualNormalization(diagnostics: ReturnType<typeof normalizeStoryCopyForLayout>["diagnostics"]) {
+  if (!diagnostics.length) return
+  // Length metadata only; copy, facts, prompts, and credentials stay out of logs.
+  console.info("Story visual copy normalized:", JSON.stringify({ fields: diagnostics }))
+}
+
 /**
  * Native `responses.parse` is the primary path. Some SDK parse failures leave
  * the valid JSON text available but omit `output_parsed`; inspect every output
@@ -377,6 +387,84 @@ function normalizeGeneratedCreative(input: {
   }
 }
 
+function creativeCopyForClaims(output: Pick<CreativeOutput,
+  "hook" | "headline" | "caption" | "shortCaption" | "cta" | "coverText" | "altText" |
+  "onScreenText" | "carouselSlides" | "storyCopy"
+>) {
+  return [
+    output.hook, output.headline, output.caption, output.shortCaption, output.cta,
+    output.coverText, output.altText, ...output.onScreenText, ...output.carouselSlides,
+    output.storyCopy.headline, output.storyCopy.supportingLine, ...output.storyCopy.highlights,
+    output.storyCopy.priceLine, output.storyCopy.cta,
+  ].join(" ")
+}
+
+function generatedStoryCopyForClaims(output: StoryGeneratedCreativeCandidate) {
+  return [
+    output.caption, output.altText,
+    output.storyCopy.headline, output.storyCopy.supportingLine, ...output.storyCopy.highlights,
+    output.storyCopy.priceLine, output.storyCopy.cta,
+  ].join(" ")
+}
+
+function storyCopyText(storyCopy: StoryCopy) {
+  return [
+    storyCopy.headline, storyCopy.supportingLine, ...storyCopy.highlights,
+    storyCopy.priceLine, storyCopy.cta,
+  ].join(" ")
+}
+
+/**
+ * Claim grounding deliberately runs before any visual repair. A later visual
+ * normalisation can remove an optional line, but it must never be used to
+ * rescue an invented or structurally invalid provider response.
+ */
+function validateGeneratedFacts(input: {
+  property: PropertyFactSnapshot
+  factsUsed: CreativeOutput["factsUsed"]
+  claimProvenance: CreativeOutput["claimProvenance"]
+  copy: string
+}) {
+  if (input.factsUsed.length && !input.claimProvenance.length) {
+    throw new Error("Generated factual copy is missing claim provenance. Try generation again.")
+  }
+  validateClaimProvenance({
+    property: input.property,
+    claims: input.claimProvenance,
+    factsUsed: input.factsUsed,
+    copy: input.copy,
+  })
+  const unsupportedNumericClaim = detectUnsupportedNumericClaim(input.copy, input.property)
+  if (unsupportedNumericClaim) throw new Error(unsupportedNumericClaim)
+}
+
+function validateStoryCopyNumericFacts(storyCopy: StoryCopy, property: PropertyFactSnapshot) {
+  const unsupportedNumericClaim = detectUnsupportedNumericClaim(storyCopyText(storyCopy), property)
+  if (unsupportedNumericClaim) throw new Error(unsupportedNumericClaim)
+}
+
+function normalizeForClaimSearch(value: string) {
+  return value.replace(/\s+/g, " ").trim().toLocaleLowerCase()
+}
+
+/**
+ * An optional Story visual field can be removed when it cannot fit exactly
+ * (notably price). Remove only provenance that no longer has visible copy,
+ * then keep `factsUsed` in step with the persisted claims.
+ */
+function removeOmittedStoryClaims(output: CreativeOutput): CreativeOutput {
+  const copy = normalizeForClaimSearch(creativeCopyForClaims(output))
+  const claimProvenance = output.claimProvenance.filter(claim => copy.includes(normalizeForClaimSearch(claim.text)))
+  if (claimProvenance.length === output.claimProvenance.length) return output
+
+  const factKeysWithVisibleClaims = new Set(claimProvenance.map(claim => claim.factKey))
+  return {
+    ...output,
+    factsUsed: output.factsUsed.filter(factKey => factKeysWithVisibleClaims.has(factKey)),
+    claimProvenance,
+  }
+}
+
 class StoryboardOverlayLengthError extends Error {
   constructor() {
     super("AI generated text that was too long for the Reel layout.")
@@ -448,7 +536,8 @@ export class CreativeAIService {
     if (!format || !objective) throw new Error("Marketing generation requires an explicit delivery format and objective.")
 
     const openai = openAiClient()
-    const requestCreative = async (repairInstruction?: string) => {
+    const requestCreative = async (repairInstruction?: string, normalizeRemainingVisualLength = false) => {
+      const providerSchema = creativeGenerationProviderSchemaForFormat(format)
       const maxOutputTokens = MARKETING_OUTPUT_TOKEN_BUDGETS[format]
       const instructions = [
         "You are the private editorial marketing assistant for a luxury real-estate CRM.",
@@ -487,7 +576,7 @@ export class CreativeAIService {
               content: JSON.stringify({ propertyFacts: factLines(input.property) }),
             },
           ],
-          text: { format: zodTextFormat(creativeGenerationSchemaForFormat(format), "marketing_creative") },
+          text: { format: zodTextFormat(providerSchema, "marketing_creative") },
         })
       } catch (error) {
         logRequestFailure(error)
@@ -510,16 +599,37 @@ export class CreativeAIService {
         if (diagnostics.hasText) throw new Error("OpenAI structured output could not be parsed.")
         throw new Error("OpenAI returned no generated content.")
       }
-      const parsed = creativeGenerationSchemaForFormat(format).safeParse(response.output_parsed)
+      const parsed = providerSchema.safeParse(response.output_parsed)
       if (!parsed.success) {
-        if (format === "story") {
-          const lengthError = storyCopyLengthError(parsed.error)
-          if (lengthError) throw lengthError
-        }
         throw new Error("OpenAI structured output could not be parsed.")
       }
+      let generated: MarketingGeneratedCreative
+      if (format === "story") {
+        const candidate = parsed.data as StoryGeneratedCreativeCandidate
+        validateGeneratedFacts({
+          property: input.property,
+          factsUsed: candidate.factsUsed,
+          claimProvenance: candidate.claimProvenance,
+          copy: generatedStoryCopyForClaims(candidate),
+        })
+        const strictStory = StoryCreativeGenerationSchema.safeParse(parsed.data)
+        if (!strictStory.success) {
+          const lengthError = storyCopyLengthError(strictStory.error)
+          if (!lengthError) throw new Error("OpenAI structured output could not be parsed.")
+          if (!normalizeRemainingVisualLength) throw lengthError
+          const normalized = normalizeStoryCopyForLayout({ storyCopy: candidate.storyCopy, objective })
+          logStoryVisualNormalization(normalized.diagnostics)
+          const finalStory = StoryCreativeGenerationSchema.safeParse({ ...candidate, storyCopy: normalized.storyCopy })
+          if (!finalStory.success) throw new Error("Story visual copy could not be normalized safely.")
+          generated = finalStory.data
+        } else {
+          generated = strictStory.data
+        }
+      } else {
+        generated = parsed.data as MarketingGeneratedCreative
+      }
       try {
-        return normalizeGeneratedCreative({ format, property: input.property, generated: parsed.data })
+        return normalizeGeneratedCreative({ format, property: input.property, generated })
       } catch (error) {
         if (format === "story") {
           const lengthError = storyCopyLengthError(error)
@@ -529,9 +639,9 @@ export class CreativeAIService {
       }
     }
 
-    const requestWithTokenRecovery = async (repairInstruction?: string) => {
+    const requestWithTokenRecovery = async (repairInstruction?: string, normalizeRemainingVisualLength = false) => {
       try {
-        return await requestCreative(repairInstruction)
+        return await requestCreative(repairInstruction, normalizeRemainingVisualLength)
       } catch (error) {
         if (!(error instanceof OutputTokenLimitError)) throw error
         console.warn("OpenAI output-token recovery requested:", JSON.stringify({ format, maxOutputTokens: MARKETING_OUTPUT_TOKEN_BUDGETS[format], attempts: 1 }))
@@ -540,7 +650,7 @@ export class CreativeAIService {
           "The previous response exceeded its output budget. Return one concise, valid response within every stated field limit. Preserve only essential fact-grounded editorial copy and compact provenance.",
         ].filter(Boolean).join(" ")
         try {
-          return await requestCreative(tokenRecoveryInstruction)
+          return await requestCreative(tokenRecoveryInstruction, normalizeRemainingVisualLength)
         } catch (recoveryError) {
           if (recoveryError instanceof OutputTokenLimitError) {
             console.error("OpenAI output-token recovery exhausted:", JSON.stringify({ format, maxOutputTokens: MARKETING_OUTPUT_TOKEN_BUDGETS[format], attempts: 2 }))
@@ -554,7 +664,7 @@ export class CreativeAIService {
     const repairStoryCopySchema = async (error: StoryCopySchemaLengthError) => {
       logStoryCopySchemaRepair("requested", error.fields)
       try {
-        return await requestWithTokenRecovery("Repair only storyCopy. Return the same factual content and editorial direction, but shorten the invalid fields to satisfy every Story schema limit. Keep the CTA to one short action, 60 characters or fewer. Do not add facts.")
+        return await requestWithTokenRecovery("Repair only storyCopy. Return the same factual content and editorial direction, but shorten the invalid fields to satisfy every Story schema limit. Keep the CTA to one short action, 60 characters or fewer. Do not add facts.", true)
       } catch (repairError) {
         if (repairError instanceof StoryCopySchemaLengthError) {
           logStoryCopySchemaRepair("exhausted", repairError.fields)
@@ -571,37 +681,17 @@ export class CreativeAIService {
       if (!(error instanceof StoryCopySchemaLengthError)) throw error
       output = await repairStoryCopySchema(error)
     }
-    const copyForClaims = [
-      output.hook, output.headline, output.caption, output.shortCaption, output.cta,
-      output.coverText, output.altText, ...output.onScreenText, ...output.carouselSlides,
-      output.storyCopy.headline, output.storyCopy.supportingLine, ...output.storyCopy.highlights,
-      output.storyCopy.priceLine, output.storyCopy.cta,
-    ].join(" ")
-    if (output.factsUsed.length && !output.claimProvenance.length) {
-      throw new Error("Generated factual copy is missing claim provenance. Try generation again.")
-    }
-    validateClaimProvenance({ property: input.property, claims: output.claimProvenance, factsUsed: output.factsUsed, copy: copyForClaims })
-    const unsupportedNumericClaim = detectUnsupportedNumericClaim(copyForClaims, input.property)
-    if (unsupportedNumericClaim) throw new Error(unsupportedNumericClaim)
-
     if (format === "story") {
-      let fit = fitStoryCopy(output.storyCopy)
-      if (fit.requiresAiCondensation) {
-        console.info("OpenAI Story copy repair requested:", JSON.stringify({ reason: "mobile_safe_layout", attempts: 1 }))
-        try {
-          output = await requestWithTokenRecovery("Repair only storyCopy: preserve the same factual content and editorial direction, but shorten the visual fields to satisfy every Story schema limit. Do not add facts.")
-        } catch (error) {
-          if (error instanceof StoryCopySchemaLengthError) {
-            logStoryCopySchemaRepair("exhausted", error.fields)
-            throw new StoryCopyTooLongError()
-          }
-          throw error
-        }
-        fit = fitStoryCopy(output.storyCopy)
-      }
-      if (!fit.fits) throw new StoryCopyTooLongError()
-      output = { ...output, storyCopy: fit.storyCopy }
+      const normalized = normalizeStoryCopyForLayout({ storyCopy: output.storyCopy, objective })
+      logStoryVisualNormalization(normalized.diagnostics)
+      output = removeOmittedStoryClaims({ ...output, storyCopy: normalized.storyCopy })
     }
+    validateGeneratedFacts({
+      property: input.property,
+      factsUsed: output.factsUsed,
+      claimProvenance: output.claimProvenance,
+      copy: creativeCopyForClaims(output),
+    })
     return validateBrandSafety(output, input.settings)
   }
 
@@ -700,7 +790,7 @@ export class CreativeAIService {
     userPrompt: string
   }): Promise<CreativeOutput["storyCopy"]> {
     if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured")
-    const requestStoryCopy = async (repairInstruction?: string) => {
+    const requestStoryCopy = async (repairInstruction?: string, normalizeRemainingVisualLength = false) => {
       let response
       try {
         response = await openAiClient().responses.parse({
@@ -722,7 +812,7 @@ export class CreativeAIService {
             ].filter(Boolean).join("\n") },
             { role: "user", content: JSON.stringify({ propertyFacts: factLines(input.property), currentStoryCopy: input.currentStoryCopy }) },
           ],
-          text: { format: zodTextFormat(StoryCopySchema, "marketing_story_copy") },
+          text: { format: zodTextFormat(StoryCopyStructuralSchema, "marketing_story_copy") },
         })
       } catch (error) {
         logRequestFailure(error)
@@ -735,13 +825,21 @@ export class CreativeAIService {
       if (diagnostics.refused) throw new Error("OpenAI refused the Story copy request.")
       if (response.status && response.status !== "completed") throw new Error("OpenAI Story copy response was not completed.")
       if (!response.output_parsed) throw new Error("OpenAI returned no Story copy.")
-      try {
-        return StoryCopySchema.parse(response.output_parsed)
-      } catch (error) {
-        const lengthError = storyCopyLengthError(error)
-        if (lengthError) throw lengthError
-        throw error
+      const parsed = StoryCopyStructuralSchema.safeParse(response.output_parsed)
+      if (!parsed.success) throw new Error("OpenAI structured Story copy could not be parsed.")
+      validateStoryCopyNumericFacts(parsed.data, input.property)
+      const strictStory = StoryCopySchema.safeParse(parsed.data)
+      if (strictStory.success) return strictStory.data
+      const lengthError = storyCopyLengthError(strictStory.error)
+      if (!lengthError) throw new Error("OpenAI structured Story copy could not be parsed.")
+      if (!normalizeRemainingVisualLength) throw lengthError
+      const normalized = normalizeStoryCopyForLayout({ storyCopy: parsed.data })
+      logStoryVisualNormalization(normalized.diagnostics)
+      const finalStory = StoryCopySchema.safeParse(normalized.storyCopy)
+      if (!finalStory.success) {
+        throw new Error("Story visual copy could not be normalized safely.")
       }
+      return finalStory.data
     }
 
     let storyCopy: CreativeOutput["storyCopy"]
@@ -751,7 +849,7 @@ export class CreativeAIService {
       if (!(error instanceof StoryCopySchemaLengthError)) throw error
       logStoryCopySchemaRepair("requested", error.fields)
       try {
-        storyCopy = await requestStoryCopy("Repair only the invalid Story fields. Return the same factual content and requested edit, but shorten them to satisfy every Story schema limit. Keep the CTA to one short action, 60 characters or fewer. Do not add facts.")
+        storyCopy = await requestStoryCopy("Repair only the invalid Story fields. Return the same factual content and requested edit, but shorten them to satisfy every Story schema limit. Keep the CTA to one short action, 60 characters or fewer. Do not add facts.", true)
       } catch (repairError) {
         if (repairError instanceof StoryCopySchemaLengthError) {
           logStoryCopySchemaRepair("exhausted", repairError.fields)
@@ -760,25 +858,12 @@ export class CreativeAIService {
         throw repairError
       }
     }
-    let fit = fitStoryCopy(storyCopy)
-    if (fit.requiresAiCondensation) {
-      console.info("OpenAI Story copy repair requested:", JSON.stringify({ reason: "mobile_safe_layout", attempts: 1 }))
-      try {
-        storyCopy = await requestStoryCopy("Repair only the visual text. Preserve supported facts, the requested edit, and brand exclusions; shorten it to satisfy every Story schema limit. Do not add facts.")
-      } catch (error) {
-        if (error instanceof StoryCopySchemaLengthError) {
-          logStoryCopySchemaRepair("exhausted", error.fields)
-          throw new StoryCopyTooLongError()
-        }
-        throw error
-      }
-      fit = fitStoryCopy(storyCopy)
-    }
-    if (!fit.fits) throw new StoryCopyTooLongError()
+    const normalized = normalizeStoryCopyForLayout({ storyCopy })
+    logStoryVisualNormalization(normalized.diagnostics)
     const checked = validateBrandSafety({
-      campaignConcept: "story", hook: fit.storyCopy.headline, headline: fit.storyCopy.headline,
-      caption: "story", shortCaption: "story", cta: fit.storyCopy.cta, hashtags: ["#story"],
-      onScreenText: [], carouselSlides: [], storyCopy: fit.storyCopy, coverText: "", altText: "",
+      campaignConcept: "story", hook: normalized.storyCopy.headline, headline: normalized.storyCopy.headline,
+      caption: "story", shortCaption: "story", cta: normalized.storyCopy.cta, hashtags: ["#story"],
+      onScreenText: [], carouselSlides: [], storyCopy: normalized.storyCopy, coverText: "", altText: "",
       suggestedDuration: 15, transitions: [], audioStyle: "ambient", factsUsed: [], claimProvenance: [],
     }, input.settings) as { storyCopy: StoryCopy }
     return checked.storyCopy

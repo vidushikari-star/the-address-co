@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { INVALID_MARKETING_GENERATION_OUTPUT_MESSAGE, STORY_COPY_TOO_LONG_MESSAGE } from "@/lib/marketing/generation-errors"
+import { INVALID_MARKETING_GENERATION_OUTPUT_MESSAGE } from "@/lib/marketing/generation-errors"
 
 const repository = vi.hoisted(() => ({
   getContentById: vi.fn(),
@@ -154,7 +154,7 @@ describe("Create Studio Story generation route with the real repair-aware genera
     expect(JSON.stringify(body)).not.toContain("storyCopy.cta")
   })
 
-  it("returns the Story-safe message after the repair response is still too long", async () => {
+  it("deterministically completes when the repair CTA is still too long", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     configureStoryStudioRoute()
     const tooLongCta = "Request a private presentation and personalised property details today."
@@ -167,9 +167,15 @@ describe("Create Studio Story generation route with the real repair-aware genera
     const response = await generateRequest()
     const body = await response.json()
 
-    expect(response.status).toBe(502)
+    expect(response.status).toBe(200)
     expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(body).toEqual({ error: STORY_COPY_TOO_LONG_MESSAGE })
+    expect(body.content.creative.storyCopy.cta).toBe("Request details")
+    expect(body.content.creative.storyCopy.cta.length).toBeLessThanOrEqual(60)
+    expect(body.content.creative.storyCopy.cta.endsWith("…")).toBe(false)
+    expect(body.content.creative.storyCopy.headline.length).toBeLessThanOrEqual(72)
+    expect(body.content.creative.storyCopy.supportingLine.length).toBeLessThanOrEqual(150)
+    expect(body.content.creative.storyCopy.highlights.every((highlight: string) => highlight.length <= 60)).toBe(true)
+    expect(body.content.creative.storyCopy.priceLine.length).toBeLessThanOrEqual(64)
     expect(JSON.stringify(body)).not.toContain("Too big")
     expect(JSON.stringify(body)).not.toContain("storyCopy.cta")
   })

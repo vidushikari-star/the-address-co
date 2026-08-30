@@ -9,6 +9,7 @@ import {
   storyLayoutError,
   storyLogoLayout,
 } from "@/lib/marketing/story-layout"
+import { normalizeStoryCopyForLayout } from "@/lib/marketing/story-copy-normalization"
 import type { StoryComposition, StoryCopy } from "@/lib/marketing/types"
 
 const shortCopy: StoryCopy = {
@@ -111,6 +112,42 @@ describe("Story mobile-safe layout", () => {
       ...shortCopy,
       highlights: ["An excessively long highlight that previously would have blocked Story generation even though the renderer can safely compact it."],
     })).toBeNull()
+  })
+
+  it("normalizes visual overflows at natural boundaries without rewriting a price", () => {
+    const longPrice = "₹1,25,00,000 (inclusive of all applicable charges and registration)"
+    const normalized = normalizeStoryCopyForLayout({
+      objective: "open_house",
+      storyCopy: {
+        headline: "Villa Verde in Parra with considered tropical architecture and generous light-filled interiors throughout",
+        supportingLine: "A calm North Goa address for private entertaining and long weekends, shaped by generous proportions, quiet outdoor spaces, a considered daily rhythm, and an enduringly elegant sense of arrival throughout the year.",
+        highlights: [
+          "Four bedrooms with a landscaped garden and private pool deck for relaxed tropical living",
+          "Generous interiors shaped for quiet family time and considered entertaining",
+        ],
+        priceLine: longPrice,
+        cta: "Request a private presentation and personalised property details today.",
+      },
+    })
+
+    expect(normalized.fits).toBe(true)
+    expect(normalized.storyCopy.headline.length).toBeLessThanOrEqual(72)
+    expect(normalized.storyCopy.supportingLine.length).toBeLessThanOrEqual(150)
+    expect(normalized.storyCopy.highlights.every(highlight => highlight.length <= 60)).toBe(true)
+    expect(normalized.storyCopy.priceLine).toBe("")
+    expect(normalized.storyCopy.cta).toBe("Request details")
+    expect([normalized.storyCopy.headline, normalized.storyCopy.supportingLine, ...normalized.storyCopy.highlights, normalized.storyCopy.cta].some(value => value.endsWith("…"))).toBe(false)
+    expect(fitStoryCopy(normalized.storyCopy).fits).toBe(true)
+    expect(normalized.diagnostics.map(item => item.field)).toEqual(expect.arrayContaining(["headline", "supportingLine", "priceLine", "cta", "highlights[0]"]))
+  })
+
+  it("retains a renderer-safe price line byte-for-byte", () => {
+    const priceLine = "₹1,25,00,000"
+    const normalized = normalizeStoryCopyForLayout({
+      storyCopy: { ...shortCopy, priceLine },
+    })
+
+    expect(normalized.storyCopy.priceLine).toBe(priceLine)
   })
 
   it("keeps a Story logo inside the same mobile-safe region", () => {

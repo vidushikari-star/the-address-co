@@ -76,4 +76,10 @@ describe("Marketing fact contract", () => {
     })).toThrow("not grounded")
     expect(detectUnsupportedNumericClaim("A 4-bedroom residence in Parra.", property)).toContain("unsupported numeric claim")
   })
+
+  it("accepts a factual price when punctuation follows the numeric value", () => {
+    const pricedProperty = { ...property, price: "₹1,25,00,000" }
+
+    expect(detectUnsupportedNumericClaim("Listed at ₹1,25,00,000.", pricedProperty)).toBeNull()
+  })
 })

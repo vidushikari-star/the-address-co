@@ -221,6 +221,20 @@ export const StoryCopySchema = z.object({
   cta: z.string().trim().min(1).max(STORY_COPY_SCHEMA_LIMITS.cta),
 })
 
+/**
+ * Provider responses keep visual copy structurally bounded without applying
+ * the final renderer limits. A single semantic repair and the deterministic
+ * Story normalizer handle the smaller visual bounds before persistence.
+ */
+export const STORY_COPY_PROVIDER_SAFETY_LIMIT = 1_000
+export const StoryCopyStructuralSchema = z.object({
+  headline: z.string().trim().min(1).max(STORY_COPY_PROVIDER_SAFETY_LIMIT),
+  supportingLine: z.string().trim().max(STORY_COPY_PROVIDER_SAFETY_LIMIT),
+  highlights: z.array(z.string().trim().min(1).max(STORY_COPY_PROVIDER_SAFETY_LIMIT)).max(STORY_COPY_SCHEMA_LIMITS.maximumHighlights),
+  priceLine: z.string().trim().max(STORY_COPY_PROVIDER_SAFETY_LIMIT),
+  cta: z.string().trim().min(1).max(STORY_COPY_PROVIDER_SAFETY_LIMIT),
+})
+
 export const StoryCompositionSchema = z.object({
   propertyId: z.string().uuid(),
   format: z.literal("story"),
@@ -299,16 +313,7 @@ const CompactGroundingFields = {
   claimProvenance: CompactClaimProvenanceSchema,
 }
 
-const CompactStoryCopySchema = z.object({
-  // These hard caps keep the structured response bounded. The stricter
-  // mobile-safe editorial target remains in the prompt and layout service,
-  // where a single bounded condensation repair can still be attempted.
-  headline: z.string().trim().min(1).max(STORY_COPY_SCHEMA_LIMITS.headline),
-  supportingLine: z.string().trim().max(STORY_COPY_SCHEMA_LIMITS.supportingLine),
-  highlights: z.array(z.string().trim().min(1).max(STORY_COPY_SCHEMA_LIMITS.highlight)).max(STORY_COPY_SCHEMA_LIMITS.maximumHighlights),
-  priceLine: z.string().trim().max(STORY_COPY_SCHEMA_LIMITS.priceLine),
-  cta: z.string().trim().min(1).max(STORY_COPY_SCHEMA_LIMITS.cta),
-})
+const CompactStoryCopySchema = StoryCopySchema
 
 export const FeedCreativeGenerationSchema = z.object({
   headline: z.string().trim().min(1).max(120),
@@ -336,6 +341,15 @@ export const StoryCreativeGenerationSchema = z.object({
   ...CompactGroundingFields,
 })
 
+/** The provider contract before final visual-layout normalization. */
+export const StoryCreativeGenerationStructuralSchema = z.object({
+  caption: z.string().trim().min(1).max(700),
+  hashtags: CompactHashtagsSchema,
+  altText: z.string().trim().min(1).max(300),
+  storyCopy: StoryCopyStructuralSchema,
+  ...CompactGroundingFields,
+})
+
 export const ReelCreativeGenerationSchema = z.object({
   hook: z.string().trim().min(1).max(100),
   caption: z.string().trim().min(1).max(1_000),
@@ -356,6 +370,8 @@ export type MarketingGeneratedCreative =
   | z.infer<typeof StoryCreativeGenerationSchema>
   | z.infer<typeof ReelCreativeGenerationSchema>
 
+export type StoryGeneratedCreativeCandidate = z.infer<typeof StoryCreativeGenerationStructuralSchema>
+
 export function creativeGenerationSchemaForFormat(format: (typeof MARKETING_FORMATS)[number]) {
   switch (format) {
     case "feed_single": return FeedCreativeGenerationSchema
@@ -363,6 +379,13 @@ export function creativeGenerationSchemaForFormat(format: (typeof MARKETING_FORM
     case "story": return StoryCreativeGenerationSchema
     case "reel": return ReelCreativeGenerationSchema
   }
+}
+
+/** Selects the schema sent to the provider; only Story defers visual caps. */
+export function creativeGenerationProviderSchemaForFormat(format: (typeof MARKETING_FORMATS)[number]) {
+  return format === "story"
+    ? StoryCreativeGenerationStructuralSchema
+    : creativeGenerationSchemaForFormat(format)
 }
 
 export const MarketingStatusSchema = z.enum(MARKETING_STATUSES)
