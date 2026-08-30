@@ -19,7 +19,9 @@ import { POST } from "@/app/api/public/property-shares/[token]/enquiries/route"
 
 const token = "b2041f1f-89e9-4a59-a8de-00169502f523"
 const propertyId = "95d4ae27-6867-4313-b3b9-62c6bb56960c"
-const yashProfileId = "5a1cd0bc-e9db-430b-890e-bef393cf104b"
+// user_profiles.id is the auth.users.id in this schema; the server helper
+// queries the profile row using this authenticated ID.
+const yashAuthUserId = "5a1cd0bc-e9db-430b-890e-bef393cf104b"
 
 function publicShareRequest(enabled: boolean) {
   return new Request(`http://localhost/api/properties/${propertyId}/public-share`, {
@@ -94,7 +96,9 @@ describe("public property-share routes", () => {
     const enabled = await PATCH(publicShareRequest(true), { params: Promise.resolve({ id: propertyId }) })
 
     expect(enabled.status).toBe(200)
-    await expect(enabled.json()).resolves.toEqual({ share: { enabled: true, token, url: `/share/${token}` } })
+    const enabledPayload = await enabled.json()
+    expect(enabledPayload).toEqual({ share: { enabled: true, token, url: `/share/${token}` } })
+    expect(JSON.stringify(enabledPayload)).not.toContain("Administrator access")
     expect(enabledServer.propertyUpdate).toHaveBeenCalledWith(expect.objectContaining({ public_share_enabled: true, public_share_token: token }))
 
     vi.clearAllMocks()
@@ -107,18 +111,20 @@ describe("public property-share routes", () => {
     expect(disabledServer.propertyUpdate).toHaveBeenCalledWith(expect.objectContaining({ public_share_enabled: false, public_share_token: token }))
   })
 
-  it("allows Yash's stable profile ID to enable and disable the normal public share link", async () => {
-    auth.getServerUserProfile.mockResolvedValue(profile(yashProfileId, "sales"))
+  it("allows Yash's auth/profile ID to enable and disable the normal public share link", async () => {
+    auth.getServerUserProfile.mockResolvedValue(profile(yashAuthUserId, "sales"))
     const enabledServer = configurePublicShareServer()
 
     const enabled = await PATCH(publicShareRequest(true), { params: Promise.resolve({ id: propertyId }) })
 
     expect(enabled.status).toBe(200)
-    await expect(enabled.json()).resolves.toEqual({ share: { enabled: true, token, url: `/share/${token}` } })
+    const enabledPayload = await enabled.json()
+    expect(enabledPayload).toEqual({ share: { enabled: true, token, url: `/share/${token}` } })
+    expect(JSON.stringify(enabledPayload)).not.toContain("Administrator access")
     expect(enabledServer.propertyUpdate).toHaveBeenCalledWith(expect.objectContaining({ public_share_enabled: true }))
 
     vi.clearAllMocks()
-    auth.getServerUserProfile.mockResolvedValue(profile(yashProfileId, "sales"))
+    auth.getServerUserProfile.mockResolvedValue(profile(yashAuthUserId, "sales"))
     const disabledServer = configurePublicShareServer()
     const disabled = await PATCH(publicShareRequest(false), { params: Promise.resolve({ id: propertyId }) })
 
