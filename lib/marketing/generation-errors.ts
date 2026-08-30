@@ -8,27 +8,56 @@ export const INVALID_MARKETING_GENERATION_OUTPUT_MESSAGE = "AI generated an inva
  */
 export const STORY_GENERATION_VALIDATION_STAGES = [
   "provider_schema",
+  "provider_response_received",
+  "provider_output_access",
   "provider_parse",
+  "generation_result_mapping",
   "factual_validation",
+  "overflow_detection",
+  "repair_request",
   "repair_parse",
   "normalization",
   "final_renderer_validation",
+  "creative_output_validation",
+  "persistence_mapping",
   "persistence",
 ] as const
 
 export type StoryGenerationValidationStage = (typeof STORY_GENERATION_VALIDATION_STAGES)[number]
 
 const storyGenerationErrorStages = new WeakMap<object, StoryGenerationValidationStage>()
+// Turbopack can evaluate a server module in more than one compiled chunk. A
+// module-local WeakMap alone is therefore not a durable cross-boundary error
+// contract. The global symbol stays non-enumerable and never reaches API
+// responses, while preserving the stage on the original Error object.
+const STORY_GENERATION_STAGE = Symbol.for("the-address-co.marketing.story-generation-stage")
+
+type StageTaggedError = object & {
+  [STORY_GENERATION_STAGE]?: StoryGenerationValidationStage
+}
 
 export function tagStoryGenerationError(error: unknown, stage: StoryGenerationValidationStage) {
-  if (error && typeof error === "object") storyGenerationErrorStages.set(error, stage)
+  if (error && typeof error === "object") {
+    storyGenerationErrorStages.set(error, stage)
+    try {
+      Object.defineProperty(error, STORY_GENERATION_STAGE, {
+        configurable: true,
+        enumerable: false,
+        value: stage,
+        writable: true,
+      })
+    } catch {
+      // A frozen third-party error can still retain local provenance through
+      // the WeakMap above. Never let diagnostics change the original failure.
+    }
+  }
   return error
 }
 
-function storyGenerationErrorStage(error: unknown) {
-  return error && typeof error === "object"
-    ? storyGenerationErrorStages.get(error) ?? null
-    : null
+export function storyGenerationErrorStage(error: unknown) {
+  if (!error || typeof error !== "object") return null
+  const tagged = error as StageTaggedError
+  return tagged[STORY_GENERATION_STAGE] ?? storyGenerationErrorStages.get(error) ?? null
 }
 
 type ValidationIssue = {
@@ -85,6 +114,16 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : ""
 }
 
+function applicationStackFrames(error: unknown) {
+  if (!(error instanceof Error) || typeof error.stack !== "string") return []
+
+  return error.stack
+    .split("\n")
+    .map(line => line.match(/(?:app|lib)\/[A-Za-z0-9_./\[\]-]+:\d+(?::\d+)?/)?.[0] ?? null)
+    .filter((frame): frame is string => Boolean(frame))
+    .slice(0, 3)
+}
+
 function isKnownInvalidStructuredOutput(message: string) {
   return [
     "OpenAI structured output could not be parsed.",
@@ -108,6 +147,7 @@ export function safeMarketingGenerationErrorMessage(error: unknown) {
 export function marketingGenerationErrorDiagnostics(error: unknown) {
   const issues = marketingGenerationValidationIssues(error)
   const storyFields = boundedStoryLengthValidationFields(error)
+  const stackFrames = applicationStackFrames(error)
   return {
     stage: storyGenerationErrorStage(error),
     name: errorName(error),
@@ -116,5 +156,7 @@ export function marketingGenerationErrorDiagnostics(error: unknown) {
     issueCodes: [...new Set(issues.map(issue => typeof issue.code === "string" ? issue.code : "unknown"))],
     issuePaths: [...new Set(issues.map(issue => Array.isArray(issue.path) ? issue.path.map(String).join(".") : "unknown"))],
     storyLengthFields: storyFields,
+    topApplicationStackFrame: stackFrames[0] ?? null,
+    applicationStackFrames: stackFrames,
   }
 }

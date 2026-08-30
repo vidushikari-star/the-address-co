@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { INVALID_MARKETING_GENERATION_OUTPUT_MESSAGE } from "@/lib/marketing/generation-errors"
+import { StoryCopySchema } from "@/lib/marketing/schemas"
 
 const repository = vi.hoisted(() => ({
   getContentById: vi.fn(),
@@ -182,17 +183,27 @@ describe("Create Studio Story generation route with the real repair-aware genera
     expect(body.content.creative.storyCopy.supportingLine.length).toBeLessThanOrEqual(150)
     expect(body.content.creative.storyCopy.highlights.every((highlight: string) => highlight.length <= 60)).toBe(true)
     expect(body.content.creative.storyCopy.priceLine.length).toBeLessThanOrEqual(64)
+    const queued = repository.queueStaticRender.mock.calls[0]?.[0]
+    expect(queued?.changes.creative.storyCopy.cta).toBe(body.content.creative.storyCopy.cta)
+    expect(queued?.changes.composition.storyCopy.cta).toBe(body.content.creative.storyCopy.cta)
     const stages = info.mock.calls
       .filter(([message]) => message === "Story generation validation:")
       .map(([, metadata]) => JSON.parse(metadata as string).stage)
     expect(stages).toEqual(expect.arrayContaining([
       "provider_schema",
+      "provider_response_received",
+      "provider_output_access",
       "provider_parse",
+      "overflow_detection",
+      "repair_request",
       "repair_parse",
       "normalization",
       "final_renderer_validation",
+      "creative_output_validation",
+      "persistence_mapping",
       "persistence",
     ]))
+    expect(stages).not.toContain(null)
     expect(JSON.stringify(body)).not.toContain("Too big")
     expect(JSON.stringify(body)).not.toContain("storyCopy.cta")
   })
@@ -232,5 +243,37 @@ describe("Create Studio Story generation route with the real repair-aware genera
     expect(body).toEqual({ error: INVALID_MARKETING_GENERATION_OUTPUT_MESSAGE })
     expect(JSON.stringify(body)).not.toContain("too_small")
     expect(JSON.stringify(body)).not.toContain("storyCopy.headline")
+  })
+
+  it("tags a persistence-boundary validation failure without exposing Story copy", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    configureStoryStudioRoute()
+    global.fetch = vi.fn().mockResolvedValue(providerResponse(validStoryProviderOutput))
+    repository.queueStaticRender.mockImplementation(() => {
+      StoryCopySchema.parse({
+        ...validStoryProviderOutput.storyCopy,
+        cta: "A".repeat(61),
+      })
+    })
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+    const response = await generateRequest()
+    const body = await response.json()
+
+    expect(response.status).toBe(502)
+    expect(body).toEqual({ error: "Story copy was too long to format. Please regenerate the Story copy." })
+    const diagnostics = errorLog.mock.calls
+      .filter(([message]) => message === "Marketing AI generation failed:")
+      .map(([, metadata]) => JSON.parse(metadata as string))
+    expect(diagnostics).toEqual([
+      expect.objectContaining({
+        stage: "persistence",
+        issueCodes: ["too_big"],
+        issuePaths: ["cta"],
+        storyLengthFields: ["cta"],
+      }),
+    ])
+    expect(JSON.stringify(diagnostics)).not.toContain("A".repeat(61))
+    errorLog.mockRestore()
   })
 })

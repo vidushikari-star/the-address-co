@@ -295,6 +295,7 @@ describe("POST /api/marketing/content/:id/generate", () => {
     // Match the observed leakage shape: an upstream layer can leave only the
     // serialized Zod issues in an ordinary Error message.
     generate.mockRejectedValue(new Error(zodError instanceof Error ? zodError.message : "[]"))
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined)
 
     const response = await POST(new Request("http://localhost/api/marketing/content/1e149a39-7321-42d1-900c-7389c0da37a3/generate", {
       method: "POST",
@@ -306,5 +307,18 @@ describe("POST /api/marketing/content/:id/generate", () => {
     expect(body).toEqual({ error: "Story copy was too long to format. Please regenerate the Story copy." })
     expect(JSON.stringify(body)).not.toContain("too_big")
     expect(JSON.stringify(body)).not.toContain("storyCopy")
+    const diagnostics = errorLog.mock.calls
+      .filter(([message]) => message === "Marketing AI generation failed:")
+      .map(([, metadata]) => JSON.parse(metadata as string))
+    expect(diagnostics).toEqual([
+      expect.objectContaining({
+        stage: "provider_schema",
+        issueCodes: ["too_big"],
+        issuePaths: ["cta"],
+        storyLengthFields: ["cta"],
+      }),
+    ])
+    expect(JSON.stringify(diagnostics)).not.toContain(tooLongCta)
+    errorLog.mockRestore()
   })
 })
