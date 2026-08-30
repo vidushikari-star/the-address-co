@@ -159,7 +159,7 @@ describe("Create Studio Story generation route with the real repair-aware genera
     expect(JSON.stringify(body)).not.toContain("storyCopy.cta")
   })
 
-  it("deterministically completes when the repair CTA is still too long", async () => {
+  it("normalizes an overlong repair CTA through the real Create Studio route before final validation", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     configureStoryStudioRoute()
     const tooLongCta = "Request a private presentation and personalised property details today."
@@ -167,6 +167,7 @@ describe("Create Studio Story generation route with the real repair-aware genera
       ...validStoryProviderOutput,
       storyCopy: { ...validStoryProviderOutput.storyCopy, cta: tooLongCta },
     })))
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined)
     global.fetch = fetchMock
 
     const response = await generateRequest()
@@ -181,6 +182,17 @@ describe("Create Studio Story generation route with the real repair-aware genera
     expect(body.content.creative.storyCopy.supportingLine.length).toBeLessThanOrEqual(150)
     expect(body.content.creative.storyCopy.highlights.every((highlight: string) => highlight.length <= 60)).toBe(true)
     expect(body.content.creative.storyCopy.priceLine.length).toBeLessThanOrEqual(64)
+    const stages = info.mock.calls
+      .filter(([message]) => message === "Story generation validation:")
+      .map(([, metadata]) => JSON.parse(metadata as string).stage)
+    expect(stages).toEqual(expect.arrayContaining([
+      "provider_schema",
+      "provider_parse",
+      "repair_parse",
+      "normalization",
+      "final_renderer_validation",
+      "persistence",
+    ]))
     expect(JSON.stringify(body)).not.toContain("Too big")
     expect(JSON.stringify(body)).not.toContain("storyCopy.cta")
   })

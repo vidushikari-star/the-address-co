@@ -2,6 +2,35 @@ export const CONTENT_GENERATION_TOO_LONG_MESSAGE = "Content generation was too l
 export const STORY_COPY_TOO_LONG_MESSAGE = "Story copy was too long to format. Please regenerate the Story copy."
 export const INVALID_MARKETING_GENERATION_OUTPUT_MESSAGE = "AI generated an invalid content format. Please try again."
 
+/**
+ * Server-only provenance for a Story validation failure. This stays outside
+ * the error message so generated copy cannot leak through diagnostics.
+ */
+export const STORY_GENERATION_VALIDATION_STAGES = [
+  "provider_schema",
+  "provider_parse",
+  "factual_validation",
+  "repair_parse",
+  "normalization",
+  "final_renderer_validation",
+  "persistence",
+] as const
+
+export type StoryGenerationValidationStage = (typeof STORY_GENERATION_VALIDATION_STAGES)[number]
+
+const storyGenerationErrorStages = new WeakMap<object, StoryGenerationValidationStage>()
+
+export function tagStoryGenerationError(error: unknown, stage: StoryGenerationValidationStage) {
+  if (error && typeof error === "object") storyGenerationErrorStages.set(error, stage)
+  return error
+}
+
+function storyGenerationErrorStage(error: unknown) {
+  return error && typeof error === "object"
+    ? storyGenerationErrorStages.get(error) ?? null
+    : null
+}
+
 type ValidationIssue = {
   code?: unknown
   path?: unknown
@@ -80,6 +109,7 @@ export function marketingGenerationErrorDiagnostics(error: unknown) {
   const issues = marketingGenerationValidationIssues(error)
   const storyFields = boundedStoryLengthValidationFields(error)
   return {
+    stage: storyGenerationErrorStage(error),
     name: errorName(error),
     validation: issues.length > 0 || errorName(error) === "ZodError",
     issueCount: issues.length,

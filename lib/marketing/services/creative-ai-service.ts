@@ -6,10 +6,12 @@ import {
   STORY_COPY_TOO_LONG_MESSAGE,
   boundedStoryLengthValidationFields,
   marketingGenerationValidationIssues,
+  tagStoryGenerationError,
 } from "@/lib/marketing/generation-errors"
 import {
   CreativeOutputSchema,
   ReelStoryboardSchema,
+  STORY_COPY_PROVIDER_SAFETY_LIMIT,
   STORY_COPY_SCHEMA_LIMITS,
   StoryCreativeGenerationSchema,
   StoryCopyStructuralSchema,
@@ -265,16 +267,6 @@ function storyVisualOverflow(storyCopy: StoryCopy) {
   return storyVisualLengths(storyCopy).filter(field => field.characters > field.maximum)
 }
 
-function storyVisualMaximum(field: StoryVisualLengthField | "highlights") {
-  switch (field) {
-    case "headline": return STORY_COPY_SCHEMA_LIMITS.headline
-    case "supportingLine": return STORY_COPY_SCHEMA_LIMITS.supportingLine
-    case "priceLine": return STORY_COPY_SCHEMA_LIMITS.priceLine
-    case "cta": return STORY_COPY_SCHEMA_LIMITS.cta
-    default: return STORY_COPY_SCHEMA_LIMITS.highlight
-  }
-}
-
 function storyCopyLengthError(error: unknown) {
   const fields = storyCopyLengthValidationFields(error)
   return fields.length ? new StoryCopySchemaLengthError(fields) : null
@@ -290,10 +282,11 @@ function logStoryCopySchemaRepair(status: "requested" | "exhausted", fields: str
 }
 
 function logStoryVisualParse(stage: "provider_parse" | "repair_parse", fields: StoryVisualLength[]) {
-  if (!fields.length) return
   // Validation metadata only; do not log generated copy or property facts.
-  console.info("Story visual length:", JSON.stringify({
+  console.info("Story generation validation:", JSON.stringify({
     stage,
+    issueCodes: [],
+    issuePaths: [],
     fields: fields.map(field => ({
       field: `storyCopy.${field.field}`,
       [stage === "provider_parse" ? "originalCharacters" : "repairedCharacters"]: field.characters,
@@ -302,29 +295,51 @@ function logStoryVisualParse(stage: "provider_parse" | "repair_parse", fields: S
   }))
 }
 
-function logStoryVisualNormalization(diagnostics: ReturnType<typeof normalizeStoryCopyForLayout>["diagnostics"]) {
-  if (!diagnostics.length) return
+function logStoryProviderSchema() {
+  // This is the schema passed to `zodTextFormat`, not the final renderer cap.
+  console.info("Story generation validation:", JSON.stringify({
+    stage: "provider_schema",
+    issueCodes: [],
+    issuePaths: [],
+    fields: [{ field: "storyCopy.cta", structuralMaximum: STORY_COPY_PROVIDER_SAFETY_LIMIT }],
+  }))
+}
+
+function logStoryFactualValidation() {
+  console.info("Story generation validation:", JSON.stringify({
+    stage: "factual_validation",
+    issueCodes: [],
+    issuePaths: [],
+    fields: [],
+  }))
+}
+
+function logStoryVisualNormalization(original: StoryCopy, normalized: StoryCopy) {
   // Length metadata only; copy, facts, prompts, and credentials stay out of logs.
-  console.info("Story visual length:", JSON.stringify({
+  const originalFields = new Map(storyVisualLengths(original).map(field => [field.field, field]))
+  console.info("Story generation validation:", JSON.stringify({
     stage: "normalization",
-    fields: diagnostics.map(diagnostic => ({
-      field: `storyCopy.${diagnostic.field}`,
-      originalCharacters: diagnostic.originalCharacters,
-      normalizedCharacters: diagnostic.finalCharacters,
-      rendererMaximum: storyVisualMaximum(diagnostic.field),
+    issueCodes: [],
+    issuePaths: [],
+    fields: storyVisualLengths(normalized).map(field => ({
+      field: `storyCopy.${field.field}`,
+      originalCharacters: originalFields.get(field.field)?.characters ?? 0,
+      normalizedCharacters: field.characters,
+      rendererMaximum: field.maximum,
     })),
   }))
 }
 
-function logStoryFinalVisualValidation(diagnostics: ReturnType<typeof normalizeStoryCopyForLayout>["diagnostics"]) {
-  if (!diagnostics.length) return
+function logStoryFinalVisualValidation(storyCopy: StoryCopy) {
   // Final validation logs only field names and lengths, never model output.
-  console.info("Story visual length:", JSON.stringify({
-    stage: "final_visual_validation",
-    fields: diagnostics.map(diagnostic => ({
-      field: `storyCopy.${diagnostic.field}`,
-      normalizedCharacters: diagnostic.finalCharacters,
-      rendererMaximum: storyVisualMaximum(diagnostic.field),
+  console.info("Story generation validation:", JSON.stringify({
+    stage: "final_renderer_validation",
+    issueCodes: [],
+    issuePaths: [],
+    fields: storyVisualLengths(storyCopy).map(field => ({
+      field: `storyCopy.${field.field}`,
+      normalizedCharacters: field.characters,
+      rendererMaximum: field.maximum,
     })),
   }))
 }
@@ -612,6 +627,7 @@ export class CreativeAIService {
     const openai = openAiClient()
     const requestCreative = async (repairInstruction?: string, normalizeRemainingVisualLength = false) => {
       const providerSchema = creativeGenerationProviderSchemaForFormat(format)
+      const storyValidationStage = normalizeRemainingVisualLength ? "repair_parse" as const : "provider_parse" as const
       const maxOutputTokens = MARKETING_OUTPUT_TOKEN_BUDGETS[format]
       const instructions = [
         "You are the private editorial marketing assistant for a luxury real-estate CRM.",
@@ -640,6 +656,7 @@ export class CreativeAIService {
 
       let response
       try {
+        if (format === "story") logStoryProviderSchema()
         response = await openai.responses.parse({
           model: process.env.OPENAI_MARKETING_MODEL ?? DEFAULT_MARKETING_MODEL,
           max_output_tokens: maxOutputTokens,
@@ -654,8 +671,10 @@ export class CreativeAIService {
         })
       } catch (error) {
         logRequestFailure(error)
-        if (isStructuredOutputParseError(error)) throw new Error("OpenAI structured output could not be parsed.")
-        throw new Error("OpenAI generation request failed.")
+        const requestError = isStructuredOutputParseError(error)
+          ? new Error("OpenAI structured output could not be parsed.")
+          : new Error("OpenAI generation request failed.")
+        throw format === "story" ? tagStoryGenerationError(requestError, "provider_schema") : requestError
       }
 
       const diagnostics = logResponseDiagnostics(response)
@@ -671,29 +690,42 @@ export class CreativeAIService {
       }
       const parsed = providerSchema.safeParse(response.output_parsed)
       if (!parsed.success) {
-        throw new Error("OpenAI structured output could not be parsed.")
+        const parseError = new Error("OpenAI structured output could not be parsed.")
+        throw format === "story" ? tagStoryGenerationError(parseError, storyValidationStage) : parseError
       }
       let generated: MarketingGeneratedCreative
       if (format === "story") {
         const candidate = parsed.data as StoryGeneratedCreativeCandidate
-        validateGeneratedFacts({
-          property: input.property,
-          factsUsed: candidate.factsUsed,
-          claimProvenance: candidate.claimProvenance,
-          copy: generatedStoryCopyForClaims(candidate),
-        })
+        logStoryVisualParse(storyValidationStage, storyVisualLengths(candidate.storyCopy))
+        try {
+          validateGeneratedFacts({
+            property: input.property,
+            factsUsed: candidate.factsUsed,
+            claimProvenance: candidate.claimProvenance,
+            copy: generatedStoryCopyForClaims(candidate),
+          })
+          logStoryFactualValidation()
+        } catch (error) {
+          throw tagStoryGenerationError(error, "factual_validation")
+        }
         const visualOverflow = storyVisualOverflow(candidate.storyCopy)
         if (visualOverflow.length) {
-          logStoryVisualParse(normalizeRemainingVisualLength ? "repair_parse" : "provider_parse", visualOverflow)
-          if (!normalizeRemainingVisualLength) throw storyVisualLengthError(visualOverflow)
+          if (!normalizeRemainingVisualLength) throw tagStoryGenerationError(storyVisualLengthError(visualOverflow), "provider_parse")
         }
         // This is intentionally before the only strict Story schema parse:
         // visual copy is deterministic renderer-safe before it is persisted.
-        const normalized = normalizeStoryCopyForLayout({ storyCopy: candidate.storyCopy, objective })
-        logStoryVisualNormalization(normalized.diagnostics)
+        let normalized: ReturnType<typeof normalizeStoryCopyForLayout>
+        try {
+          normalized = normalizeStoryCopyForLayout({ storyCopy: candidate.storyCopy, objective })
+        } catch (error) {
+          throw tagStoryGenerationError(error, "normalization")
+        }
+        logStoryVisualNormalization(candidate.storyCopy, normalized.storyCopy)
         const finalStory = StoryCreativeGenerationSchema.safeParse({ ...candidate, storyCopy: normalized.storyCopy })
-        if (!finalStory.success) throw new Error("Story visual copy could not be normalized safely.")
-        logStoryFinalVisualValidation(normalized.diagnostics)
+        if (!finalStory.success) {
+          throw tagStoryGenerationError(new Error("Story visual copy could not be normalized safely."), "final_renderer_validation")
+        }
+        logStoryFinalVisualValidation(finalStory.data.storyCopy)
         generated = finalStory.data
       } else {
         generated = parsed.data as MarketingGeneratedCreative
@@ -703,7 +735,8 @@ export class CreativeAIService {
       } catch (error) {
         if (format === "story") {
           const lengthError = storyCopyLengthError(error)
-          if (lengthError) throw lengthError
+          if (lengthError) throw tagStoryGenerationError(lengthError, "final_renderer_validation")
+          throw tagStoryGenerationError(error, "final_renderer_validation")
         }
         throw error
       }
@@ -754,12 +787,17 @@ export class CreativeAIService {
     if (format === "story") {
       output = removeOmittedStoryClaims(output)
     }
-    validateGeneratedFacts({
-      property: input.property,
-      factsUsed: output.factsUsed,
-      claimProvenance: output.claimProvenance,
-      copy: creativeCopyForClaims(output),
-    })
+    try {
+      validateGeneratedFacts({
+        property: input.property,
+        factsUsed: output.factsUsed,
+        claimProvenance: output.claimProvenance,
+        copy: creativeCopyForClaims(output),
+      })
+    } catch (error) {
+      if (format === "story") throw tagStoryGenerationError(error, "factual_validation")
+      throw error
+    }
     return validateBrandSafety(output, input.settings)
   }
 
@@ -859,8 +897,10 @@ export class CreativeAIService {
   }): Promise<CreativeOutput["storyCopy"]> {
     if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured")
     const requestStoryCopy = async (repairInstruction?: string, normalizeRemainingVisualLength = false) => {
+      const storyValidationStage = normalizeRemainingVisualLength ? "repair_parse" as const : "provider_parse" as const
       let response
       try {
+        logStoryProviderSchema()
         response = await openAiClient().responses.parse({
           model: process.env.OPENAI_MARKETING_MODEL ?? DEFAULT_MARKETING_MODEL,
           max_output_tokens: MARKETING_OUTPUT_TOKEN_BUDGETS.story_copy,
@@ -884,26 +924,38 @@ export class CreativeAIService {
         })
       } catch (error) {
         logRequestFailure(error)
-        if (isStructuredOutputParseError(error)) throw new Error("OpenAI structured Story copy could not be parsed.")
-        throw new Error("OpenAI Story copy generation request failed.")
+        const requestError = isStructuredOutputParseError(error)
+          ? new Error("OpenAI structured Story copy could not be parsed.")
+          : new Error("OpenAI Story copy generation request failed.")
+        throw tagStoryGenerationError(requestError, "provider_schema")
       }
       const diagnostics = logResponseDiagnostics(response)
       if (diagnostics.refused) throw new Error("OpenAI refused the Story copy request.")
       if (response.status && response.status !== "completed") throw new Error("OpenAI Story copy response was not completed.")
       if (!response.output_parsed) throw new Error("OpenAI returned no Story copy.")
       const parsed = StoryCopyStructuralSchema.safeParse(response.output_parsed)
-      if (!parsed.success) throw new Error("OpenAI structured Story copy could not be parsed.")
-      validateStoryCopyNumericFacts(parsed.data, input.property)
+      if (!parsed.success) throw tagStoryGenerationError(new Error("OpenAI structured Story copy could not be parsed."), storyValidationStage)
+      logStoryVisualParse(storyValidationStage, storyVisualLengths(parsed.data))
+      try {
+        validateStoryCopyNumericFacts(parsed.data, input.property)
+        logStoryFactualValidation()
+      } catch (error) {
+        throw tagStoryGenerationError(error, "factual_validation")
+      }
       const visualOverflow = storyVisualOverflow(parsed.data)
       if (visualOverflow.length) {
-        logStoryVisualParse(normalizeRemainingVisualLength ? "repair_parse" : "provider_parse", visualOverflow)
-        if (!normalizeRemainingVisualLength) throw storyVisualLengthError(visualOverflow)
+        if (!normalizeRemainingVisualLength) throw tagStoryGenerationError(storyVisualLengthError(visualOverflow), "provider_parse")
       }
-      const normalized = normalizeStoryCopyForLayout({ storyCopy: parsed.data })
-      logStoryVisualNormalization(normalized.diagnostics)
+      let normalized: ReturnType<typeof normalizeStoryCopyForLayout>
+      try {
+        normalized = normalizeStoryCopyForLayout({ storyCopy: parsed.data })
+      } catch (error) {
+        throw tagStoryGenerationError(error, "normalization")
+      }
+      logStoryVisualNormalization(parsed.data, normalized.storyCopy)
       const finalStory = StoryCopySchema.safeParse(normalized.storyCopy)
-      if (!finalStory.success) throw new Error("Story visual copy could not be normalized safely.")
-      logStoryFinalVisualValidation(normalized.diagnostics)
+      if (!finalStory.success) throw tagStoryGenerationError(new Error("Story visual copy could not be normalized safely."), "final_renderer_validation")
+      logStoryFinalVisualValidation(finalStory.data)
       return finalStory.data
     }
 

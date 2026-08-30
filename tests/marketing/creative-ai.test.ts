@@ -282,7 +282,7 @@ describe("CreativeAIService", () => {
     expect(output.storyCopy.cta.endsWith("…")).toBe(false)
   })
 
-  it("logs only Story length metadata across provider, repair, normalization, and final validation", async () => {
+  it("logs only Story length metadata across every Story validation stage", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     const tooLongCta = "Request a private presentation and personalised property details today."
     const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(completedResponse({
@@ -301,14 +301,15 @@ describe("CreativeAIService", () => {
     })
 
     const diagnostics = info.mock.calls
-      .filter(([message]) => message === "Story visual length:")
+      .filter(([message]) => message === "Story generation validation:")
       .map(([, metadata]) => JSON.parse(metadata as string))
 
     expect(diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ stage: "provider_parse", fields: [expect.objectContaining({ field: "storyCopy.cta", originalCharacters: 71, rendererMaximum: 60 })] }),
-      expect.objectContaining({ stage: "repair_parse", fields: [expect.objectContaining({ field: "storyCopy.cta", repairedCharacters: 71, rendererMaximum: 60 })] }),
-      expect.objectContaining({ stage: "normalization", fields: [expect.objectContaining({ field: "storyCopy.cta", originalCharacters: 71, normalizedCharacters: 15, rendererMaximum: 60 })] }),
-      expect.objectContaining({ stage: "final_visual_validation", fields: [expect.objectContaining({ field: "storyCopy.cta", normalizedCharacters: 15, rendererMaximum: 60 })] }),
+      expect.objectContaining({ stage: "provider_schema", fields: [expect.objectContaining({ field: "storyCopy.cta", structuralMaximum: 1_000 })] }),
+      expect.objectContaining({ stage: "provider_parse", fields: expect.arrayContaining([expect.objectContaining({ field: "storyCopy.cta", originalCharacters: 71, rendererMaximum: 60 })]) }),
+      expect.objectContaining({ stage: "repair_parse", fields: expect.arrayContaining([expect.objectContaining({ field: "storyCopy.cta", repairedCharacters: 71, rendererMaximum: 60 })]) }),
+      expect.objectContaining({ stage: "normalization", fields: expect.arrayContaining([expect.objectContaining({ field: "storyCopy.cta", originalCharacters: 71, normalizedCharacters: 15, rendererMaximum: 60 })]) }),
+      expect.objectContaining({ stage: "final_renderer_validation", fields: expect.arrayContaining([expect.objectContaining({ field: "storyCopy.cta", normalizedCharacters: 15, rendererMaximum: 60 })]) }),
     ]))
     expect(JSON.stringify(diagnostics)).not.toContain(tooLongCta)
     expect(JSON.stringify(diagnostics)).not.toContain("Villa Verde")

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
 import { resolveMarketingContract, withMarketingContract } from "@/lib/marketing/content-contract"
-import { marketingGenerationErrorDiagnostics, safeMarketingGenerationErrorMessage } from "@/lib/marketing/generation-errors"
+import { marketingGenerationErrorDiagnostics, safeMarketingGenerationErrorMessage, tagStoryGenerationError } from "@/lib/marketing/generation-errors"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 import { composeStaticInstagramContent, staticRenderJobType } from "@/lib/marketing/instagram-static-composition"
 import { GenerateContentCopySchema } from "@/lib/marketing/schemas"
@@ -50,6 +50,7 @@ export async function POST(request: Request, context: Context) {
     return NextResponse.json({ error: "OPENAI_API_KEY is not configured" }, { status: 503 })
   }
 
+  let storyPersistenceStarted = false
   try {
     const { id } = await context.params
     const record = await MarketingRepository.getContentById(id)
@@ -121,6 +122,17 @@ export async function POST(request: Request, context: Context) {
     let content: Awaited<ReturnType<typeof MarketingRepository.updateContent>>
     if (marketingContract.format !== "reel") {
       const composition = changes.composition as { renderToken: string }
+      if (marketingContract.format === "story") {
+        storyPersistenceStarted = true
+        // Metadata only: confirms the renderer-safe CTA immediately before
+        // persistence without logging generated marketing copy.
+        console.info("Story generation validation:", JSON.stringify({
+          stage: "persistence",
+          issueCodes: [],
+          issuePaths: [],
+          fields: [{ field: "storyCopy.cta", persistedCharacters: creative.storyCopy.cta.length, rendererMaximum: 60 }],
+        }))
+      }
       const queued = await MarketingRepository.queueStaticRender({
         contentId: id,
         type: staticRenderJobType(marketingContract.format),
@@ -170,8 +182,9 @@ export async function POST(request: Request, context: Context) {
     // Never serialize provider or Zod internals to the browser. These are
     // metadata-only diagnostics: no prompt, property facts, generated copy,
     // or credentials are logged here.
-    console.error("Marketing AI generation failed:", JSON.stringify(marketingGenerationErrorDiagnostics(error)))
-    const message = safeMarketingGenerationErrorMessage(error)
+    const diagnosedError = storyPersistenceStarted ? tagStoryGenerationError(error, "persistence") : error
+    console.error("Marketing AI generation failed:", JSON.stringify(marketingGenerationErrorDiagnostics(diagnosedError)))
+    const message = safeMarketingGenerationErrorMessage(diagnosedError)
     return NextResponse.json({ error: message }, { status: 502 })
   }
 }
