@@ -23,6 +23,7 @@ import {
 } from "@/lib/marketing/schemas"
 import { detectUnsupportedNumericClaim, marketingPromptFacts, validateClaimProvenance } from "@/lib/marketing/fact-contract"
 import { legacyContractForContentType } from "@/lib/marketing/content-contract"
+import { logMarketingGenerationBreadcrumb } from "@/lib/marketing/generation-diagnostics"
 import { generationOutputInstructions } from "@/lib/marketing/generation-output-contract"
 import { normalizeStoryCopyForLayout } from "@/lib/marketing/story-copy-normalization"
 import { STORY_COPY_GUIDANCE } from "@/lib/marketing/story-layout"
@@ -299,6 +300,7 @@ function logStoryProviderSchema() {
   // This is the schema passed to `zodTextFormat`, not the final renderer cap.
   console.info("Story generation validation:", JSON.stringify({
     stage: "provider_schema",
+    storyProviderCtaMax: STORY_COPY_PROVIDER_SAFETY_LIMIT,
     issueCodes: [],
     issuePaths: [],
     fields: [{ field: "storyCopy.cta", structuralMaximum: STORY_COPY_PROVIDER_SAFETY_LIMIT }],
@@ -647,10 +649,16 @@ export class CreativeAIService {
     const objective = input.objective ?? legacy?.objective
     if (!format || !objective) throw new Error("Marketing generation requires an explicit delivery format and objective.")
 
+    logMarketingGenerationBreadcrumb({ event: "creative_ai_service_entered", format, stage: "provider_schema" })
     const openai = openAiClient()
-    const storyProgress = format === "story" ? beginStoryGenerationProgress() : null
-    const markStoryStage = (stage: StoryGenerationValidationStage) => {
-      if (storyProgress) markStoryGenerationStage(storyProgress, stage)
+    const generationProgress = beginStoryGenerationProgress()
+    const markGenerationStage = (stage: StoryGenerationValidationStage) => {
+      if (format === "story") {
+        markStoryGenerationStage(generationProgress, stage)
+        return
+      }
+      generationProgress.stage = stage
+      if (stage === "provider_response_received") generationProgress.responseReceived = true
     }
     const requestCreative = async (repairInstruction?: string, normalizeRemainingVisualLength = false) => {
       const providerSchema = creativeGenerationProviderSchemaForFormat(format)
@@ -683,10 +691,9 @@ export class CreativeAIService {
 
       let response
       try {
-        if (format === "story") {
-          markStoryStage("provider_schema")
-          logStoryProviderSchema()
-        }
+        markGenerationStage("provider_schema")
+        if (format === "story") logStoryProviderSchema()
+        logMarketingGenerationBreadcrumb({ event: "openai_request_started", format, stage: "provider_schema" })
         response = await openai.responses.parse({
           model: process.env.OPENAI_MARKETING_MODEL ?? DEFAULT_MARKETING_MODEL,
           max_output_tokens: maxOutputTokens,
@@ -704,14 +711,16 @@ export class CreativeAIService {
         const requestError = isStructuredOutputParseError(error)
           ? new Error("OpenAI structured output could not be parsed.")
           : new Error("OpenAI generation request failed.")
-        throw format === "story" ? tagStoryGenerationError(requestError, "provider_schema") : requestError
+        throw tagStoryGenerationError(requestError, "provider_schema")
       }
 
       try {
         // This is intentionally the first statement after the successful
         // provider await. No response property is read before this stage.
-        if (format === "story") markStoryStage("provider_response_received")
-        if (format === "story") markStoryStage("provider_output_access")
+        markGenerationStage("provider_response_received")
+        logMarketingGenerationBreadcrumb({ event: "openai_response_received", format, stage: "provider_response_received" })
+        markGenerationStage("provider_output_access")
+        logMarketingGenerationBreadcrumb({ event: "provider_output_access", format, stage: "provider_output_access" })
         const outputParsed = response.output_parsed
         const diagnostics = logResponseDiagnostics(response, outputParsed)
         if (diagnostics.refused) throw new Error("OpenAI refused the request.")
@@ -724,18 +733,24 @@ export class CreativeAIService {
           if (diagnostics.hasText) throw new Error("OpenAI structured output could not be parsed.")
           throw new Error("OpenAI returned no generated content.")
         }
-        if (format === "story") markStoryStage(storyValidationStage)
+        markGenerationStage(storyValidationStage)
+        logMarketingGenerationBreadcrumb({
+          event: normalizeRemainingVisualLength ? "repair_parse" : "structural_parse",
+          format,
+          stage: storyValidationStage,
+        })
         const parsed = providerSchema.safeParse(outputParsed)
         if (!parsed.success) {
           throw new Error("OpenAI structured output could not be parsed.")
         }
         let generated: MarketingGeneratedCreative
         if (format === "story") {
-          markStoryStage("generation_result_mapping")
+          markGenerationStage("generation_result_mapping")
           const candidate = parsed.data as StoryGeneratedCreativeCandidate
           logStoryVisualParse(storyValidationStage, storyVisualLengths(candidate.storyCopy))
           try {
-            markStoryStage("factual_validation")
+            markGenerationStage("factual_validation")
+            logMarketingGenerationBreadcrumb({ event: "factual_validation", format, stage: "factual_validation" })
             validateGeneratedFacts({
               property: input.property,
               factsUsed: candidate.factsUsed,
@@ -746,7 +761,8 @@ export class CreativeAIService {
           } catch (error) {
             throw tagStoryGenerationError(error, "factual_validation")
           }
-          markStoryStage("overflow_detection")
+          markGenerationStage("overflow_detection")
+          logMarketingGenerationBreadcrumb({ event: "overflow_detection", format, stage: "overflow_detection" })
           const visualOverflow = storyVisualOverflow(candidate.storyCopy)
           if (visualOverflow.length && !normalizeRemainingVisualLength) {
             throw tagStoryGenerationError(storyVisualLengthError(visualOverflow), "overflow_detection")
@@ -755,13 +771,15 @@ export class CreativeAIService {
           // visual copy is deterministic renderer-safe before it is persisted.
           let normalized: ReturnType<typeof normalizeStoryCopyForLayout>
           try {
-            markStoryStage("normalization")
+            markGenerationStage("normalization")
+            logMarketingGenerationBreadcrumb({ event: "normalization", format, stage: "normalization" })
             normalized = normalizeStoryCopyForLayout({ storyCopy: candidate.storyCopy, objective })
           } catch (error) {
             throw tagStoryGenerationError(error, "normalization")
           }
           logStoryVisualNormalization(candidate.storyCopy, normalized.storyCopy)
-          markStoryStage("final_renderer_validation")
+          markGenerationStage("final_renderer_validation")
+          logMarketingGenerationBreadcrumb({ event: "final_renderer_validation", format, stage: "final_renderer_validation" })
           const finalStory = StoryCreativeGenerationSchema.safeParse({ ...candidate, storyCopy: normalized.storyCopy })
           if (!finalStory.success) {
             throw new Error("Story visual copy could not be normalized safely.")
@@ -771,13 +789,15 @@ export class CreativeAIService {
         } else {
           generated = parsed.data as MarketingGeneratedCreative
         }
-        if (format === "story") markStoryStage("creative_output_validation")
+        markGenerationStage("creative_output_validation")
+        logMarketingGenerationBreadcrumb({ event: "creative_output_validation", format, stage: "creative_output_validation" })
         return normalizeGeneratedCreative({ format, property: input.property, generated })
       } catch (error) {
-        if (format === "story" && storyProgress) {
+        if (format === "story") {
           const lengthError = storyCopyLengthError(error)
-          throw tagStoryGenerationError(lengthError ?? error, storyProgress.stage)
+          throw tagStoryGenerationError(lengthError ?? error, generationProgress.stage)
         }
+        if (generationProgress.responseReceived) throw tagStoryGenerationError(error, generationProgress.stage)
         throw error
       }
     }
@@ -805,7 +825,8 @@ export class CreativeAIService {
     }
 
     const repairStoryCopySchema = async (error: StoryCopySchemaLengthError) => {
-      markStoryStage("repair_request")
+      markGenerationStage("repair_request")
+      logMarketingGenerationBreadcrumb({ event: "repair_request", format, stage: "repair_request" })
       logStoryCopySchemaRepair("requested", error.fields)
       try {
         return await requestWithTokenRecovery("Repair only storyCopy. Return the same factual content and editorial direction, but shorten the invalid fields to satisfy every Story schema limit. Keep the CTA to one short action, 60 characters or fewer. Do not add facts.", true)
@@ -827,11 +848,12 @@ export class CreativeAIService {
         output = await repairStoryCopySchema(error)
       }
       if (format === "story") {
-        markStoryStage("generation_result_mapping")
+        markGenerationStage("generation_result_mapping")
         output = removeOmittedStoryClaims(output)
       }
       try {
-        if (format === "story") markStoryStage("factual_validation")
+        markGenerationStage("factual_validation")
+        if (format !== "story") logMarketingGenerationBreadcrumb({ event: "factual_validation", format, stage: "factual_validation" })
         validateGeneratedFacts({
           property: input.property,
           factsUsed: output.factsUsed,
@@ -839,13 +861,14 @@ export class CreativeAIService {
           copy: creativeCopyForClaims(output),
         })
       } catch (error) {
-        if (format === "story") throw tagStoryGenerationError(error, "factual_validation")
+        if (generationProgress.responseReceived) throw tagStoryGenerationError(error, generationProgress.stage)
         throw error
       }
-      if (format === "story") markStoryStage("creative_output_validation")
+      markGenerationStage("creative_output_validation")
+      if (format !== "story") logMarketingGenerationBreadcrumb({ event: "creative_output_validation", format, stage: "creative_output_validation" })
       return validateBrandSafety(output, input.settings)
     } catch (error) {
-      if (storyProgress?.responseReceived) throw tagStoryGenerationError(error, storyProgress.stage)
+      if (generationProgress.responseReceived) throw tagStoryGenerationError(error, generationProgress.stage)
       throw error
     }
   }

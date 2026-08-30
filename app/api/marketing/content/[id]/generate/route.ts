@@ -3,6 +3,11 @@ import { NextResponse } from "next/server"
 import { requireMarketingApiAccess } from "@/lib/auth/marketing"
 import { resolveMarketingContract, withMarketingContract } from "@/lib/marketing/content-contract"
 import {
+  MARKETING_GENERATION_DIAGNOSTIC_VERSION,
+  logMarketingGenerationBreadcrumb,
+  marketingGenerationRuntimeDiagnostic,
+} from "@/lib/marketing/generation-diagnostics"
+import {
   marketingGenerationErrorDiagnostics,
   safeMarketingGenerationErrorMessage,
   storyGenerationErrorStage,
@@ -15,7 +20,7 @@ import { GenerateContentCopySchema } from "@/lib/marketing/schemas"
 import { CreativeAIService } from "@/lib/marketing/services/creative-ai-service"
 import { CompositionService } from "@/lib/marketing/services/composition-service"
 import { MediaEligibilityService } from "@/lib/marketing/services/media-eligibility-service"
-import type { MarketingStatus, PropertyFactSnapshot } from "@/lib/marketing/types"
+import type { MarketingFormat, MarketingStatus, PropertyFactSnapshot } from "@/lib/marketing/types"
 
 export const runtime = "nodejs"
 
@@ -47,6 +52,8 @@ function isPropertySnapshot(value: unknown): value is PropertyFactSnapshot {
  * access to the OpenAI key.
  */
 export async function POST(request: Request, context: Context) {
+  console.info("Marketing generation runtime:", JSON.stringify(marketingGenerationRuntimeDiagnostic()))
+  logMarketingGenerationBreadcrumb({ event: "route_entered", format: null })
   const access = await requireMarketingApiAccess()
   if (!access.user) return NextResponse.json({ error: access.error }, { status: access.status! })
 
@@ -56,11 +63,13 @@ export async function POST(request: Request, context: Context) {
     return NextResponse.json({ error: "OPENAI_API_KEY is not configured" }, { status: 503 })
   }
 
-  let storyPostGenerationStage: StoryGenerationValidationStage | null = null
+  let generationStage: StoryGenerationValidationStage | null = null
+  let generationFormat: MarketingFormat | null = null
   try {
     const { id } = await context.params
     const record = await MarketingRepository.getContentById(id)
     if (!record) return NextResponse.json({ error: "Content not found." }, { status: 404 })
+    logMarketingGenerationBreadcrumb({ event: "content_row_loaded", format: null, contentId: id })
     if (!GENERATABLE_STATUSES.includes(record.content.status) || (record.content.status === "rendering" && record.content.contentType !== "story")) {
       return NextResponse.json({ error: "Request changes before regenerating approved, scheduled, or published content." }, { status: 409 })
     }
@@ -71,6 +80,8 @@ export async function POST(request: Request, context: Context) {
     }
 
     const marketingContract = resolveMarketingContract(record.content)
+    generationFormat = marketingContract.format
+    logMarketingGenerationBreadcrumb({ event: "format_resolved", format: generationFormat, contentId: id })
     const selection = marketingContract.mediaSelection.assetIds.length
       ? marketingContract.mediaSelection
       : MediaEligibilityService.automaticSelection(marketingContract.format, record.assets)
@@ -82,9 +93,10 @@ export async function POST(request: Request, context: Context) {
     if (selectedAssets.error) return NextResponse.json({ error: selectedAssets.error }, { status: 409 })
 
     const settings = await MarketingRepository.getBrandSettings()
-    // The route now has a confirmed Story request. This is a route-level
-    // fallback only; a more specific service stage always wins in the catch.
-    if (marketingContract.format === "story") storyPostGenerationStage = "provider_schema"
+    // This is a route-level fallback only; a more-specific service stage
+    // always wins in the catch. It covers every format because all formats are
+    // normalized into the historic full CreativeOutput shape.
+    generationStage = "provider_schema"
     const creative = await CreativeAIService.generate({
       property,
       format: marketingContract.format,
@@ -92,12 +104,12 @@ export async function POST(request: Request, context: Context) {
       creativeDirection: record.content.creativeDirection,
       settings,
     })
+    generationStage = "persistence_mapping"
     if (marketingContract.format === "story") {
       // The service has already accepted and normalized the Story. Everything
       // below maps that exact object into the persistence/render payload.
-      storyPostGenerationStage = "persistence_mapping"
       console.info("Story generation validation:", JSON.stringify({
-        stage: storyPostGenerationStage,
+        stage: generationStage,
         issueCodes: [],
         issuePaths: [],
         fields: [{ field: "storyCopy.cta", creativeCharacters: creative.storyCopy.cta.length, rendererMaximum: 60 }],
@@ -131,6 +143,7 @@ export async function POST(request: Request, context: Context) {
       if (marketingContract.format === "story" && marketingContract.brandTreatment.logo.enabled && (!logo || (marketingContract.brandTreatment.logo.assetId && logo.id !== marketingContract.brandTreatment.logo.assetId))) {
         return NextResponse.json({ error: "The selected brand logo is unavailable. Disable it or choose an active logo before generating." }, { status: 409 })
       }
+      logMarketingGenerationBreadcrumb({ event: "composition_creation", format: generationFormat, stage: generationStage, contentId: id })
       changes.composition = composeStaticInstagramContent({
         content: record.content,
         assets: record.assets,
@@ -143,13 +156,13 @@ export async function POST(request: Request, context: Context) {
     if (marketingContract.format !== "reel") {
       const composition = changes.composition as { renderToken: string }
       if (marketingContract.format === "story") {
-        storyPostGenerationStage = "persistence"
+        generationStage = "persistence"
         const persistedCreative = changes.creative as typeof creative
         const storyComposition = composition as typeof composition & { storyCopy: { cta: string } }
         // Metadata only: confirms the same renderer-safe CTA through the
         // persistence mapping without logging generated marketing copy.
         console.info("Story generation validation:", JSON.stringify({
-          stage: storyPostGenerationStage,
+          stage: generationStage,
           issueCodes: [],
           issuePaths: [],
           fields: [{
@@ -161,6 +174,8 @@ export async function POST(request: Request, context: Context) {
           }],
         }))
       }
+      generationStage = "persistence"
+      logMarketingGenerationBreadcrumb({ event: "persistence_start", format: generationFormat, stage: generationStage, contentId: id })
       const queued = await MarketingRepository.queueStaticRender({
         contentId: id,
         type: staticRenderJobType(marketingContract.format),
@@ -169,6 +184,7 @@ export async function POST(request: Request, context: Context) {
         changes,
       })
       content = queued.content
+      logMarketingGenerationBreadcrumb({ event: "persistence_complete", format: generationFormat, stage: generationStage, contentId: id })
     } else {
       const treatment = marketingContract.brandTreatment.logo
       const logo = treatment.enabled ? await MarketingRepository.getActiveBrandLogo() : null
@@ -205,15 +221,21 @@ export async function POST(request: Request, context: Context) {
       unit: "request",
       metadata: { fields, model: process.env.OPENAI_MARKETING_MODEL ?? "gpt-5.2" },
     })
+    logMarketingGenerationBreadcrumb({ event: "route_success", format: generationFormat, stage: generationStage, contentId: id })
     return NextResponse.json({ content, fields })
   } catch (error) {
     // Never serialize provider or Zod internals to the browser. These are
     // metadata-only diagnostics: no prompt, property facts, generated copy,
     // or credentials are logged here.
-    const diagnosedError = storyPostGenerationStage && !storyGenerationErrorStage(error)
-      ? tagStoryGenerationError(error, storyPostGenerationStage)
+    const diagnosedError = generationStage && !storyGenerationErrorStage(error)
+      ? tagStoryGenerationError(error, generationStage)
       : error
-    console.error("Marketing AI generation failed:", JSON.stringify(marketingGenerationErrorDiagnostics(diagnosedError)))
+    console.error("Marketing AI generation failed:", JSON.stringify({
+      origin: "content_generate_route",
+      diagnosticVersion: MARKETING_GENERATION_DIAGNOSTIC_VERSION,
+      format: generationFormat,
+      ...marketingGenerationErrorDiagnostics(diagnosedError),
+    }))
     const message = safeMarketingGenerationErrorMessage(diagnosedError)
     return NextResponse.json({ error: message }, { status: 502 })
   }

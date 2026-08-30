@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import { MARKETING_GENERATION_DIAGNOSTIC_VERSION } from "@/lib/marketing/generation-diagnostics"
 import { INVALID_MARKETING_GENERATION_OUTPUT_MESSAGE } from "@/lib/marketing/generation-errors"
 import { StoryCopySchema } from "@/lib/marketing/schemas"
 
@@ -69,6 +70,21 @@ const validStoryProviderOutput = {
   ],
 }
 
+const validFeedProviderOutput = {
+  headline: "Villa Verde, Parra",
+  caption: "Discover Villa Verde in Parra, Goa. Four bedrooms. Arrange a private viewing.",
+  shortCaption: "Villa Verde in Parra, Goa.",
+  cta: "A".repeat(61),
+  hashtags: ["#NorthGoa"],
+  altText: "Villa Verde in Parra, Goa.",
+  factsUsed: ["title", "location", "bedrooms"],
+  claimProvenance: [
+    { text: "Villa Verde", factKey: "title", factValue: "Villa Verde" },
+    { text: "Parra, Goa", factKey: "location", factValue: "Parra, Goa" },
+    { text: "Four bedrooms", factKey: "bedrooms", factValue: "4" },
+  ],
+}
+
 function providerResponse(content: Record<string, unknown>) {
   return new Response(JSON.stringify({
     id: "resp_test_123",
@@ -87,6 +103,36 @@ function configureStoryStudioRoute() {
       primaryPropertyId: property.id,
       propertySnapshot: property,
       contentType: "story",
+      creativeDirection: "luxury_editorial",
+      status: "draft",
+      composition: {},
+    },
+    assets: [{
+      id: sourceAssetId,
+      kind: "original_reference",
+      mediaType: "image",
+      sourceUrl: "https://images.example/villa.jpg",
+      metadata: {},
+      sortOrder: 0,
+      createdAt: "2026-08-10T00:00:00.000Z",
+    }],
+  })
+  repository.getBrandSettings.mockResolvedValue(settings)
+  repository.queueStaticRender.mockImplementation(async input => ({
+    content: { id: input.contentId, ...input.changes },
+    job: { id: "render-job-1" },
+  }))
+  repository.addAuditLog.mockResolvedValue(undefined)
+  repository.recordUsage.mockResolvedValue(undefined)
+}
+
+function configureFeedStudioRoute() {
+  repository.getContentById.mockResolvedValue({
+    content: {
+      id: contentId,
+      primaryPropertyId: property.id,
+      propertySnapshot: property,
+      contentType: "single_image",
       creativeDirection: "luxury_editorial",
       status: "draft",
       composition: {},
@@ -204,8 +250,46 @@ describe("Create Studio Story generation route with the real repair-aware genera
       "persistence",
     ]))
     expect(stages).not.toContain(null)
+    const runtime = info.mock.calls
+      .filter(([message]) => message === "Marketing generation runtime:")
+      .map(([, metadata]) => JSON.parse(metadata as string))
+    expect(runtime).toEqual([expect.objectContaining({
+      route: "/api/marketing/content/[id]/generate",
+      diagnosticVersion: MARKETING_GENERATION_DIAGNOSTIC_VERSION,
+    })])
+    const breadcrumbs = info.mock.calls
+      .filter(([message]) => message === "Marketing generation breadcrumb:")
+      .map(([, metadata]) => JSON.parse(metadata as string))
+    expect(breadcrumbs).toEqual(expect.arrayContaining([
+      ...[
+        "route_entered",
+        "content_row_loaded",
+        "format_resolved",
+        "creative_ai_service_entered",
+        "openai_request_started",
+        "openai_response_received",
+        "provider_output_access",
+        "structural_parse",
+        "factual_validation",
+        "overflow_detection",
+        "repair_request",
+        "repair_parse",
+        "normalization",
+        "final_renderer_validation",
+        "creative_output_validation",
+        "composition_creation",
+        "persistence_start",
+        "persistence_complete",
+        "route_success",
+      ].map(event => expect.objectContaining({
+        diagnosticVersion: MARKETING_GENERATION_DIAGNOSTIC_VERSION,
+        route: "/api/marketing/content/[id]/generate",
+        event,
+      })),
+    ]))
     expect(JSON.stringify(body)).not.toContain("Too big")
     expect(JSON.stringify(body)).not.toContain("storyCopy.cta")
+    info.mockRestore()
   })
 
   it("rejects structurally unreasonable Story output without a visual repair", async () => {
@@ -267,6 +351,9 @@ describe("Create Studio Story generation route with the real repair-aware genera
       .map(([, metadata]) => JSON.parse(metadata as string))
     expect(diagnostics).toEqual([
       expect.objectContaining({
+        origin: "content_generate_route",
+        diagnosticVersion: MARKETING_GENERATION_DIAGNOSTIC_VERSION,
+        format: "story",
         stage: "persistence",
         issueCodes: ["too_big"],
         issuePaths: ["cta"],
@@ -274,6 +361,37 @@ describe("Create Studio Story generation route with the real repair-aware genera
       }),
     ])
     expect(JSON.stringify(diagnostics)).not.toContain("A".repeat(61))
+    errorLog.mockRestore()
+  })
+
+  it("tags the legacy full-creative CTA validation after a non-Story provider parse", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    configureFeedStudioRoute()
+    global.fetch = vi.fn().mockResolvedValue(providerResponse(validFeedProviderOutput))
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+    const response = await generateRequest()
+    const body = await response.json()
+
+    // Feed's provider schema allows CTA <=120. The legacy full output derives
+    // `storyCopy.cta`, which remains a strict <=60 visual field. This test
+    // protects the diagnostic provenance without changing that behavior.
+    expect(validFeedProviderOutput.cta).toHaveLength(61)
+    expect(response.status).toBe(502)
+    expect(body).toEqual({ error: "Story copy was too long to format. Please regenerate the Story copy." })
+    const diagnostics = errorLog.mock.calls
+      .filter(([message]) => message === "Marketing AI generation failed:")
+      .map(([, metadata]) => JSON.parse(metadata as string))
+    expect(diagnostics).toEqual([expect.objectContaining({
+      origin: "content_generate_route",
+      diagnosticVersion: MARKETING_GENERATION_DIAGNOSTIC_VERSION,
+      format: "feed_single",
+      stage: "creative_output_validation",
+      issueCodes: ["too_big"],
+      issuePaths: ["storyCopy.cta"],
+      storyLengthFields: ["cta"],
+    })])
+    expect(JSON.stringify(diagnostics)).not.toContain(validFeedProviderOutput.cta)
     errorLog.mockRestore()
   })
 })
