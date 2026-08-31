@@ -140,6 +140,30 @@ describe("CreativeAIService", () => {
     expect(request.input[0].content.match(/The Address Co/g)).toHaveLength(1)
   })
 
+  it("supplies canonical amenity keys for provider provenance while retaining natural rendered copy", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    const fetchMock = vi.fn().mockResolvedValue(completedResponse())
+    global.fetch = fetchMock
+
+    await CreativeAIService.generate({
+      property: {
+        ...property,
+        amenities: ["Private Swimming Pool", "Covered Parking", "Garden"],
+        features: ["air_conditioning"],
+      },
+      format: "feed_single",
+      objective: "property_spotlight",
+      creativeDirection: "luxury_editorial",
+      settings,
+    })
+
+    const request = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
+    const facts = JSON.parse(request.input[1].content).AUTHORITATIVE_PROPERTY_FACTS
+    expect(facts.amenities).toEqual(["private_pool", "covered_parking", "garden"])
+    expect(facts.features).toEqual(["air_conditioning"])
+    expect(request.input[0].content).toContain("underscore-separated keys")
+  })
+
   it("uses compact, format-specific schemas and token budgets", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(completedResponse()))

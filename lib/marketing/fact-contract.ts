@@ -42,6 +42,7 @@ export const FACTUAL_VALIDATION_REASON_CODES = [
 
 export type FactualValidationReasonCode = (typeof FACTUAL_VALIDATION_REASON_CODES)[number]
 export type FactualFactCategory = MarketingSafeFactKey | "area" | "distance" | "investment" | "view" | "availability"
+type AmenityMatchMode = "canonical_exact" | "normalized_exact" | "alias" | "no_match"
 
 const FACTUAL_VALIDATION_DIAGNOSTIC = Symbol.for("the-address-co.marketing.factual-validation-diagnostic")
 
@@ -52,6 +53,9 @@ type FactualDiagnosticError = Error & {
   field?: unknown
   factCategory?: unknown
   violationCount?: unknown
+  matchMode?: unknown
+  snapshotAmenityCount?: unknown
+  amenitySources?: unknown
 }
 
 /**
@@ -64,6 +68,10 @@ export class FactualValidationError extends Error {
   readonly field: string | null
   readonly factCategory: FactualFactCategory | null
   readonly violationCount: number
+  /** Amenity-only, metadata-safe comparison diagnostics. */
+  readonly matchMode: AmenityMatchMode | null
+  readonly snapshotAmenityCount: number | null
+  readonly amenitySources: Array<"amenities" | "features"> | null
 
   constructor(input: {
     message: string
@@ -72,6 +80,9 @@ export class FactualValidationError extends Error {
     field?: string | null
     factCategory?: FactualFactCategory | null
     violationCount?: number
+    matchMode?: AmenityMatchMode | null
+    snapshotAmenityCount?: number | null
+    amenitySources?: Array<"amenities" | "features"> | null
   }) {
     super(input.message)
     this.name = "FactualValidationError"
@@ -80,6 +91,9 @@ export class FactualValidationError extends Error {
     this.field = input.field ?? null
     this.factCategory = input.factCategory ?? null
     this.violationCount = input.violationCount ?? 1
+    this.matchMode = input.matchMode ?? null
+    this.snapshotAmenityCount = input.snapshotAmenityCount ?? null
+    this.amenitySources = input.amenitySources ?? null
     Object.defineProperty(this, FACTUAL_VALIDATION_DIAGNOSTIC, {
       configurable: true,
       enumerable: false,
@@ -101,12 +115,28 @@ export function factualValidationErrorDiagnostics(error: unknown) {
     }
   }
 
-  return {
+  const base = {
     reasonCode: typeof diagnostic.reasonCode === "string" ? diagnostic.reasonCode : null,
     ruleId: typeof diagnostic.ruleId === "string" ? diagnostic.ruleId : null,
     field: typeof diagnostic.field === "string" ? diagnostic.field : null,
     factCategory: typeof diagnostic.factCategory === "string" ? diagnostic.factCategory : null,
     violationCount: typeof diagnostic.violationCount === "number" ? diagnostic.violationCount : null,
+  }
+  const matchMode = diagnostic.matchMode
+  const snapshotAmenityCount = diagnostic.snapshotAmenityCount
+  const amenitySources = diagnostic.amenitySources
+  if (
+    typeof matchMode !== "string" ||
+    typeof snapshotAmenityCount !== "number" ||
+    !Array.isArray(amenitySources) ||
+    !amenitySources.every(source => source === "amenities" || source === "features")
+  ) return base
+
+  return {
+    ...base,
+    matchMode,
+    snapshotAmenityCount,
+    amenitySources,
   }
 }
 
@@ -131,6 +161,104 @@ function stringValues(value: unknown) {
   return Array.isArray(value)
     ? value.map(normalize).filter(Boolean)
     : [normalize(value)].filter(Boolean)
+}
+
+/**
+ * Property amenities are free-form strings in the CRM, not a database enum.
+ * This creates a stable key without broad semantic matching: punctuation,
+ * casing, separators, a few app-recognized aliases, and nothing else.
+ */
+const AMENITY_ALIASES: Readonly<Record<string, string>> = {
+  private_swimming_pool: "private_pool",
+  private_pool: "private_pool",
+  private_pools: "private_pool",
+  swimming_pool: "pool",
+  swimming_pools: "pool",
+  pools: "pool",
+  air_conditioner: "air_conditioning",
+  ac: "air_conditioning",
+  staff_quarter: "staff_quarters",
+  gardens: "garden",
+}
+
+const WEAKER_AMENITY_CLAIM_SOURCES: Readonly<Record<string, readonly string[]>> = {
+  pool: ["private_pool"],
+  garden: ["private_garden"],
+  parking: ["covered_parking", "open_parking"],
+  security: ["24_7_security"],
+}
+
+function normalizeObjectiveText(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+/** Exposed for tests and prompt construction; it never turns a broad substring into an amenity. */
+export function canonicalizeAmenity(value: unknown) {
+  const normalized = normalizeObjectiveText(String(value ?? ""))
+  if (!normalized) return ""
+  const key = normalized.replaceAll(" ", "_")
+  return AMENITY_ALIASES[key] ?? key
+}
+
+function canonicalizeStructuredFactValue(key: MarketingSafeFactKey, value: unknown) {
+  if (key === "amenities" || key === "features") return canonicalizeAmenity(value)
+  if (["location", "locality", "description", "furnishing", "property_type", "listing_type", "transaction_type", "development_stage", "status"].includes(key)) {
+    return normalizeObjectiveText(String(value ?? ""))
+  }
+  return normalize(value)
+}
+
+type GroundingValue = {
+  value: string
+  source: "amenities" | "features" | null
+}
+
+/** Amenities and tags are both persisted, structured property feature sources. */
+function groundingValues(property: PropertyFactSnapshot, key: MarketingSafeFactKey): GroundingValue[] {
+  if (key === "amenities" || key === "features") {
+    return [
+      ...factValues(property, "amenities").map(value => ({ value, source: "amenities" as const })),
+      ...factValues(property, "features").map(value => ({ value, source: "features" as const })),
+    ]
+  }
+  return factValues(property, key).map(value => ({ value, source: null }))
+}
+
+function phraseContains(source: string, candidate: string) {
+  return ` ${source} `.includes(` ${candidate} `)
+}
+
+function amenityMatch(source: string, candidate: string): AmenityMatchMode | null {
+  const sourceCanonical = canonicalizeAmenity(source)
+  const candidateCanonical = canonicalizeAmenity(candidate)
+  if (!sourceCanonical || !candidateCanonical) return null
+  if (sourceCanonical === candidateCanonical) {
+    return normalize(source) === normalize(candidate) ? "canonical_exact" : "alias"
+  }
+  return WEAKER_AMENITY_CLAIM_SOURCES[candidateCanonical]?.includes(sourceCanonical) ? "alias" : null
+}
+
+function groundingMatch(key: MarketingSafeFactKey, source: string, candidate: string): AmenityMatchMode | null {
+  if (key === "amenities" || key === "features") return amenityMatch(source, candidate)
+
+  const sourceCanonical = canonicalizeStructuredFactValue(key, source)
+  const candidateCanonical = canonicalizeStructuredFactValue(key, candidate)
+  if (!sourceCanonical || !candidateCanonical) return null
+  if (sourceCanonical === candidateCanonical) {
+    return normalize(source) === normalize(candidate) ? "canonical_exact" : "normalized_exact"
+  }
+  // Location labels and explicit description excerpts may safely use complete
+  // canonical token phrases, never arbitrary substring fragments.
+  if (["location", "locality", "description"].includes(key) && phraseContains(sourceCanonical, candidateCanonical)) {
+    return "normalized_exact"
+  }
+  return null
 }
 
 /** Explicitly exposes only inventory-safe fields to generation. */
@@ -173,7 +301,7 @@ export function marketingPromptFacts(property: PropertyFactSnapshot): Partial<Re
     if (value === undefined || value === null || value === "") continue
     if (Array.isArray(value)) {
       const values = value
-        .map(item => compact(item, 80))
+        .map(item => key === "amenities" || key === "features" ? canonicalizeAmenity(item) : compact(item, 80))
         .filter(Boolean)
         .filter(item => {
           const normalized = normalize(item)
@@ -190,7 +318,9 @@ export function marketingPromptFacts(property: PropertyFactSnapshot): Partial<Re
       continue
     }
     const maximum = key === "description" ? 600 : 180
-    const valueForPrompt = compact(value, maximum)
+    const valueForPrompt = ["furnishing", "property_type", "listing_type", "transaction_type", "development_stage", "status"].includes(key)
+      ? canonicalizeStructuredFactValue(key, value)
+      : compact(value, maximum)
     if (valueForPrompt) compacted[key] = valueForPrompt
   }
 
@@ -214,7 +344,7 @@ export function validateClaimProvenance(input: {
   copy?: string
 }) {
   for (const [index, key] of input.factsUsed.entries()) {
-    if (!factValues(input.property, key).length) {
+    if (!groundingValues(input.property, key).length) {
       throw new FactualValidationError({
         message: `Generated copy references unavailable inventory fact: ${key}.`,
         reasonCode: "unavailable_fact_reference",
@@ -225,18 +355,27 @@ export function validateClaimProvenance(input: {
     }
   }
   for (const [index, claim] of input.claims.entries()) {
-    const allowed = factValues(input.property, claim.factKey)
-    const factValue = normalize(claim.factValue)
+    const allowed = groundingValues(input.property, claim.factKey)
+    const factValue = String(claim.factValue ?? "")
     // A long description may be compacted before it reaches the model. An
     // exact source excerpt remains grounded while avoiding provenance that
     // repeats an entire internal description or generated caption.
-    if (!allowed.length || !allowed.some(value => value === factValue || value.includes(factValue))) {
+    if (!allowed.length || !allowed.some(value => groundingMatch(claim.factKey, value.value, factValue))) {
+      const amenityClaim = claim.factKey === "amenities" || claim.factKey === "features"
+      const amenityValues = amenityClaim
+        ? allowed.filter(value => value.source === "amenities" || value.source === "features")
+        : []
       throw new FactualValidationError({
         message: `Generated claim is not grounded in the property snapshot: ${claim.factKey}.`,
         reasonCode: "ungrounded_claim_value",
         ruleId: "claim_fact_value_grounded",
         field: `claimProvenance[${index}].factValue`,
         factCategory: claim.factKey,
+        ...(amenityClaim ? {
+          matchMode: "no_match" as const,
+          snapshotAmenityCount: amenityValues.length,
+          amenitySources: [...new Set(amenityValues.flatMap(value => value.source ? [value.source] : []))],
+        } : {}),
       })
     }
   }
@@ -436,16 +575,6 @@ export function marketingRenderedCopyForFormat(format: MarketingFormat, output: 
   }
 }
 
-function normalizeObjectiveText(value: string) {
-  return value
-    .normalize("NFKD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLocaleLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-}
-
 function sourceContainsWords(property: PropertyFactSnapshot, keys: MarketingSafeFactKey[], words: string[]) {
   const meaningful = words.filter(Boolean)
   return factValuesForKeys(property, keys).some(source => {
@@ -477,28 +606,28 @@ const OBJECTIVE_CLAIM_RULES: readonly ObjectiveRule[] = [
     ruleId: "explicit_pool_claim_grounded",
     factCategory: "amenities",
     pattern: /\b(?:(private)\s+)?(?:(swimming)\s+)?pool\b/gi,
-    factKeys: ["amenities", "features", "description"],
+    factKeys: ["amenities", "features"],
     requiredWords: match => [match[1] ?? "", "pool"],
   },
   {
     ruleId: "explicit_furnishing_claim_grounded",
     factCategory: "furnishing",
     pattern: /\b(fully furnished|semi[-\s]?furnished|unfurnished)\b/gi,
-    factKeys: ["furnishing", "features", "description"],
+    factKeys: ["furnishing", "features"],
     requiredWords: match => [match[1]],
   },
   {
     ruleId: "explicit_view_claim_grounded",
     factCategory: "view",
     pattern: /\b(sea|ocean|beach|river|mountain|garden)\s+views?\b/gi,
-    factKeys: ["amenities", "features", "description"],
+    factKeys: ["amenities", "features"],
     requiredWords: match => [match[1], "view"],
   },
   {
     ruleId: "explicit_property_type_claim_grounded",
     factCategory: "property_type",
     pattern: /\b(villa|apartment|penthouse|bungalow|plot|land)\b/gi,
-    factKeys: ["property_type", "title", "description"],
+    factKeys: ["property_type", "title"],
     requiredWords: match => [match[1]],
   },
   {
@@ -509,14 +638,14 @@ const OBJECTIVE_CLAIM_RULES: readonly ObjectiveRule[] = [
     // "at Villa Verde") for locations, while a case-insensitive continuation
     // consumes ordinary sentence words after a real location.
     pattern: /\b(?:in|[Ll]ocated in)\s+([A-Z][\p{L}]*(?:[ -][A-Z][\p{L}]*){0,2})\b/gu,
-    factKeys: ["location", "locality", "description"],
+    factKeys: ["location", "locality"],
     requiredWords: match => [match[1]],
   },
   {
     ruleId: "explicit_availability_claim_grounded",
     factCategory: "availability",
     pattern: /\b(ready to move|move[-\s]?in ready|immediate possession|available now)\b/gi,
-    factKeys: ["development_stage", "status", "description"],
+    factKeys: ["development_stage", "status"],
     requiredWords: match => [match[1]],
   },
 ]

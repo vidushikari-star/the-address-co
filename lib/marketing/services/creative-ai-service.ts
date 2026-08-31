@@ -640,7 +640,7 @@ export class CreativeAIService {
         "Return the structured output that matches the supplied schema.",
         "The user message contains AUTHORITATIVE_PROPERTY_FACTS from the immutable persisted property snapshot. Use those objective facts exactly or omit them; never invent or alter amenities, views, ROI, availability, room counts, size, price, location facts, or urgency.",
         "Editorial and lifestyle language is welcome when it does not assert an unsupported objective property fact.",
-        "For each objective property fact you choose to use, return one compact claimProvenance entry with its canonical supplied factKey and exact supplied factValue (or a compact exact source excerpt). Do not add provenance for generic editorial or lifestyle copy.",
+        "For each objective property fact you choose to use, return one compact claimProvenance entry with its canonical supplied factKey and exact supplied factValue (or a compact exact source excerpt). Amenities and features supplied as underscore-separated keys must use that exact key in factValue; render their natural wording separately in the marketing copy. Do not add provenance for generic editorial or lifestyle copy.",
         luxuryEditorialInstructions(),
         generationOutputInstructions(format),
         formatConcisenessInstructions(format),

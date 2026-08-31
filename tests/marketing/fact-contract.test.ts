@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   assertSupportedNumericClaims,
+  canonicalizeAmenity,
   type ClaimProvenance,
   detectUnsupportedNumericClaim,
   factualValidationErrorDiagnostics,
@@ -60,7 +61,7 @@ describe("Marketing fact contract", () => {
     const promptFacts = marketingPromptFacts(longProperty)
 
     expect(String(promptFacts.description).length).toBeLessThanOrEqual(600)
-    expect(promptFacts.amenities).toEqual(["private pool", "shaded entertaining terrace"])
+    expect(promptFacts.amenities).toEqual(["private_pool", "shaded_entertaining_terrace"])
     expect(promptFacts.features).toEqual(["courtyard"])
     expect(validateClaimProvenance({
       property: longProperty,
@@ -136,6 +137,15 @@ describe("Marketing fact contract", () => {
     expect(detectUnsupportedNumericClaim("A 5-bedroom residence.", pricedProperty)).toContain("unsupported numeric claim")
   })
 
+  it("canonicalizes only deterministic CRM amenity labels and known aliases", () => {
+    expect(canonicalizeAmenity("Private Swimming Pool")).toBe("private_pool")
+    expect(canonicalizeAmenity("private_pool")).toBe("private_pool")
+    expect(canonicalizeAmenity("Swimming Pools")).toBe("pool")
+    expect(canonicalizeAmenity("AC")).toBe("air_conditioning")
+    expect(canonicalizeAmenity("Covered Parking")).toBe("covered_parking")
+    expect(canonicalizeAmenity("Rooftop Terrace")).toBe("rooftop_terrace")
+  })
+
   it("returns only safe factual-failure metadata", () => {
     let error: unknown
     try {
@@ -154,6 +164,113 @@ describe("Marketing fact contract", () => {
     expect(JSON.stringify(factualValidationErrorDiagnostics(error))).not.toContain("5-bedroom")
   })
 
+  it("accepts equivalent structured amenity labels while preserving meaningful qualifiers", () => {
+    const amenityProperty: PropertyFactSnapshot = {
+      ...property,
+      amenities: ["Private Swimming Pool", "Covered Parking", "Garden", "24/7 Security"],
+      features: ["air_conditioning", "sea_view"],
+      furnishing: "fully_furnished",
+      developmentStage: "ready_to_move",
+      propertyType: "independent_house",
+    }
+
+    expect(validateClaimProvenance({
+      property: amenityProperty,
+      factsUsed: ["amenities", "features", "furnishing", "development_stage", "property_type"],
+      claims: [
+        { factKey: "amenities", factValue: "private_pool" },
+        { factKey: "amenities", factValue: "private pool" },
+        { factKey: "amenities", factValue: "parking" },
+        { factKey: "features", factValue: "ac" },
+        { factKey: "furnishing", factValue: "fully furnished" },
+        { factKey: "development_stage", factValue: "ready to move" },
+        { factKey: "property_type", factValue: "independent house" },
+      ],
+    })).toBe(true)
+
+    expect(() => validateClaimProvenance({
+      property: amenityProperty,
+      factsUsed: ["amenities"],
+      claims: [{ factKey: "amenities", factValue: "covered_parking" }],
+    })).not.toThrow()
+    expect(() => validateClaimProvenance({
+      property: { ...amenityProperty, amenities: ["Open Parking"] },
+      factsUsed: ["amenities"],
+      claims: [{ factKey: "amenities", factValue: "covered_parking" }],
+    })).toThrow("not grounded")
+    expect(validateClaimProvenance({
+      property: { ...amenityProperty, amenities: ["Swimming Pool"] },
+      factsUsed: ["amenities"],
+      claims: [{ factKey: "amenities", factValue: "pool" }],
+    })).toBe(true)
+  })
+
+  it("does not let description language silently establish a structured amenity", () => {
+    const descriptionOnlyProperty = {
+      ...property,
+      amenities: [],
+      features: [],
+      description: "A serene setting, perfect for poolside living.",
+    }
+
+    expect(() => validateMarketingFacts({
+      format: "feed_single",
+      propertySnapshot: descriptionOnlyProperty,
+      factsUsed: [],
+      provenance: [],
+      renderedCopy: [{ field: "caption", value: "A private pool anchors the garden." }],
+    })).toThrow("unsupported objective property claim")
+  })
+
+  it("grounds pool, furnishing, and views through their correct structured sources", () => {
+    const crossCategoryProperty: PropertyFactSnapshot = {
+      ...property,
+      amenities: ["Private Swimming Pool"],
+      features: ["Sea View"],
+      furnishing: "fully_furnished",
+      description: "A calm setting with poolside-inspired interiors and a coastal feeling.",
+    }
+
+    expect(() => validateMarketingFacts({
+      format: "feed_single",
+      propertySnapshot: crossCategoryProperty,
+      factsUsed: [],
+      provenance: [],
+      renderedCopy: [{ field: "caption", value: "A fully furnished home with a private pool and sea views." }],
+    })).not.toThrow()
+    expect(() => validateMarketingFacts({
+      format: "feed_single",
+      propertySnapshot: { ...crossCategoryProperty, amenities: [], features: [] },
+      factsUsed: [],
+      provenance: [],
+      renderedCopy: [{ field: "caption", value: "A fully furnished home with a private pool and sea views." }],
+    })).toThrow("unsupported objective property claim")
+  })
+
+  it("records safe amenity mismatch diagnostics without generated or source labels", () => {
+    let error: unknown
+    try {
+      validateClaimProvenance({
+        property: { ...property, amenities: ["Garden"], features: ["Covered Parking"] },
+        factsUsed: ["amenities"],
+        claims: [{ factKey: "amenities", factValue: "private_pool" }],
+      })
+    } catch (caught) {
+      error = caught
+    }
+
+    expect(factualValidationErrorDiagnostics(error)).toMatchObject({
+      reasonCode: "ungrounded_claim_value",
+      ruleId: "claim_fact_value_grounded",
+      factCategory: "amenities",
+      matchMode: "no_match",
+      snapshotAmenityCount: 2,
+      amenitySources: ["amenities", "features"],
+    })
+    expect(JSON.stringify(factualValidationErrorDiagnostics(error))).not.toContain("Garden")
+    expect(JSON.stringify(factualValidationErrorDiagnostics(error))).not.toContain("private_pool")
+  })
+
   it.each(["feed_single", "carousel", "story", "reel"] as const)("uses the same canonical grounding contract for valid %s editorial copy", format => {
     const groundedProperty: PropertyFactSnapshot = {
       ...property,
@@ -163,7 +280,8 @@ describe("Marketing fact contract", () => {
       bathrooms: 4,
       price: "60000000",
       builtUpArea: 450,
-      amenities: ["private pool"],
+      amenities: ["Private Swimming Pool", "Covered Parking", "Garden", "24/7 Security"],
+      furnishing: "fully_furnished",
       propertyType: "Villa",
     }
     const output = renderedOutputForFormat(format)
@@ -171,7 +289,7 @@ describe("Marketing fact contract", () => {
       { text: "audit title note", factKey: "title" as const, factValue: "Villa 18" },
       { text: "audit location note", factKey: "location" as const, factValue: "Parra" },
       { text: "audit bedroom note", factKey: "bedrooms" as const, factValue: "4" },
-      { text: "audit amenity note", factKey: "amenities" as const, factValue: "private pool" },
+      { text: "audit amenity note", factKey: "amenities" as const, factValue: "private_pool" },
     ]
 
     expect(() => validateMarketingFacts({
@@ -207,6 +325,9 @@ describe("Marketing fact contract", () => {
     expect(() => validate("Offered at ₹4.5 Cr.")).toThrow("unsupported numeric claim")
     expect(() => validate("500 sqm of built-up area.")).toThrow("unsupported numeric claim")
     expect(() => validate("A private swimming pool.", { amenities: [] })).toThrow("unsupported objective property claim")
+    expect(() => validate("A covered parking bay.", { amenities: ["Open Parking"] }, [{ factKey: "amenities", factValue: "covered_parking" }])).toThrow("not grounded")
+    expect(() => validate("A rooftop terrace.", { amenities: ["Garden"] }, [{ factKey: "amenities", factValue: "rooftop_terrace" }])).toThrow("not grounded")
+    expect(() => validate("24-hour concierge.", { amenities: ["Security"] }, [{ factKey: "amenities", factValue: "24_hour_concierge" }])).toThrow("not grounded")
     expect(() => validate("A home in Candolim.", {}, [{ text: "audit location", factKey: "location", factValue: "Candolim" }])).toThrow("not grounded")
     expect(() => validate("Two minutes from the beach.")).toThrow("unsupported derived property claim")
     expect(() => validate("High rental yields.")).toThrow("unsupported derived property claim")

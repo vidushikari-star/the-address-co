@@ -184,7 +184,7 @@ function realisticGroundedProviderOutput(format: "feed_single" | "carousel" | "s
       { factKey: "title", factValue: "Villa 18" },
       { factKey: "location", factValue: "Parra" },
       { factKey: "bedrooms", factValue: "4" },
-      { factKey: "amenities", factValue: "private pool" },
+      { factKey: "amenities", factValue: "private_pool" },
     ],
   }
 
@@ -469,7 +469,9 @@ describe("Create Studio generation route with the real repair-aware generator", 
       title: "Villa 18",
       location: "Parra, Goa",
       bedrooms: 4,
-      amenities: ["private pool"],
+      amenities: ["Private Swimming Pool", "Covered Parking", "Garden", "24/7 Security"],
+      features: ["air_conditioning"],
+      furnishing: "fully_furnished",
       propertyType: "Villa",
     }
     switch (format) {
@@ -479,7 +481,8 @@ describe("Create Studio generation route with the real repair-aware generator", 
       case "reel": configureReelStudioRoute(groundedProperty); break
     }
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined)
-    global.fetch = vi.fn().mockResolvedValue(providerResponse(realisticGroundedProviderOutput(format)))
+    const fetchMock = vi.fn().mockResolvedValue(providerResponse(realisticGroundedProviderOutput(format)))
+    global.fetch = fetchMock
 
     const response = await generateRequest()
     const body = await response.json()
@@ -487,9 +490,16 @@ describe("Create Studio generation route with the real repair-aware generator", 
     expect(response.status).toBe(200)
     expect(body.content.creative.claimProvenance).toEqual(expect.arrayContaining([
       expect.objectContaining({ factKey: "title", factValue: "Villa 18" }),
-      expect.objectContaining({ factKey: "amenities", factValue: "private pool" }),
+      expect.objectContaining({ factKey: "amenities", factValue: "private_pool" }),
     ]))
     expect(body.content.creative.claimProvenance.every((claim: { text?: string }) => claim.text === undefined)).toBe(true)
+    const providerRequest = JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string)
+    expect(JSON.parse(providerRequest.input[1].content).AUTHORITATIVE_PROPERTY_FACTS.amenities).toEqual([
+      "private_pool",
+      "covered_parking",
+      "garden",
+      "24_7_security",
+    ])
     const events = info.mock.calls
       .filter(([message]) => message === "Marketing generation breadcrumb:")
       .map(([, metadata]) => JSON.parse(metadata as string).event)
@@ -544,6 +554,42 @@ describe("Create Studio generation route with the real repair-aware generator", 
     })
     expect(JSON.stringify(diagnostic)).not.toContain(generatedCopy)
     expect(JSON.stringify(diagnostic)).not.toContain("private pool")
+    error.mockRestore()
+  })
+
+  it("safely rejects an ungrounded amenity claim without exposing amenity labels", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    configureFeedStudioRoute({ ...property, amenities: ["Garden"] })
+    const generatedCopy = "Villa Verde with a private pool."
+    global.fetch = vi.fn().mockResolvedValue(providerResponse({
+      ...validFeedProviderOutput,
+      caption: generatedCopy,
+      factsUsed: ["amenities"],
+      claimProvenance: [{ factKey: "amenities", factValue: "private_pool" }],
+    }))
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+    const response = await generateRequest()
+    const body = await response.json()
+
+    expect(response.status).toBe(502)
+    expect(body).toEqual({ error: "We couldn't safely generate this content from the available property information. Please try again." })
+    const diagnostic = error.mock.calls
+      .filter(([message]) => message === "Marketing AI generation failed:")
+      .map(([, metadata]) => JSON.parse(metadata as string))[0]
+    expect(diagnostic).toMatchObject({
+      stage: "factual_validation",
+      reasonCode: "ungrounded_claim_value",
+      ruleId: "claim_fact_value_grounded",
+      field: "claimProvenance[0].factValue",
+      factCategory: "amenities",
+      matchMode: "no_match",
+      snapshotAmenityCount: 1,
+      amenitySources: ["amenities"],
+    })
+    expect(JSON.stringify(diagnostic)).not.toContain(generatedCopy)
+    expect(JSON.stringify(diagnostic)).not.toContain("Garden")
+    expect(JSON.stringify(diagnostic)).not.toContain("private_pool")
     error.mockRestore()
   })
 
