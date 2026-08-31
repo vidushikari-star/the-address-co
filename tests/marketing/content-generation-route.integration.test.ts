@@ -471,6 +471,7 @@ describe("Create Studio generation route with the real repair-aware generator", 
       bedrooms: 4,
       amenities: ["Private Swimming Pool", "Covered Parking", "Garden", "24/7 Security"],
       features: ["air_conditioning"],
+      description: "A considered tropical home shaped around calm interiors and effortless indoor-outdoor living.",
       furnishing: "fully_furnished",
       propertyType: "Villa",
     }
@@ -494,12 +495,16 @@ describe("Create Studio generation route with the real repair-aware generator", 
     ]))
     expect(body.content.creative.claimProvenance.every((claim: { text?: string }) => claim.text === undefined)).toBe(true)
     const providerRequest = JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string)
-    expect(JSON.parse(providerRequest.input[1].content).AUTHORITATIVE_PROPERTY_FACTS.amenities).toEqual([
+    const generationContext = JSON.parse(providerRequest.input[1].content)
+    expect(generationContext.CANONICAL_PROPERTY_FACTS.amenities).toEqual([
       "private_pool",
       "covered_parking",
       "garden",
       "24_7_security",
     ])
+    expect(generationContext.CANONICAL_PROPERTY_FACTS).not.toHaveProperty("description")
+    expect(generationContext.TRUSTED_SOURCE_DESCRIPTION).toBe(groundedProperty.description)
+    expect(body.content.creative.claimProvenance.some((claim: { factKey: string }) => claim.factKey === "description")).toBe(false)
     const events = info.mock.calls
       .filter(([message]) => message === "Marketing generation breadcrumb:")
       .map(([, metadata]) => JSON.parse(metadata as string).event)

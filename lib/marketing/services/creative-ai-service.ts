@@ -87,8 +87,13 @@ export class StoryCopyTooLongError extends Error {
   }
 }
 
-function factLines(property: PropertyFactSnapshot) {
-  return marketingPromptFacts(property)
+function generationPropertyContext(property: PropertyFactSnapshot) {
+  const { description, ...canonicalFacts } = marketingPromptFacts(property)
+  const trustedSourceDescription = typeof description === "string" ? description : undefined
+  return {
+    CANONICAL_PROPERTY_FACTS: canonicalFacts,
+    ...(trustedSourceDescription ? { TRUSTED_SOURCE_DESCRIPTION: trustedSourceDescription } : {}),
+  }
 }
 
 export const LUXURY_EDITORIAL_POLICY = Object.freeze({
@@ -172,7 +177,7 @@ function storyboardInstructions(input: {
   return [
     "You are the private visual-storyboard editor for a luxury real-estate CRM.",
     "Return only the supplied structured storyboard schema.",
-    "Use only the provided CRM property facts. Never invent price, location, amenities, area, ROI, availability, developer, completion, views, or lifestyle claims.",
+    "The user content separates CANONICAL_PROPERTY_FACTS from optional TRUSTED_SOURCE_DESCRIPTION. Use canonical facts exactly; the trusted description may be summarized naturally but must not be turned into a new objective claim. Never invent price, location, amenities, area, ROI, availability, developer, completion, or views.",
     "Use only a supplied source asset ID in every scene. Do not create, omit, or alter asset IDs.",
     "Overlay text is visual copy, not the long Instagram caption: keep it concise, legible, and fact-grounded. Use no more than one short idea per scene.",
     "Design for the mobile-safe Reel text region: no paragraphs, at most 2–3 short lines, and summarize a long source sentence instead of copying it.",
@@ -638,9 +643,10 @@ export class CreativeAIService {
       const instructions = [
         "You are the private editorial marketing assistant for a luxury real-estate CRM.",
         "Return the structured output that matches the supplied schema.",
-        "The user message contains AUTHORITATIVE_PROPERTY_FACTS from the immutable persisted property snapshot. Use those objective facts exactly or omit them; never invent or alter amenities, views, ROI, availability, room counts, size, price, location facts, or urgency.",
+        "The user message separates CANONICAL_PROPERTY_FACTS from optional TRUSTED_SOURCE_DESCRIPTION in the immutable persisted property snapshot. Use canonical facts exactly or omit them; never invent or alter amenities, views, ROI, availability, room counts, size, price, location facts, or urgency.",
+        "TRUSTED_SOURCE_DESCRIPTION is approved listing source material. You may summarize or paraphrase it naturally, but it is not a canonical fact and must never appear in factsUsed or claimProvenance.",
         "Editorial and lifestyle language is welcome when it does not assert an unsupported objective property fact.",
-        "For each objective property fact you choose to use, return one compact claimProvenance entry with its canonical supplied factKey and exact supplied factValue (or a compact exact source excerpt). Amenities and features supplied as underscore-separated keys must use that exact key in factValue; render their natural wording separately in the marketing copy. Do not add provenance for generic editorial or lifestyle copy.",
+        "For each canonical objective property fact you choose to use, return one compact claimProvenance entry with its canonical supplied factKey and exact supplied factValue. Amenities and features supplied as underscore-separated keys must use that exact key in factValue; render their natural wording separately in the marketing copy. Do not add provenance for editorial, lifestyle, or trusted-source description copy.",
         luxuryEditorialInstructions(),
         generationOutputInstructions(format),
         formatConcisenessInstructions(format),
@@ -672,7 +678,7 @@ export class CreativeAIService {
             { role: "system", content: instructions },
             {
               role: "user",
-              content: JSON.stringify({ AUTHORITATIVE_PROPERTY_FACTS: factLines(input.property) }),
+              content: JSON.stringify(generationPropertyContext(input.property)),
             },
           ],
           text: { format: zodTextFormat(providerSchema, "marketing_creative") },
@@ -883,7 +889,7 @@ export class CreativeAIService {
           {
             role: "user",
             content: JSON.stringify({
-              AUTHORITATIVE_PROPERTY_FACTS: factLines(input.property),
+              ...generationPropertyContext(input.property),
               sourceAssetIds: input.sourceAssetIds,
               currentStoryboard: input.currentStoryboard ?? null,
             }),
@@ -968,7 +974,7 @@ export class CreativeAIService {
             { role: "system", content: [
               "You are the visual Story editor for a luxury real-estate CRM.",
               "Return only the supplied concise Story copy schema.",
-              "Use only supplied property facts. Never invent facts.",
+              "The user content separates CANONICAL_PROPERTY_FACTS from optional TRUSTED_SOURCE_DESCRIPTION. Use canonical facts exactly; the trusted description may be summarized naturally but must not be turned into a new objective claim. Never invent facts.",
               "Every value is burned into a 1080×1920 Instagram Story.",
               storyCopySchemaInstructions(),
               "Never include a full feed caption, paragraph, hashtag list, or unsupported claim.",
@@ -978,7 +984,7 @@ export class CreativeAIService {
               `Requested improvement: ${input.userPrompt}`,
               repairInstruction ?? "",
             ].filter(Boolean).join("\n") },
-            { role: "user", content: JSON.stringify({ AUTHORITATIVE_PROPERTY_FACTS: factLines(input.property), currentStoryCopy: input.currentStoryCopy }) },
+            { role: "user", content: JSON.stringify({ ...generationPropertyContext(input.property), currentStoryCopy: input.currentStoryCopy }) },
           ],
           text: { format: zodTextFormat(StoryCopyStructuralSchema, "marketing_story_copy") },
         })

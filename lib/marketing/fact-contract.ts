@@ -24,8 +24,55 @@ export const MARKETING_SAFE_FACT_KEYS = [
 
 export type MarketingSafeFactKey = (typeof MARKETING_SAFE_FACT_KEYS)[number]
 
+/**
+ * Marketing source data is intentionally classified before it reaches the
+ * factual validator. Source text is approved editorial context, but is not a
+ * scalar fact that a provider can truthfully restate through factValue.
+ */
+export type GroundingSource = "scalar" | "enum" | "collection" | "source_text"
+
+export const MARKETING_FACT_GROUNDING_SOURCES = {
+  title: "scalar",
+  location: "scalar",
+  locality: "scalar",
+  price: "scalar",
+  bedrooms: "scalar",
+  bathrooms: "scalar",
+  carpet_area: "scalar",
+  built_up_area: "scalar",
+  plot_area: "scalar",
+  description: "source_text",
+  amenities: "collection",
+  features: "collection",
+  property_type: "enum",
+  listing_type: "enum",
+  transaction_type: "enum",
+  furnishing: "enum",
+  development_stage: "enum",
+  status: "enum",
+  developer: "scalar",
+} as const satisfies Record<MarketingSafeFactKey, GroundingSource>
+
+/** New provider provenance may point only to deterministic canonical facts. */
+export type MarketingProvenanceFactKey = Exclude<MarketingSafeFactKey, "description">
+export const MARKETING_PROVENANCE_FACT_KEYS = MARKETING_SAFE_FACT_KEYS.filter(
+  (key): key is MarketingProvenanceFactKey => MARKETING_FACT_GROUNDING_SOURCES[key] !== "source_text",
+)
+
+export function marketingFactGroundingSource(key: MarketingSafeFactKey): GroundingSource {
+  return MARKETING_FACT_GROUNDING_SOURCES[key]
+}
+
+/**
+ * Description provenance remains parseable for historic creative records, but
+ * only canonical sources may be requested or deterministically validated now.
+ */
+export function isCanonicalProvenanceFactKey(key: MarketingSafeFactKey): key is MarketingProvenanceFactKey {
+  return marketingFactGroundingSource(key) !== "source_text"
+}
+
 export type ClaimProvenance = {
-  /** Optional legacy audit note; canonical factKey/factValue are authoritative. */
+  /** Optional legacy audit note; source-text keys remain readable but are not revalidated. */
   text?: string
   factKey: MarketingSafeFactKey
   factValue: string
@@ -207,8 +254,9 @@ export function canonicalizeAmenity(value: unknown) {
 }
 
 function canonicalizeStructuredFactValue(key: MarketingSafeFactKey, value: unknown) {
-  if (key === "amenities" || key === "features") return canonicalizeAmenity(value)
-  if (["location", "locality", "description", "furnishing", "property_type", "listing_type", "transaction_type", "development_stage", "status"].includes(key)) {
+  if (!isCanonicalProvenanceFactKey(key)) return ""
+  if (marketingFactGroundingSource(key) === "collection") return canonicalizeAmenity(value)
+  if (["location", "locality", "furnishing", "property_type", "listing_type", "transaction_type", "development_stage", "status"].includes(key)) {
     return normalizeObjectiveText(String(value ?? ""))
   }
   return normalize(value)
@@ -220,7 +268,7 @@ type GroundingValue = {
 }
 
 /** Amenities and tags are both persisted, structured property feature sources. */
-function groundingValues(property: PropertyFactSnapshot, key: MarketingSafeFactKey): GroundingValue[] {
+function groundingValues(property: PropertyFactSnapshot, key: MarketingProvenanceFactKey): GroundingValue[] {
   if (key === "amenities" || key === "features") {
     return [
       ...factValues(property, "amenities").map(value => ({ value, source: "amenities" as const })),
@@ -244,7 +292,7 @@ function amenityMatch(source: string, candidate: string): AmenityMatchMode | nul
   return WEAKER_AMENITY_CLAIM_SOURCES[candidateCanonical]?.includes(sourceCanonical) ? "alias" : null
 }
 
-function groundingMatch(key: MarketingSafeFactKey, source: string, candidate: string): AmenityMatchMode | null {
+function groundingMatch(key: MarketingProvenanceFactKey, source: string, candidate: string): AmenityMatchMode | null {
   if (key === "amenities" || key === "features") return amenityMatch(source, candidate)
 
   const sourceCanonical = canonicalizeStructuredFactValue(key, source)
@@ -253,9 +301,9 @@ function groundingMatch(key: MarketingSafeFactKey, source: string, candidate: st
   if (sourceCanonical === candidateCanonical) {
     return normalize(source) === normalize(candidate) ? "canonical_exact" : "normalized_exact"
   }
-  // Location labels and explicit description excerpts may safely use complete
-  // canonical token phrases, never arbitrary substring fragments.
-  if (["location", "locality", "description"].includes(key) && phraseContains(sourceCanonical, candidateCanonical)) {
+  // Location labels may use a complete canonical token phrase, never an
+  // arbitrary substring fragment. Free-text descriptions are not provenance.
+  if (["location", "locality"].includes(key) && phraseContains(sourceCanonical, candidateCanonical)) {
     return "normalized_exact"
   }
   return null
@@ -344,6 +392,9 @@ export function validateClaimProvenance(input: {
   copy?: string
 }) {
   for (const [index, key] of input.factsUsed.entries()) {
+    // Historic persisted output may include source-text provenance. It remains
+    // readable, but it has never been a deterministic fact reference.
+    if (!isCanonicalProvenanceFactKey(key)) continue
     if (!groundingValues(input.property, key).length) {
       throw new FactualValidationError({
         message: `Generated copy references unavailable inventory fact: ${key}.`,
@@ -355,22 +406,21 @@ export function validateClaimProvenance(input: {
     }
   }
   for (const [index, claim] of input.claims.entries()) {
-    const allowed = groundingValues(input.property, claim.factKey)
+    const factKey = claim.factKey
+    if (!isCanonicalProvenanceFactKey(factKey)) continue
+    const allowed = groundingValues(input.property, factKey)
     const factValue = String(claim.factValue ?? "")
-    // A long description may be compacted before it reaches the model. An
-    // exact source excerpt remains grounded while avoiding provenance that
-    // repeats an entire internal description or generated caption.
-    if (!allowed.length || !allowed.some(value => groundingMatch(claim.factKey, value.value, factValue))) {
-      const amenityClaim = claim.factKey === "amenities" || claim.factKey === "features"
+    if (!allowed.length || !allowed.some(value => groundingMatch(factKey, value.value, factValue))) {
+      const amenityClaim = factKey === "amenities" || factKey === "features"
       const amenityValues = amenityClaim
         ? allowed.filter(value => value.source === "amenities" || value.source === "features")
         : []
       throw new FactualValidationError({
-        message: `Generated claim is not grounded in the property snapshot: ${claim.factKey}.`,
+        message: `Generated claim is not grounded in the property snapshot: ${factKey}.`,
         reasonCode: "ungrounded_claim_value",
         ruleId: "claim_fact_value_grounded",
         field: `claimProvenance[${index}].factValue`,
-        factCategory: claim.factKey,
+        factCategory: factKey,
         ...(amenityClaim ? {
           matchMode: "no_match" as const,
           snapshotAmenityCount: amenityValues.length,
@@ -717,13 +767,15 @@ export function validateMarketingFacts(input: {
     factsUsed: input.factsUsed,
     claims: input.provenance,
   })
-  if (input.factsUsed.length && !input.provenance.length) {
+  const canonicalFactsUsed = input.factsUsed.filter(isCanonicalProvenanceFactKey)
+  const canonicalProvenance = input.provenance.filter(claim => isCanonicalProvenanceFactKey(claim.factKey))
+  if (canonicalFactsUsed.length && !canonicalProvenance.length) {
     throw new FactualValidationError({
       message: "Generated factual copy is missing canonical fact references.",
       reasonCode: "missing_claim_provenance",
       ruleId: "canonical_provenance_required_for_facts_used",
       field: "claimProvenance",
-      violationCount: input.factsUsed.length,
+      violationCount: canonicalFactsUsed.length,
     })
   }
   for (const rendered of input.renderedCopy) {

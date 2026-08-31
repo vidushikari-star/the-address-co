@@ -130,7 +130,7 @@ describe("CreativeAIService", () => {
     expect(fetchMock).toHaveBeenCalledWith("https://api.openai.com/v1/responses", expect.objectContaining({ method: "POST" }))
     const request = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
     const input = JSON.parse(request.input[1].content)
-    expect(input.AUTHORITATIVE_PROPERTY_FACTS).toMatchObject({ title: "Villa Verde", location: "Parra, Goa", bedrooms: 4 })
+    expect(input.CANONICAL_PROPERTY_FACTS).toMatchObject({ title: "Villa Verde", location: "Parra, Goa", bedrooms: 4 })
     expect(input).not.toHaveProperty("brandSettings")
     expect(input).not.toHaveProperty("deliveryFormat")
     expect(request).toMatchObject({ model: "gpt-5.2", max_output_tokens: MARKETING_OUTPUT_TOKEN_BUDGETS.reel })
@@ -158,10 +158,35 @@ describe("CreativeAIService", () => {
     })
 
     const request = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
-    const facts = JSON.parse(request.input[1].content).AUTHORITATIVE_PROPERTY_FACTS
+    const facts = JSON.parse(request.input[1].content).CANONICAL_PROPERTY_FACTS
     expect(facts.amenities).toEqual(["private_pool", "covered_parking", "garden"])
     expect(facts.features).toEqual(["air_conditioning"])
     expect(request.input[0].content).toContain("underscore-separated keys")
+  })
+
+  it("sends description as trusted editorial source text rather than provider provenance", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    const fetchMock = vi.fn().mockResolvedValue(completedResponse())
+    global.fetch = fetchMock
+
+    await CreativeAIService.generate({
+      property: {
+        ...property,
+        description: "A considered tropical home shaped around calm interiors and effortless indoor-outdoor living.",
+      },
+      format: "feed_single",
+      objective: "property_spotlight",
+      creativeDirection: "luxury_editorial",
+      settings,
+    })
+
+    const request = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
+    const input = JSON.parse(request.input[1].content)
+    expect(input.CANONICAL_PROPERTY_FACTS).not.toHaveProperty("description")
+    expect(input.TRUSTED_SOURCE_DESCRIPTION).toBe("A considered tropical home shaped around calm interiors and effortless indoor-outdoor living.")
+    expect(request.input[0].content).toContain("must never appear in factsUsed or claimProvenance")
+    expect(request.text.format.schema.properties.factsUsed.items.enum).not.toContain("description")
+    expect(request.text.format.schema.properties.claimProvenance.items.properties.factKey.enum).not.toContain("description")
   })
 
   it("uses compact, format-specific schemas and token budgets", async () => {
@@ -185,6 +210,8 @@ describe("CreativeAIService", () => {
         "factKey",
         "factValue",
       ])
+      expect(request.text.format.schema.properties.factsUsed.items.enum).not.toContain("description")
+      expect(request.text.format.schema.properties.claimProvenance.items.properties.factKey.enum).not.toContain("description")
       for (const limit of expectedPromptLimits[format]) {
         expect(request.input[0].content).toContain(limit)
       }

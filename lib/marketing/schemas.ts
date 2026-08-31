@@ -8,7 +8,7 @@ import {
   STORY_LAYOUT_STYLES,
 } from "@/lib/marketing/types"
 import { REEL_TYPOGRAPHY_STYLES } from "@/lib/marketing/reel-typography"
-import { MARKETING_SAFE_FACT_KEYS } from "@/lib/marketing/fact-contract"
+import { MARKETING_PROVENANCE_FACT_KEYS, MARKETING_SAFE_FACT_KEYS } from "@/lib/marketing/fact-contract"
 
 const MarketingContractSchema = z.object({
   version: z.literal("v2"),
@@ -286,7 +286,7 @@ export const CreativeOutputSchema = z.object({
   factsUsed: z.array(z.enum(MARKETING_SAFE_FACT_KEYS)).max(20),
   /** Stored beside creative JSON; legacy output can be reviewed without a migration. */
   claimProvenance: z.array(z.object({
-    /** Legacy audit note only; canonical factKey/factValue drive validation. */
+    /** Legacy audit note only; source-text provenance remains readable history. */
     text: z.string().trim().min(1).max(240).optional(),
     factKey: z.enum(MARKETING_SAFE_FACT_KEYS),
     factValue: z.string().trim().min(1).max(240),
@@ -317,12 +317,12 @@ export const NonStoryCreativeOutputSchema = CreativeOutputSchema.extend({
  * a clean-image Carousel must never spend output tokens on slide copy.
  */
 const CompactHashtagsSchema = z.array(z.string().trim().min(2).max(48)).min(1).max(8)
-const CompactFactsUsedSchema = z.array(z.enum(MARKETING_SAFE_FACT_KEYS)).max(8)
+const CompactFactsUsedSchema = z.array(z.enum(MARKETING_PROVENANCE_FACT_KEYS)).max(8)
 const CompactClaimProvenanceSchema = z.array(z.object({
   // New provider output is canonical only. Historic persisted rows may retain
   // an optional audit `text`, but it is deliberately not requested here.
-  factKey: z.enum(MARKETING_SAFE_FACT_KEYS),
-  // This may be a compact exact excerpt of a longer supplied property fact.
+  factKey: z.enum(MARKETING_PROVENANCE_FACT_KEYS),
+  // This is a deterministic canonical value, never source-text prose.
   factValue: z.string().trim().min(1).max(160),
 })).max(8)
 

@@ -6,12 +6,17 @@ import {
   type ClaimProvenance,
   detectUnsupportedNumericClaim,
   factualValidationErrorDiagnostics,
+  isCanonicalProvenanceFactKey,
+  MARKETING_FACT_GROUNDING_SOURCES,
+  MARKETING_PROVENANCE_FACT_KEYS,
+  marketingFactGroundingSource,
   marketingRenderedCopyForFormat,
   marketingPromptFacts,
   marketingSafeFacts,
   validateMarketingFacts,
   validateClaimProvenance,
 } from "@/lib/marketing/fact-contract"
+import { CreativeOutputSchema } from "@/lib/marketing/schemas"
 import type { MarketingFormat, PropertyFactSnapshot } from "@/lib/marketing/types"
 
 const property: PropertyFactSnapshot = {
@@ -51,7 +56,7 @@ describe("Marketing fact contract", () => {
     })).toBe(true)
   })
 
-  it("compacts prompt facts while accepting an exact excerpt of a long source fact", () => {
+  it("keeps source description as compact generation context, not canonical provenance", () => {
     const longProperty = {
       ...property,
       description: "A considered villa with a courtyard, private pool, and shaded entertaining terrace. ".repeat(20),
@@ -63,13 +68,36 @@ describe("Marketing fact contract", () => {
     expect(String(promptFacts.description).length).toBeLessThanOrEqual(600)
     expect(promptFacts.amenities).toEqual(["private_pool", "shaded_entertaining_terrace"])
     expect(promptFacts.features).toEqual(["courtyard"])
-    expect(validateClaimProvenance({
-      property: longProperty,
-      factsUsed: ["description"],
-      claims: [{ text: "private pool", factKey: "description", factValue: "private pool" }],
-      copy: "A private pool anchors the outdoor setting.",
-    })).toBe(true)
+    expect(marketingFactGroundingSource("description")).toBe("source_text")
+    expect(MARKETING_FACT_GROUNDING_SOURCES).toMatchObject({ amenities: "collection", furnishing: "enum", bedrooms: "scalar" })
+    expect(MARKETING_PROVENANCE_FACT_KEYS).not.toContain("description")
+    expect(isCanonicalProvenanceFactKey("description")).toBe(false)
     expect(String(marketingPromptFacts({ ...property, description: "x".repeat(700) }).description)).toHaveLength(600)
+  })
+
+  it("parses and safely ignores legacy description provenance", () => {
+    const legacyGrounding = CreativeOutputSchema.pick({ factsUsed: true, claimProvenance: true }).parse({
+      factsUsed: ["description"],
+      claimProvenance: [{ text: "legacy note", factKey: "description", factValue: "calm interiors" }],
+    })
+    const sourceProperty = {
+      ...property,
+      description: "A considered tropical home shaped around calm interiors and effortless indoor-outdoor living.",
+    }
+
+    expect(validateClaimProvenance({
+      property: sourceProperty,
+      factsUsed: legacyGrounding.factsUsed,
+      claims: legacyGrounding.claimProvenance,
+      copy: "A refined tropical home shaped around calm interiors.",
+    })).toBe(true)
+    expect(validateMarketingFacts({
+      format: "feed_single",
+      propertySnapshot: sourceProperty,
+      factsUsed: legacyGrounding.factsUsed,
+      provenance: legacyGrounding.claimProvenance,
+      renderedCopy: [{ field: "caption", value: "A refined tropical home shaped around calm interiors and effortless indoor-outdoor living." }],
+    })).toBe(true)
   })
 
   it("rejects unsupported or unavailable factual claims before approval", () => {
