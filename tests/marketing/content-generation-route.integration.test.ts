@@ -124,6 +124,56 @@ function providerResponse(content: Record<string, unknown>) {
   })
 }
 
+function factualTitleProviderOutput(format: "feed_single" | "carousel" | "story" | "reel", title: string) {
+  const grounding = {
+    factsUsed: ["title"],
+    claimProvenance: [{ text: title, factKey: "title", factValue: title }],
+  }
+
+  switch (format) {
+    case "feed_single":
+      return {
+        headline: title,
+        caption: `${title}.`,
+        shortCaption: title,
+        cta: "Request details",
+        hashtags: ["#NorthGoa"],
+        altText: `${title}.`,
+        ...grounding,
+      }
+    case "carousel":
+      return {
+        caption: `${title}.`,
+        cta: "Request details",
+        hashtags: ["#NorthGoa"],
+        altText: `${title} exterior.`,
+        ...grounding,
+      }
+    case "story":
+      return {
+        caption: `${title}.`,
+        hashtags: ["#NorthGoa"],
+        altText: `${title}.`,
+        storyCopy: { headline: title, supportingLine: "", highlights: [], priceLine: "", cta: "Request details" },
+        ...grounding,
+      }
+    case "reel":
+      return {
+        hook: title,
+        caption: `${title}.`,
+        shortCaption: title,
+        cta: "Request details",
+        hashtags: ["#NorthGoa"],
+        altText: `${title}.`,
+        coverText: title,
+        onScreenText: [title],
+        suggestedDuration: 30,
+        transitions: ["fade"],
+        ...grounding,
+      }
+  }
+}
+
 function storyMarketingContract() {
   return {
     version: "v2" as const,
@@ -138,12 +188,12 @@ function storyMarketingContract() {
   }
 }
 
-function configureStoryStudioRoute(persistedContract = false) {
+function configureStoryStudioRoute(persistedContract = false, propertySnapshot = property) {
   repository.getContentById.mockResolvedValue({
     content: {
       id: contentId,
-      primaryPropertyId: property.id,
-      propertySnapshot: property,
+      primaryPropertyId: propertySnapshot.id,
+      propertySnapshot,
       contentType: "story",
       creativeDirection: "luxury_editorial",
       status: "draft",
@@ -168,12 +218,12 @@ function configureStoryStudioRoute(persistedContract = false) {
   repository.recordUsage.mockResolvedValue(undefined)
 }
 
-function configureFeedStudioRoute() {
+function configureFeedStudioRoute(propertySnapshot = property) {
   repository.getContentById.mockResolvedValue({
     content: {
       id: contentId,
-      primaryPropertyId: property.id,
-      propertySnapshot: property,
+      primaryPropertyId: propertySnapshot.id,
+      propertySnapshot,
       contentType: "single_image",
       creativeDirection: "luxury_editorial",
       status: "draft",
@@ -198,12 +248,12 @@ function configureFeedStudioRoute() {
   repository.recordUsage.mockResolvedValue(undefined)
 }
 
-function configureCarouselStudioRoute() {
+function configureCarouselStudioRoute(propertySnapshot = property) {
   repository.getContentById.mockResolvedValue({
     content: {
       id: contentId,
-      primaryPropertyId: property.id,
-      propertySnapshot: property,
+      primaryPropertyId: propertySnapshot.id,
+      propertySnapshot,
       contentType: "carousel",
       creativeDirection: "luxury_editorial",
       status: "draft",
@@ -228,12 +278,12 @@ function configureCarouselStudioRoute() {
   repository.recordUsage.mockResolvedValue(undefined)
 }
 
-function configureReelStudioRoute() {
+function configureReelStudioRoute(propertySnapshot = property) {
   repository.getContentById.mockResolvedValue({
     content: {
       id: contentId,
-      primaryPropertyId: property.id,
-      propertySnapshot: property,
+      primaryPropertyId: propertySnapshot.id,
+      propertySnapshot,
       contentType: "reel",
       creativeDirection: "luxury_editorial",
       status: "draft",
@@ -327,6 +377,58 @@ describe("Create Studio generation route with the real repair-aware generator", 
     expect(resolvedFormat).toMatchObject({ format: "story" })
     expect(body.content.composition.marketingContract).toMatchObject({ format: "story" })
     info.mockRestore()
+  })
+
+  it.each(["feed_single", "carousel", "story", "reel"] as const)("accepts a fact-grounded numeric property title through the real %s route", async format => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    const numberedProperty = { ...property, title: "Villa 18" }
+    switch (format) {
+      case "feed_single": configureFeedStudioRoute(numberedProperty); break
+      case "carousel": configureCarouselStudioRoute(numberedProperty); break
+      case "story": configureStoryStudioRoute(false, numberedProperty); break
+      case "reel": configureReelStudioRoute(numberedProperty); break
+    }
+    global.fetch = vi.fn().mockResolvedValue(providerResponse(factualTitleProviderOutput(format, numberedProperty.title)))
+
+    const response = await generateRequest()
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(JSON.stringify(body)).not.toContain("unsupported numeric claim")
+    expect(JSON.stringify(body)).not.toContain("factual validation")
+  })
+
+  it("logs safe factual-validation metadata without generated copy", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    configureFeedStudioRoute()
+    const generatedCopy = "Villa Verde with a private pool."
+    global.fetch = vi.fn().mockResolvedValue(providerResponse({
+      ...validFeedProviderOutput,
+      caption: generatedCopy,
+      factsUsed: ["amenities"],
+      claimProvenance: [{ text: "private pool", factKey: "amenities", factValue: "private pool" }],
+    }))
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+    const response = await generateRequest()
+    const body = await response.json()
+
+    expect(response.status).toBe(502)
+    expect(body).toEqual({ error: "Generated copy references unavailable inventory fact: amenities." })
+    const diagnostic = error.mock.calls
+      .filter(([message]) => message === "Marketing AI generation failed:")
+      .map(([, metadata]) => JSON.parse(metadata as string))[0]
+    expect(diagnostic).toMatchObject({
+      stage: "factual_validation",
+      reasonCode: "unavailable_fact_reference",
+      ruleId: "facts_used_available",
+      field: "factsUsed[0]",
+      factCategory: "amenities",
+      violationCount: 1,
+    })
+    expect(JSON.stringify(diagnostic)).not.toContain(generatedCopy)
+    expect(JSON.stringify(diagnostic)).not.toContain("private pool")
+    error.mockRestore()
   })
 
   it("normalizes an overlong repair CTA through the real Create Studio route before final validation", async () => {

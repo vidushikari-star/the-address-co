@@ -1,4 +1,5 @@
 import type { MarketingFormat } from "@/lib/marketing/types"
+import { factualValidationErrorDiagnostics } from "@/lib/marketing/fact-contract"
 
 export const CONTENT_GENERATION_TOO_LONG_MESSAGE = "Content generation was too long to complete. Please try again or shorten the creative brief."
 export const STORY_COPY_TOO_LONG_MESSAGE = "Story copy was too long to format. Please regenerate the Story copy."
@@ -195,5 +196,6 @@ export function marketingGenerationErrorDiagnostics(error: unknown) {
     storyLengthFields: storyFields,
     topApplicationStackFrame: stackFrames[0] ?? null,
     applicationStackFrames: stackFrames,
+    ...factualValidationErrorDiagnostics(error),
   }
 }

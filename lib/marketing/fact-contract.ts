@@ -30,8 +30,106 @@ export type ClaimProvenance = {
   factValue: string
 }
 
+export const FACTUAL_VALIDATION_REASON_CODES = [
+  "missing_claim_provenance",
+  "unavailable_fact_reference",
+  "ungrounded_claim_value",
+  "claim_text_not_found",
+  "unsupported_numeric_claim",
+] as const
+
+export type FactualValidationReasonCode = (typeof FACTUAL_VALIDATION_REASON_CODES)[number]
+
+const FACTUAL_VALIDATION_DIAGNOSTIC = Symbol.for("the-address-co.marketing.factual-validation-diagnostic")
+
+type FactualDiagnosticError = Error & {
+  [FACTUAL_VALIDATION_DIAGNOSTIC]?: true
+  reasonCode?: unknown
+  ruleId?: unknown
+  field?: unknown
+  factCategory?: unknown
+  violationCount?: unknown
+}
+
+/**
+ * The factual contract deliberately exposes only metadata that is safe for
+ * server diagnostics. Never attach generated copy or property values here.
+ */
+export class FactualValidationError extends Error {
+  readonly reasonCode: FactualValidationReasonCode
+  readonly ruleId: string
+  readonly field: string | null
+  readonly factCategory: MarketingSafeFactKey | "area" | null
+  readonly violationCount: number
+
+  constructor(input: {
+    message: string
+    reasonCode: FactualValidationReasonCode
+    ruleId: string
+    field?: string | null
+    factCategory?: MarketingSafeFactKey | "area" | null
+    violationCount?: number
+  }) {
+    super(input.message)
+    this.name = "FactualValidationError"
+    this.reasonCode = input.reasonCode
+    this.ruleId = input.ruleId
+    this.field = input.field ?? null
+    this.factCategory = input.factCategory ?? null
+    this.violationCount = input.violationCount ?? 1
+    Object.defineProperty(this, FACTUAL_VALIDATION_DIAGNOSTIC, {
+      configurable: true,
+      enumerable: false,
+      value: true,
+    })
+  }
+}
+
+/** Metadata-only diagnostics; copy and inventory values never leave the validator. */
+export function factualValidationErrorDiagnostics(error: unknown) {
+  const diagnostic = error && typeof error === "object" ? error as FactualDiagnosticError : null
+  if (!diagnostic?.[FACTUAL_VALIDATION_DIAGNOSTIC]) {
+    return {
+      reasonCode: null,
+      ruleId: null,
+      field: null,
+      factCategory: null,
+      violationCount: null,
+    }
+  }
+
+  return {
+    reasonCode: typeof diagnostic.reasonCode === "string" ? diagnostic.reasonCode : null,
+    ruleId: typeof diagnostic.ruleId === "string" ? diagnostic.ruleId : null,
+    field: typeof diagnostic.field === "string" ? diagnostic.field : null,
+    factCategory: typeof diagnostic.factCategory === "string" ? diagnostic.factCategory : null,
+    violationCount: typeof diagnostic.violationCount === "number" ? diagnostic.violationCount : null,
+  }
+}
+
 function normalize(value: unknown) {
   return String(value ?? "").replace(/\s+/g, " ").trim().toLocaleLowerCase()
+}
+
+/**
+ * Claim provenance asks the provider for a quote, but harmless punctuation,
+ * whitespace, hyphen, and digit-word presentation differences must not turn
+ * an otherwise grounded claim into a false failure. This is deliberately not
+ * semantic matching: the same normalized phrase must still be visible.
+ */
+function normalizeClaimText(value: unknown) {
+  return normalize(value)
+    .normalize("NFKD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[’'`]/g, "")
+    .replace(/[–—-]/g, " ")
+    .replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten)\b/gu, word => ({
+      one: "1", two: "2", three: "3", four: "4", five: "5",
+      six: "6", seven: "7", eight: "8", nine: "9", ten: "10",
+    })[word] ?? word)
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 function compact(value: unknown, maximum: number) {
@@ -126,41 +224,155 @@ export function validateClaimProvenance(input: {
   factsUsed: MarketingSafeFactKey[]
   copy: string
 }) {
-  for (const key of input.factsUsed) {
+  for (const [index, key] of input.factsUsed.entries()) {
     if (!factValues(input.property, key).length) {
-      throw new Error(`Generated copy references unavailable inventory fact: ${key}.`)
+      throw new FactualValidationError({
+        message: `Generated copy references unavailable inventory fact: ${key}.`,
+        reasonCode: "unavailable_fact_reference",
+        ruleId: "facts_used_available",
+        field: `factsUsed[${index}]`,
+        factCategory: key,
+      })
     }
   }
-  for (const claim of input.claims) {
+  const normalizedCopy = normalizeClaimText(input.copy)
+  for (const [index, claim] of input.claims.entries()) {
     const allowed = factValues(input.property, claim.factKey)
     const factValue = normalize(claim.factValue)
     // A long description may be compacted before it reaches the model. An
     // exact source excerpt remains grounded while avoiding provenance that
     // repeats an entire internal description or generated caption.
     if (!allowed.length || !allowed.some(value => value === factValue || value.includes(factValue))) {
-      throw new Error(`Generated claim is not grounded in the property snapshot: ${claim.factKey}.`)
+      throw new FactualValidationError({
+        message: `Generated claim is not grounded in the property snapshot: ${claim.factKey}.`,
+        reasonCode: "ungrounded_claim_value",
+        ruleId: "claim_fact_value_grounded",
+        field: `claimProvenance[${index}].factValue`,
+        factCategory: claim.factKey,
+      })
     }
-    if (!normalize(input.copy).includes(normalize(claim.text))) {
-      throw new Error("Generated claim provenance does not match the generated copy.")
+    if (!normalizedCopy.includes(normalizeClaimText(claim.text))) {
+      throw new FactualValidationError({
+        message: "Generated claim provenance does not match the generated copy.",
+        reasonCode: "claim_text_not_found",
+        ruleId: "claim_text_visible_in_copy",
+        field: `claimProvenance[${index}].text`,
+        factCategory: claim.factKey,
+      })
     }
   }
   return true
 }
 
-/** Detects common unsupported factual assertions even before a human review. */
-export function detectUnsupportedNumericClaim(copy: string, property: PropertyFactSnapshot) {
-  const normalizedNumeric = (value: string) => value.replace(/[.,]+$/u, "").replaceAll(",", "")
-  const permitted = new Set<string>()
-  for (const key of ["price", "bedrooms", "bathrooms", "carpet_area", "built_up_area", "plot_area"] as const) {
-    for (const value of factValues(property, key)) {
-      for (const numeric of value.match(/\d+(?:[\d,.]*)?/g) ?? []) permitted.add(normalizedNumeric(numeric))
+type NumericFactCategory = "price" | "bedrooms" | "bathrooms" | "area"
+
+type UnsupportedNumericClaim = {
+  factCategory: NumericFactCategory
+}
+
+function numericValue(value: string) {
+  const parsed = Number(value.replaceAll(",", ""))
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function priceValues(property: PropertyFactSnapshot) {
+  const values = new Set<number>()
+  for (const source of factValues(property, "price")) {
+    for (const match of source.matchAll(/\d[\d,.]*(?:\s*(cr|crore|lakh))?/gi)) {
+      const numeric = match[0].match(/\d[\d,.]*/)?.[0]
+      const value = numeric ? numericValue(numeric) : null
+      if (value === null) continue
+      const unit = match[1]?.toLocaleLowerCase()
+      values.add(Math.round(value * (unit === "cr" || unit === "crore" ? 10_000_000 : unit === "lakh" ? 100_000 : 1)))
     }
   }
-  const numbers = copy.match(/(?:₹\s*)?\d+(?:[\d,.]*)?(?:\s*(?:cr|crore|lakh|sq\.?\s*(?:ft|m)|bed(?:room)?s?|bath(?:room)?s?))?/gi) ?? []
-  const unsupported = numbers.find(value => {
-    const matchedNumeric = value.match(/\d+(?:[\d,.]*)?/g)?.[0]
-    const numeric = matchedNumeric ? normalizedNumeric(matchedNumeric) : undefined
-    return numeric && !permitted.has(numeric)
+  return values
+}
+
+function numericFactValues(property: PropertyFactSnapshot, key: "bedrooms" | "bathrooms" | "carpet_area" | "built_up_area" | "plot_area") {
+  const values = new Set<number>()
+  for (const source of factValues(property, key)) {
+    for (const value of source.matchAll(/\d[\d,.]*/g)) {
+      const parsed = numericValue(value[0])
+      if (parsed !== null) values.add(parsed)
+    }
+  }
+  return values
+}
+
+function valueIsAllowed(value: string, permitted: Set<number>, unit?: string) {
+  const parsed = numericValue(value)
+  if (parsed === null) return false
+  const normalizedUnit = unit?.toLocaleLowerCase()
+  const multiplier = normalizedUnit === "cr" || normalizedUnit === "crore" ? 10_000_000 : normalizedUnit === "lakh" ? 100_000 : 1
+  return permitted.has(Math.round(parsed * multiplier))
+}
+
+/**
+ * Detect only explicit inventory-shaped numeric claims. The former generic
+ * digit scan rejected fact-grounded names, editorial ordinals, and hashtags
+ * (for example, "Villa 18") as though they were prices or room counts.
+ */
+function unsupportedNumericClaim(copy: string, property: PropertyFactSnapshot): UnsupportedNumericClaim | null {
+  const checks: Array<{
+    factCategory: NumericFactCategory
+    pattern: RegExp
+    permitted: Set<number>
+    unit?: (match: RegExpMatchArray) => string | undefined
+  }> = [
+    {
+      factCategory: "price",
+      pattern: /(?:₹|rs\.?|inr)\s*(\d[\d,.]*)(?:\s*(cr|crore|lakh))?|\b(\d[\d,.]*)\s*(cr|crore|lakh)\b/gi,
+      permitted: priceValues(property),
+      unit: match => match[2] ?? match[4],
+    },
+    {
+      factCategory: "bedrooms",
+      pattern: /\b(\d[\d,.]*)\s*[-\s]?(?:bed(?:room)?s?|bhk)\b/gi,
+      permitted: numericFactValues(property, "bedrooms"),
+    },
+    {
+      factCategory: "bathrooms",
+      pattern: /\b(\d[\d,.]*)\s*[-\s]?(?:bath(?:room)?s?)\b/gi,
+      permitted: numericFactValues(property, "bathrooms"),
+    },
+    {
+      factCategory: "area",
+      pattern: /\b(\d[\d,.]*)\s*(?:sq\.?\s*(?:ft|m)|sqm|sq\.?\s*met(?:er|re)s?|square\s*(?:feet|foot|met(?:er|re)s?))\b/gi,
+      permitted: new Set([
+        ...numericFactValues(property, "carpet_area"),
+        ...numericFactValues(property, "built_up_area"),
+        ...numericFactValues(property, "plot_area"),
+      ]),
+    },
+  ]
+
+  for (const check of checks) {
+    for (const match of copy.matchAll(check.pattern)) {
+      const value = match[1] ?? match[3]
+      if (!valueIsAllowed(value, check.permitted, check.unit?.(match))) {
+        return { factCategory: check.factCategory }
+      }
+    }
+  }
+  return null
+}
+
+/** Detects explicit unsupported numeric assertions before a human review. */
+export function detectUnsupportedNumericClaim(copy: string, property: PropertyFactSnapshot) {
+  const unsupported = unsupportedNumericClaim(copy, property)
+  return unsupported ? "Generated copy contains an unsupported numeric claim." : null
+}
+
+/** Throws a structured factual error for the generation route’s safe logs. */
+export function assertSupportedNumericClaims(copy: string, property: PropertyFactSnapshot, field = "copy") {
+  const unsupported = unsupportedNumericClaim(copy, property)
+  if (!unsupported) return true
+  throw new FactualValidationError({
+    message: "Generated copy contains an unsupported numeric claim.",
+    reasonCode: "unsupported_numeric_claim",
+    ruleId: "explicit_numeric_claim_grounded",
+    field,
+    factCategory: unsupported.factCategory,
   })
-  return unsupported ? `Generated copy contains an unsupported numeric claim: ${unsupported.trim()}.` : null
 }

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest"
 
-import { detectUnsupportedNumericClaim, marketingPromptFacts, marketingSafeFacts, validateClaimProvenance } from "@/lib/marketing/fact-contract"
+import {
+  assertSupportedNumericClaims,
+  detectUnsupportedNumericClaim,
+  factualValidationErrorDiagnostics,
+  marketingPromptFacts,
+  marketingSafeFacts,
+  validateClaimProvenance,
+} from "@/lib/marketing/fact-contract"
 import type { PropertyFactSnapshot } from "@/lib/marketing/types"
 
 const property: PropertyFactSnapshot = {
@@ -75,11 +82,72 @@ describe("Marketing fact contract", () => {
       copy: "A 4-bedroom residence.",
     })).toThrow("not grounded")
     expect(detectUnsupportedNumericClaim("A 4-bedroom residence in Parra.", property)).toContain("unsupported numeric claim")
+    expect(() => validateClaimProvenance({
+      property: { ...property, amenities: ["garden"] },
+      factsUsed: ["amenities"],
+      claims: [{ text: "private pool", factKey: "amenities", factValue: "private pool" }],
+      copy: "A private pool anchors the outdoor setting.",
+    })).toThrow("not grounded")
   })
 
   it("accepts a factual price when punctuation follows the numeric value", () => {
     const pricedProperty = { ...property, price: "₹1,25,00,000" }
 
     expect(detectUnsupportedNumericClaim("Listed at ₹1,25,00,000.", pricedProperty)).toBeNull()
+  })
+
+  it("does not mistake a fact-grounded property identifier for a numeric inventory claim", () => {
+    const numberedProperty = { ...property, title: "Villa 18" }
+
+    expect(detectUnsupportedNumericClaim("Villa 18, Parra, Goa.", numberedProperty)).toBeNull()
+    expect(validateClaimProvenance({
+      property: numberedProperty,
+      factsUsed: ["title"],
+      claims: [{ text: "Villa 18", factKey: "title", factValue: "Villa 18" }],
+      copy: "Villa 18 — Parra, Goa.",
+    })).toBe(true)
+  })
+
+  it("allows non-objective editorial language without forcing factual provenance", () => {
+    const editorial = "A refined, serene, and considered setting for slower days."
+
+    expect(validateClaimProvenance({
+      property,
+      factsUsed: [],
+      claims: [],
+      copy: editorial,
+    })).toBe(true)
+    expect(detectUnsupportedNumericClaim(editorial, property)).toBeNull()
+  })
+
+  it("accepts formatting-equivalent factual claims without permitting a different inventory value", () => {
+    const pricedProperty = { ...property, price: "60000000", bedrooms: 4, builtUpArea: 3000 }
+
+    expect(detectUnsupportedNumericClaim("₹6 Cr · a 4-bedroom home · 3,000 sq. ft.", pricedProperty)).toBeNull()
+    expect(validateClaimProvenance({
+      property: pricedProperty,
+      factsUsed: ["bedrooms"],
+      claims: [{ text: "4-bedroom", factKey: "bedrooms", factValue: "4" }],
+      copy: "A four bedroom residence.",
+    })).toBe(true)
+    expect(detectUnsupportedNumericClaim("A 5-bedroom residence.", pricedProperty)).toContain("unsupported numeric claim")
+  })
+
+  it("returns only safe factual-failure metadata", () => {
+    let error: unknown
+    try {
+      assertSupportedNumericClaims("A 5-bedroom residence.", property, "caption")
+    } catch (caught) {
+      error = caught
+    }
+
+    expect(factualValidationErrorDiagnostics(error)).toEqual({
+      reasonCode: "unsupported_numeric_claim",
+      ruleId: "explicit_numeric_claim_grounded",
+      field: "caption",
+      factCategory: "bedrooms",
+      violationCount: 1,
+    })
+    expect(JSON.stringify(factualValidationErrorDiagnostics(error))).not.toContain("5-bedroom")
   })
 })

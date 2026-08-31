@@ -22,7 +22,12 @@ import {
   creativeGenerationProviderSchemaForFormat,
   type MarketingGeneratedCreative,
 } from "@/lib/marketing/schemas"
-import { detectUnsupportedNumericClaim, marketingPromptFacts, validateClaimProvenance } from "@/lib/marketing/fact-contract"
+import {
+  assertSupportedNumericClaims,
+  FactualValidationError,
+  marketingPromptFacts,
+  validateClaimProvenance,
+} from "@/lib/marketing/fact-contract"
 import { legacyContractForContentType } from "@/lib/marketing/content-contract"
 import { logMarketingGenerationBreadcrumb } from "@/lib/marketing/generation-diagnostics"
 import { generationOutputInstructions } from "@/lib/marketing/generation-output-contract"
@@ -515,6 +520,68 @@ function creativeCopyForClaims(output: Pick<CreativeOutput,
   ].join(" ")
 }
 
+type FactualCopyField = {
+  field: string
+  value: string
+}
+
+function factualCopy(fields: FactualCopyField[]) {
+  return fields.map(field => field.value).join(" ")
+}
+
+/**
+ * Validate only the fields rendered for the selected delivery format. The
+ * persisted full-creative shape includes compatibility projections (notably
+ * non-Story `storyCopy`), which are never generated or rendered as factual
+ * content for Feed, Carousel, or Reel.
+ */
+function generatedCreativeClaimFields(format: MarketingFormat, output: MarketingGeneratedCreative): FactualCopyField[] {
+  switch (format) {
+    case "feed_single": {
+      const feed = output as Extract<MarketingGeneratedCreative, { headline: string; shortCaption: string }>
+      return [
+        { field: "headline", value: feed.headline },
+        { field: "caption", value: feed.caption },
+        { field: "shortCaption", value: feed.shortCaption },
+        { field: "cta", value: feed.cta },
+        { field: "altText", value: feed.altText },
+      ]
+    }
+    case "carousel": {
+      const carousel = output as Extract<MarketingGeneratedCreative, { caption: string; cta: string; altText: string }>
+      return [
+        { field: "caption", value: carousel.caption },
+        { field: "cta", value: carousel.cta },
+        { field: "altText", value: carousel.altText },
+      ]
+    }
+    case "story": {
+      const story = output as Extract<MarketingGeneratedCreative, { storyCopy: StoryCopy; caption: string; altText: string }>
+      return [
+        { field: "caption", value: story.caption },
+        { field: "altText", value: story.altText },
+        { field: "storyCopy.headline", value: story.storyCopy.headline },
+        { field: "storyCopy.supportingLine", value: story.storyCopy.supportingLine },
+        ...story.storyCopy.highlights.map((value, index) => ({ field: `storyCopy.highlights[${index}]`, value })),
+        { field: "storyCopy.priceLine", value: story.storyCopy.priceLine },
+        { field: "storyCopy.cta", value: story.storyCopy.cta },
+      ]
+    }
+    case "reel": {
+      const reel = output as Extract<MarketingGeneratedCreative, { hook: string; coverText: string; onScreenText: string[] }>
+      return [
+        { field: "hook", value: reel.hook },
+        { field: "caption", value: reel.caption },
+        { field: "shortCaption", value: reel.shortCaption },
+        { field: "cta", value: reel.cta },
+        { field: "altText", value: reel.altText },
+        { field: "coverText", value: reel.coverText },
+        ...reel.onScreenText.map((value, index) => ({ field: `onScreenText[${index}]`, value })),
+      ]
+    }
+  }
+}
+
 function generatedStoryCopyForClaims(output: StoryGeneratedCreativeCandidate) {
   return [
     output.caption, output.altText,
@@ -540,9 +607,16 @@ function validateGeneratedFacts(input: {
   factsUsed: CreativeOutput["factsUsed"]
   claimProvenance: CreativeOutput["claimProvenance"]
   copy: string
+  copyFields?: FactualCopyField[]
 }) {
   if (input.factsUsed.length && !input.claimProvenance.length) {
-    throw new Error("Generated factual copy is missing claim provenance. Try generation again.")
+    throw new FactualValidationError({
+      message: "Generated factual copy is missing claim provenance. Try generation again.",
+      reasonCode: "missing_claim_provenance",
+      ruleId: "claim_provenance_required_for_facts_used",
+      field: "claimProvenance",
+      violationCount: input.factsUsed.length,
+    })
   }
   validateClaimProvenance({
     property: input.property,
@@ -550,13 +624,17 @@ function validateGeneratedFacts(input: {
     factsUsed: input.factsUsed,
     copy: input.copy,
   })
-  const unsupportedNumericClaim = detectUnsupportedNumericClaim(input.copy, input.property)
-  if (unsupportedNumericClaim) throw new Error(unsupportedNumericClaim)
+  if (input.copyFields?.length) {
+    for (const field of input.copyFields) {
+      assertSupportedNumericClaims(field.value, input.property, field.field)
+    }
+    return
+  }
+  assertSupportedNumericClaims(input.copy, input.property)
 }
 
 function validateStoryCopyNumericFacts(storyCopy: StoryCopy, property: PropertyFactSnapshot) {
-  const unsupportedNumericClaim = detectUnsupportedNumericClaim(storyCopyText(storyCopy), property)
-  if (unsupportedNumericClaim) throw new Error(unsupportedNumericClaim)
+  assertSupportedNumericClaims(storyCopyText(storyCopy), property, "storyCopy")
 }
 
 function normalizeForClaimSearch(value: string) {
@@ -758,6 +836,7 @@ export class CreativeAIService {
               factsUsed: candidate.factsUsed,
               claimProvenance: candidate.claimProvenance,
               copy: generatedStoryCopyForClaims(candidate),
+              copyFields: generatedCreativeClaimFields(format, candidate),
             })
             logStoryFactualValidation()
           } catch (error) {
@@ -790,6 +869,20 @@ export class CreativeAIService {
           generated = finalStory.data
         } else {
           generated = parsed.data as MarketingGeneratedCreative
+          try {
+            markGenerationStage("factual_validation")
+            logMarketingGenerationBreadcrumb({ event: "factual_validation", format, stage: "factual_validation" })
+            const copyFields = generatedCreativeClaimFields(format, generated)
+            validateGeneratedFacts({
+              property: input.property,
+              factsUsed: generated.factsUsed,
+              claimProvenance: generated.claimProvenance,
+              copy: factualCopy(copyFields),
+              copyFields,
+            })
+          } catch (error) {
+            throw tagStoryGenerationError(error, "factual_validation")
+          }
         }
         markGenerationStage("creative_output_validation")
         logMarketingGenerationBreadcrumb({ event: "creative_output_validation", format, stage: "creative_output_validation" })
@@ -852,19 +945,20 @@ export class CreativeAIService {
       if (format === "story") {
         markGenerationStage("generation_result_mapping")
         output = removeOmittedStoryClaims(output)
-      }
-      try {
-        markGenerationStage("factual_validation")
-        if (format !== "story") logMarketingGenerationBreadcrumb({ event: "factual_validation", format, stage: "factual_validation" })
-        validateGeneratedFacts({
-          property: input.property,
-          factsUsed: output.factsUsed,
-          claimProvenance: output.claimProvenance,
-          copy: creativeCopyForClaims(output),
-        })
-      } catch (error) {
-        if (generationProgress.responseReceived) throw tagStoryGenerationError(error, generationProgress.stage)
-        throw error
+        try {
+          markGenerationStage("factual_validation")
+          const copyFields = generatedCreativeClaimFields("story", output)
+          validateGeneratedFacts({
+            property: input.property,
+            factsUsed: output.factsUsed,
+            claimProvenance: output.claimProvenance,
+            copy: factualCopy(copyFields),
+            copyFields,
+          })
+        } catch (error) {
+          if (generationProgress.responseReceived) throw tagStoryGenerationError(error, generationProgress.stage)
+          throw error
+        }
       }
       markGenerationStage("creative_output_validation")
       if (format !== "story") logMarketingGenerationBreadcrumb({ event: "creative_output_validation", format, stage: "creative_output_validation" })
