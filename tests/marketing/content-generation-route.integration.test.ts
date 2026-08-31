@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { MARKETING_GENERATION_DIAGNOSTIC_VERSION } from "@/lib/marketing/generation-diagnostics"
 import { INVALID_MARKETING_GENERATION_OUTPUT_MESSAGE } from "@/lib/marketing/generation-errors"
 import { StoryCopySchema } from "@/lib/marketing/schemas"
+import type { PropertyFactSnapshot } from "@/lib/marketing/types"
 
 const repository = vi.hoisted(() => ({
   getContentById: vi.fn(),
@@ -32,7 +33,7 @@ const sourceAssetId = "34d1e601-18e9-4caa-9cc4-8af4c11888f1"
 const originalApiKey = process.env.OPENAI_API_KEY
 const originalFetch = global.fetch
 
-const property = {
+const property: PropertyFactSnapshot = {
   id: "b2041f1f-89e9-4a59-a8de-00169502f523",
   title: "Villa Verde",
   location: "Parra, Goa",
@@ -167,6 +168,69 @@ function factualTitleProviderOutput(format: "feed_single" | "carousel" | "story"
         altText: `${title}.`,
         coverText: title,
         onScreenText: [title],
+        suggestedDuration: 30,
+        transitions: ["fade"],
+        ...grounding,
+      }
+  }
+}
+
+function realisticGroundedProviderOutput(format: "feed_single" | "carousel" | "story" | "reel") {
+  const grounding = {
+    factsUsed: ["title", "location", "bedrooms", "amenities"],
+    // New provider output contains canonical keys/values only; no free-text
+    // provenance is necessary for grounded editorial copy.
+    claimProvenance: [
+      { factKey: "title", factValue: "Villa 18" },
+      { factKey: "location", factValue: "Parra" },
+      { factKey: "bedrooms", factValue: "4" },
+      { factKey: "amenities", factValue: "private pool" },
+    ],
+  }
+
+  switch (format) {
+    case "feed_single":
+      return {
+        headline: "Villa 18, Parra",
+        caption: "Villa 18 offers a refined expression of tropical living in Parra. Designed around a private pool, this four-bedroom home brings together calm interiors and effortless indoor-outdoor living.",
+        shortCaption: "A refined Villa 18 in Parra.",
+        cta: "Request details",
+        hashtags: ["#NorthGoa"],
+        altText: "Villa 18 in Parra.",
+        ...grounding,
+      }
+    case "carousel":
+      return {
+        caption: "Villa 18 in Parra pairs a private pool with refined tropical living.",
+        cta: "Request details",
+        hashtags: ["#NorthGoa"],
+        altText: "Villa 18 in Parra.",
+        ...grounding,
+      }
+    case "story":
+      return {
+        caption: "Villa 18 in Parra.",
+        hashtags: ["#NorthGoa"],
+        altText: "Villa 18 in Parra.",
+        storyCopy: {
+          headline: "A private retreat in Parra",
+          supportingLine: "Four bedrooms arranged around relaxed tropical living.",
+          highlights: ["Private pool"],
+          priceLine: "",
+          cta: "Request details",
+        },
+        ...grounding,
+      }
+    case "reel":
+      return {
+        hook: "Step inside a calmer side of Goa living.",
+        caption: "Villa 18 brings refined tropical living to Parra.",
+        shortCaption: "Villa 18, Parra.",
+        cta: "Request details",
+        hashtags: ["#NorthGoa"],
+        altText: "Villa 18 in Parra.",
+        coverText: "Villa 18",
+        onScreenText: ["Four-bedroom villa in Parra", "Private pool"],
         suggestedDuration: 30,
         transitions: ["fade"],
         ...grounding,
@@ -398,6 +462,58 @@ describe("Create Studio generation route with the real repair-aware generator", 
     expect(JSON.stringify(body)).not.toContain("factual validation")
   })
 
+  it.each(["feed_single", "carousel", "story", "reel"] as const)("persists realistic grounded editorial %s output through the actual Create Studio route", async format => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    const groundedProperty: PropertyFactSnapshot = {
+      ...property,
+      title: "Villa 18",
+      location: "Parra, Goa",
+      bedrooms: 4,
+      amenities: ["private pool"],
+      propertyType: "Villa",
+    }
+    switch (format) {
+      case "feed_single": configureFeedStudioRoute(groundedProperty); break
+      case "carousel": configureCarouselStudioRoute(groundedProperty); break
+      case "story": configureStoryStudioRoute(false, groundedProperty); break
+      case "reel": configureReelStudioRoute(groundedProperty); break
+    }
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined)
+    global.fetch = vi.fn().mockResolvedValue(providerResponse(realisticGroundedProviderOutput(format)))
+
+    const response = await generateRequest()
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.content.creative.claimProvenance).toEqual(expect.arrayContaining([
+      expect.objectContaining({ factKey: "title", factValue: "Villa 18" }),
+      expect.objectContaining({ factKey: "amenities", factValue: "private pool" }),
+    ]))
+    expect(body.content.creative.claimProvenance.every((claim: { text?: string }) => claim.text === undefined)).toBe(true)
+    const events = info.mock.calls
+      .filter(([message]) => message === "Marketing generation breadcrumb:")
+      .map(([, metadata]) => JSON.parse(metadata as string).event)
+    expect(events).toEqual(expect.arrayContaining([
+      "route_entered",
+      "content_row_loaded",
+      "format_resolved",
+      "creative_ai_service_entered",
+      "openai_request_started",
+      "openai_response_received",
+      "provider_output_access",
+      "structural_parse",
+      "factual_validation",
+      "creative_output_validation",
+      "persistence_start",
+      "persistence_complete",
+      "route_success",
+    ]))
+    if (format === "story") {
+      expect(events).toEqual(expect.arrayContaining(["normalization", "final_renderer_validation"]))
+    }
+    info.mockRestore()
+  })
+
   it("logs safe factual-validation metadata without generated copy", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     configureFeedStudioRoute()
@@ -414,7 +530,7 @@ describe("Create Studio generation route with the real repair-aware generator", 
     const body = await response.json()
 
     expect(response.status).toBe(502)
-    expect(body).toEqual({ error: "Generated copy references unavailable inventory fact: amenities." })
+    expect(body).toEqual({ error: "We couldn't safely generate this content from the available property information. Please try again." })
     const diagnostic = error.mock.calls
       .filter(([message]) => message === "Marketing AI generation failed:")
       .map(([, metadata]) => JSON.parse(metadata as string))[0]

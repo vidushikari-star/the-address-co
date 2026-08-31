@@ -191,6 +191,7 @@ export async function POST(request: Request, context: Context) {
       if (treatment.enabled && (!logo || (treatment.assetId && logo.id !== treatment.assetId))) {
         return NextResponse.json({ error: "The selected brand logo is unavailable. Disable it or choose an active logo before generating." }, { status: 409 })
       }
+      logMarketingGenerationBreadcrumb({ event: "composition_creation", format: generationFormat, stage: generationStage, contentId: id })
       const composition = CompositionService.composeReel({
         propertyId: property.id,
         assetIds: selectedAssets.assets.map(asset => asset.id),
@@ -202,12 +203,15 @@ export async function POST(request: Request, context: Context) {
           assetId: logo!.id,
         } : undefined,
       })
+      generationStage = "persistence"
+      logMarketingGenerationBreadcrumb({ event: "persistence_start", format: generationFormat, stage: generationStage, contentId: id })
       content = await MarketingRepository.updateContent(id, { ...changes, composition: withMarketingContract(composition, marketingContract) }, access.user.id)
       await MarketingRepository.queueReelRender({
         contentId: id,
         updatedBy: access.user.id,
         idempotencyKey: `render-reel:${id}:${crypto.randomUUID()}`,
       })
+      logMarketingGenerationBreadcrumb({ event: "persistence_complete", format: generationFormat, stage: generationStage, contentId: id })
     }
     await MarketingRepository.addAuditLog({
       actorId: access.user.id,

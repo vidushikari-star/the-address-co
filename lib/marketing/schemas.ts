@@ -286,7 +286,8 @@ export const CreativeOutputSchema = z.object({
   factsUsed: z.array(z.enum(MARKETING_SAFE_FACT_KEYS)).max(20),
   /** Stored beside creative JSON; legacy output can be reviewed without a migration. */
   claimProvenance: z.array(z.object({
-    text: z.string().trim().min(1).max(240),
+    /** Legacy audit note only; canonical factKey/factValue drive validation. */
+    text: z.string().trim().min(1).max(240).optional(),
     factKey: z.enum(MARKETING_SAFE_FACT_KEYS),
     factValue: z.string().trim().min(1).max(240),
   })).max(30).default([]),
@@ -318,8 +319,8 @@ export const NonStoryCreativeOutputSchema = CreativeOutputSchema.extend({
 const CompactHashtagsSchema = z.array(z.string().trim().min(2).max(48)).min(1).max(8)
 const CompactFactsUsedSchema = z.array(z.enum(MARKETING_SAFE_FACT_KEYS)).max(8)
 const CompactClaimProvenanceSchema = z.array(z.object({
-  // A claim is a short factual phrase, never a duplicate of the full caption.
-  text: z.string().trim().min(1).max(120),
+  // New provider output is canonical only. Historic persisted rows may retain
+  // an optional audit `text`, but it is deliberately not requested here.
   factKey: z.enum(MARKETING_SAFE_FACT_KEYS),
   // This may be a compact exact excerpt of a longer supplied property fact.
   factValue: z.string().trim().min(1).max(160),

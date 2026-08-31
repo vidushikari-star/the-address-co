@@ -130,7 +130,7 @@ describe("CreativeAIService", () => {
     expect(fetchMock).toHaveBeenCalledWith("https://api.openai.com/v1/responses", expect.objectContaining({ method: "POST" }))
     const request = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
     const input = JSON.parse(request.input[1].content)
-    expect(input.propertyFacts).toMatchObject({ title: "Villa Verde", location: "Parra, Goa", bedrooms: 4 })
+    expect(input.AUTHORITATIVE_PROPERTY_FACTS).toMatchObject({ title: "Villa Verde", location: "Parra, Goa", bedrooms: 4 })
     expect(input).not.toHaveProperty("brandSettings")
     expect(input).not.toHaveProperty("deliveryFormat")
     expect(request).toMatchObject({ model: "gpt-5.2", max_output_tokens: MARKETING_OUTPUT_TOKEN_BUDGETS.reel })
@@ -157,6 +157,10 @@ describe("CreativeAIService", () => {
       expect(request.max_output_tokens).toBe(MARKETING_OUTPUT_TOKEN_BUDGETS[format])
       expect(fields).toEqual(expect.arrayContaining([...required]))
       expect(fields).not.toEqual(expect.arrayContaining([...omitted]))
+      expect(Object.keys(request.text.format.schema.properties.claimProvenance.items.properties)).toEqual([
+        "factKey",
+        "factValue",
+      ])
       for (const limit of expectedPromptLimits[format]) {
         expect(request.input[0].content).toContain(limit)
       }
@@ -167,7 +171,7 @@ describe("CreativeAIService", () => {
     }
   })
 
-  it("rejects factual output that omits the required claim provenance", async () => {
+  it("rejects claimed facts that omit their required canonical provenance", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     global.fetch = vi.fn().mockResolvedValue(completedResponse({ ...creative, claimProvenance: [] }))
 
@@ -177,7 +181,7 @@ describe("CreativeAIService", () => {
       objective: "property_spotlight",
       creativeDirection: "luxury_editorial",
       settings,
-    })).rejects.toThrow("missing claim provenance")
+    })).rejects.toThrow("missing canonical fact references")
   })
 
   it("deterministically compacts renderer-dense Story highlights without an extra provider repair", async () => {
@@ -193,11 +197,12 @@ describe("CreativeAIService", () => {
         ],
       },
     }
+    const propertyWithPool = { ...property, amenities: ["private pool"] }
     const fetchMock = vi.fn().mockResolvedValue(completedResponse(oversized))
     global.fetch = fetchMock
 
     const output = await CreativeAIService.generate({
-      property,
+      property: propertyWithPool,
       contentType: "story",
       creativeDirection: "minimal",
       settings,
@@ -217,14 +222,15 @@ describe("CreativeAIService", () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     const tooLongCta = "Request a private presentation and personalised property details today."
     expect(tooLongCta.length).toBeGreaterThan(60)
-    const originalProperty = structuredClone(property)
+    const propertyWithPool = { ...property, amenities: ["private pool"] }
+    const originalProperty = structuredClone(propertyWithPool)
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(completedResponse({ ...creative, storyCopy: { ...creative.storyCopy, cta: tooLongCta } }))
       .mockResolvedValueOnce(completedResponse(creative))
     global.fetch = fetchMock
 
     const output = await CreativeAIService.generate({
-      property,
+      property: propertyWithPool,
       format: "story",
       objective: "property_spotlight",
       creativeDirection: "luxury_editorial",
@@ -238,7 +244,7 @@ describe("CreativeAIService", () => {
     expect(repairRequest.input[0].content).toContain("Repair only storyCopy")
     expect(repairRequest.input[0].content).toContain("same factual content and editorial direction")
     expect(repairRequest.input[1].content).toBe(firstRequest.input[1].content)
-    expect(property).toEqual(originalProperty)
+    expect(propertyWithPool).toEqual(originalProperty)
   })
 
   it("repairs other bounded Story text fields with the same one-attempt path", async () => {
@@ -324,12 +330,13 @@ describe("CreativeAIService", () => {
       priceLine: "",
       cta: "Request a private presentation and personalised property details today.",
     }
-    const originalProperty = structuredClone(property)
+    const propertyWithPool = { ...property, amenities: ["private pool"] }
+    const originalProperty = structuredClone(propertyWithPool)
     const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(completedResponse({ ...creative, storyCopy: oversizedVisualCopy })))
     global.fetch = fetchMock
 
     const output = await CreativeAIService.generate({
-      property,
+      property: propertyWithPool,
       format: "story",
       objective: "property_spotlight",
       creativeDirection: "luxury_editorial",
@@ -342,7 +349,7 @@ describe("CreativeAIService", () => {
     expect(output.storyCopy.highlights.every(item => item.length <= 60)).toBe(true)
     expect(output.storyCopy.cta.length).toBeLessThanOrEqual(60)
     expect([output.storyCopy.headline, output.storyCopy.supportingLine, ...output.storyCopy.highlights, output.storyCopy.cta].some(value => value.endsWith("…"))).toBe(false)
-    expect(property).toEqual(originalProperty)
+    expect(propertyWithPool).toEqual(originalProperty)
   })
 
   it("omits an overlong optional Story price line without rewriting the price or caption", async () => {
@@ -556,7 +563,7 @@ describe("CreativeAIService", () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     global.fetch = vi.fn().mockResolvedValue(completedResponse({
       ...creative,
-      caption: "Guaranteed returns at Villa Verde.",
+      caption: "Guaranteed discretion at Villa Verde.",
       factsUsed: ["title"],
       claimProvenance: [{ text: "Villa Verde", factKey: "title", factValue: "Villa Verde" }],
     }))
@@ -580,6 +587,22 @@ describe("CreativeAIService", () => {
     expect(request.input[0].content).toContain("at most 2–3 short lines")
     expect(request.max_output_tokens).toBe(MARKETING_OUTPUT_TOKEN_BUDGETS.reel_storyboard)
     expect(JSON.parse(request.input[1].content)).not.toHaveProperty("brandSettings")
+  })
+
+  it("rejects a factual hallucination in a rendered Reel storyboard overlay", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    global.fetch = vi.fn().mockResolvedValue(completedResponse({
+      ...storyboard,
+      scenes: [{ ...storyboard.scenes[0], overlayText: "5-bedroom villa in Candolim" }],
+    }))
+
+    await expect(CreativeAIService.improveReelStoryboard({
+      property,
+      creativeDirection: "minimal",
+      settings,
+      sourceAssetIds: [sourceAssetId],
+      userPrompt: "Use a more minimal opening.",
+    })).rejects.toThrow("unsupported numeric claim")
   })
 
   it("deterministically fits overly long storyboard overlays to the mobile-safe layout", () => {

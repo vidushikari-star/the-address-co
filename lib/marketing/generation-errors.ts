@@ -1,9 +1,10 @@
 import type { MarketingFormat } from "@/lib/marketing/types"
-import { factualValidationErrorDiagnostics } from "@/lib/marketing/fact-contract"
+import { factualValidationErrorDiagnostics, isFactualValidationError } from "@/lib/marketing/fact-contract"
 
 export const CONTENT_GENERATION_TOO_LONG_MESSAGE = "Content generation was too long to complete. Please try again or shorten the creative brief."
 export const STORY_COPY_TOO_LONG_MESSAGE = "Story copy was too long to format. Please regenerate the Story copy."
 export const INVALID_MARKETING_GENERATION_OUTPUT_MESSAGE = "AI generated an invalid content format. Please try again."
+export const FACTUAL_GENERATION_SAFETY_MESSAGE = "We couldn't safely generate this content from the available property information. Please try again."
 
 /**
  * Server-only provenance for a Story validation failure. This stays outside
@@ -168,6 +169,7 @@ function isKnownInvalidStructuredOutput(message: string) {
 /** User-safe mapping for the Marketing generation API and persisted job errors. */
 export function safeMarketingGenerationErrorMessage(error: unknown, format?: MarketingFormat | null) {
   const message = errorMessage(error)
+  if (isFactualValidationError(error)) return FACTUAL_GENERATION_SAFETY_MESSAGE
   const storyGeneration = format === undefined || format === null || format === "story"
   if (!storyGeneration && message === STORY_COPY_TOO_LONG_MESSAGE) {
     return INVALID_MARKETING_GENERATION_OUTPUT_MESSAGE

@@ -1,10 +1,9 @@
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
-import type { z } from "zod"
 import { getInstagramFormat } from "@/lib/marketing/instagram-format"
 import { validateInstagramPublishability } from "@/lib/marketing/content-delivery"
 import { resolveMarketingContract } from "@/lib/marketing/content-contract"
-import { CreativeOutputSchema, creativeOutputSchemaForFormat } from "@/lib/marketing/schemas"
-import { detectUnsupportedNumericClaim, validateClaimProvenance } from "@/lib/marketing/fact-contract"
+import { creativeOutputSchemaForFormat } from "@/lib/marketing/schemas"
+import { marketingRenderedCopyForFormat, validateMarketingFacts } from "@/lib/marketing/fact-contract"
 import type { PropertyFactSnapshot } from "@/lib/marketing/types"
 
 function hasReviewableCopy(content: {
@@ -20,31 +19,6 @@ function hasReviewableCopy(content: {
   )
 }
 
-function reviewableCreativeCopy(content: {
-  headline?: string | null
-  hook?: string | null
-  caption?: string | null
-  cta?: string | null
-  altText?: string | null
-}, creative: z.infer<typeof CreativeOutputSchema>) {
-  return [
-    content.headline,
-    content.hook,
-    content.caption,
-    content.cta,
-    content.altText,
-    creative.shortCaption,
-    creative.coverText,
-    ...creative.onScreenText,
-    ...creative.carouselSlides,
-    creative.storyCopy.headline,
-    creative.storyCopy.supportingLine,
-    ...creative.storyCopy.highlights,
-    creative.storyCopy.priceLine,
-    creative.storyCopy.cta,
-  ].filter(Boolean).join(" ")
-}
-
 export class ApprovalService {
   static async approve(contentId: string, adminId: string, note?: string) {
     const record = await MarketingRepository.getContentById(contentId)
@@ -56,11 +30,26 @@ export class ApprovalService {
     }
     const creative = creativeOutputSchemaForFormat(contract.format).safeParse(record.content.creative)
     if (creative.success) {
-      const copy = reviewableCreativeCopy(record.content, creative.data)
       const property = record.content.propertySnapshot as PropertyFactSnapshot
-      validateClaimProvenance({ property, claims: creative.data.claimProvenance, factsUsed: creative.data.factsUsed, copy })
-      const unsupportedNumericClaim = detectUnsupportedNumericClaim(copy, property)
-      if (unsupportedNumericClaim) throw new Error(unsupportedNumericClaim)
+      const renderedOutput = {
+        headline: record.content.headline ?? creative.data.headline,
+        hook: record.content.hook ?? creative.data.hook,
+        caption: record.content.caption ?? creative.data.caption,
+        shortCaption: record.content.shortCaption ?? creative.data.shortCaption,
+        cta: record.content.cta ?? creative.data.cta,
+        altText: record.content.altText ?? creative.data.altText,
+        coverText: creative.data.coverText,
+        onScreenText: creative.data.onScreenText,
+        carouselSlides: creative.data.carouselSlides,
+        storyCopy: creative.data.storyCopy,
+      }
+      validateMarketingFacts({
+        format: contract.format,
+        propertySnapshot: property,
+        factsUsed: creative.data.factsUsed,
+        provenance: creative.data.claimProvenance,
+        renderedCopy: marketingRenderedCopyForFormat(contract.format, renderedOutput),
+      })
     }
     const publishabilityError = validateInstagramPublishability(record.content, record.assets)
     if (publishabilityError) throw new Error(publishabilityError)

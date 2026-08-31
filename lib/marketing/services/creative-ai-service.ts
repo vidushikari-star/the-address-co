@@ -23,10 +23,9 @@ import {
   type MarketingGeneratedCreative,
 } from "@/lib/marketing/schemas"
 import {
-  assertSupportedNumericClaims,
-  FactualValidationError,
   marketingPromptFacts,
-  validateClaimProvenance,
+  marketingRenderedCopyForFormat,
+  validateMarketingFacts,
 } from "@/lib/marketing/fact-contract"
 import { legacyContractForContentType } from "@/lib/marketing/content-contract"
 import { logMarketingGenerationBreadcrumb } from "@/lib/marketing/generation-diagnostics"
@@ -508,155 +507,47 @@ function normalizeGeneratedCreative(input: {
   }
 }
 
-function creativeCopyForClaims(output: Pick<CreativeOutput,
-  "hook" | "headline" | "caption" | "shortCaption" | "cta" | "coverText" | "altText" |
-  "onScreenText" | "carouselSlides" | "storyCopy"
->) {
-  return [
-    output.hook, output.headline, output.caption, output.shortCaption, output.cta,
-    output.coverText, output.altText, ...output.onScreenText, ...output.carouselSlides,
-    output.storyCopy.headline, output.storyCopy.supportingLine, ...output.storyCopy.highlights,
-    output.storyCopy.priceLine, output.storyCopy.cta,
-  ].join(" ")
-}
-
-type FactualCopyField = {
-  field: string
-  value: string
-}
-
-function factualCopy(fields: FactualCopyField[]) {
-  return fields.map(field => field.value).join(" ")
-}
-
-/**
- * Validate only the fields rendered for the selected delivery format. The
- * persisted full-creative shape includes compatibility projections (notably
- * non-Story `storyCopy`), which are never generated or rendered as factual
- * content for Feed, Carousel, or Reel.
- */
-function generatedCreativeClaimFields(format: MarketingFormat, output: MarketingGeneratedCreative): FactualCopyField[] {
-  switch (format) {
-    case "feed_single": {
-      const feed = output as Extract<MarketingGeneratedCreative, { headline: string; shortCaption: string }>
-      return [
-        { field: "headline", value: feed.headline },
-        { field: "caption", value: feed.caption },
-        { field: "shortCaption", value: feed.shortCaption },
-        { field: "cta", value: feed.cta },
-        { field: "altText", value: feed.altText },
-      ]
-    }
-    case "carousel": {
-      const carousel = output as Extract<MarketingGeneratedCreative, { caption: string; cta: string; altText: string }>
-      return [
-        { field: "caption", value: carousel.caption },
-        { field: "cta", value: carousel.cta },
-        { field: "altText", value: carousel.altText },
-      ]
-    }
-    case "story": {
-      const story = output as Extract<MarketingGeneratedCreative, { storyCopy: StoryCopy; caption: string; altText: string }>
-      return [
-        { field: "caption", value: story.caption },
-        { field: "altText", value: story.altText },
-        { field: "storyCopy.headline", value: story.storyCopy.headline },
-        { field: "storyCopy.supportingLine", value: story.storyCopy.supportingLine },
-        ...story.storyCopy.highlights.map((value, index) => ({ field: `storyCopy.highlights[${index}]`, value })),
-        { field: "storyCopy.priceLine", value: story.storyCopy.priceLine },
-        { field: "storyCopy.cta", value: story.storyCopy.cta },
-      ]
-    }
-    case "reel": {
-      const reel = output as Extract<MarketingGeneratedCreative, { hook: string; coverText: string; onScreenText: string[] }>
-      return [
-        { field: "hook", value: reel.hook },
-        { field: "caption", value: reel.caption },
-        { field: "shortCaption", value: reel.shortCaption },
-        { field: "cta", value: reel.cta },
-        { field: "altText", value: reel.altText },
-        { field: "coverText", value: reel.coverText },
-        ...reel.onScreenText.map((value, index) => ({ field: `onScreenText[${index}]`, value })),
-      ]
-    }
-  }
-}
-
-function generatedStoryCopyForClaims(output: StoryGeneratedCreativeCandidate) {
-  return [
-    output.caption, output.altText,
-    output.storyCopy.headline, output.storyCopy.supportingLine, ...output.storyCopy.highlights,
-    output.storyCopy.priceLine, output.storyCopy.cta,
-  ].join(" ")
-}
-
-function storyCopyText(storyCopy: StoryCopy) {
-  return [
-    storyCopy.headline, storyCopy.supportingLine, ...storyCopy.highlights,
-    storyCopy.priceLine, storyCopy.cta,
-  ].join(" ")
-}
-
-/**
- * Claim grounding deliberately runs before any visual repair. A later visual
- * normalisation can remove an optional line, but it must never be used to
- * rescue an invented or structurally invalid provider response.
- */
+/** The one format-aware factual boundary used before and after Story layout normalization. */
 function validateGeneratedFacts(input: {
+  format: MarketingFormat
   property: PropertyFactSnapshot
   factsUsed: CreativeOutput["factsUsed"]
   claimProvenance: CreativeOutput["claimProvenance"]
-  copy: string
-  copyFields?: FactualCopyField[]
+  output: MarketingGeneratedCreative | CreativeOutput
 }) {
-  if (input.factsUsed.length && !input.claimProvenance.length) {
-    throw new FactualValidationError({
-      message: "Generated factual copy is missing claim provenance. Try generation again.",
-      reasonCode: "missing_claim_provenance",
-      ruleId: "claim_provenance_required_for_facts_used",
-      field: "claimProvenance",
-      violationCount: input.factsUsed.length,
-    })
-  }
-  validateClaimProvenance({
-    property: input.property,
-    claims: input.claimProvenance,
+  return validateMarketingFacts({
+    format: input.format,
+    propertySnapshot: input.property,
     factsUsed: input.factsUsed,
-    copy: input.copy,
+    provenance: input.claimProvenance,
+    renderedCopy: marketingRenderedCopyForFormat(input.format, input.output),
   })
-  if (input.copyFields?.length) {
-    for (const field of input.copyFields) {
-      assertSupportedNumericClaims(field.value, input.property, field.field)
-    }
-    return
-  }
-  assertSupportedNumericClaims(input.copy, input.property)
 }
 
-function validateStoryCopyNumericFacts(storyCopy: StoryCopy, property: PropertyFactSnapshot) {
-  assertSupportedNumericClaims(storyCopyText(storyCopy), property, "storyCopy")
+function validateStoryCopyFacts(storyCopy: StoryCopy, property: PropertyFactSnapshot) {
+  return validateMarketingFacts({
+    format: "story",
+    propertySnapshot: property,
+    factsUsed: [],
+    provenance: [],
+    renderedCopy: marketingRenderedCopyForFormat("story", { storyCopy }),
+  })
 }
 
-function normalizeForClaimSearch(value: string) {
-  return value.replace(/\s+/g, " ").trim().toLocaleLowerCase()
-}
-
-/**
- * An optional Story visual field can be removed when it cannot fit exactly
- * (notably price). Remove only provenance that no longer has visible copy,
- * then keep `factsUsed` in step with the persisted claims.
- */
-function removeOmittedStoryClaims(output: CreativeOutput): CreativeOutput {
-  const copy = normalizeForClaimSearch(creativeCopyForClaims(output))
-  const claimProvenance = output.claimProvenance.filter(claim => copy.includes(normalizeForClaimSearch(claim.text)))
-  if (claimProvenance.length === output.claimProvenance.length) return output
-
-  const factKeysWithVisibleClaims = new Set(claimProvenance.map(claim => claim.factKey))
-  return {
-    ...output,
-    factsUsed: output.factsUsed.filter(factKey => factKeysWithVisibleClaims.has(factKey)),
-    claimProvenance,
-  }
+/** Reel storyboard overlays are rendered copy, so they share the same factual boundary. */
+function validateReelStoryboardFacts(storyboard: ReelStoryboard, property: PropertyFactSnapshot) {
+  return validateMarketingFacts({
+    format: "reel",
+    propertySnapshot: property,
+    factsUsed: [],
+    provenance: [],
+    renderedCopy: [
+      { field: "storyboard.hook", value: storyboard.hook },
+      ...storyboard.scenes.map((scene, index) => ({ field: `storyboard.scenes[${index}].overlayText`, value: scene.overlayText })),
+      { field: "storyboard.endCard.headline", value: storyboard.endCard.headline },
+      { field: "storyboard.endCard.cta", value: storyboard.endCard.cta },
+    ],
+  })
 }
 
 class StoryboardOverlayLengthError extends Error {
@@ -747,9 +638,9 @@ export class CreativeAIService {
       const instructions = [
         "You are the private editorial marketing assistant for a luxury real-estate CRM.",
         "Return the structured output that matches the supplied schema.",
-        "Use only the supplied inventory facts. Never invent amenities, views, ROI, availability, room counts, size, price, location facts, or urgency.",
-        "When a fact is absent, omit it. Generic stylistic language is allowed only when it does not imply an unsupported property fact.",
-        "For every factual claim, return one compact claimProvenance entry: quote only the factual phrase, identify the supplied fact key, and use the exact supplied fact value or a compact exact excerpt. Never duplicate a full caption in provenance. Do not add provenance for generic stylistic copy.",
+        "The user message contains AUTHORITATIVE_PROPERTY_FACTS from the immutable persisted property snapshot. Use those objective facts exactly or omit them; never invent or alter amenities, views, ROI, availability, room counts, size, price, location facts, or urgency.",
+        "Editorial and lifestyle language is welcome when it does not assert an unsupported objective property fact.",
+        "For each objective property fact you choose to use, return one compact claimProvenance entry with its canonical supplied factKey and exact supplied factValue (or a compact exact source excerpt). Do not add provenance for generic editorial or lifestyle copy.",
         luxuryEditorialInstructions(),
         generationOutputInstructions(format),
         formatConcisenessInstructions(format),
@@ -781,7 +672,7 @@ export class CreativeAIService {
             { role: "system", content: instructions },
             {
               role: "user",
-              content: JSON.stringify({ propertyFacts: factLines(input.property) }),
+              content: JSON.stringify({ AUTHORITATIVE_PROPERTY_FACTS: factLines(input.property) }),
             },
           ],
           text: { format: zodTextFormat(providerSchema, "marketing_creative") },
@@ -832,11 +723,11 @@ export class CreativeAIService {
             markGenerationStage("factual_validation")
             logMarketingGenerationBreadcrumb({ event: "factual_validation", format, stage: "factual_validation" })
             validateGeneratedFacts({
+              format,
               property: input.property,
               factsUsed: candidate.factsUsed,
               claimProvenance: candidate.claimProvenance,
-              copy: generatedStoryCopyForClaims(candidate),
-              copyFields: generatedCreativeClaimFields(format, candidate),
+              output: candidate,
             })
             logStoryFactualValidation()
           } catch (error) {
@@ -872,13 +763,12 @@ export class CreativeAIService {
           try {
             markGenerationStage("factual_validation")
             logMarketingGenerationBreadcrumb({ event: "factual_validation", format, stage: "factual_validation" })
-            const copyFields = generatedCreativeClaimFields(format, generated)
             validateGeneratedFacts({
+              format,
               property: input.property,
               factsUsed: generated.factsUsed,
               claimProvenance: generated.claimProvenance,
-              copy: factualCopy(copyFields),
-              copyFields,
+              output: generated,
             })
           } catch (error) {
             throw tagStoryGenerationError(error, "factual_validation")
@@ -944,16 +834,14 @@ export class CreativeAIService {
       }
       if (format === "story") {
         markGenerationStage("generation_result_mapping")
-        output = removeOmittedStoryClaims(output)
         try {
           markGenerationStage("factual_validation")
-          const copyFields = generatedCreativeClaimFields("story", output)
           validateGeneratedFacts({
+            format: "story",
             property: input.property,
             factsUsed: output.factsUsed,
             claimProvenance: output.claimProvenance,
-            copy: factualCopy(copyFields),
-            copyFields,
+            output,
           })
         } catch (error) {
           if (generationProgress.responseReceived) throw tagStoryGenerationError(error, generationProgress.stage)
@@ -995,7 +883,7 @@ export class CreativeAIService {
           {
             role: "user",
             content: JSON.stringify({
-              propertyFacts: factLines(input.property),
+              AUTHORITATIVE_PROPERTY_FACTS: factLines(input.property),
               sourceAssetIds: input.sourceAssetIds,
               currentStoryboard: input.currentStoryboard ?? null,
             }),
@@ -1052,6 +940,7 @@ export class CreativeAIService {
     if (storyboard.scenes.some(scene => !knownAssets.has(scene.assetId))) {
       throw new Error("OpenAI storyboard referenced an unavailable source asset.")
     }
+    validateReelStoryboardFacts(storyboard, input.property)
     return validateBrandSafety(storyboard, input.settings)
   }
 
@@ -1089,7 +978,7 @@ export class CreativeAIService {
               `Requested improvement: ${input.userPrompt}`,
               repairInstruction ?? "",
             ].filter(Boolean).join("\n") },
-            { role: "user", content: JSON.stringify({ propertyFacts: factLines(input.property), currentStoryCopy: input.currentStoryCopy }) },
+            { role: "user", content: JSON.stringify({ AUTHORITATIVE_PROPERTY_FACTS: factLines(input.property), currentStoryCopy: input.currentStoryCopy }) },
           ],
           text: { format: zodTextFormat(StoryCopyStructuralSchema, "marketing_story_copy") },
         })
@@ -1115,7 +1004,7 @@ export class CreativeAIService {
         logStoryVisualParse(storyValidationStage, storyVisualLengths(parsed.data))
         try {
           markStoryStage("factual_validation")
-          validateStoryCopyNumericFacts(parsed.data, input.property)
+          validateStoryCopyFacts(parsed.data, input.property)
           logStoryFactualValidation()
         } catch (error) {
           throw tagStoryGenerationError(error, "factual_validation")

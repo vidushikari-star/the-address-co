@@ -2,13 +2,16 @@ import { describe, expect, it } from "vitest"
 
 import {
   assertSupportedNumericClaims,
+  type ClaimProvenance,
   detectUnsupportedNumericClaim,
   factualValidationErrorDiagnostics,
+  marketingRenderedCopyForFormat,
   marketingPromptFacts,
   marketingSafeFacts,
+  validateMarketingFacts,
   validateClaimProvenance,
 } from "@/lib/marketing/fact-contract"
-import type { PropertyFactSnapshot } from "@/lib/marketing/types"
+import type { MarketingFormat, PropertyFactSnapshot } from "@/lib/marketing/types"
 
 const property: PropertyFactSnapshot = {
   id: "property-1",
@@ -150,4 +153,113 @@ describe("Marketing fact contract", () => {
     })
     expect(JSON.stringify(factualValidationErrorDiagnostics(error))).not.toContain("5-bedroom")
   })
+
+  it.each(["feed_single", "carousel", "story", "reel"] as const)("uses the same canonical grounding contract for valid %s editorial copy", format => {
+    const groundedProperty: PropertyFactSnapshot = {
+      ...property,
+      title: "Villa 18",
+      location: "Parra, Goa",
+      bedrooms: 4,
+      bathrooms: 4,
+      price: "60000000",
+      builtUpArea: 450,
+      amenities: ["private pool"],
+      propertyType: "Villa",
+    }
+    const output = renderedOutputForFormat(format)
+    const provenance = [
+      { text: "audit title note", factKey: "title" as const, factValue: "Villa 18" },
+      { text: "audit location note", factKey: "location" as const, factValue: "Parra" },
+      { text: "audit bedroom note", factKey: "bedrooms" as const, factValue: "4" },
+      { text: "audit amenity note", factKey: "amenities" as const, factValue: "private pool" },
+    ]
+
+    expect(() => validateMarketingFacts({
+      format,
+      propertySnapshot: groundedProperty,
+      factsUsed: ["title", "location", "bedrooms", "amenities"],
+      provenance,
+      renderedCopy: marketingRenderedCopyForFormat(format, output),
+    })).not.toThrow()
+  })
+
+  it.each(["feed_single", "carousel", "story", "reel"] as const)("allows %s editorial prose without provenance but rejects objective hallucinations", format => {
+    const groundedProperty: PropertyFactSnapshot = {
+      ...property,
+      title: "Villa 18",
+      bedrooms: 4,
+      bathrooms: 4,
+      price: "60000000",
+      builtUpArea: 450,
+      amenities: ["private pool"],
+    }
+    const validate = (value: string, overrides?: Partial<PropertyFactSnapshot>, provenance = [] as ClaimProvenance[]) => validateMarketingFacts({
+      format,
+      propertySnapshot: { ...groundedProperty, ...overrides },
+      factsUsed: provenance.map(claim => claim.factKey),
+      provenance,
+      renderedCopy: [{ field: renderedFieldForFormat(format), value }],
+    })
+
+    expect(() => validate("A refined, serene, and beautifully considered home for effortless indoor-outdoor living.")).not.toThrow()
+    expect(() => validate("A 5-bedroom villa.")).toThrow("unsupported numeric claim")
+    expect(() => validate("5 bathrooms.")).toThrow("unsupported numeric claim")
+    expect(() => validate("Offered at ₹4.5 Cr.")).toThrow("unsupported numeric claim")
+    expect(() => validate("500 sqm of built-up area.")).toThrow("unsupported numeric claim")
+    expect(() => validate("A private swimming pool.", { amenities: [] })).toThrow("unsupported objective property claim")
+    expect(() => validate("A home in Candolim.", {}, [{ text: "audit location", factKey: "location", factValue: "Candolim" }])).toThrow("not grounded")
+    expect(() => validate("Two minutes from the beach.")).toThrow("unsupported derived property claim")
+    expect(() => validate("High rental yields.")).toThrow("unsupported derived property claim")
+  })
 })
+
+function renderedFieldForFormat(format: MarketingFormat) {
+  switch (format) {
+    case "feed_single": return "caption"
+    case "carousel": return "caption"
+    case "story": return "storyCopy.highlights[0]"
+    case "reel": return "onScreenText[0]"
+  }
+}
+
+function renderedOutputForFormat(format: MarketingFormat) {
+  switch (format) {
+    case "feed_single":
+      return {
+        headline: "Villa 18, Parra",
+        caption: "Villa 18 offers a refined expression of tropical living in Parra. Designed around a private pool, this four-bedroom home brings together calm interiors and effortless indoor-outdoor living.",
+        shortCaption: "A refined Villa 18 in Parra.",
+        cta: "Request details",
+        altText: "Villa 18 in Parra.",
+      }
+    case "carousel":
+      return {
+        caption: "Villa 18 in Parra pairs a private pool with refined tropical living.",
+        cta: "Request details",
+        altText: "Villa 18 in Parra.",
+        carouselSlides: ["Private pool", "Four-bedroom villa"],
+      }
+    case "story":
+      return {
+        caption: "Villa 18 in Parra.",
+        altText: "Villa 18 in Parra.",
+        storyCopy: {
+          headline: "A private retreat in Parra",
+          supportingLine: "Four bedrooms arranged around relaxed tropical living.",
+          highlights: ["Private pool"],
+          priceLine: "",
+          cta: "Request details",
+        },
+      }
+    case "reel":
+      return {
+        hook: "Step inside a calmer side of Goa living.",
+        caption: "Villa 18 brings refined tropical living to Parra.",
+        shortCaption: "Villa 18, Parra.",
+        cta: "Request details",
+        altText: "Villa 18 in Parra.",
+        coverText: "Villa 18",
+        onScreenText: ["Four-bedroom villa in Parra", "Private pool"],
+      }
+  }
+}
