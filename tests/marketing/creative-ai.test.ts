@@ -140,7 +140,7 @@ describe("CreativeAIService", () => {
     expect(request.input[0].content.match(/The Address Co/g)).toHaveLength(1)
   })
 
-  it("supplies canonical amenity keys for provider provenance while retaining natural rendered copy", async () => {
+  it("supplies canonical amenity keys as authoritative context while retaining natural rendered copy", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     const fetchMock = vi.fn().mockResolvedValue(completedResponse())
     global.fetch = fetchMock
@@ -161,7 +161,7 @@ describe("CreativeAIService", () => {
     const facts = JSON.parse(request.input[1].content).CANONICAL_PROPERTY_FACTS
     expect(facts.amenities).toEqual(["private_pool", "covered_parking", "garden"])
     expect(facts.features).toEqual(["air_conditioning"])
-    expect(request.input[0].content).toContain("underscore-separated keys")
+    expect(request.input[0].content).toContain("Never invent or alter price, bedrooms, bathrooms, area, location")
   })
 
   it("sends description as trusted editorial source text rather than provider provenance", async () => {
@@ -184,9 +184,9 @@ describe("CreativeAIService", () => {
     const input = JSON.parse(request.input[1].content)
     expect(input.CANONICAL_PROPERTY_FACTS).not.toHaveProperty("description")
     expect(input.TRUSTED_SOURCE_DESCRIPTION).toBe("A considered tropical home shaped around calm interiors and effortless indoor-outdoor living.")
-    expect(request.input[0].content).toContain("must never appear in factsUsed or claimProvenance")
-    expect(request.text.format.schema.properties.factsUsed.items.enum).not.toContain("description")
-    expect(request.text.format.schema.properties.claimProvenance.items.properties.factKey.enum).not.toContain("description")
+    expect(request.input[0].content).toContain("optional audit metadata")
+    expect(request.text.format.schema.properties.factsUsed.items).toMatchObject({ type: "string" })
+    expect(request.text.format.schema.properties.claimProvenance.items.properties.factKey).toMatchObject({ type: "string" })
   })
 
   it("uses compact, format-specific schemas and token budgets", async () => {
@@ -210,8 +210,8 @@ describe("CreativeAIService", () => {
         "factKey",
         "factValue",
       ])
-      expect(request.text.format.schema.properties.factsUsed.items.enum).not.toContain("description")
-      expect(request.text.format.schema.properties.claimProvenance.items.properties.factKey.enum).not.toContain("description")
+      expect(request.text.format.schema.properties.factsUsed.items).toMatchObject({ type: "string" })
+      expect(request.text.format.schema.properties.claimProvenance.items.properties.factKey).toMatchObject({ type: "string" })
       for (const limit of expectedPromptLimits[format]) {
         expect(request.input[0].content).toContain(limit)
       }
@@ -222,9 +222,10 @@ describe("CreativeAIService", () => {
     }
   })
 
-  it("rejects claimed facts that omit their required canonical provenance", async () => {
+  it("accepts generated copy with absent claim provenance and logs only a safe warning", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
-    global.fetch = vi.fn().mockResolvedValue(completedResponse({ ...creative, claimProvenance: [] }))
+    global.fetch = vi.fn().mockResolvedValue(completedResponse({ ...creative, claimProvenance: undefined }))
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined)
 
     await expect(CreativeAIService.generate({
       property,
@@ -232,7 +233,11 @@ describe("CreativeAIService", () => {
       objective: "property_spotlight",
       creativeDirection: "luxury_editorial",
       settings,
-    })).rejects.toThrow("missing canonical fact references")
+    })).resolves.toMatchObject({ claimProvenance: [] })
+    expect(info.mock.calls).toEqual(expect.arrayContaining([
+      ["Marketing factual warning:", expect.stringContaining('"warningCode":"missing_claim_provenance"')],
+    ]))
+    info.mockRestore()
   })
 
   it("deterministically compacts renderer-dense Story highlights without an extra provider repair", async () => {

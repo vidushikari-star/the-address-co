@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   assertSupportedNumericClaims,
+  assessMarketingFacts,
   canonicalizeAmenity,
   type ClaimProvenance,
   detectUnsupportedNumericClaim,
@@ -44,7 +45,7 @@ describe("Marketing fact contract", () => {
     expect(Object.keys(facts)).not.toContain("commission")
   })
 
-  it("accepts claim provenance that maps copy back to supplied inventory", () => {
+  it("returns no audit warnings for matching provenance", () => {
     expect(validateClaimProvenance({
       property,
       factsUsed: ["bedrooms", "amenities"],
@@ -53,7 +54,7 @@ describe("Marketing fact contract", () => {
         { text: "private pool", factKey: "amenities", factValue: "private pool" },
       ],
       copy: "A 3-bedroom residence with a private pool.",
-    })).toBe(true)
+    })).toEqual([])
   })
 
   it("keeps source description as compact generation context, not canonical provenance", () => {
@@ -90,36 +91,36 @@ describe("Marketing fact contract", () => {
       factsUsed: legacyGrounding.factsUsed,
       claims: legacyGrounding.claimProvenance,
       copy: "A refined tropical home shaped around calm interiors.",
-    })).toBe(true)
+    })).toEqual([])
     expect(validateMarketingFacts({
       format: "feed_single",
       propertySnapshot: sourceProperty,
       factsUsed: legacyGrounding.factsUsed,
       provenance: legacyGrounding.claimProvenance,
       renderedCopy: [{ field: "caption", value: "A refined tropical home shaped around calm interiors and effortless indoor-outdoor living." }],
-    })).toBe(true)
+    })).toMatchObject({ hardViolations: [], warnings: [] })
   })
 
-  it("rejects unsupported or unavailable factual claims before approval", () => {
-    expect(() => validateClaimProvenance({
+  it("downgrades unavailable and mismatched provenance to safe audit warnings", () => {
+    expect(validateClaimProvenance({
       property,
       factsUsed: ["development_stage"],
       claims: [],
       copy: "Ready to move.",
-    })).toThrow("unavailable inventory fact")
-    expect(() => validateClaimProvenance({
+    })).toMatchObject([{ warningCode: "unavailable_fact_reference", factCategory: "development_stage" }])
+    expect(validateClaimProvenance({
       property,
       factsUsed: ["bedrooms"],
       claims: [{ text: "4-bedroom residence", factKey: "bedrooms", factValue: "4" }],
       copy: "A 4-bedroom residence.",
-    })).toThrow("not grounded")
+    })).toMatchObject([{ warningCode: "ungrounded_claim_value", factCategory: "bedrooms" }])
     expect(detectUnsupportedNumericClaim("A 4-bedroom residence in Parra.", property)).toContain("unsupported numeric claim")
-    expect(() => validateClaimProvenance({
+    expect(validateClaimProvenance({
       property: { ...property, amenities: ["garden"] },
       factsUsed: ["amenities"],
       claims: [{ text: "private pool", factKey: "amenities", factValue: "private pool" }],
       copy: "A private pool anchors the outdoor setting.",
-    })).toThrow("not grounded")
+    })).toMatchObject([{ warningCode: "ungrounded_claim_value", factCategory: "amenities" }])
   })
 
   it("accepts a factual price when punctuation follows the numeric value", () => {
@@ -137,7 +138,7 @@ describe("Marketing fact contract", () => {
       factsUsed: ["title"],
       claims: [{ text: "Villa 18", factKey: "title", factValue: "Villa 18" }],
       copy: "Villa 18 — Parra, Goa.",
-    })).toBe(true)
+    })).toEqual([])
   })
 
   it("allows non-objective editorial language without forcing factual provenance", () => {
@@ -148,7 +149,7 @@ describe("Marketing fact contract", () => {
       factsUsed: [],
       claims: [],
       copy: editorial,
-    })).toBe(true)
+    })).toEqual([])
     expect(detectUnsupportedNumericClaim(editorial, property)).toBeNull()
   })
 
@@ -161,7 +162,7 @@ describe("Marketing fact contract", () => {
       factsUsed: ["bedrooms"],
       claims: [{ text: "4-bedroom", factKey: "bedrooms", factValue: "4" }],
       copy: "A four bedroom residence.",
-    })).toBe(true)
+    })).toEqual([])
     expect(detectUnsupportedNumericClaim("A 5-bedroom residence.", pricedProperty)).toContain("unsupported numeric claim")
   })
 
@@ -214,23 +215,23 @@ describe("Marketing fact contract", () => {
         { factKey: "development_stage", factValue: "ready to move" },
         { factKey: "property_type", factValue: "independent house" },
       ],
-    })).toBe(true)
+    })).toEqual([])
 
     expect(() => validateClaimProvenance({
       property: amenityProperty,
       factsUsed: ["amenities"],
       claims: [{ factKey: "amenities", factValue: "covered_parking" }],
     })).not.toThrow()
-    expect(() => validateClaimProvenance({
+    expect(validateClaimProvenance({
       property: { ...amenityProperty, amenities: ["Open Parking"] },
       factsUsed: ["amenities"],
       claims: [{ factKey: "amenities", factValue: "covered_parking" }],
-    })).toThrow("not grounded")
+    })).toMatchObject([{ warningCode: "ungrounded_claim_value", factCategory: "amenities" }])
     expect(validateClaimProvenance({
       property: { ...amenityProperty, amenities: ["Swimming Pool"] },
       factsUsed: ["amenities"],
       claims: [{ factKey: "amenities", factValue: "pool" }],
-    })).toBe(true)
+    })).toEqual([])
   })
 
   it("does not let description language silently establish a structured amenity", () => {
@@ -275,31 +276,23 @@ describe("Marketing fact contract", () => {
     })).toThrow("unsupported objective property claim")
   })
 
-  it("records safe amenity mismatch diagnostics without generated or source labels", () => {
-    let error: unknown
-    try {
-      validateClaimProvenance({
-        property: { ...property, amenities: ["Garden"], features: ["Covered Parking"] },
-        factsUsed: ["amenities"],
-        claims: [{ factKey: "amenities", factValue: "private_pool" }],
-      })
-    } catch (caught) {
-      error = caught
-    }
+  it("records provenance mismatches as safe warnings without generated or source labels", () => {
+    const warnings = validateClaimProvenance({
+      property: { ...property, amenities: ["Garden"], features: ["Covered Parking"] },
+      factsUsed: ["amenities"],
+      claims: [{ factKey: "amenities", factValue: "private_pool" }],
+    })
 
-    expect(factualValidationErrorDiagnostics(error)).toMatchObject({
-      reasonCode: "ungrounded_claim_value",
+    expect(warnings).toEqual([expect.objectContaining({
+      warningCode: "ungrounded_claim_value",
       ruleId: "claim_fact_value_grounded",
       factCategory: "amenities",
-      matchMode: "no_match",
-      snapshotAmenityCount: 2,
-      amenitySources: ["amenities", "features"],
-    })
-    expect(JSON.stringify(factualValidationErrorDiagnostics(error))).not.toContain("Garden")
-    expect(JSON.stringify(factualValidationErrorDiagnostics(error))).not.toContain("private_pool")
+    })])
+    expect(JSON.stringify(warnings)).not.toContain("Garden")
+    expect(JSON.stringify(warnings)).not.toContain("private_pool")
   })
 
-  it.each(["feed_single", "carousel", "story", "reel"] as const)("uses the same canonical grounding contract for valid %s editorial copy", format => {
+  it.each(["feed_single", "carousel", "story", "reel"] as const)("uses the same permissive rendered-copy contract for valid %s editorial copy", format => {
     const groundedProperty: PropertyFactSnapshot = {
       ...property,
       title: "Villa 18",
@@ -353,12 +346,29 @@ describe("Marketing fact contract", () => {
     expect(() => validate("Offered at ₹4.5 Cr.")).toThrow("unsupported numeric claim")
     expect(() => validate("500 sqm of built-up area.")).toThrow("unsupported numeric claim")
     expect(() => validate("A private swimming pool.", { amenities: [] })).toThrow("unsupported objective property claim")
-    expect(() => validate("A covered parking bay.", { amenities: ["Open Parking"] }, [{ factKey: "amenities", factValue: "covered_parking" }])).toThrow("not grounded")
-    expect(() => validate("A rooftop terrace.", { amenities: ["Garden"] }, [{ factKey: "amenities", factValue: "rooftop_terrace" }])).toThrow("not grounded")
-    expect(() => validate("24-hour concierge.", { amenities: ["Security"] }, [{ factKey: "amenities", factValue: "24_hour_concierge" }])).toThrow("not grounded")
-    expect(() => validate("A home in Candolim.", {}, [{ text: "audit location", factKey: "location", factValue: "Candolim" }])).toThrow("not grounded")
+    expect(() => validate("A covered parking bay.", { amenities: ["Open Parking"] }, [{ factKey: "amenities", factValue: "covered_parking" }])).not.toThrow()
+    expect(() => validate("A rooftop terrace.", { amenities: ["Garden"] }, [{ factKey: "amenities", factValue: "rooftop_terrace" }])).not.toThrow()
+    expect(() => validate("24-hour concierge.", { amenities: ["Security"] }, [{ factKey: "amenities", factValue: "24_hour_concierge" }])).not.toThrow()
+    expect(() => validate("A home in Candolim.", {}, [{ text: "audit location", factKey: "location", factValue: "Candolim" }])).toThrow("unsupported objective property claim")
     expect(() => validate("Two minutes from the beach.")).toThrow("unsupported derived property claim")
     expect(() => validate("High rental yields.")).toThrow("unsupported derived property claim")
+    expect(() => validate("Guaranteed 12% annual returns.")).toThrow("unsupported derived property claim")
+  })
+
+  it("returns only warnings for incomplete, unused, or legacy provenance", () => {
+    const result = assessMarketingFacts({
+      format: "feed_single",
+      propertySnapshot: property,
+      factsUsed: ["title", "unknown_legacy_key"],
+      provenance: [{ factKey: "amenities", factValue: "not-an-inventory-key" }],
+      renderedCopy: [{ field: "caption", value: "A refined home in Parra." }],
+    })
+
+    expect(result.hardViolations).toEqual([])
+    expect(result.warnings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ warningCode: "unknown_provenance_fact_reference" }),
+      expect.objectContaining({ warningCode: "ungrounded_claim_value", factCategory: "amenities" }),
+    ]))
   })
 })
 

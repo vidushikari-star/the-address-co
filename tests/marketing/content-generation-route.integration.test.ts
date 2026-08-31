@@ -177,22 +177,16 @@ function factualTitleProviderOutput(format: "feed_single" | "carousel" | "story"
 
 function realisticGroundedProviderOutput(format: "feed_single" | "carousel" | "story" | "reel") {
   const grounding = {
-    factsUsed: ["title", "location", "bedrooms", "amenities"],
-    // New provider output contains canonical keys/values only; no free-text
-    // provenance is necessary for grounded editorial copy.
-    claimProvenance: [
-      { factKey: "title", factValue: "Villa 18" },
-      { factKey: "location", factValue: "Parra" },
-      { factKey: "bedrooms", factValue: "4" },
-      { factKey: "amenities", factValue: "private_pool" },
-    ],
+    // Provenance is intentionally absent: rendered copy, not audit metadata,
+    // determines whether Create Studio can generate safely.
+    factsUsed: ["title", "location", "bedrooms", "price", "amenities"],
   }
 
   switch (format) {
     case "feed_single":
       return {
         headline: "Villa 18, Parra",
-        caption: "Villa 18 offers a refined expression of tropical living in Parra. Designed around a private pool, this four-bedroom home brings together calm interiors and effortless indoor-outdoor living.",
+        caption: "Villa 18 offers a refined expression of tropical living in Parra. Designed around a private pool, this four-bedroom home brings together calm interiors and effortless indoor-outdoor living. Offered at ₹6 Cr.",
         shortCaption: "A refined Villa 18 in Parra.",
         cta: "Request details",
         hashtags: ["#NorthGoa"],
@@ -201,7 +195,7 @@ function realisticGroundedProviderOutput(format: "feed_single" | "carousel" | "s
       }
     case "carousel":
       return {
-        caption: "Villa 18 in Parra pairs a private pool with refined tropical living.",
+        caption: "Villa 18 in Parra pairs a private pool with refined tropical living. Offered at ₹6 Cr.",
         cta: "Request details",
         hashtags: ["#NorthGoa"],
         altText: "Villa 18 in Parra.",
@@ -216,7 +210,7 @@ function realisticGroundedProviderOutput(format: "feed_single" | "carousel" | "s
           headline: "A private retreat in Parra",
           supportingLine: "Four bedrooms arranged around relaxed tropical living.",
           highlights: ["Private pool"],
-          priceLine: "",
+          priceLine: "₹6 Cr",
           cta: "Request details",
         },
         ...grounding,
@@ -224,7 +218,7 @@ function realisticGroundedProviderOutput(format: "feed_single" | "carousel" | "s
     case "reel":
       return {
         hook: "Step inside a calmer side of Goa living.",
-        caption: "Villa 18 brings refined tropical living to Parra.",
+        caption: "Villa 18 brings refined tropical living to Parra, offered at ₹6 Cr.",
         shortCaption: "Villa 18, Parra.",
         cta: "Request details",
         hashtags: ["#NorthGoa"],
@@ -462,13 +456,14 @@ describe("Create Studio generation route with the real repair-aware generator", 
     expect(JSON.stringify(body)).not.toContain("factual validation")
   })
 
-  it.each(["feed_single", "carousel", "story", "reel"] as const)("persists realistic grounded editorial %s output through the actual Create Studio route", async format => {
+  it.each(["feed_single", "carousel", "story", "reel"] as const)("persists realistic grounded editorial %s output with no claim provenance through the actual Create Studio route", async format => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     const groundedProperty: PropertyFactSnapshot = {
       ...property,
       title: "Villa 18",
       location: "Parra, Goa",
       bedrooms: 4,
+      price: "6 Cr",
       amenities: ["Private Swimming Pool", "Covered Parking", "Garden", "24/7 Security"],
       features: ["air_conditioning"],
       description: "A considered tropical home shaped around calm interiors and effortless indoor-outdoor living.",
@@ -489,11 +484,8 @@ describe("Create Studio generation route with the real repair-aware generator", 
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(body.content.creative.claimProvenance).toEqual(expect.arrayContaining([
-      expect.objectContaining({ factKey: "title", factValue: "Villa 18" }),
-      expect.objectContaining({ factKey: "amenities", factValue: "private_pool" }),
-    ]))
-    expect(body.content.creative.claimProvenance.every((claim: { text?: string }) => claim.text === undefined)).toBe(true)
+    expect(body.content.creative.claimProvenance).toEqual([])
+    expect(body.content.creative.factsUsed).toEqual(["title", "location", "bedrooms", "price", "amenities"])
     const providerRequest = JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string)
     const generationContext = JSON.parse(providerRequest.input[1].content)
     expect(generationContext.CANONICAL_PROPERTY_FACTS.amenities).toEqual([
@@ -505,6 +497,9 @@ describe("Create Studio generation route with the real repair-aware generator", 
     expect(generationContext.CANONICAL_PROPERTY_FACTS).not.toHaveProperty("description")
     expect(generationContext.TRUSTED_SOURCE_DESCRIPTION).toBe(groundedProperty.description)
     expect(body.content.creative.claimProvenance.some((claim: { factKey: string }) => claim.factKey === "description")).toBe(false)
+    expect(info.mock.calls).toEqual(expect.arrayContaining([
+      ["Marketing factual warning:", expect.stringContaining('"warningCode":"missing_claim_provenance"')],
+    ]))
     const events = info.mock.calls
       .filter(([message]) => message === "Marketing generation breadcrumb:")
       .map(([, metadata]) => JSON.parse(metadata as string).event)
@@ -529,40 +524,37 @@ describe("Create Studio generation route with the real repair-aware generator", 
     info.mockRestore()
   })
 
-  it("logs safe factual-validation metadata without generated copy", async () => {
+  it("logs safe provenance warnings without blocking rendered copy", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     configureFeedStudioRoute()
-    const generatedCopy = "Villa Verde with a private pool."
+    const generatedCopy = "Villa Verde in Parra, Goa."
     global.fetch = vi.fn().mockResolvedValue(providerResponse({
       ...validFeedProviderOutput,
       caption: generatedCopy,
       factsUsed: ["amenities"],
       claimProvenance: [{ text: "private pool", factKey: "amenities", factValue: "private pool" }],
     }))
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined)
 
     const response = await generateRequest()
-    const body = await response.json()
+    await response.json()
 
-    expect(response.status).toBe(502)
-    expect(body).toEqual({ error: "We couldn't safely generate this content from the available property information. Please try again." })
-    const diagnostic = error.mock.calls
-      .filter(([message]) => message === "Marketing AI generation failed:")
+    expect(response.status).toBe(200)
+    const diagnostic = info.mock.calls
+      .filter(([message]) => message === "Marketing factual warning:")
       .map(([, metadata]) => JSON.parse(metadata as string))[0]
     expect(diagnostic).toMatchObject({
-      stage: "factual_validation",
-      reasonCode: "unavailable_fact_reference",
-      ruleId: "facts_used_available",
-      field: "factsUsed[0]",
-      factCategory: "amenities",
-      violationCount: 1,
+      format: "feed_single",
+      warningCode: "unavailable_fact_reference",
+      category: "amenities",
+      count: 1,
     })
     expect(JSON.stringify(diagnostic)).not.toContain(generatedCopy)
     expect(JSON.stringify(diagnostic)).not.toContain("private pool")
-    error.mockRestore()
+    info.mockRestore()
   })
 
-  it("safely rejects an ungrounded amenity claim without exposing amenity labels", async () => {
+  it("rejects an unsupported rendered pool claim even when provenance is present", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     configureFeedStudioRoute({ ...property, amenities: ["Garden"] })
     const generatedCopy = "Villa Verde with a private pool."
@@ -584,13 +576,10 @@ describe("Create Studio generation route with the real repair-aware generator", 
       .map(([, metadata]) => JSON.parse(metadata as string))[0]
     expect(diagnostic).toMatchObject({
       stage: "factual_validation",
-      reasonCode: "ungrounded_claim_value",
-      ruleId: "claim_fact_value_grounded",
-      field: "claimProvenance[0].factValue",
+      reasonCode: "unsupported_objective_claim",
+      ruleId: "explicit_pool_claim_grounded",
+      field: "caption",
       factCategory: "amenities",
-      matchMode: "no_match",
-      snapshotAmenityCount: 1,
-      amenitySources: ["amenities"],
     })
     expect(JSON.stringify(diagnostic)).not.toContain(generatedCopy)
     expect(JSON.stringify(diagnostic)).not.toContain("Garden")

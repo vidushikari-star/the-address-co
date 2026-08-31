@@ -23,6 +23,8 @@ import {
   type MarketingGeneratedCreative,
 } from "@/lib/marketing/schemas"
 import {
+  isMarketingSafeFactKey,
+  logMarketingFactualWarnings,
   marketingPromptFacts,
   marketingRenderedCopyForFormat,
   validateMarketingFacts,
@@ -177,7 +179,8 @@ function storyboardInstructions(input: {
   return [
     "You are the private visual-storyboard editor for a luxury real-estate CRM.",
     "Return only the supplied structured storyboard schema.",
-    "The user content separates CANONICAL_PROPERTY_FACTS from optional TRUSTED_SOURCE_DESCRIPTION. Use canonical facts exactly; the trusted description may be summarized naturally but must not be turned into a new objective claim. Never invent price, location, amenities, area, ROI, availability, developer, completion, or views.",
+    "Use only the authoritative property information supplied below. You may freely add tasteful editorial and lifestyle language. Never invent or alter price, bedrooms, bathrooms, area, location, property type, furnishing, amenities, views, availability, distances, investment information, or yield information. If a factual detail is unavailable, omit it. Do not guess.",
+    "TRUSTED_SOURCE_DESCRIPTION may be summarized naturally, but do not turn it into a new measurable or objective claim.",
     "Use only a supplied source asset ID in every scene. Do not create, omit, or alter asset IDs.",
     "Overlay text is visual copy, not the long Instagram caption: keep it concise, legible, and fact-grounded. Use no more than one short idea per scene.",
     "Design for the mobile-safe Reel text region: no paragraphs, at most 2–3 short lines, and summarize a long source sentence instead of copying it.",
@@ -414,6 +417,19 @@ function fallbackStoryCopy(headline: string, cta: string): StoryCopy {
   return { headline, supportingLine: "", highlights: [], priceLine: "", cta }
 }
 
+/** Invalid provider audit metadata is discarded before persisted-schema validation. */
+function persistedAuditMetadata(generated: MarketingGeneratedCreative) {
+  return {
+    factsUsed: generated.factsUsed.filter(isMarketingSafeFactKey),
+    claimProvenance: generated.claimProvenance.flatMap(claim => {
+      const factValue = claim.factValue.trim()
+      return isMarketingSafeFactKey(claim.factKey) && factValue.length > 0 && factValue.length <= 240
+        ? [{ factKey: claim.factKey, factValue }]
+        : []
+    }),
+  }
+}
+
 /**
  * The API receives only fields relevant to its delivery format. Downstream
  * storage intentionally keeps the historic full creative shape, with unused
@@ -425,6 +441,7 @@ function normalizeGeneratedCreative(input: {
   generated: MarketingGeneratedCreative
 }): CreativeOutput {
   const outputSchema = creativeOutputSchemaForFormat(input.format)
+  const auditMetadata = persistedAuditMetadata(input.generated)
   const defaults = {
     onScreenText: [] as string[],
     carouselSlides: [] as string[],
@@ -447,8 +464,7 @@ function normalizeGeneratedCreative(input: {
         hashtags: output.hashtags,
         altText: output.altText,
         storyCopy: fallbackStoryCopy(output.headline, output.cta),
-        factsUsed: output.factsUsed,
-        claimProvenance: output.claimProvenance,
+        ...auditMetadata,
         ...defaults,
       })
     }
@@ -465,8 +481,7 @@ function normalizeGeneratedCreative(input: {
         hashtags: output.hashtags,
         altText: output.altText,
         storyCopy: fallbackStoryCopy(derivedHeadline, output.cta),
-        factsUsed: output.factsUsed,
-        claimProvenance: output.claimProvenance,
+        ...auditMetadata,
         ...defaults,
       })
     }
@@ -482,8 +497,7 @@ function normalizeGeneratedCreative(input: {
         hashtags: output.hashtags,
         altText: output.altText,
         storyCopy: output.storyCopy,
-        factsUsed: output.factsUsed,
-        claimProvenance: output.claimProvenance,
+        ...auditMetadata,
         ...defaults,
       })
     }
@@ -503,8 +517,7 @@ function normalizeGeneratedCreative(input: {
         suggestedDuration: output.suggestedDuration,
         transitions: output.transitions,
         storyCopy: fallbackStoryCopy(output.hook, output.cta),
-        factsUsed: output.factsUsed,
-        claimProvenance: output.claimProvenance,
+        ...auditMetadata,
         carouselSlides: [],
         audioStyle: "manual_instagram",
       })
@@ -516,32 +529,36 @@ function normalizeGeneratedCreative(input: {
 function validateGeneratedFacts(input: {
   format: MarketingFormat
   property: PropertyFactSnapshot
-  factsUsed: CreativeOutput["factsUsed"]
-  claimProvenance: CreativeOutput["claimProvenance"]
+  factsUsed: readonly string[]
+  claimProvenance: ReadonlyArray<{ factKey: string; factValue: string }>
   output: MarketingGeneratedCreative | CreativeOutput
 }) {
-  return validateMarketingFacts({
+  const result = validateMarketingFacts({
     format: input.format,
     propertySnapshot: input.property,
     factsUsed: input.factsUsed,
     provenance: input.claimProvenance,
     renderedCopy: marketingRenderedCopyForFormat(input.format, input.output),
   })
+  logMarketingFactualWarnings(input.format, result)
+  return result
 }
 
 function validateStoryCopyFacts(storyCopy: StoryCopy, property: PropertyFactSnapshot) {
-  return validateMarketingFacts({
+  const result = validateMarketingFacts({
     format: "story",
     propertySnapshot: property,
     factsUsed: [],
     provenance: [],
     renderedCopy: marketingRenderedCopyForFormat("story", { storyCopy }),
   })
+  logMarketingFactualWarnings("story", result)
+  return result
 }
 
 /** Reel storyboard overlays are rendered copy, so they share the same factual boundary. */
 function validateReelStoryboardFacts(storyboard: ReelStoryboard, property: PropertyFactSnapshot) {
-  return validateMarketingFacts({
+  const result = validateMarketingFacts({
     format: "reel",
     propertySnapshot: property,
     factsUsed: [],
@@ -553,6 +570,8 @@ function validateReelStoryboardFacts(storyboard: ReelStoryboard, property: Prope
       { field: "storyboard.endCard.cta", value: storyboard.endCard.cta },
     ],
   })
+  logMarketingFactualWarnings("reel", result)
+  return result
 }
 
 class StoryboardOverlayLengthError extends Error {
@@ -643,10 +662,10 @@ export class CreativeAIService {
       const instructions = [
         "You are the private editorial marketing assistant for a luxury real-estate CRM.",
         "Return the structured output that matches the supplied schema.",
-        "The user message separates CANONICAL_PROPERTY_FACTS from optional TRUSTED_SOURCE_DESCRIPTION in the immutable persisted property snapshot. Use canonical facts exactly or omit them; never invent or alter amenities, views, ROI, availability, room counts, size, price, location facts, or urgency.",
-        "TRUSTED_SOURCE_DESCRIPTION is approved listing source material. You may summarize or paraphrase it naturally, but it is not a canonical fact and must never appear in factsUsed or claimProvenance.",
-        "Editorial and lifestyle language is welcome when it does not assert an unsupported objective property fact.",
-        "For each canonical objective property fact you choose to use, return one compact claimProvenance entry with its canonical supplied factKey and exact supplied factValue. Amenities and features supplied as underscore-separated keys must use that exact key in factValue; render their natural wording separately in the marketing copy. Do not add provenance for editorial, lifestyle, or trusted-source description copy.",
+        "Use only the authoritative property information supplied below. You may freely add tasteful editorial and lifestyle language around it.",
+        "Never invent or alter price, bedrooms, bathrooms, area, location, property type, furnishing, amenities, views, availability, distances, investment information, or yield information. If a factual detail is unavailable, omit it. Do not guess.",
+        "TRUSTED_SOURCE_DESCRIPTION is approved listing source material. You may summarize or paraphrase it naturally, but do not turn it into a new measurable or objective claim.",
+        "factsUsed and claimProvenance are optional audit metadata. Do not let them distract from accurate, natural Marketing copy.",
         luxuryEditorialInstructions(),
         generationOutputInstructions(format),
         formatConcisenessInstructions(format),
@@ -974,7 +993,8 @@ export class CreativeAIService {
             { role: "system", content: [
               "You are the visual Story editor for a luxury real-estate CRM.",
               "Return only the supplied concise Story copy schema.",
-              "The user content separates CANONICAL_PROPERTY_FACTS from optional TRUSTED_SOURCE_DESCRIPTION. Use canonical facts exactly; the trusted description may be summarized naturally but must not be turned into a new objective claim. Never invent facts.",
+              "Use only the authoritative property information supplied below. You may freely add tasteful editorial and lifestyle language. Never invent or alter price, bedrooms, bathrooms, area, location, property type, furnishing, amenities, views, availability, distances, investment information, or yield information. If a factual detail is unavailable, omit it. Do not guess.",
+              "TRUSTED_SOURCE_DESCRIPTION may be summarized naturally, but do not turn it into a new measurable or objective claim.",
               "Every value is burned into a 1080×1920 Instagram Story.",
               storyCopySchemaInstructions(),
               "Never include a full feed caption, paragraph, hashtag list, or unsupported claim.",

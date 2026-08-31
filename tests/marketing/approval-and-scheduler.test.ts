@@ -23,6 +23,25 @@ const completeCopy = {
   hashtags: ["#NorthGoa"],
 }
 
+const creativeWithoutProvenance = {
+  campaignConcept: "A considered introduction to Villa Verde.",
+  hook: "Discover Villa Verde in Parra, Goa.",
+  headline: "Villa Verde, Parra",
+  caption: "Discover Villa Verde in Parra, Goa.",
+  shortCaption: "Villa Verde in Parra, Goa.",
+  cta: "Arrange a private viewing.",
+  hashtags: ["#NorthGoa"],
+  onScreenText: [],
+  carouselSlides: [],
+  storyCopy: { headline: "Villa Verde", supportingLine: "", highlights: [], priceLine: "", cta: "Arrange a private viewing." },
+  coverText: "Villa Verde",
+  altText: "Villa Verde in Parra, Goa.",
+  suggestedDuration: 30,
+  transitions: ["fade"],
+  audioStyle: "manual_instagram",
+  factsUsed: ["title", "location"],
+}
+
 const renderToken = "1e149a39-7321-42d1-900c-7389c0da37a3"
 function renderedImage(format = "single_image", sourceAssetId = "asset-1") {
   return { id: `rendered-${sourceAssetId}`, kind: "rendered_media", mediaType: "image", storagePath: `rendered/${sourceAssetId}.jpg`, metadata: { instagramFormat: format, renderToken, sourceAssetId, width: 1080, height: 1350, aspectRatio: "4:5" } }
@@ -100,6 +119,33 @@ describe("approval and scheduling guards", () => {
       contentId: "content-1",
       decision: "approved",
       decidedBy: "admin-1",
+    }))
+  })
+
+  it("does not block approval because legacy creative has no claim provenance", async () => {
+    const source = record("draft")
+    repository.getContentById.mockResolvedValue({
+      ...source,
+      content: {
+        ...source.content,
+        propertySnapshot: {
+          id: "property-1",
+          title: "Villa Verde",
+          location: "Parra, Goa",
+          bedrooms: 4,
+          amenities: [],
+          features: [],
+          media: [],
+        },
+        creative: creativeWithoutProvenance,
+      },
+    })
+
+    await ApprovalService.approve("content-1", "admin-1")
+
+    expect(repository.applyApproval).toHaveBeenCalledWith(expect.objectContaining({
+      contentId: "content-1",
+      decision: "approved",
     }))
   })
 

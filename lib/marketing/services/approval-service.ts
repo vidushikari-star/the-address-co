@@ -3,7 +3,7 @@ import { getInstagramFormat } from "@/lib/marketing/instagram-format"
 import { validateInstagramPublishability } from "@/lib/marketing/content-delivery"
 import { resolveMarketingContract } from "@/lib/marketing/content-contract"
 import { creativeOutputSchemaForFormat } from "@/lib/marketing/schemas"
-import { marketingRenderedCopyForFormat, validateMarketingFacts } from "@/lib/marketing/fact-contract"
+import { logMarketingFactualWarnings, marketingRenderedCopyForFormat, validateMarketingFacts } from "@/lib/marketing/fact-contract"
 import type { PropertyFactSnapshot } from "@/lib/marketing/types"
 
 function hasReviewableCopy(content: {
@@ -43,13 +43,14 @@ export class ApprovalService {
         carouselSlides: creative.data.carouselSlides,
         storyCopy: creative.data.storyCopy,
       }
-      validateMarketingFacts({
+      const factualResult = validateMarketingFacts({
         format: contract.format,
         propertySnapshot: property,
         factsUsed: creative.data.factsUsed,
         provenance: creative.data.claimProvenance,
         renderedCopy: marketingRenderedCopyForFormat(contract.format, renderedOutput),
       })
+      logMarketingFactualWarnings(contract.format, factualResult)
     }
     const publishabilityError = validateInstagramPublishability(record.content, record.assets)
     if (publishabilityError) throw new Error(publishabilityError)

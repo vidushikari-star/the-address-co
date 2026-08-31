@@ -63,6 +63,10 @@ export function marketingFactGroundingSource(key: MarketingSafeFactKey): Groundi
   return MARKETING_FACT_GROUNDING_SOURCES[key]
 }
 
+export function isMarketingSafeFactKey(key: string): key is MarketingSafeFactKey {
+  return (MARKETING_SAFE_FACT_KEYS as readonly string[]).includes(key)
+}
+
 /**
  * Description provenance remains parseable for historic creative records, but
  * only canonical sources may be requested or deterministically validated now.
@@ -90,6 +94,25 @@ export const FACTUAL_VALIDATION_REASON_CODES = [
 export type FactualValidationReasonCode = (typeof FACTUAL_VALIDATION_REASON_CODES)[number]
 export type FactualFactCategory = MarketingSafeFactKey | "area" | "distance" | "investment" | "view" | "availability"
 type AmenityMatchMode = "canonical_exact" | "normalized_exact" | "alias" | "no_match"
+
+export type FactualValidationWarningCode =
+  | "missing_claim_provenance"
+  | "unavailable_fact_reference"
+  | "ungrounded_claim_value"
+  | "unknown_provenance_fact_reference"
+
+export type FactualValidationWarning = {
+  warningCode: FactualValidationWarningCode
+  ruleId: string
+  field: string | null
+  factCategory: FactualFactCategory | null
+  violationCount: number
+}
+
+export type MarketingFactualValidationResult = {
+  hardViolations: FactualValidationError[]
+  warnings: FactualValidationWarning[]
+}
 
 const FACTUAL_VALIDATION_DIAGNOSTIC = Symbol.for("the-address-co.marketing.factual-validation-diagnostic")
 
@@ -380,56 +403,66 @@ export function factValues(property: PropertyFactSnapshot, key: MarketingSafeFac
 }
 
 /**
- * Validates canonical fact references. `text` is retained for legacy audit
- * readers only: rendered marketing copy may paraphrase, shorten, reorder, or
- * omit that note without becoming factually unsafe.
+ * Provenance is audit metadata, never the decision boundary for generated
+ * copy. These warnings deliberately contain no generated or source values.
  */
 export function validateClaimProvenance(input: {
   property: PropertyFactSnapshot
-  claims: ClaimProvenance[]
-  factsUsed: MarketingSafeFactKey[]
+  claims: ReadonlyArray<{ factKey: string; factValue: unknown; text?: unknown }>
+  factsUsed: readonly string[]
   /** Compatibility-only audit input; intentionally not a validation gate. */
   copy?: string
 }) {
+  const warnings: FactualValidationWarning[] = []
   for (const [index, key] of input.factsUsed.entries()) {
-    // Historic persisted output may include source-text provenance. It remains
-    // readable, but it has never been a deterministic fact reference.
+    if (!isMarketingSafeFactKey(key)) {
+      warnings.push({
+        warningCode: "unknown_provenance_fact_reference",
+        ruleId: "facts_used_key_known",
+        field: `factsUsed[${index}]`,
+        factCategory: null,
+        violationCount: 1,
+      })
+      continue
+    }
+    // Historic source-text provenance remains readable audit history.
     if (!isCanonicalProvenanceFactKey(key)) continue
     if (!groundingValues(input.property, key).length) {
-      throw new FactualValidationError({
-        message: `Generated copy references unavailable inventory fact: ${key}.`,
-        reasonCode: "unavailable_fact_reference",
+      warnings.push({
+        warningCode: "unavailable_fact_reference",
         ruleId: "facts_used_available",
         field: `factsUsed[${index}]`,
         factCategory: key,
+        violationCount: 1,
       })
     }
   }
   for (const [index, claim] of input.claims.entries()) {
     const factKey = claim.factKey
+    if (!isMarketingSafeFactKey(factKey)) {
+      warnings.push({
+        warningCode: "unknown_provenance_fact_reference",
+        ruleId: "claim_provenance_key_known",
+        field: `claimProvenance[${index}].factKey`,
+        factCategory: null,
+        violationCount: 1,
+      })
+      continue
+    }
     if (!isCanonicalProvenanceFactKey(factKey)) continue
     const allowed = groundingValues(input.property, factKey)
     const factValue = String(claim.factValue ?? "")
     if (!allowed.length || !allowed.some(value => groundingMatch(factKey, value.value, factValue))) {
-      const amenityClaim = factKey === "amenities" || factKey === "features"
-      const amenityValues = amenityClaim
-        ? allowed.filter(value => value.source === "amenities" || value.source === "features")
-        : []
-      throw new FactualValidationError({
-        message: `Generated claim is not grounded in the property snapshot: ${factKey}.`,
-        reasonCode: "ungrounded_claim_value",
+      warnings.push({
+        warningCode: "ungrounded_claim_value",
         ruleId: "claim_fact_value_grounded",
         field: `claimProvenance[${index}].factValue`,
         factCategory: factKey,
-        ...(amenityClaim ? {
-          matchMode: "no_match" as const,
-          snapshotAmenityCount: amenityValues.length,
-          amenitySources: [...new Set(amenityValues.flatMap(value => value.source ? [value.source] : []))],
-        } : {}),
+        violationCount: 1,
       })
     }
   }
-  return true
+  return warnings
 }
 
 type NumericFactCategory = "price" | "bedrooms" | "bathrooms" | "area"
@@ -595,31 +628,19 @@ export function marketingRenderedCopyForFormat(format: MarketingFormat, output: 
       return [
         textField("headline", output.headline),
         textField("caption", output.caption),
-        textField("shortCaption", output.shortCaption),
         textField("cta", output.cta),
-        textField("altText", output.altText),
       ].filter((field): field is MarketingRenderedCopy => Boolean(field))
     case "carousel":
       return [
         textField("caption", output.caption),
-        textField("cta", output.cta),
-        textField("altText", output.altText),
         ...textFields("carouselSlides", output.carouselSlides),
       ].filter((field): field is MarketingRenderedCopy => Boolean(field))
     case "story":
-      return [
-        textField("caption", output.caption),
-        textField("altText", output.altText),
-        ...storyFields(output.storyCopy),
-      ].filter((field): field is MarketingRenderedCopy => Boolean(field))
+      return storyFields(output.storyCopy)
     case "reel":
       return [
         textField("hook", output.hook),
         textField("caption", output.caption),
-        textField("shortCaption", output.shortCaption),
-        textField("cta", output.cta),
-        textField("altText", output.altText),
-        textField("coverText", output.coverText),
         ...textFields("onScreenText", output.onScreenText),
       ].filter((field): field is MarketingRenderedCopy => Boolean(field))
   }
@@ -732,7 +753,7 @@ const UNSUPPORTED_DERIVED_CLAIM_RULES: ReadonlyArray<{
   {
     ruleId: "unsupported_investment_or_yield_claim",
     factCategory: "investment",
-    pattern: /\b(?:high|strong|excellent)\s+(?:rental\s+)?yields?\b|\b(?:guaranteed\s+returns?|high\s+rental\s+yields?|ideal\s+for\s+investment|excellent\s+investment)\b/i,
+    pattern: /\b(?:high|strong|excellent|guaranteed|assured)\s+(?:(?:rental\s+)?yields?|returns?|appreciation|investment\s+performance)\b|\b(?:guaranteed|assured)\s+(?:investment\s+)?(?:returns?|appreciation|performance)\b|\b\d+(?:\.\d+)?\s*%\s*(?:annual\s+)?(?:(?:rental\s+)?yields?|returns?|appreciation)\b|\b(?:ideal\s+for\s+investment|excellent\s+investment)\b/i,
   },
 ]
 
@@ -750,38 +771,76 @@ function assertNoUnsupportedDerivedClaims(copy: string, field: string) {
 }
 
 /**
- * Single factual decision boundary for every Marketing delivery format.
- * Canonical property references are checked against the immutable snapshot;
- * free editorial prose is allowed unless it matches a narrow objective or
- * unsupported-derived claim rule.
+ * Assesses only rendered Marketing copy. Provenance is retained as safe audit
+ * metadata and cannot make normal creative generation fail.
  */
-export function validateMarketingFacts(input: {
+export function assessMarketingFacts(input: {
   format: MarketingFormat
   renderedCopy: MarketingRenderedCopy[]
   propertySnapshot: PropertyFactSnapshot
-  factsUsed: MarketingSafeFactKey[]
-  provenance: ClaimProvenance[]
-}) {
-  validateClaimProvenance({
+  factsUsed: readonly string[]
+  provenance: ReadonlyArray<{ factKey: string; factValue: unknown }>
+}): MarketingFactualValidationResult {
+  const warnings = validateClaimProvenance({
     property: input.propertySnapshot,
     factsUsed: input.factsUsed,
     claims: input.provenance,
   })
-  const canonicalFactsUsed = input.factsUsed.filter(isCanonicalProvenanceFactKey)
-  const canonicalProvenance = input.provenance.filter(claim => isCanonicalProvenanceFactKey(claim.factKey))
+  const canonicalFactsUsed = input.factsUsed.filter((key): key is MarketingProvenanceFactKey =>
+    isMarketingSafeFactKey(key) && isCanonicalProvenanceFactKey(key)
+  )
+  const canonicalProvenance = input.provenance.filter(claim =>
+    isMarketingSafeFactKey(claim.factKey) && isCanonicalProvenanceFactKey(claim.factKey)
+  )
   if (canonicalFactsUsed.length && !canonicalProvenance.length) {
-    throw new FactualValidationError({
-      message: "Generated factual copy is missing canonical fact references.",
-      reasonCode: "missing_claim_provenance",
+    warnings.push({
+      warningCode: "missing_claim_provenance",
       ruleId: "canonical_provenance_required_for_facts_used",
       field: "claimProvenance",
+      factCategory: null,
       violationCount: canonicalFactsUsed.length,
     })
   }
+  const hardViolations: FactualValidationError[] = []
   for (const rendered of input.renderedCopy) {
-    assertSupportedNumericClaims(rendered.value, input.propertySnapshot, rendered.field)
-    assertSupportedObjectiveClaims(rendered.value, input.propertySnapshot, rendered.field)
-    assertNoUnsupportedDerivedClaims(rendered.value, rendered.field)
+    for (const check of [
+      () => assertSupportedNumericClaims(rendered.value, input.propertySnapshot, rendered.field),
+      () => assertSupportedObjectiveClaims(rendered.value, input.propertySnapshot, rendered.field),
+      () => assertNoUnsupportedDerivedClaims(rendered.value, rendered.field),
+    ]) {
+      try {
+        check()
+      } catch (error) {
+        if (error instanceof FactualValidationError) hardViolations.push(error)
+        else throw error
+      }
+    }
   }
-  return true
+  return { hardViolations, warnings }
+}
+
+/** Throws only when rendered output contains a clear factual contradiction. */
+export function validateMarketingFacts(input: Parameters<typeof assessMarketingFacts>[0]) {
+  const result = assessMarketingFacts(input)
+  if (result.hardViolations.length) throw result.hardViolations[0]
+  return result
+}
+
+/** Logs grouped audit warnings without generated copy or property values. */
+export function logMarketingFactualWarnings(format: MarketingFormat, result: MarketingFactualValidationResult) {
+  const grouped = new Map<string, FactualValidationWarning>()
+  for (const warning of result.warnings) {
+    const key = `${warning.warningCode}:${warning.factCategory ?? "none"}`
+    const existing = grouped.get(key)
+    if (existing) existing.violationCount += warning.violationCount
+    else grouped.set(key, { ...warning })
+  }
+  for (const warning of grouped.values()) {
+    console.info("Marketing factual warning:", JSON.stringify({
+      format,
+      warningCode: warning.warningCode,
+      category: warning.factCategory,
+      count: warning.violationCount,
+    }))
+  }
 }
