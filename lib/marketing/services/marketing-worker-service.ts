@@ -1,7 +1,11 @@
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { publishableAssets, validateInstagramPublishability } from "@/lib/marketing/content-delivery"
 import { resolveMarketingContract } from "@/lib/marketing/content-contract"
-import { safeMarketingGenerationErrorMessage } from "@/lib/marketing/generation-errors"
+import {
+  marketingGenerationErrorFormat,
+  safeMarketingGenerationErrorMessage,
+  tagMarketingGenerationErrorFormat,
+} from "@/lib/marketing/generation-errors"
 import { composeStaticInstagramContent, staticRenderJobType } from "@/lib/marketing/instagram-static-composition"
 import { isInstagramPublishingEnabled } from "@/lib/marketing/feature-flags"
 import { logRenderStage, RenderStageError, renderStageFailure, sanitizeRenderDiagnostic } from "@/lib/marketing/render-diagnostics"
@@ -320,7 +324,7 @@ export class MarketingWorkerService {
         // Generation failures are persisted and later displayed in Marketing,
         // so apply the same safe validation mapping as the direct Studio API.
         const errorMessage = job.type === "generate_creative"
-          ? safeMarketingGenerationErrorMessage(caught)
+          ? safeMarketingGenerationErrorMessage(caught, marketingGenerationErrorFormat(caught))
           : safeError(caught)
         const renderDiagnostics = safeRenderDiagnostics(caught)
         if (caught instanceof PublishingDisabledError) {
@@ -541,18 +545,23 @@ export class MarketingWorkerService {
       .order("created_at", { ascending: false })
       .limit(8)
     const brandSettings = mapSettings(record(settings))
-    const creative = await CreativeAIService.generate({
-      property,
-      format: content.format,
-      objective: content.objective,
-      creativeDirection: content.creativeDirection,
-      settings: brandSettings,
-      recentContent: ((recent ?? []) as Row[]).map(item => ({
-        hook: item.hook as string | null,
-        headline: item.headline as string | null,
-        creativeDirection: item.creative_direction as string | null,
-      })),
-    })
+    let creative: Awaited<ReturnType<typeof CreativeAIService.generate>>
+    try {
+      creative = await CreativeAIService.generate({
+        property,
+        format: content.format,
+        objective: content.objective,
+        creativeDirection: content.creativeDirection,
+        settings: brandSettings,
+        recentContent: ((recent ?? []) as Row[]).map(item => ({
+          hook: item.hook as string | null,
+          headline: item.headline as string | null,
+          creativeDirection: item.creative_direction as string | null,
+        })),
+      })
+    } catch (error) {
+      throw tagMarketingGenerationErrorFormat(error, content.format)
+    }
     const contract = resolveMarketingContract(content)
     const selection = contract.mediaSelection.assetIds.length
       ? contract.mediaSelection

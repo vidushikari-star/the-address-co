@@ -1,4 +1,4 @@
-import { CreativeOutputSchema, ReelCompositionSchema } from "@/lib/marketing/schemas"
+import { creativeOutputSchemaForFormat, ReelCompositionSchema } from "@/lib/marketing/schemas"
 import { defaultMarketingContract, resolveMarketingContract, withMarketingContract } from "@/lib/marketing/content-contract"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
 import { CompositionService } from "@/lib/marketing/services/composition-service"
@@ -31,7 +31,7 @@ function existingComposition(content: MarketingContent, sourceAssetIds: string[]
   try {
     return ReelCompositionSchema.parse(content.composition)
   } catch {
-    const creative = CreativeOutputSchema.parse(content.creative)
+    const creative = creativeOutputSchemaForFormat(resolveMarketingContract(content).format).parse(content.creative)
     const propertyId = typeof content.propertySnapshot.id === "string" ? content.propertySnapshot.id : content.primaryPropertyId
     if (!propertyId) throw new Error("The source property facts are unavailable for this Reel.")
     return CompositionService.composeReel({ propertyId, assetIds: sourceAssetIds, creative })

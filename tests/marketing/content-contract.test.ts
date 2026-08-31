@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { defaultMarketingContract, legacyContractForContentType, resolveMarketingContract } from "@/lib/marketing/content-contract"
+import { defaultMarketingContract, legacyContractForContentType, resolveMarketingContract, storageContentTypeForFormat } from "@/lib/marketing/content-contract"
 import { getInstagramFormat } from "@/lib/marketing/instagram-format"
 import { staticRenderJobType } from "@/lib/marketing/instagram-static-composition"
 import { EDITORIAL_GENERATION_CONTRACT } from "@/lib/marketing/generation-output-contract"
@@ -38,6 +38,16 @@ describe("Marketing V2 content contracts", () => {
       objective: "property_spotlight",
       mediaSelection: { mode: "curated", assetIds: ["asset-a", "asset-b"] },
     })
+  })
+
+  it("keeps a persisted Create Studio Story contract on the Story delivery path", () => {
+    const story = defaultMarketingContract({ format: "story", objective: "property_spotlight" })
+
+    expect(storageContentTypeForFormat("story")).toBe("story")
+    expect(resolveMarketingContract({
+      contentType: "single_image",
+      composition: { marketingContract: story },
+    })).toMatchObject({ format: "story", objective: "property_spotlight" })
   })
 
   it("keeps generated metadata separate from allowed deterministic visual fields", () => {

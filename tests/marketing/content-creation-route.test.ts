@@ -116,6 +116,39 @@ describe("POST /api/marketing/content", () => {
     }))
   })
 
+  it("persists a Create Studio Story selection as the story storage type and V2 delivery contract", async () => {
+    repository.createContent.mockResolvedValueOnce({ id: "content-1", contentType: "story", composition: {} })
+    repository.getPropertySnapshot.mockResolvedValue({
+      id: propertyId,
+      title: "Villa Verde",
+      amenities: [],
+      features: [],
+      media: [{ id: curatedImageIds[0], type: "image", url: "https://images.example/1.jpg", isCover: true }],
+    })
+    repository.addSourceAssets.mockResolvedValue([
+      { id: "asset-1", propertyImageId: curatedImageIds[0], kind: "original_reference", mediaType: "image", sourceUrl: "https://images.example/1.jpg", sortOrder: 0 },
+    ])
+
+    const response = await POST(new Request("http://localhost/api/marketing/content", {
+      method: "POST",
+      body: JSON.stringify({ propertyId, format: "story", objective: "property_spotlight", propertyMediaIds: [curatedImageIds[0]], idempotencyKey: requestId }),
+    }))
+
+    expect(response.status).toBe(202)
+    expect(repository.createContent).toHaveBeenCalledWith(expect.objectContaining({
+      format: "story",
+      objective: "property_spotlight",
+    }))
+    expect(repository.updateContent).toHaveBeenCalledWith("content-1", expect.objectContaining({
+      composition: expect.objectContaining({
+        marketingContract: expect.objectContaining({ format: "story", objective: "property_spotlight" }),
+      }),
+    }), "admin-1")
+    expect(repository.addAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      metadata: expect.objectContaining({ contentType: "story", format: "story" }),
+    }))
+  })
+
   it("persists an M3 curated selection in the exact user order before generation", async () => {
     repository.getPropertySnapshot.mockResolvedValue({
       id: propertyId,

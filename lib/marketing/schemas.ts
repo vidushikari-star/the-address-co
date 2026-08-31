@@ -293,6 +293,23 @@ export const CreativeOutputSchema = z.object({
 })
 
 /**
+ * Feed, Carousel, and Reel retain the historic full creative shape so older
+ * review/workflow consumers stay readable. Their `storyCopy` is only a
+ * deterministic compatibility projection, never a Story render input.
+ */
+export const NonStoryCompatibilityCopySchema = z.object({
+  headline: z.string().trim().min(1).max(160),
+  supportingLine: z.string().trim().max(150),
+  highlights: z.array(z.string().trim().min(1).max(60)).max(3),
+  priceLine: z.string().trim().max(64),
+  cta: z.string().trim().min(1).max(120),
+})
+
+export const NonStoryCreativeOutputSchema = CreativeOutputSchema.extend({
+  storyCopy: NonStoryCompatibilityCopySchema,
+})
+
+/**
  * The persisted creative shape is intentionally broader than an individual
  * generation request so historic drafts remain readable. These schemas are
  * the much smaller, format-specific contracts sent to OpenAI. In particular,
@@ -379,6 +396,17 @@ export function creativeGenerationSchemaForFormat(format: (typeof MARKETING_FORM
     case "story": return StoryCreativeGenerationSchema
     case "reel": return ReelCreativeGenerationSchema
   }
+}
+
+/**
+ * The persisted legacy projection is format-aware: only a real Story carries
+ * renderer-bound visual copy. Non-Story `storyCopy` remains compatibility
+ * data and follows the selected-format CTA contract instead.
+ */
+export function creativeOutputSchemaForFormat(format: (typeof MARKETING_FORMATS)[number]) {
+  return format === "story"
+    ? CreativeOutputSchema
+    : NonStoryCreativeOutputSchema
 }
 
 /** Selects the schema sent to the provider; only Story defers visual caps. */

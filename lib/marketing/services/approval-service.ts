@@ -3,7 +3,7 @@ import type { z } from "zod"
 import { getInstagramFormat } from "@/lib/marketing/instagram-format"
 import { validateInstagramPublishability } from "@/lib/marketing/content-delivery"
 import { resolveMarketingContract } from "@/lib/marketing/content-contract"
-import { CreativeOutputSchema } from "@/lib/marketing/schemas"
+import { CreativeOutputSchema, creativeOutputSchemaForFormat } from "@/lib/marketing/schemas"
 import { detectUnsupportedNumericClaim, validateClaimProvenance } from "@/lib/marketing/fact-contract"
 import type { PropertyFactSnapshot } from "@/lib/marketing/types"
 
@@ -54,7 +54,7 @@ export class ApprovalService {
     if (format.captionRequired && !hasReviewableCopy(record.content)) {
       throw new Error("Generate or complete headline, hook, caption, CTA, and hashtags before approval.")
     }
-    const creative = CreativeOutputSchema.safeParse(record.content.creative)
+    const creative = creativeOutputSchemaForFormat(contract.format).safeParse(record.content.creative)
     if (creative.success) {
       const copy = reviewableCreativeCopy(record.content, creative.data)
       const property = record.content.propertySnapshot as PropertyFactSnapshot

@@ -236,7 +236,7 @@ export async function POST(request: Request, context: Context) {
       format: generationFormat,
       ...marketingGenerationErrorDiagnostics(diagnosedError),
     }))
-    const message = safeMarketingGenerationErrorMessage(diagnosedError)
+    const message = safeMarketingGenerationErrorMessage(diagnosedError, generationFormat)
     return NextResponse.json({ error: message }, { status: 502 })
   }
 }

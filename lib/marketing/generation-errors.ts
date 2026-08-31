@@ -1,3 +1,5 @@
+import type { MarketingFormat } from "@/lib/marketing/types"
+
 export const CONTENT_GENERATION_TOO_LONG_MESSAGE = "Content generation was too long to complete. Please try again or shorten the creative brief."
 export const STORY_COPY_TOO_LONG_MESSAGE = "Story copy was too long to format. Please regenerate the Story copy."
 export const INVALID_MARKETING_GENERATION_OUTPUT_MESSAGE = "AI generated an invalid content format. Please try again."
@@ -36,6 +38,13 @@ type StageTaggedError = object & {
   [STORY_GENERATION_STAGE]?: StoryGenerationValidationStage
 }
 
+const marketingGenerationErrorFormats = new WeakMap<object, MarketingFormat>()
+const MARKETING_GENERATION_FORMAT = Symbol.for("the-address-co.marketing.generation-format")
+
+type FormatTaggedError = object & {
+  [MARKETING_GENERATION_FORMAT]?: MarketingFormat
+}
+
 export function tagStoryGenerationError(error: unknown, stage: StoryGenerationValidationStage) {
   if (error && typeof error === "object") {
     storyGenerationErrorStages.set(error, stage)
@@ -58,6 +67,30 @@ export function storyGenerationErrorStage(error: unknown) {
   if (!error || typeof error !== "object") return null
   const tagged = error as StageTaggedError
   return tagged[STORY_GENERATION_STAGE] ?? storyGenerationErrorStages.get(error) ?? null
+}
+
+/** Keeps format-specific user-safe error mapping available across worker boundaries. */
+export function tagMarketingGenerationErrorFormat(error: unknown, format: MarketingFormat) {
+  if (error && typeof error === "object") {
+    marketingGenerationErrorFormats.set(error, format)
+    try {
+      Object.defineProperty(error, MARKETING_GENERATION_FORMAT, {
+        configurable: true,
+        enumerable: false,
+        value: format,
+        writable: true,
+      })
+    } catch {
+      // Frozen provider errors retain in-process provenance via the WeakMap.
+    }
+  }
+  return error
+}
+
+export function marketingGenerationErrorFormat(error: unknown) {
+  if (!error || typeof error !== "object") return null
+  const tagged = error as FormatTaggedError
+  return tagged[MARKETING_GENERATION_FORMAT] ?? marketingGenerationErrorFormats.get(error) ?? null
 }
 
 type ValidationIssue = {
@@ -132,9 +165,13 @@ function isKnownInvalidStructuredOutput(message: string) {
 }
 
 /** User-safe mapping for the Marketing generation API and persisted job errors. */
-export function safeMarketingGenerationErrorMessage(error: unknown) {
+export function safeMarketingGenerationErrorMessage(error: unknown, format?: MarketingFormat | null) {
   const message = errorMessage(error)
-  if (message === STORY_COPY_TOO_LONG_MESSAGE || boundedStoryLengthValidationFields(error).length) {
+  const storyGeneration = format === undefined || format === null || format === "story"
+  if (!storyGeneration && message === STORY_COPY_TOO_LONG_MESSAGE) {
+    return INVALID_MARKETING_GENERATION_OUTPUT_MESSAGE
+  }
+  if (storyGeneration && (message === STORY_COPY_TOO_LONG_MESSAGE || boundedStoryLengthValidationFields(error).length)) {
     return STORY_COPY_TOO_LONG_MESSAGE
   }
   if (marketingGenerationValidationIssues(error).length || errorName(error) === "ZodError" || isKnownInvalidStructuredOutput(message)) {

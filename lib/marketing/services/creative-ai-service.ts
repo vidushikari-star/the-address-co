@@ -18,6 +18,7 @@ import {
   StoryCopyStructuralSchema,
   StoryCopySchema,
   type StoryGeneratedCreativeCandidate,
+  creativeOutputSchemaForFormat,
   creativeGenerationProviderSchemaForFormat,
   type MarketingGeneratedCreative,
 } from "@/lib/marketing/schemas"
@@ -414,6 +415,7 @@ function normalizeGeneratedCreative(input: {
   property: PropertyFactSnapshot
   generated: MarketingGeneratedCreative
 }): CreativeOutput {
+  const outputSchema = creativeOutputSchemaForFormat(input.format)
   const defaults = {
     onScreenText: [] as string[],
     carouselSlides: [] as string[],
@@ -426,7 +428,7 @@ function normalizeGeneratedCreative(input: {
   switch (input.format) {
     case "feed_single": {
       const output = input.generated as Extract<MarketingGeneratedCreative, { headline: string; shortCaption: string }>
-      return CreativeOutputSchema.parse({
+      return outputSchema.parse({
         campaignConcept: output.headline,
         hook: output.headline,
         headline: output.headline,
@@ -444,7 +446,7 @@ function normalizeGeneratedCreative(input: {
     case "carousel": {
       const output = input.generated as Extract<MarketingGeneratedCreative, { caption: string; cta: string; altText: string }>
       const derivedHeadline = input.property.title
-      return CreativeOutputSchema.parse({
+      return outputSchema.parse({
         campaignConcept: derivedHeadline,
         hook: derivedHeadline,
         headline: derivedHeadline,
@@ -461,7 +463,7 @@ function normalizeGeneratedCreative(input: {
     }
     case "story": {
       const output = input.generated as Extract<MarketingGeneratedCreative, { storyCopy: StoryCopy; caption: string; altText: string }>
-      return CreativeOutputSchema.parse({
+      return outputSchema.parse({
         campaignConcept: output.storyCopy.headline,
         hook: output.storyCopy.headline,
         headline: output.storyCopy.headline,
@@ -478,7 +480,7 @@ function normalizeGeneratedCreative(input: {
     }
     case "reel": {
       const output = input.generated as Extract<MarketingGeneratedCreative, { hook: string; coverText: string; onScreenText: string[] }>
-      return CreativeOutputSchema.parse({
+      return outputSchema.parse({
         campaignConcept: output.hook,
         hook: output.hook,
         headline: output.hook,

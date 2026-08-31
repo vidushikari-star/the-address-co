@@ -9,6 +9,8 @@ const repository = vi.hoisted(() => ({
   getBrandSettings: vi.fn(),
   getActiveBrandLogo: vi.fn(),
   queueStaticRender: vi.fn(),
+  updateContent: vi.fn(),
+  queueReelRender: vi.fn(),
   addAuditLog: vi.fn(),
   recordUsage: vi.fn(),
 }))
@@ -85,6 +87,32 @@ const validFeedProviderOutput = {
   ],
 }
 
+const longNonStoryCta = "A".repeat(80)
+
+const validCarouselProviderOutput = {
+  caption: validFeedProviderOutput.caption,
+  cta: longNonStoryCta,
+  hashtags: validFeedProviderOutput.hashtags,
+  altText: validFeedProviderOutput.altText,
+  factsUsed: validFeedProviderOutput.factsUsed,
+  claimProvenance: validFeedProviderOutput.claimProvenance,
+}
+
+const validReelProviderOutput = {
+  hook: "Discover Villa Verde in Parra, Goa.",
+  caption: validFeedProviderOutput.caption,
+  shortCaption: validFeedProviderOutput.shortCaption,
+  cta: longNonStoryCta,
+  hashtags: validFeedProviderOutput.hashtags,
+  altText: validFeedProviderOutput.altText,
+  coverText: "Villa Verde",
+  onScreenText: ["Villa Verde", "Parra, Goa"],
+  suggestedDuration: 30,
+  transitions: ["fade"],
+  factsUsed: validFeedProviderOutput.factsUsed,
+  claimProvenance: validFeedProviderOutput.claimProvenance,
+}
+
 function providerResponse(content: Record<string, unknown>) {
   return new Response(JSON.stringify({
     id: "resp_test_123",
@@ -96,7 +124,21 @@ function providerResponse(content: Record<string, unknown>) {
   })
 }
 
-function configureStoryStudioRoute() {
+function storyMarketingContract() {
+  return {
+    version: "v2" as const,
+    format: "story" as const,
+    objective: "property_spotlight" as const,
+    creativeDirection: "luxury_editorial" as const,
+    mediaSelection: { mode: "curated" as const, assetIds: [sourceAssetId] },
+    brandTreatment: {
+      version: "v1" as const,
+      logo: { enabled: false, assetId: null, placement: "none" as const, scale: "small" as const, opacity: 0.8 },
+    },
+  }
+}
+
+function configureStoryStudioRoute(persistedContract = false) {
   repository.getContentById.mockResolvedValue({
     content: {
       id: contentId,
@@ -105,7 +147,7 @@ function configureStoryStudioRoute() {
       contentType: "story",
       creativeDirection: "luxury_editorial",
       status: "draft",
-      composition: {},
+      composition: persistedContract ? { marketingContract: storyMarketingContract() } : {},
     },
     assets: [{
       id: sourceAssetId,
@@ -156,6 +198,65 @@ function configureFeedStudioRoute() {
   repository.recordUsage.mockResolvedValue(undefined)
 }
 
+function configureCarouselStudioRoute() {
+  repository.getContentById.mockResolvedValue({
+    content: {
+      id: contentId,
+      primaryPropertyId: property.id,
+      propertySnapshot: property,
+      contentType: "carousel",
+      creativeDirection: "luxury_editorial",
+      status: "draft",
+      composition: {},
+    },
+    assets: [0, 1].map(sortOrder => ({
+      id: `${sourceAssetId}-${sortOrder}`,
+      kind: "original_reference",
+      mediaType: "image",
+      sourceUrl: `https://images.example/villa-${sortOrder}.jpg`,
+      metadata: {},
+      sortOrder,
+      createdAt: "2026-08-10T00:00:00.000Z",
+    })),
+  })
+  repository.getBrandSettings.mockResolvedValue(settings)
+  repository.queueStaticRender.mockImplementation(async input => ({
+    content: { id: input.contentId, ...input.changes },
+    job: { id: "render-job-1" },
+  }))
+  repository.addAuditLog.mockResolvedValue(undefined)
+  repository.recordUsage.mockResolvedValue(undefined)
+}
+
+function configureReelStudioRoute() {
+  repository.getContentById.mockResolvedValue({
+    content: {
+      id: contentId,
+      primaryPropertyId: property.id,
+      propertySnapshot: property,
+      contentType: "reel",
+      creativeDirection: "luxury_editorial",
+      status: "draft",
+      composition: {},
+    },
+    assets: [{
+      id: sourceAssetId,
+      kind: "original_reference",
+      mediaType: "image",
+      sourceUrl: "https://images.example/villa.jpg",
+      metadata: {},
+      sortOrder: 0,
+      createdAt: "2026-08-10T00:00:00.000Z",
+    }],
+  })
+  repository.getBrandSettings.mockResolvedValue(settings)
+  repository.getActiveBrandLogo.mockResolvedValue(null)
+  repository.updateContent.mockImplementation(async (id, changes) => ({ id, ...changes }))
+  repository.queueReelRender.mockResolvedValue({ id: "render-job-1" })
+  repository.addAuditLog.mockResolvedValue(undefined)
+  repository.recordUsage.mockResolvedValue(undefined)
+}
+
 function generateRequest() {
   return POST(
     new Request(`http://localhost/api/marketing/content/${contentId}/generate`, {
@@ -173,7 +274,7 @@ afterEach(() => {
   global.fetch = originalFetch
 })
 
-describe("Create Studio Story generation route with the real repair-aware generator", () => {
+describe("Create Studio generation route with the real repair-aware generator", () => {
   it("accepts a CTA of 71 characters at the OpenAI structured-output boundary, then repairs it", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     configureStoryStudioRoute()
@@ -204,6 +305,28 @@ describe("Create Studio Story generation route with the real repair-aware genera
     expect(body).toMatchObject({ content: { creative: { storyCopy: { cta: validStoryProviderOutput.storyCopy.cta } } } })
     expect(JSON.stringify(body)).not.toContain("Too big")
     expect(JSON.stringify(body)).not.toContain("storyCopy.cta")
+  })
+
+  it("resolves the persisted Create Studio Story contract as story before calling the service", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    configureStoryStudioRoute(true)
+    const fetchMock = vi.fn().mockResolvedValue(providerResponse(validStoryProviderOutput))
+    global.fetch = fetchMock
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined)
+
+    const response = await generateRequest()
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    const providerRequest = JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string)
+    expect(Object.keys(providerRequest.text.format.schema.properties)).toContain("storyCopy")
+    const resolvedFormat = info.mock.calls
+      .filter(([message]) => message === "Marketing generation breadcrumb:")
+      .map(([, metadata]) => JSON.parse(metadata as string))
+      .find(breadcrumb => breadcrumb.event === "format_resolved")
+    expect(resolvedFormat).toMatchObject({ format: "story" })
+    expect(body.content.composition.marketingContract).toMatchObject({ format: "story" })
+    info.mockRestore()
   })
 
   it("normalizes an overlong repair CTA through the real Create Studio route before final validation", async () => {
@@ -364,34 +487,50 @@ describe("Create Studio Story generation route with the real repair-aware genera
     errorLog.mockRestore()
   })
 
-  it("tags the legacy full-creative CTA validation after a non-Story provider parse", async () => {
+  it("preserves a Feed CTA of 80 characters through the real Create Studio route", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     configureFeedStudioRoute()
-    global.fetch = vi.fn().mockResolvedValue(providerResponse(validFeedProviderOutput))
-    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const providerOutput = { ...validFeedProviderOutput, cta: longNonStoryCta }
+    global.fetch = vi.fn().mockResolvedValue(providerResponse(providerOutput))
 
     const response = await generateRequest()
     const body = await response.json()
 
-    // Feed's provider schema allows CTA <=120. The legacy full output derives
-    // `storyCopy.cta`, which remains a strict <=60 visual field. This test
-    // protects the diagnostic provenance without changing that behavior.
-    expect(validFeedProviderOutput.cta).toHaveLength(61)
-    expect(response.status).toBe(502)
-    expect(body).toEqual({ error: "Story copy was too long to format. Please regenerate the Story copy." })
-    const diagnostics = errorLog.mock.calls
-      .filter(([message]) => message === "Marketing AI generation failed:")
-      .map(([, metadata]) => JSON.parse(metadata as string))
-    expect(diagnostics).toEqual([expect.objectContaining({
-      origin: "content_generate_route",
-      diagnosticVersion: MARKETING_GENERATION_DIAGNOSTIC_VERSION,
-      format: "feed_single",
-      stage: "creative_output_validation",
-      issueCodes: ["too_big"],
-      issuePaths: ["storyCopy.cta"],
-      storyLengthFields: ["cta"],
-    })])
-    expect(JSON.stringify(diagnostics)).not.toContain(validFeedProviderOutput.cta)
-    errorLog.mockRestore()
+    expect(longNonStoryCta).toHaveLength(80)
+    expect(response.status).toBe(200)
+    expect(body.content.creative.cta).toBe(longNonStoryCta)
+    expect(body.content.creative.storyCopy.cta).toBe(longNonStoryCta)
+    expect(body.content.composition.cta).toBe(longNonStoryCta)
+  })
+
+  it("preserves a Carousel CTA of 80 characters through the real Create Studio route", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    configureCarouselStudioRoute()
+    global.fetch = vi.fn().mockResolvedValue(providerResponse(validCarouselProviderOutput))
+
+    const response = await generateRequest()
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.content.creative.cta).toBe(longNonStoryCta)
+    expect(body.content.creative.storyCopy.cta).toBe(longNonStoryCta)
+    expect(body.content.composition.cta).toBe(longNonStoryCta)
+  })
+
+  it("preserves a Reel CTA of 80 characters through the real Create Studio route", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    configureReelStudioRoute()
+    global.fetch = vi.fn().mockResolvedValue(providerResponse(validReelProviderOutput))
+
+    const response = await generateRequest()
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.content.creative.cta).toBe(longNonStoryCta)
+    expect(body.content.creative.storyCopy.cta).toBe(longNonStoryCta)
+    expect(repository.updateContent).toHaveBeenCalledWith(contentId, expect.objectContaining({
+      cta: longNonStoryCta,
+      creative: expect.objectContaining({ cta: longNonStoryCta }),
+    }), "admin-1")
   })
 })

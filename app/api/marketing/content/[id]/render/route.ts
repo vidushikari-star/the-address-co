@@ -4,7 +4,7 @@ import { requireMarketingApiAccess } from "@/lib/auth/marketing"
 import { resolveMarketingContract } from "@/lib/marketing/content-contract"
 import { staticRenderJobType } from "@/lib/marketing/instagram-static-composition"
 import { MarketingRepository } from "@/lib/marketing/repositories/marketing-repository"
-import { CreativeOutputSchema, ReelCompositionSchema } from "@/lib/marketing/schemas"
+import { creativeOutputSchemaForFormat, ReelCompositionSchema } from "@/lib/marketing/schemas"
 import { CompositionService } from "@/lib/marketing/services/composition-service"
 import { MediaEligibilityService } from "@/lib/marketing/services/media-eligibility-service"
 import type { ReelComposition } from "@/lib/marketing/types"
@@ -71,7 +71,7 @@ export async function POST(_request: Request, context: Context) {
     try {
       composition = ReelCompositionSchema.parse(record.content.composition)
     } catch {
-      const creative = CreativeOutputSchema.parse(record.content.creative)
+      const creative = creativeOutputSchemaForFormat(marketingContract.format).parse(record.content.creative)
       const propertyId = typeof record.content.propertySnapshot.id === "string"
         ? record.content.propertySnapshot.id
         : record.content.primaryPropertyId
