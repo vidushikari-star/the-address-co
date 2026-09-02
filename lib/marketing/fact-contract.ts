@@ -114,6 +114,20 @@ export type MarketingFactualValidationResult = {
   warnings: FactualValidationWarning[]
 }
 
+/**
+ * Structured, provider-facing repair guidance. This intentionally carries no
+ * generated copy and is never written to logs; the provider receives the
+ * complete authoritative snapshot separately.
+ */
+export type FactualRepairViolation = {
+  reasonCode: FactualValidationReasonCode
+  ruleId: string
+  field: string | null
+  factCategory: FactualFactCategory | null
+  resolution: "correct_from_authoritative_facts" | "remove_unsupported_claim"
+  expectedValue?: string | number | Array<string | number>
+}
+
 const FACTUAL_VALIDATION_DIAGNOSTIC = Symbol.for("the-address-co.marketing.factual-validation-diagnostic")
 
 type FactualDiagnosticError = Error & {
@@ -213,6 +227,55 @@ export function factualValidationErrorDiagnostics(error: unknown) {
 /** Allows the route to return a user-safe error without exposing validator internals. */
 export function isFactualValidationError(error: unknown) {
   return Boolean(error && typeof error === "object" && (error as FactualDiagnosticError)[FACTUAL_VALIDATION_DIAGNOSTIC])
+}
+
+function repairExpectedValue(category: FactualFactCategory | null, property: PropertyFactSnapshot) {
+  switch (category) {
+    case "price": return property.price
+    case "bedrooms": return property.bedrooms
+    case "bathrooms": return property.bathrooms
+    case "area": {
+      const areas = [property.carpetArea, property.builtUpArea, property.plotArea]
+        .filter((value): value is number => typeof value === "number")
+      return areas.length ? areas : undefined
+    }
+    case "location": return [property.location, property.locality].filter((value): value is string => Boolean(value))
+    case "property_type": return property.propertyType
+    case "furnishing": return property.furnishing
+    case "availability": return [property.developmentStage, property.status].filter((value): value is string => Boolean(value))
+    default: return undefined
+  }
+}
+
+/**
+ * Produces one repair instruction for a hard rendered-copy violation. Soft
+ * provenance warnings never produce this object and therefore can never
+ * trigger a provider repair request.
+ */
+export function factualRepairViolation(error: unknown, property: PropertyFactSnapshot): FactualRepairViolation | null {
+  const diagnostic = factualValidationErrorDiagnostics(error)
+  if (
+    !isFactualValidationError(error) ||
+    !FACTUAL_VALIDATION_REASON_CODES.includes(diagnostic.reasonCode as FactualValidationReasonCode) ||
+    typeof diagnostic.ruleId !== "string"
+  ) return null
+
+  const factCategory = diagnostic.factCategory as FactualFactCategory | null
+  const resolution = diagnostic.reasonCode === "unsupported_derived_claim"
+    ? "remove_unsupported_claim" as const
+    : "correct_from_authoritative_facts" as const
+  const expectedValue = repairExpectedValue(factCategory, property)
+
+  return {
+    reasonCode: diagnostic.reasonCode as FactualValidationReasonCode,
+    ruleId: diagnostic.ruleId,
+    field: diagnostic.field,
+    factCategory,
+    resolution,
+    ...(expectedValue === undefined || (Array.isArray(expectedValue) && !expectedValue.length)
+      ? {}
+      : { expectedValue }),
+  }
 }
 
 function normalize(value: unknown) {
@@ -476,6 +539,23 @@ function numericValue(value: string) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+const NUMBER_WORD_VALUES: Readonly<Record<string, number>> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+}
+
+function explicitNumericClaimValue(value: string) {
+  return NUMBER_WORD_VALUES[normalize(value)] ?? numericValue(value)
+}
+
 function priceValues(property: PropertyFactSnapshot) {
   const values = new Set<number>()
   for (const source of factValues(property, "price")) {
@@ -502,7 +582,7 @@ function numericFactValues(property: PropertyFactSnapshot, key: "bedrooms" | "ba
 }
 
 function valueIsAllowed(value: string, permitted: Set<number>, unit?: string) {
-  const parsed = numericValue(value)
+  const parsed = explicitNumericClaimValue(value)
   if (parsed === null) return false
   const normalizedUnit = unit?.toLocaleLowerCase()
   const multiplier = normalizedUnit === "cr" || normalizedUnit === "crore" ? 10_000_000 : normalizedUnit === "lakh" ? 100_000 : 1
@@ -529,12 +609,15 @@ function unsupportedNumericClaim(copy: string, property: PropertyFactSnapshot): 
     },
     {
       factCategory: "bedrooms",
-      pattern: /\b(\d[\d,.]*)\s*[-\s]?(?:bed(?:room)?s?|bhk)\b/gi,
+      // The negative lookbehind keeps hashtag/identifier tokens such as
+      // #5bed out of the factual boundary. Only an explicit room label can
+      // be a bedroom claim; bare title, phase, plot, or year numbers cannot.
+      pattern: /(?<![#\p{L}\p{N}_])(\d[\d,.]*|one|two|three|four|five|six|seven|eight|nine|ten)\s*[-\s]?(?:bed(?:room)?s?|bhk)\b/giu,
       permitted: numericFactValues(property, "bedrooms"),
     },
     {
       factCategory: "bathrooms",
-      pattern: /\b(\d[\d,.]*)\s*[-\s]?(?:bath(?:room)?s?)\b/gi,
+      pattern: /(?<![#\p{L}\p{N}_])(\d[\d,.]*|one|two|three|four|five|six|seven|eight|nine|ten)\s*[-\s]?(?:bath(?:room)?s?)\b/giu,
       permitted: numericFactValues(property, "bathrooms"),
     },
     {

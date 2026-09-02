@@ -467,16 +467,41 @@ describe("CreativeAIService", () => {
     expect(repairRequest.input[0].content).toContain("Repair only the invalid Story fields")
   })
 
-  it("fails an invented factual Story response before requesting a visual repair", async () => {
+  it("repairs an explicit factual contradiction in direct Story copy improvements", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
-    const fetchMock = vi.fn().mockResolvedValue(completedResponse({
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(completedResponse({ ...creative.storyCopy, highlights: ["Seven bedrooms"] }))
+      .mockResolvedValueOnce(completedResponse(creative.storyCopy))
+    global.fetch = fetchMock
+
+    await expect(CreativeAIService.improveStoryCopy({
+      property,
+      currentStoryCopy: creative.storyCopy,
+      creativeDirection: "luxury_editorial",
+      settings,
+      userPrompt: "Use a more considered supporting line.",
+    })).resolves.toMatchObject({ highlights: ["Four bedrooms"] })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const repairRequest = JSON.parse((fetchMock.mock.calls[1][1] as RequestInit).body as string)
+    expect(repairRequest.max_output_tokens).toBe(MARKETING_OUTPUT_TOKEN_BUDGETS.story_copy)
+    expect(repairRequest.input[0].content).toContain("factual correction attempt 1 of 1")
+    expect(JSON.parse(repairRequest.input[1].content)).toMatchObject({
+      CURRENT_GENERATED_STORY_COPY: expect.any(Object),
+      FACTUAL_REPAIR_VIOLATIONS: [expect.objectContaining({ factCategory: "bedrooms", expectedValue: 4 })],
+    })
+  })
+
+  it("fails an invented factual Story response only after one factual repair", async () => {
+    process.env.OPENAI_API_KEY = "server-only-test-key"
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(completedResponse({
       ...creative,
       storyCopy: {
         ...creative.storyCopy,
         highlights: ["7 bedrooms"],
         cta: "Request a private presentation and personalised property details today.",
       },
-    }))
+    })))
     global.fetch = fetchMock
 
     await expect(CreativeAIService.generate({
@@ -487,7 +512,7 @@ describe("CreativeAIService", () => {
       settings,
     })).rejects.toThrow("unsupported numeric claim")
 
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it("keeps one token recovery separate from one Story schema repair", async () => {
@@ -645,12 +670,15 @@ describe("CreativeAIService", () => {
     expect(JSON.parse(request.input[1].content)).not.toHaveProperty("brandSettings")
   })
 
-  it("rejects a factual hallucination in a rendered Reel storyboard overlay", async () => {
+  it("repairs a factual hallucination in a rendered Reel storyboard overlay", async () => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
-    global.fetch = vi.fn().mockResolvedValue(completedResponse({
-      ...storyboard,
-      scenes: [{ ...storyboard.scenes[0], overlayText: "5-bedroom villa in Candolim" }],
-    }))
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(completedResponse({
+        ...storyboard,
+        scenes: [{ ...storyboard.scenes[0], overlayText: "5-bedroom villa in Candolim" }],
+      }))
+      .mockResolvedValueOnce(completedResponse(storyboard))
+    global.fetch = fetchMock
 
     await expect(CreativeAIService.improveReelStoryboard({
       property,
@@ -658,7 +686,15 @@ describe("CreativeAIService", () => {
       settings,
       sourceAssetIds: [sourceAssetId],
       userPrompt: "Use a more minimal opening.",
-    })).rejects.toThrow("unsupported numeric claim")
+    })).resolves.toMatchObject({ scenes: [{ overlayText: "Villa Verde" }] })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const repairRequest = JSON.parse((fetchMock.mock.calls[1][1] as RequestInit).body as string)
+    expect(repairRequest.max_output_tokens).toBe(MARKETING_OUTPUT_TOKEN_BUDGETS.reel_storyboard)
+    expect(repairRequest.input[0].content).toContain("factual correction attempt 1 of 1")
+    expect(JSON.parse(repairRequest.input[1].content)).toMatchObject({
+      CURRENT_GENERATED_STORYBOARD: expect.any(Object),
+      FACTUAL_REPAIR_VIOLATIONS: [expect.objectContaining({ factCategory: "bedrooms", expectedValue: 4 })],
+    })
   })
 
   it("deterministically fits overly long storyboard overlays to the mobile-safe layout", () => {

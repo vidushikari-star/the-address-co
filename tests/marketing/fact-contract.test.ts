@@ -193,6 +193,27 @@ describe("Marketing fact contract", () => {
     expect(JSON.stringify(factualValidationErrorDiagnostics(error))).not.toContain("5-bedroom")
   })
 
+  it("detects only explicit bedroom labels and never bare identifiers", () => {
+    const fourBedroomProperty = { ...property, bedrooms: 4 }
+
+    for (const claim of ["5 bedroom", "5-bedroom", "5 bed", "5-bed", "5 BHK", "five-bedroom"]) {
+      expect(() => assertSupportedNumericClaims(`A ${claim} residence.`, fourBedroomProperty, "headline"))
+        .toThrow("unsupported numeric claim")
+    }
+
+    for (const harmlessText of [
+      "Villa 18",
+      "Chapter 7",
+      "Phase 2",
+      "Plot 12",
+      "#5bed",
+      "Established in 2026",
+      "12 Palm Road",
+    ]) {
+      expect(detectUnsupportedNumericClaim(harmlessText, fourBedroomProperty)).toBeNull()
+    }
+  })
+
   it("accepts equivalent structured amenity labels while preserving meaningful qualifiers", () => {
     const amenityProperty: PropertyFactSnapshot = {
       ...property,
