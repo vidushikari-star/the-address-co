@@ -38,8 +38,8 @@ import {
 } from "@/lib/repositories/property-repository"
 
 import {
-  supabase,
-} from "@/lib/supabase/client"
+  getActiveAssignableUserProfiles,
+} from "@/lib/repositories/user-profile-repository"
 import { deleteCrmDraft, getCrmDraft, saveCrmDraft } from "@/lib/repositories/crm-draft-repository"
 
 
@@ -170,17 +170,7 @@ export default function NewDealPage() {
         getProperties(),
 
 
-        supabase
-          .from("user_profiles")
-          .select("id,name,role")
-          .eq(
-            "role",
-            "sales"
-          )
-          .then(
-            result =>
-              result.data ?? []
-          ),
+        getActiveAssignableUserProfiles(),
 
       ])
 

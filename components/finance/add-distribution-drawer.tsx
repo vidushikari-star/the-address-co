@@ -18,8 +18,8 @@ import {
 } from "@/components/ui/button"
 
 import {
-  supabase,
-} from "@/lib/supabase/client"
+  getActiveAssignableUserProfiles,
+} from "@/lib/repositories/user-profile-repository"
 
 import {
   createCommissionDistribution,
@@ -180,21 +180,12 @@ useState<UserOption[]>([])
     async function loadUsers(){
 
 
-      const {
-        data,
-      } =
-      await supabase
-        .from("user_profiles")
-        .select(
-          "id,name"
-        )
-        .order(
-          "name"
-        )
+      const data =
+        await getActiveAssignableUserProfiles()
 
 
       setUsers(
-        data ?? []
+        data
       )
 
     }

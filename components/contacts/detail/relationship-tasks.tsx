@@ -52,7 +52,7 @@ import {
 } from "@/components/ui/checkbox"
 
 import {
-getAllUserProfiles,
+getActiveAssignableUserProfiles,
 } from "@/lib/repositories/user-profile-repository"
 
 import type {
@@ -154,7 +154,7 @@ getTasksByContactId(
 contact.id
 ),
 
-getAllUserProfiles(),
+getActiveAssignableUserProfiles(),
 
 ])
 

@@ -46,7 +46,7 @@ import {
 } from "@/components/communications/whatsapp-call-button"
 
 import {
-  getAllUserProfiles,
+  getActiveAssignableUserProfiles,
 } from "@/lib/repositories/user-profile-repository"
 
 import {
@@ -302,7 +302,7 @@ export function FollowUpQueue({
     async function loadAdvisors(){
       try {
         const profiles =
-          await getAllUserProfiles()
+          await getActiveAssignableUserProfiles()
 
         if(active){
           setAdvisors(profiles)

@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  useEffect,
   useState,
 } from "react"
 
@@ -24,9 +25,17 @@ import {
   updateDeal,
 } from "@/lib/repositories/deal-repository"
 
+import {
+  getActiveAssignableUserProfiles,
+} from "@/lib/repositories/user-profile-repository"
+
 import type {
   Deal,
 } from "@/types/deal"
+
+import type {
+  UserProfile,
+} from "@/types/user"
 
 
 
@@ -63,6 +72,11 @@ export function EditDealDrawer({
     error,
     setError,
   ] = useState<string | null>(null)
+
+  const [
+    advisors,
+    setAdvisors,
+  ] = useState<UserProfile[]>([])
 
 
 
@@ -118,6 +132,17 @@ export function EditDealDrawer({
 
   })
 
+  useEffect(() => {
+    if (!open) return
+
+    getActiveAssignableUserProfiles()
+      .then(setAdvisors)
+      .catch((loadError) => {
+        console.error("Unable to load active CRM advisors", loadError)
+        setError("Unable to load advisors. Please try again.")
+      })
+  }, [open])
+
 
 
 
@@ -135,6 +160,15 @@ export function EditDealDrawer({
       })
     )
 
+  }
+
+  function selectAdvisor(advisorId: string) {
+    const advisor = advisors.find((item) => item.id === advisorId)
+    setForm((current) => ({
+      ...current,
+      advisorId,
+      advisor: advisor?.name ?? current.advisor,
+    }))
   }
 
 
@@ -374,22 +408,26 @@ export function EditDealDrawer({
 
 
 
-        <Input
-
-          placeholder="Advisor ID"
-
-          value={
-            form.advisorId
-          }
-
-          onChange={(e)=>
-            update(
-              "advisorId",
-              e.target.value
-            )
-          }
-
-        />
+        <label className="space-y-2">
+          <span className="text-sm font-medium">Assigned CRM advisor</span>
+          <select
+            className="w-full rounded-md border bg-background px-3 py-2"
+            value={form.advisorId}
+            onChange={(event) => selectAdvisor(event.target.value)}
+          >
+            <option value="">Unassigned</option>
+            {form.advisorId && !advisors.some((advisor) => advisor.id === form.advisorId) && (
+              <option value={form.advisorId} disabled>
+                Historical advisor (no longer active)
+              </option>
+            )}
+            {advisors.map((advisor) => (
+              <option key={advisor.id} value={advisor.id}>
+                {advisor.name}
+              </option>
+            ))}
+          </select>
+        </label>
 
 
 

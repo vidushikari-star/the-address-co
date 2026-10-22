@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
 
 import {
-  YASH_PUBLIC_SHARING_PROFILE_ID,
   canManageFinance,
   canManagePropertyPublicSharing,
   canViewAllCommissions,
@@ -20,15 +19,15 @@ function profile(id: string, role: UserProfile["role"]): UserProfile {
 }
 
 describe("Property Public Sharing capability", () => {
-  it("allows admins and only Yash's stable profile ID", () => {
+  it("allows administrators and denies sales profiles", () => {
     expect(canManagePropertyPublicSharing(profile("admin-1", "admin"))).toBe(true)
-    expect(canManagePropertyPublicSharing(profile(YASH_PUBLIC_SHARING_PROFILE_ID, "sales"))).toBe(true)
+    expect(canManagePropertyPublicSharing(profile("5a1cd0bc-e9db-430b-890e-bef393cf104b", "sales"))).toBe(false)
     expect(canManagePropertyPublicSharing(profile("11111111-1111-4111-8111-111111111111", "sales"))).toBe(false)
     expect(canManagePropertyPublicSharing(null)).toBe(false)
   })
 
-  it("does not promote Yash to any existing admin capability", () => {
-    const yash = profile(YASH_PUBLIC_SHARING_PROFILE_ID, "sales")
+  it("does not promote a sales profile to any existing admin capability", () => {
+    const yash = profile("5a1cd0bc-e9db-430b-890e-bef393cf104b", "sales")
 
     expect(isAdmin(yash)).toBe(false)
     expect(canManageFinance(yash)).toBe(false)

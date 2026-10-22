@@ -25,8 +25,12 @@ import {
 } from "@/lib/utils/india-date"
 
 import {
-  ADVISORS,
-} from "@/lib/config/advisors"
+  getActiveAssignableUserProfiles,
+} from "@/lib/repositories/user-profile-repository"
+
+import type {
+  UserProfile,
+} from "@/types/user"
 
 import {
   CalendarClock,
@@ -100,7 +104,13 @@ export function DealTasks({
     assignedTo,
     setAssignedTo,
   ] =
-  useState("Vidushi Kari")
+  useState("")
+
+  const [
+    advisors,
+    setAdvisors,
+  ] =
+  useState<UserProfile[]>([])
 
 
 
@@ -110,10 +120,14 @@ export function DealTasks({
   let mounted = true
 
   async function loadTasks() {
-    const data = await getTasksByDealId(deal.id)
+    const [data, profiles] = await Promise.all([
+      getTasksByDealId(deal.id),
+      getActiveAssignableUserProfiles(),
+    ])
 
     if (mounted) {
       setTasks(data)
+      setAdvisors(profiles)
     }
   }
 
@@ -383,33 +397,20 @@ export function DealTasks({
 
             >
 
+              <option value="">
+                Unassigned
+              </option>
+
               {
-                Object.values(
-                  ADVISORS
-                ).map(
-
+                advisors.map(
                   advisor => (
-
                     <option
-
-                      key={
-                        advisor.name
-                      }
-
-                      value={
-                        advisor.name
-                      }
-
+                      key={advisor.id}
+                      value={advisor.id}
                     >
-
-                      {
-                        advisor.name
-                      }
-
+                      {advisor.name}
                     </option>
-
                   )
-
                 )
               }
 

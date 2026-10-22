@@ -11,7 +11,7 @@ import {
 } from "next/navigation"
 
 import {
-getAllUserProfiles,
+getActiveAssignableUserProfiles,
 } from "@/lib/repositories/user-profile-repository"
 
 import type {
@@ -174,7 +174,7 @@ useState<UserProfile[]>([])
 }
 
 const advisorProfiles =
-await getAllUserProfiles()
+await getActiveAssignableUserProfiles()
 
 setAdvisors(
   advisorProfiles

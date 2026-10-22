@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { getAllUserProfiles } from "@/lib/repositories/user-profile-repository"
+import { getActiveAssignableUserProfiles } from "@/lib/repositories/user-profile-repository"
 import { createTask } from "@/lib/repositories/task-repository"
 
 import type { TaskPriority } from "@/types/task"
@@ -51,7 +51,7 @@ export function CreateTaskDialog({
   useEffect(() => {
     async function loadAdvisors() {
       try {
-        setAdvisors(await getAllUserProfiles())
+        setAdvisors(await getActiveAssignableUserProfiles())
       } catch (error) {
         console.error("Unable to load task assignees", error)
         setError("Unable to load advisors. You can still create an unassigned task.")

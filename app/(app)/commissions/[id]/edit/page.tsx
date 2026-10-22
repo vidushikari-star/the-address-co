@@ -16,6 +16,10 @@ import {
   getServerUserProfile,
 } from "@/lib/auth/server-user-profile"
 
+import {
+  getServerActiveAssignableUserProfiles,
+} from "@/lib/repositories/server-user-profile-repository"
+
 
 
 
@@ -115,17 +119,8 @@ export default async function EditCommissionPage(
 
 
 
-  const {
-    data:advisors,
-  } =
-  await supabase
-    .from("user_profiles")
-    .select(
-      "id,name"
-    )
-    .order(
-      "name"
-    )
+  const advisors =
+    await getServerActiveAssignableUserProfiles()
 
 
 
@@ -427,7 +422,7 @@ export default async function EditCommissionPage(
 
 
             {
-              (advisors ?? []).map(
+              advisors.map(
                 advisor => (
 
                   <option

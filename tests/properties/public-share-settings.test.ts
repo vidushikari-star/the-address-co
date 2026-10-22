@@ -7,7 +7,7 @@ const router = vi.hoisted(() => ({ refresh: vi.fn() }))
 vi.mock("next/navigation", () => ({ useRouter: () => router }))
 
 import { PublicShareSettings } from "@/components/properties/public-share-settings"
-import { YASH_PUBLIC_SHARING_PROFILE_ID, canManagePropertyPublicSharing } from "@/lib/auth/permissions"
+import { canManagePropertyPublicSharing } from "@/lib/auth/permissions"
 
 const token = "b2041f1f-89e9-4a59-a8de-00169502f523"
 const property = {
@@ -34,11 +34,11 @@ describe("Property Detail Public Sharing controls", () => {
     expect(value).toContain("Copy public link")
   })
 
-  it("shows Yash the same management controls without an admin role", () => {
-    const value = markup(canManagePropertyPublicSharing({ id: YASH_PUBLIC_SHARING_PROFILE_ID, role: "sales", name: "Yash", createdAt: "", updatedAt: "" }))
+  it("does not grant a sales profile management controls because of its UUID", () => {
+    const value = markup(canManagePropertyPublicSharing({ id: "5a1cd0bc-e9db-430b-890e-bef393cf104b", role: "sales", name: "Yash", createdAt: "", updatedAt: "" }))
 
-    expect(value).toContain("Enable public sharing")
-    expect(value).toContain("Save public share settings")
+    expect(value).not.toContain("Enable public sharing")
+    expect(value).not.toContain("Save public share settings")
     expect(value).toContain("Copy public link")
   })
 

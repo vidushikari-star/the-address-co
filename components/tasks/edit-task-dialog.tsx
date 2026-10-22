@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { getAllUserProfiles } from "@/lib/repositories/user-profile-repository"
+import { getActiveAssignableUserProfiles } from "@/lib/repositories/user-profile-repository"
 import { updateTask } from "@/lib/repositories/task-repository"
 
 import type { TaskWithContext } from "@/lib/repositories/task-server-repository"
@@ -57,7 +57,7 @@ export function EditTaskDialog({
     setForm(getInitialForm(task))
     setError(null)
 
-    getAllUserProfiles()
+    getActiveAssignableUserProfiles()
       .then(setAdvisors)
       .catch((error) => {
         console.error("Unable to load task assignees", error)

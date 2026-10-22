@@ -111,25 +111,14 @@ describe("public property-share routes", () => {
     expect(disabledServer.propertyUpdate).toHaveBeenCalledWith(expect.objectContaining({ public_share_enabled: false, public_share_token: token }))
   })
 
-  it("allows Yash's auth/profile ID to enable and disable the normal public share link", async () => {
+  it("does not allow Yash's auth/profile ID to bypass the normal sales-role restriction", async () => {
     auth.getServerUserProfile.mockResolvedValue(profile(yashAuthUserId, "sales"))
-    const enabledServer = configurePublicShareServer()
 
-    const enabled = await PATCH(publicShareRequest(true), { params: Promise.resolve({ id: propertyId }) })
+    const response = await PATCH(publicShareRequest(true), { params: Promise.resolve({ id: propertyId }) })
 
-    expect(enabled.status).toBe(200)
-    const enabledPayload = await enabled.json()
-    expect(enabledPayload).toEqual({ share: { enabled: true, token, url: `/share/${token}` } })
-    expect(JSON.stringify(enabledPayload)).not.toContain("Administrator access")
-    expect(enabledServer.propertyUpdate).toHaveBeenCalledWith(expect.objectContaining({ public_share_enabled: true }))
-
-    vi.clearAllMocks()
-    auth.getServerUserProfile.mockResolvedValue(profile(yashAuthUserId, "sales"))
-    const disabledServer = configurePublicShareServer()
-    const disabled = await PATCH(publicShareRequest(false), { params: Promise.resolve({ id: propertyId }) })
-
-    expect(disabled.status).toBe(200)
-    expect(disabledServer.propertyUpdate).toHaveBeenCalledWith(expect.objectContaining({ public_share_enabled: false }))
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toEqual({ error: "Public-sharing management access is required." })
+    expect(server.createServerSupabaseClient).not.toHaveBeenCalled()
   })
 
   it("does not let another CRM user bypass the UI with a direct PATCH", async () => {

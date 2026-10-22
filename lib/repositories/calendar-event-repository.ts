@@ -10,6 +10,8 @@ import type {
   CalendarEvent,
 } from "@/types/calendar-event"
 
+import { getActiveAssignableUserProfiles } from "@/lib/repositories/user-profile-repository"
+
 type CalendarEventRow = {
   id: string
   title: string
@@ -221,40 +223,5 @@ export async function updateCalendarEvent(
 }
 
 export async function getCalendarUsers(): Promise<UserProfile[]> {
-  const {
-    data,
-    error,
-  } =
-    await supabase
-      .from("user_profiles")
-      .select("*")
-      .order(
-        "name"
-      )
-
-  if (error) {
-    throw error
-  }
-
-  return (data ?? []).map(
-    (user) => ({
-      id:
-        user.id,
-
-      name:
-        user.name,
-
-      email:
-        user.email ?? undefined,
-
-      role:
-        user.role,
-
-      createdAt:
-        user.created_at,
-
-      updatedAt:
-        user.updated_at,
-    })
-  )
+  return getActiveAssignableUserProfiles()
 }

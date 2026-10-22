@@ -7,6 +7,7 @@ type UserProfileRow = {
   name: string
   email: string | null
   role: UserProfile["role"]
+  is_active: boolean
   created_at: string
   updated_at: string
 }
@@ -19,6 +20,7 @@ function mapUserProfile(
     name: row.name,
     email: row.email ?? undefined,
     role: row.role,
+    isActive: row.is_active,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -45,6 +47,7 @@ export async function getServerUserProfile(): Promise<UserProfile | null> {
         name,
         email,
         role,
+        is_active,
         created_at,
         updated_at
       `
@@ -60,7 +63,7 @@ export async function getServerUserProfile(): Promise<UserProfile | null> {
     return null
   }
 
-  if (!data) {
+  if (!data || !data.is_active) {
     return null
   }
 

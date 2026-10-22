@@ -31,8 +31,8 @@ import {
 } from "@/lib/repositories/property-repository"
 
 import {
-  supabase,
-} from "@/lib/supabase/client"
+  getActiveAssignableUserProfiles,
+} from "@/lib/repositories/user-profile-repository"
 import {
   deleteCrmDraft,
   getCrmDraft,
@@ -204,26 +204,8 @@ export function DealDrawer({
 
 
 
-        const {
-          data:salesUsers,
-          error,
-        } =
-          await supabase
-            .from("user_profiles")
-            .select(
-              "id,name,role"
-            )
-
-
-
-        if(error){
-
-          console.error(
-            "Failed loading sales users:",
-            error
-          )
-
-        }
+        const salesUsers =
+          await getActiveAssignableUserProfiles()
 
 
 
@@ -238,7 +220,7 @@ export function DealDrawer({
 
 
         setUsers(
-          salesUsers ?? []
+          salesUsers
         )
 
 

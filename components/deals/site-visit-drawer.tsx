@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { getProperties } from "@/lib/repositories/property-repository"
 import { createSiteVisitWithActivity } from "@/lib/services/site-visit-workflow"
-import { supabase } from "@/lib/supabase/client"
+import { getActiveAssignableUserProfiles } from "@/lib/repositories/user-profile-repository"
 
 import type { Property } from "@/types/property"
 
@@ -54,14 +54,11 @@ export function SiteVisitDrawer({
       try {
         const [propertiesData, advisorsResult] = await Promise.all([
           getProperties(),
-          supabase
-            .from("user_profiles")
-            .select("id,name")
-            .order("name"),
+          getActiveAssignableUserProfiles(),
         ])
 
         setProperties(propertiesData)
-        setAdvisors(advisorsResult.data ?? [])
+        setAdvisors(advisorsResult)
       } catch (error) {
         console.error("Unable to load site visit options", error)
         setError("Unable to load properties or advisors. Please try again.")

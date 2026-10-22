@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 
 import type { CalendarEvent } from "@/types/calendar-event"
 import type { UserProfile } from "@/types/user"
+import { getServerActiveAssignableUserProfiles } from "@/lib/repositories/server-user-profile-repository"
 
 type CalendarEventRow = {
   id: string
@@ -57,22 +58,5 @@ export async function getServerCalendarEvent(
 }
 
 export async function getServerCalendarUsers(): Promise<UserProfile[]> {
-  const supabase = await createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from("user_profiles")
-    .select("id,name,email,role,created_at,updated_at")
-    .order("name")
-
-  if (error) {
-    throw error
-  }
-
-  return (data ?? []).map((user) => ({
-    id: user.id,
-    name: user.name,
-    email: user.email ?? undefined,
-    role: user.role,
-    createdAt: user.created_at,
-    updatedAt: user.updated_at,
-  }))
+  return getServerActiveAssignableUserProfiles()
 }

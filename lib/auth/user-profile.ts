@@ -17,6 +17,7 @@ type UserProfileRow = {
   phone: string | null
   whatsapp: string | null
   role: UserProfile["role"]
+  is_active: boolean
   created_at: string
   updated_at: string
 }
@@ -47,6 +48,9 @@ function mapUserProfile(
 
     role:
       row.role,
+
+    isActive:
+      row.is_active,
 
 
     createdAt:
@@ -112,6 +116,12 @@ export async function getCurrentUserProfile()
       "Failed loading user profile",
       error
     )
+
+    return null
+
+  }
+
+  if(!data.is_active){
 
     return null
 

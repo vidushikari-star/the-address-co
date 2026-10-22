@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ContactsRepository } from "@/lib/supabase/repositories/contacts.repository"
 import { getProperties } from "@/lib/repositories/property-repository"
 import { updateSiteVisitWithActivity } from "@/lib/services/site-visit-workflow"
-import { supabase } from "@/lib/supabase/client"
+import { getActiveAssignableUserProfiles } from "@/lib/repositories/user-profile-repository"
 
 import type { Contact } from "@/types/contact"
 import type { Property } from "@/types/property"
@@ -70,12 +70,12 @@ export function EditSiteVisitDialog({
       Promise.all([
         ContactsRepository.getAll(),
         getProperties(),
-        supabase.from("user_profiles").select("id,name").order("name"),
+        getActiveAssignableUserProfiles(),
       ])
         .then(([contactRows, propertyRows, advisorResult]) => {
           setContacts(contactRows)
           setProperties(propertyRows)
-          setAdvisors(advisorResult.data ?? [])
+          setAdvisors(advisorResult)
         })
         .catch((loadError) => {
           console.error("Unable to load site visit options", loadError)

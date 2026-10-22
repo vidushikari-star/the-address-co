@@ -161,6 +161,7 @@ type UserProfileRow = {
   name: string
   email: string | null
   role: UserProfile["role"]
+  is_active: boolean
   created_at: string
   updated_at: string
 }
@@ -264,6 +265,7 @@ function mapUserProfile(row: UserProfileRow): UserProfile {
     name: row.name,
     email: row.email ?? undefined,
     role: row.role,
+    isActive: row.is_active,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
