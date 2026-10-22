@@ -125,69 +125,19 @@ function providerResponse(content: Record<string, unknown>) {
   })
 }
 
-function factualTitleProviderOutput(format: "feed_single" | "carousel" | "story" | "reel", title: string) {
-  const grounding = {
-    factsUsed: ["title"],
-    claimProvenance: [{ text: title, factKey: "title", factValue: title }],
-  }
-
-  switch (format) {
-    case "feed_single":
-      return {
-        headline: title,
-        caption: `${title}.`,
-        shortCaption: title,
-        cta: "Request details",
-        hashtags: ["#NorthGoa"],
-        altText: `${title}.`,
-        ...grounding,
-      }
-    case "carousel":
-      return {
-        caption: `${title}.`,
-        cta: "Request details",
-        hashtags: ["#NorthGoa"],
-        altText: `${title} exterior.`,
-        ...grounding,
-      }
-    case "story":
-      return {
-        caption: `${title}.`,
-        hashtags: ["#NorthGoa"],
-        altText: `${title}.`,
-        storyCopy: { headline: title, supportingLine: "", highlights: [], priceLine: "", cta: "Request details" },
-        ...grounding,
-      }
-    case "reel":
-      return {
-        hook: title,
-        caption: `${title}.`,
-        shortCaption: title,
-        cta: "Request details",
-        hashtags: ["#NorthGoa"],
-        altText: `${title}.`,
-        coverText: title,
-        onScreenText: [title],
-        suggestedDuration: 30,
-        transitions: ["fade"],
-        ...grounding,
-      }
-  }
-}
-
 function realisticGroundedProviderOutput(format: "feed_single" | "carousel" | "story" | "reel") {
   const grounding = {
-    // Provenance is intentionally absent: rendered copy, not audit metadata,
-    // determines whether Create Studio can generate safely.
-    factsUsed: ["title", "location", "bedrooms", "price", "amenities"],
+    // Optional audit metadata is intentionally absent. It is not a decision
+    // boundary for generation or approval.
+    factsUsed: ["title", "location", "bedrooms", "price", "amenities", "features", "furnishing"],
   }
 
   switch (format) {
     case "feed_single":
       return {
-        headline: "Villa 18, Parra",
-        caption: "Villa 18 offers a refined expression of tropical living in Parra. Designed around a private pool, this four-bedroom home brings together calm interiors and effortless indoor-outdoor living. Offered at ₹6 Cr.",
-        shortCaption: "A refined Villa 18 in Parra.",
+        headline: "A beautifully furnished private retreat",
+        caption: "Villa 18 is a beautifully furnished private retreat in Parra, where poolside living and architectural character shape an effortless tropical rhythm. Offered at ₹6 Cr.",
+        shortCaption: "A thoughtfully furnished home in Parra.",
         cta: "Request details",
         hashtags: ["#NorthGoa"],
         altText: "Villa 18 in Parra.",
@@ -195,7 +145,7 @@ function realisticGroundedProviderOutput(format: "feed_single" | "carousel" | "s
       }
     case "carousel":
       return {
-        caption: "Villa 18 in Parra pairs a private pool with refined tropical living. Offered at ₹6 Cr.",
+        caption: "A thoughtfully furnished private retreat in Parra, shaped by poolside living and architectural character. Offered at ₹6 Cr.",
         cta: "Request details",
         hashtags: ["#NorthGoa"],
         altText: "Villa 18 in Parra.",
@@ -203,13 +153,13 @@ function realisticGroundedProviderOutput(format: "feed_single" | "carousel" | "s
       }
     case "story":
       return {
-        caption: "Villa 18 in Parra.",
+        caption: "A beautifully furnished private retreat in Parra.",
         hashtags: ["#NorthGoa"],
         altText: "Villa 18 in Parra.",
         storyCopy: {
-          headline: "A private retreat in Parra",
-          supportingLine: "Four bedrooms arranged around relaxed tropical living.",
-          highlights: ["Private pool"],
+          headline: "A beautifully furnished private retreat",
+          supportingLine: "Thoughtfully composed for relaxed poolside living.",
+          highlights: ["Architectural character", "Poolside living"],
           priceLine: "₹6 Cr",
           cta: "Request details",
         },
@@ -217,83 +167,20 @@ function realisticGroundedProviderOutput(format: "feed_single" | "carousel" | "s
       }
     case "reel":
       return {
-        hook: "Step inside a calmer side of Goa living.",
-        caption: "Villa 18 brings refined tropical living to Parra, offered at ₹6 Cr.",
-        shortCaption: "Villa 18, Parra.",
+        hook: "A thoughtfully furnished private retreat.",
+        caption: "Villa 18 in Parra brings poolside living and architectural character into a beautifully furnished setting. Offered at ₹6 Cr.",
+        shortCaption: "Poolside living in Parra.",
         cta: "Request details",
         hashtags: ["#NorthGoa"],
         altText: "Villa 18 in Parra.",
         coverText: "Villa 18",
-        onScreenText: ["Four-bedroom villa in Parra", "Private pool"],
+        onScreenText: ["Poolside living", "Architectural character"],
         suggestedDuration: 30,
         transitions: ["fade"],
         ...grounding,
       }
   }
 }
-
-function outputWithRenderedFactualClaim(format: "feed_single" | "carousel" | "story" | "reel", claim: string) {
-  switch (format) {
-    case "feed_single": {
-      const output = realisticGroundedProviderOutput("feed_single")
-      return { ...output, headline: claim }
-    }
-    case "carousel": {
-      const output = realisticGroundedProviderOutput("carousel")
-      return { ...output, caption: claim }
-    }
-    case "story": {
-      const output = realisticGroundedProviderOutput("story")
-      if (!("storyCopy" in output)) throw new Error("Story fixture must include Story copy.")
-      return { ...output, storyCopy: { ...output.storyCopy, headline: claim } }
-    }
-    case "reel": {
-      const output = realisticGroundedProviderOutput("reel")
-      return { ...output, hook: claim }
-    }
-  }
-}
-
-const FACTUAL_REPAIR_CASES = [
-  {
-    name: "wrong bedrooms",
-    initial: "Five-bedroom residence.",
-    repaired: "Four-bedroom residence.",
-    factCategory: "bedrooms",
-    expectedValue: 4,
-    resolution: "correct_from_authoritative_facts",
-  },
-  {
-    name: "wrong price",
-    initial: "Offered at ₹4.5 Cr.",
-    repaired: "Offered at ₹6 Cr.",
-    factCategory: "price",
-    expectedValue: "6 Cr",
-    resolution: "correct_from_authoritative_facts",
-  },
-  {
-    name: "wrong area",
-    initial: "600 sqm of considered space.",
-    repaired: "450 sqm of considered space.",
-    factCategory: "area",
-    expectedValue: [450],
-    resolution: "correct_from_authoritative_facts",
-  },
-  {
-    name: "unsupported distance",
-    initial: "Two minutes from the beach.",
-    repaired: "A considered home in Parra.",
-    factCategory: "distance",
-    resolution: "remove_unsupported_claim",
-  },
-  {
-    name: "unsupported yield",
-    initial: "Guaranteed high rental yields.",
-    repaired: "A considered home in Parra.",
-    factCategory: "investment",
-    resolution: "remove_unsupported_claim",
-  },
-] as const
 
 function storyMarketingContract() {
   return {
@@ -428,15 +315,6 @@ function configureReelStudioRoute(propertySnapshot = property) {
   repository.recordUsage.mockResolvedValue(undefined)
 }
 
-function configureStudioRouteForFormat(format: "feed_single" | "carousel" | "story" | "reel", propertySnapshot: PropertyFactSnapshot) {
-  switch (format) {
-    case "feed_single": configureFeedStudioRoute(propertySnapshot); break
-    case "carousel": configureCarouselStudioRoute(propertySnapshot); break
-    case "story": configureStoryStudioRoute(false, propertySnapshot); break
-    case "reel": configureReelStudioRoute(propertySnapshot); break
-  }
-}
-
 function generateRequest() {
   return POST(
     new Request(`http://localhost/api/marketing/content/${contentId}/generate`, {
@@ -509,37 +387,21 @@ describe("Create Studio generation route with the real repair-aware generator", 
     info.mockRestore()
   })
 
-  it.each(["feed_single", "carousel", "story", "reel"] as const)("accepts a fact-grounded numeric property title through the real %s route", async format => {
-    process.env.OPENAI_API_KEY = "server-only-test-key"
-    const numberedProperty = { ...property, title: "Villa 18" }
-    switch (format) {
-      case "feed_single": configureFeedStudioRoute(numberedProperty); break
-      case "carousel": configureCarouselStudioRoute(numberedProperty); break
-      case "story": configureStoryStudioRoute(false, numberedProperty); break
-      case "reel": configureReelStudioRoute(numberedProperty); break
-    }
-    global.fetch = vi.fn().mockResolvedValue(providerResponse(factualTitleProviderOutput(format, numberedProperty.title)))
-
-    const response = await generateRequest()
-    const body = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(JSON.stringify(body)).not.toContain("unsupported numeric claim")
-    expect(JSON.stringify(body)).not.toContain("factual validation")
-  })
-
-  it.each(["feed_single", "carousel", "story", "reel"] as const)("persists realistic grounded editorial %s output with no claim provenance through the actual Create Studio route", async format => {
+  it.each(["feed_single", "carousel", "story", "reel"] as const)("accepts natural editorial %s output through the actual Create Studio route", async format => {
     process.env.OPENAI_API_KEY = "server-only-test-key"
     const groundedProperty: PropertyFactSnapshot = {
       ...property,
       title: "Villa 18",
       location: "Parra, Goa",
       bedrooms: 4,
+      bathrooms: 4,
       price: "6 Cr",
+      carpetArea: 3_000,
+      builtUpArea: 4_200,
       amenities: ["Private Swimming Pool", "Covered Parking", "Garden", "24/7 Security"],
-      features: ["air_conditioning"],
-      description: "A considered tropical home shaped around calm interiors and effortless indoor-outdoor living.",
-      furnishing: "fully_furnished",
+      features: ["Architectural character", "Air conditioning"],
+      description: "A considered tropical home shaped around calm interiors, poolside living and effortless indoor-outdoor flow.",
+      furnishing: "fully furnished",
       propertyType: "Villa",
     }
     switch (format) {
@@ -556,21 +418,32 @@ describe("Create Studio generation route with the real repair-aware generator", 
     const body = await response.json()
 
     expect(response.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(body.content.creative.claimProvenance).toEqual([])
-    expect(body.content.creative.factsUsed).toEqual(["title", "location", "bedrooms", "price", "amenities"])
+    expect(body.content.creative.factsUsed).toEqual(["title", "location", "bedrooms", "price", "amenities", "features", "furnishing"])
+    expect(JSON.stringify(body)).toContain("furnished")
+    expect(JSON.stringify(body)).toContain("private retreat")
+    expect(JSON.stringify(body)).toContain("poolside living")
+    expect(JSON.stringify(body).toLocaleLowerCase()).toContain("architectural character")
     const providerRequest = JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string)
     const generationContext = JSON.parse(providerRequest.input[1].content)
-    expect(generationContext.CANONICAL_PROPERTY_FACTS.amenities).toEqual([
-      "private_pool",
-      "covered_parking",
-      "garden",
-      "24_7_security",
-    ])
+    expect(generationContext.CANONICAL_PROPERTY_FACTS).toMatchObject({
+      price: "6 Cr",
+      bedrooms: 4,
+      bathrooms: 4,
+      carpet_area: 3_000,
+      built_up_area: 4_200,
+      property_type: "Villa",
+      furnishing: "fully furnished",
+      location: "Parra, Goa",
+      amenities: ["Private Swimming Pool", "Covered Parking", "Garden", "24/7 Security"],
+      features: ["Architectural character", "Air conditioning"],
+    })
     expect(generationContext.CANONICAL_PROPERTY_FACTS).not.toHaveProperty("description")
     expect(generationContext.TRUSTED_SOURCE_DESCRIPTION).toBe(groundedProperty.description)
     expect(body.content.creative.claimProvenance.some((claim: { factKey: string }) => claim.factKey === "description")).toBe(false)
-    expect(info.mock.calls).toEqual(expect.arrayContaining([
-      ["Marketing factual warning:", expect.stringContaining('"warningCode":"missing_claim_provenance"')],
+    expect(info.mock.calls).not.toEqual(expect.arrayContaining([
+      ["Marketing factual warning:", expect.any(String)],
     ]))
     const events = info.mock.calls
       .filter(([message]) => message === "Marketing generation breadcrumb:")
@@ -584,7 +457,6 @@ describe("Create Studio generation route with the real repair-aware generator", 
       "openai_response_received",
       "provider_output_access",
       "structural_parse",
-      "factual_validation",
       "creative_output_validation",
       "persistence_start",
       "persistence_complete",
@@ -593,149 +465,13 @@ describe("Create Studio generation route with the real repair-aware generator", 
     if (format === "story") {
       expect(events).toEqual(expect.arrayContaining(["normalization", "final_renderer_validation"]))
     }
+    expect(events).not.toEqual(expect.arrayContaining([
+      "factual_validation",
+      "factual_repair_started",
+      "factual_revalidation",
+      "factual_repair_completed",
+    ]))
     info.mockRestore()
-  })
-
-  for (const repairCase of FACTUAL_REPAIR_CASES) {
-    it.each(["feed_single", "carousel", "story", "reel"] as const)(`repairs ${repairCase.name} in %s through the actual Create Studio route`, async format => {
-      process.env.OPENAI_API_KEY = "server-only-test-key"
-      const factualProperty: PropertyFactSnapshot = {
-        ...property,
-        title: "Villa 18",
-        location: "Parra, Goa",
-        bedrooms: 4,
-        price: "6 Cr",
-        builtUpArea: 450,
-        amenities: ["Private Swimming Pool"],
-        features: [],
-        propertyType: "Villa",
-        description: "A considered home shaped around calm interiors and tropical living.",
-      }
-      configureStudioRouteForFormat(format, factualProperty)
-      const info = vi.spyOn(console, "info").mockImplementation(() => undefined)
-      const fetchMock = vi.fn()
-        .mockResolvedValueOnce(providerResponse(outputWithRenderedFactualClaim(format, repairCase.initial)))
-        .mockResolvedValueOnce(providerResponse(outputWithRenderedFactualClaim(format, repairCase.repaired)))
-      global.fetch = fetchMock
-
-      const response = await generateRequest()
-      const body = await response.json()
-
-      expect(response.status).toBe(200)
-      expect(fetchMock).toHaveBeenCalledTimes(2)
-      expect(JSON.stringify(body)).toContain(repairCase.repaired)
-
-      const initialRequest = JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string)
-      const repairRequest = JSON.parse((fetchMock.mock.calls[1]![1] as RequestInit).body as string)
-      expect(repairRequest.max_output_tokens).toBe(initialRequest.max_output_tokens)
-      expect(repairRequest.input[0].content).toContain("factual correction attempt 1 of 1")
-      expect(repairRequest.input[0].content).not.toContain("previous response exceeded its output budget")
-      const repairContext = JSON.parse(repairRequest.input[1].content)
-      expect(repairContext).toMatchObject({
-        CANONICAL_PROPERTY_FACTS: expect.objectContaining({ bedrooms: 4, price: "6 Cr", built_up_area: 450 }),
-        CURRENT_GENERATED_CREATIVE: expect.any(Object),
-        FACTUAL_REPAIR_VIOLATIONS: [expect.objectContaining({
-          factCategory: repairCase.factCategory,
-          resolution: repairCase.resolution,
-        })],
-      })
-      if ("expectedValue" in repairCase) {
-        expect(repairContext.FACTUAL_REPAIR_VIOLATIONS[0].expectedValue).toEqual(repairCase.expectedValue)
-      } else {
-        expect(repairContext.FACTUAL_REPAIR_VIOLATIONS[0]).not.toHaveProperty("expectedValue")
-      }
-
-      const breadcrumbs = info.mock.calls
-        .filter(([message]) => message === "Marketing generation breadcrumb:")
-        .map(([, metadata]) => JSON.parse(metadata as string).event)
-      expect(breadcrumbs).toEqual(expect.arrayContaining([
-        "factual_repair_started",
-        "factual_revalidation",
-        "factual_repair_completed",
-      ]))
-      const repairDiagnostics = info.mock.calls
-        .filter(([message]) => message === "Marketing factual repair:")
-        .map(([, metadata]) => JSON.parse(metadata as string))
-      expect(repairDiagnostics).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          event: "factual_repair_started",
-          format,
-          category: repairCase.factCategory,
-          violationCount: 1,
-          repairAttempt: 1,
-          success: null,
-        }),
-        expect.objectContaining({ event: "factual_repair_completed", success: true }),
-      ]))
-      expect(JSON.stringify(repairDiagnostics)).not.toContain(repairCase.initial)
-      expect(JSON.stringify(repairDiagnostics)).not.toContain(repairCase.repaired)
-      info.mockRestore()
-    })
-  }
-
-  it("logs safe provenance warnings without blocking rendered copy", async () => {
-    process.env.OPENAI_API_KEY = "server-only-test-key"
-    configureFeedStudioRoute()
-    const generatedCopy = "Villa Verde in Parra, Goa."
-    global.fetch = vi.fn().mockResolvedValue(providerResponse({
-      ...validFeedProviderOutput,
-      caption: generatedCopy,
-      factsUsed: ["amenities"],
-      claimProvenance: [{ text: "private pool", factKey: "amenities", factValue: "private pool" }],
-    }))
-    const info = vi.spyOn(console, "info").mockImplementation(() => undefined)
-
-    const response = await generateRequest()
-    await response.json()
-
-    expect(response.status).toBe(200)
-    const diagnostic = info.mock.calls
-      .filter(([message]) => message === "Marketing factual warning:")
-      .map(([, metadata]) => JSON.parse(metadata as string))[0]
-    expect(diagnostic).toMatchObject({
-      format: "feed_single",
-      warningCode: "unavailable_fact_reference",
-      category: "amenities",
-      count: 1,
-    })
-    expect(JSON.stringify(diagnostic)).not.toContain(generatedCopy)
-    expect(JSON.stringify(diagnostic)).not.toContain("private pool")
-    info.mockRestore()
-  })
-
-  it("fails safely after one factual repair still contains an unsupported rendered pool claim", async () => {
-    process.env.OPENAI_API_KEY = "server-only-test-key"
-    configureFeedStudioRoute({ ...property, amenities: ["Garden"] })
-    const generatedCopy = "Villa Verde with a private pool."
-    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(providerResponse({
-      ...validFeedProviderOutput,
-      caption: generatedCopy,
-      factsUsed: ["amenities"],
-      claimProvenance: [{ factKey: "amenities", factValue: "private_pool" }],
-    })))
-    global.fetch = fetchMock
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
-
-    const response = await generateRequest()
-    const body = await response.json()
-
-    expect(response.status).toBe(502)
-    expect(body).toEqual({ error: "We couldn't safely generate this content from the available property information. Please try again." })
-    expect(fetchMock).toHaveBeenCalledTimes(2)
-    const diagnostic = error.mock.calls
-      .filter(([message]) => message === "Marketing AI generation failed:")
-      .map(([, metadata]) => JSON.parse(metadata as string))[0]
-    expect(diagnostic).toMatchObject({
-      stage: "factual_revalidation",
-      reasonCode: "unsupported_objective_claim",
-      ruleId: "explicit_pool_claim_grounded",
-      field: "caption",
-      factCategory: "amenities",
-    })
-    expect(JSON.stringify(diagnostic)).not.toContain(generatedCopy)
-    expect(JSON.stringify(diagnostic)).not.toContain("Garden")
-    expect(JSON.stringify(diagnostic)).not.toContain("private_pool")
-    error.mockRestore()
   })
 
   it("normalizes an overlong repair CTA through the real Create Studio route before final validation", async () => {
@@ -802,7 +538,6 @@ describe("Create Studio generation route with the real repair-aware generator", 
         "openai_response_received",
         "provider_output_access",
         "structural_parse",
-        "factual_validation",
         "overflow_detection",
         "repair_request",
         "repair_parse",

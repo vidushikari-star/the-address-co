@@ -223,8 +223,8 @@ export const StoryCopySchema = z.object({
 
 /**
  * Provider responses keep visual copy structurally bounded without applying
- * the final renderer limits. A single semantic repair and the deterministic
- * Story normalizer handle the smaller visual bounds before persistence.
+ * the final renderer limits. The deterministic Story normalizer applies the
+ * smaller visual bounds before final renderer validation and persistence.
  */
 export const STORY_COPY_PROVIDER_SAFETY_LIMIT = 1_000
 export const StoryCopyStructuralSchema = z.object({

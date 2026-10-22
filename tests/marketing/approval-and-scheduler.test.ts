@@ -122,7 +122,7 @@ describe("approval and scheduling guards", () => {
     }))
   })
 
-  it("does not block approval because legacy creative has no claim provenance", async () => {
+  it("does not reinterpret natural editorial copy or require optional provenance during approval", async () => {
     const source = record("draft")
     repository.getContentById.mockResolvedValue({
       ...source,
@@ -137,7 +137,12 @@ describe("approval and scheduling guards", () => {
           features: [],
           media: [],
         },
-        creative: creativeWithoutProvenance,
+        creative: {
+          ...creativeWithoutProvenance,
+          headline: "A beautifully furnished private retreat",
+          caption: "Thoughtfully furnished for poolside living, with architectural character throughout.",
+          shortCaption: "A private retreat with architectural character.",
+        },
       },
     })
 

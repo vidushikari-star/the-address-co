@@ -23,14 +23,8 @@ import {
   type MarketingGeneratedCreative,
 } from "@/lib/marketing/schemas"
 import {
-  factualRepairViolation,
   isMarketingSafeFactKey,
-  isFactualValidationError,
-  logMarketingFactualWarnings,
   marketingPromptFacts,
-  marketingRenderedCopyForFormat,
-  validateMarketingFacts,
-  type FactualRepairViolation,
 } from "@/lib/marketing/fact-contract"
 import { legacyContractForContentType } from "@/lib/marketing/content-contract"
 import { logMarketingGenerationBreadcrumb } from "@/lib/marketing/generation-diagnostics"
@@ -50,22 +44,6 @@ import type {
 
 type CreativeOutput = ReturnType<typeof CreativeOutputSchema.parse>
 type ReelStoryboardOutput = ReturnType<typeof ReelStoryboardSchema.parse>
-type FactualRepairCandidate = MarketingGeneratedCreative | CreativeOutput | StoryCopy | ReelStoryboard
-
-// Keep the provider candidate attached only in-process. It must never become
-// enumerable error metadata because it can contain generated copy.
-const factualRepairCandidates = new WeakMap<object, FactualRepairCandidate>()
-
-function rememberFactualRepairCandidate(error: unknown, candidate: FactualRepairCandidate) {
-  if (isFactualValidationError(error) && error && typeof error === "object") {
-    factualRepairCandidates.set(error, candidate)
-  }
-  return error
-}
-
-function factualRepairCandidate(error: unknown) {
-  return error && typeof error === "object" ? factualRepairCandidates.get(error) ?? null : null
-}
 
 export { CONTENT_GENERATION_TOO_LONG_MESSAGE, STORY_COPY_TOO_LONG_MESSAGE } from "@/lib/marketing/generation-errors"
 
@@ -198,8 +176,9 @@ function storyboardInstructions(input: {
   return [
     "You are the private visual-storyboard editor for a luxury real-estate CRM.",
     "Return only the supplied structured storyboard schema.",
-    "Use only the authoritative property information supplied below. You may freely add tasteful editorial and lifestyle language. Never invent or alter price, bedrooms, bathrooms, area, location, property type, furnishing, amenities, views, availability, distances, investment information, or yield information. If a factual detail is unavailable, omit it. Do not guess.",
-    "TRUSTED_SOURCE_DESCRIPTION may be summarized naturally, but do not turn it into a new measurable or objective claim.",
+    "The property information supplied below is authoritative. Write compelling luxury real-estate storyboard copy using these facts and the trusted property description. You may add tasteful editorial, architectural and lifestyle language.",
+    "Do not invent or alter price, bedrooms, bathrooms, area, location, property type, furnishing, amenities, views, availability, distances, investment information, or yield information. If a factual detail is unavailable, omit it rather than guessing.",
+    "TRUSTED_SOURCE_DESCRIPTION may be summarized or paraphrased naturally.",
     "Use only a supplied source asset ID in every scene. Do not create, omit, or alter asset IDs.",
     "Overlay text is visual copy, not the long Instagram caption: keep it concise, legible, and fact-grounded. Use no more than one short idea per scene.",
     "Design for the mobile-safe Reel text region: no paragraphs, at most 2–3 short lines, and summarize a long source sentence instead of copying it.",
@@ -336,15 +315,6 @@ function logStoryProviderSchema() {
     issueCodes: [],
     issuePaths: [],
     fields: [{ field: "storyCopy.cta", structuralMaximum: STORY_COPY_PROVIDER_SAFETY_LIMIT }],
-  }))
-}
-
-function logStoryFactualValidation(stage: "factual_validation" | "factual_revalidation" = "factual_validation") {
-  console.info("Story generation validation:", JSON.stringify({
-    stage,
-    issueCodes: [],
-    issuePaths: [],
-    fields: [],
   }))
 }
 
@@ -544,55 +514,6 @@ function normalizeGeneratedCreative(input: {
   }
 }
 
-/** The one format-aware factual boundary used before and after Story layout normalization. */
-function validateGeneratedFacts(input: {
-  format: MarketingFormat
-  property: PropertyFactSnapshot
-  factsUsed: readonly string[]
-  claimProvenance: ReadonlyArray<{ factKey: string; factValue: string }>
-  output: MarketingGeneratedCreative | CreativeOutput
-}) {
-  const result = validateMarketingFacts({
-    format: input.format,
-    propertySnapshot: input.property,
-    factsUsed: input.factsUsed,
-    provenance: input.claimProvenance,
-    renderedCopy: marketingRenderedCopyForFormat(input.format, input.output),
-  })
-  logMarketingFactualWarnings(input.format, result)
-  return result
-}
-
-function validateStoryCopyFacts(storyCopy: StoryCopy, property: PropertyFactSnapshot) {
-  const result = validateMarketingFacts({
-    format: "story",
-    propertySnapshot: property,
-    factsUsed: [],
-    provenance: [],
-    renderedCopy: marketingRenderedCopyForFormat("story", { storyCopy }),
-  })
-  logMarketingFactualWarnings("story", result)
-  return result
-}
-
-/** Reel storyboard overlays are rendered copy, so they share the same factual boundary. */
-function validateReelStoryboardFacts(storyboard: ReelStoryboard, property: PropertyFactSnapshot) {
-  const result = validateMarketingFacts({
-    format: "reel",
-    propertySnapshot: property,
-    factsUsed: [],
-    provenance: [],
-    renderedCopy: [
-      { field: "storyboard.hook", value: storyboard.hook },
-      ...storyboard.scenes.map((scene, index) => ({ field: `storyboard.scenes[${index}].overlayText`, value: scene.overlayText })),
-      { field: "storyboard.endCard.headline", value: storyboard.endCard.headline },
-      { field: "storyboard.endCard.cta", value: storyboard.endCard.cta },
-    ],
-  })
-  logMarketingFactualWarnings("reel", result)
-  return result
-}
-
 class StoryboardOverlayLengthError extends Error {
   constructor() {
     super("AI generated text that was too long for the Reel layout.")
@@ -642,33 +563,6 @@ function logRequestFailure(error: unknown) {
   }))
 }
 
-function factualRepairInstruction() {
-  return [
-    "This is factual correction attempt 1 of 1. Return the same selected-format structured creative.",
-    "Correct only the contradictions in FACTUAL_REPAIR_VIOLATIONS using CANONICAL_PROPERTY_FACTS exactly.",
-    "Preserve editorial tone, structure, intent, unaffected copy, and the selected format.",
-    "Do not introduce new facts. If a disputed detail has no authoritative replacement or its resolution is remove_unsupported_claim, omit that claim rather than guessing.",
-  ].join("\n")
-}
-
-function logFactualRepair(input: {
-  event: "factual_repair_started" | "factual_repair_completed" | "factual_revalidation"
-  format: MarketingFormat
-  violation: FactualRepairViolation
-  success: boolean | null
-}) {
-  // Keep repair telemetry strictly metadata-only. Expected values and both
-  // creative versions are deliberately excluded from production logs.
-  console.info("Marketing factual repair:", JSON.stringify({
-    event: input.event,
-    format: input.format,
-    category: input.violation.factCategory,
-    violationCount: 1,
-    repairAttempt: 1,
-    success: input.success,
-  }))
-}
-
 export class CreativeAIService {
   static async generate(input: {
     property: PropertyFactSnapshot
@@ -704,19 +598,16 @@ export class CreativeAIService {
     const requestCreative = async (
       repairInstruction?: string,
       normalizeRemainingVisualLength = false,
-      factualRepair?: { currentCreative: FactualRepairCandidate; violations: readonly FactualRepairViolation[] },
     ) => {
       const providerSchema = creativeGenerationProviderSchemaForFormat(format)
       const storyValidationStage = normalizeRemainingVisualLength ? "repair_parse" as const : "provider_parse" as const
-      const factualValidationStage = factualRepair ? "factual_revalidation" as const : "factual_validation" as const
       const maxOutputTokens = MARKETING_OUTPUT_TOKEN_BUDGETS[format]
       const instructions = [
         "You are the private editorial marketing assistant for a luxury real-estate CRM.",
         "Return the structured output that matches the supplied schema.",
-        "Use only the authoritative property information supplied below. You may freely add tasteful editorial and lifestyle language around it.",
-        "Never invent or alter price, bedrooms, bathrooms, area, location, property type, furnishing, amenities, views, availability, distances, investment information, or yield information. If a factual detail is unavailable, omit it. Do not guess.",
-        "TRUSTED_SOURCE_DESCRIPTION is approved listing source material. You may summarize or paraphrase it naturally, but do not turn it into a new measurable or objective claim.",
-        "factsUsed and claimProvenance are optional audit metadata. Do not let them distract from accurate, natural Marketing copy.",
+        "The property information supplied below is authoritative. Write compelling luxury real-estate marketing content using these facts and the trusted property description. You may add tasteful editorial, architectural and lifestyle language.",
+        "Do not invent or alter price, bedrooms, bathrooms, area, location, property type, furnishing, amenities, views, availability, distances, investment information, or yield information. If a factual detail is unavailable, omit it rather than guessing.",
+        "TRUSTED_SOURCE_DESCRIPTION is approved listing source material. You may summarize or paraphrase it naturally.",
         luxuryEditorialInstructions(),
         generationOutputInstructions(format),
         formatConcisenessInstructions(format),
@@ -748,13 +639,7 @@ export class CreativeAIService {
             { role: "system", content: instructions },
             {
               role: "user",
-              content: JSON.stringify({
-                ...generationPropertyContext(input.property),
-                ...(factualRepair ? {
-                  CURRENT_GENERATED_CREATIVE: factualRepair.currentCreative,
-                  FACTUAL_REPAIR_VIOLATIONS: factualRepair.violations,
-                } : {}),
-              }),
+              content: JSON.stringify(generationPropertyContext(input.property)),
             },
           ],
           text: { format: zodTextFormat(providerSchema, "marketing_creative") },
@@ -801,20 +686,6 @@ export class CreativeAIService {
           markGenerationStage("generation_result_mapping")
           const candidate = parsed.data as StoryGeneratedCreativeCandidate
           logStoryVisualParse(storyValidationStage, storyVisualLengths(candidate.storyCopy))
-          try {
-            markGenerationStage(factualValidationStage)
-            logMarketingGenerationBreadcrumb({ event: factualValidationStage, format, stage: factualValidationStage })
-            validateGeneratedFacts({
-              format,
-              property: input.property,
-              factsUsed: candidate.factsUsed,
-              claimProvenance: candidate.claimProvenance,
-              output: candidate,
-            })
-            logStoryFactualValidation(factualValidationStage)
-          } catch (error) {
-            throw tagStoryGenerationError(rememberFactualRepairCandidate(error, candidate), "factual_validation")
-          }
           markGenerationStage("overflow_detection")
           logMarketingGenerationBreadcrumb({ event: "overflow_detection", format, stage: "overflow_detection" })
           const visualOverflow = storyVisualOverflow(candidate.storyCopy)
@@ -842,19 +713,6 @@ export class CreativeAIService {
           generated = finalStory.data
         } else {
           generated = parsed.data as MarketingGeneratedCreative
-          try {
-            markGenerationStage(factualValidationStage)
-            logMarketingGenerationBreadcrumb({ event: factualValidationStage, format, stage: factualValidationStage })
-            validateGeneratedFacts({
-              format,
-              property: input.property,
-              factsUsed: generated.factsUsed,
-              claimProvenance: generated.claimProvenance,
-              output: generated,
-            })
-          } catch (error) {
-            throw tagStoryGenerationError(rememberFactualRepairCandidate(error, generated), "factual_validation")
-          }
         }
         markGenerationStage("creative_output_validation")
         logMarketingGenerationBreadcrumb({ event: "creative_output_validation", format, stage: "creative_output_validation" })
@@ -877,7 +735,7 @@ export class CreativeAIService {
         console.warn("OpenAI output-token recovery requested:", JSON.stringify({ format, maxOutputTokens: MARKETING_OUTPUT_TOKEN_BUDGETS[format], attempts: 1 }))
         const tokenRecoveryInstruction = [
           repairInstruction,
-          "The previous response exceeded its output budget. Return one concise, valid response within every stated field limit. Preserve only essential fact-grounded editorial copy and compact provenance.",
+          "The previous response exceeded its output budget. Return one concise, valid response within every stated field limit. Preserve only essential property-led editorial copy.",
         ].filter(Boolean).join(" ")
         try {
           return await requestCreative(tokenRecoveryInstruction, normalizeRemainingVisualLength)
@@ -906,71 +764,14 @@ export class CreativeAIService {
       }
     }
 
-    const repairFactualContradiction = async (error: unknown) => {
-      const candidate = factualRepairCandidate(error)
-      const violation = factualRepairViolation(error, input.property)
-      if (!candidate || !violation) throw error
-
-      markGenerationStage("factual_repair_started")
-      logMarketingGenerationBreadcrumb({ event: "factual_repair_started", format, stage: "factual_repair_started" })
-      logFactualRepair({ event: "factual_repair_started", format, violation, success: null })
-
-      try {
-        // Deliberately call the format-specific request directly: a factual
-        // repair gets one provider call and cannot consume the separate
-        // output-token recovery path.
-        const repaired = await requestCreative(factualRepairInstruction(), false, {
-          currentCreative: candidate,
-          violations: [violation],
-        })
-        logFactualRepair({ event: "factual_revalidation", format, violation, success: true })
-        markGenerationStage("factual_repair_completed")
-        logMarketingGenerationBreadcrumb({ event: "factual_repair_completed", format, stage: "factual_repair_completed" })
-        logFactualRepair({ event: "factual_repair_completed", format, violation, success: true })
-        return repaired
-      } catch (repairError) {
-        const failedViolation = factualRepairViolation(repairError, input.property) ?? violation
-        if (isFactualValidationError(repairError)) {
-          logFactualRepair({ event: "factual_revalidation", format, violation: failedViolation, success: false })
-        }
-        logMarketingGenerationBreadcrumb({ event: "factual_repair_completed", format, stage: "factual_repair_completed" })
-        logFactualRepair({ event: "factual_repair_completed", format, violation: failedViolation, success: false })
-        throw repairError
-      }
-    }
-
     try {
       let output: CreativeOutput
       try {
         output = await requestWithTokenRecovery()
       } catch (error) {
         if (error instanceof StoryCopySchemaLengthError) {
-          try {
-            output = await repairStoryCopySchema(error)
-          } catch (storyRepairError) {
-            if (!isFactualValidationError(storyRepairError)) throw storyRepairError
-            output = await repairFactualContradiction(storyRepairError)
-          }
+          output = await repairStoryCopySchema(error)
         } else {
-          if (!isFactualValidationError(error)) throw error
-          output = await repairFactualContradiction(error)
-        }
-      }
-      if (format === "story") {
-        markGenerationStage("generation_result_mapping")
-        try {
-          markGenerationStage("factual_validation")
-          validateGeneratedFacts({
-            format: "story",
-            property: input.property,
-            factsUsed: output.factsUsed,
-            claimProvenance: output.claimProvenance,
-            output,
-          })
-        } catch (error) {
-          if (generationProgress.responseReceived) {
-            throw tagStoryGenerationError(rememberFactualRepairCandidate(error, output), generationProgress.stage)
-          }
           throw error
         }
       }
@@ -998,10 +799,7 @@ export class CreativeAIService {
     if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured")
     if (!input.sourceAssetIds.length) throw new Error("A Reel needs at least one selected property asset.")
 
-    const requestStoryboard = async (
-      repairInstruction?: string,
-      factualRepair?: { currentCreative: FactualRepairCandidate; violations: readonly FactualRepairViolation[] },
-    ): Promise<ReelStoryboardOutput> => {
+    const requestStoryboard = async (repairInstruction?: string): Promise<ReelStoryboardOutput> => {
       let response
       try {
         response = await openAiClient().responses.parse({
@@ -1015,10 +813,6 @@ export class CreativeAIService {
               ...generationPropertyContext(input.property),
               sourceAssetIds: input.sourceAssetIds,
               currentStoryboard: input.currentStoryboard ?? null,
-              ...(factualRepair ? {
-                CURRENT_GENERATED_STORYBOARD: factualRepair.currentCreative,
-                FACTUAL_REPAIR_VIOLATIONS: factualRepair.violations,
-              } : {}),
             }),
           },
         ],
@@ -1058,35 +852,7 @@ export class CreativeAIService {
       if (fitted.scenes.some(scene => !knownAssets.has(scene.assetId))) {
         throw new Error("OpenAI storyboard referenced an unavailable source asset.")
       }
-      try {
-        validateReelStoryboardFacts(fitted, input.property)
-      } catch (error) {
-        throw rememberFactualRepairCandidate(error, fitted)
-      }
       return fitted
-    }
-
-    const repairFactualStoryboard = async (error: unknown) => {
-      const candidate = factualRepairCandidate(error)
-      const violation = factualRepairViolation(error, input.property)
-      if (!candidate || !violation) throw error
-      logFactualRepair({ event: "factual_repair_started", format: "reel", violation, success: null })
-      try {
-        const repaired = validateStoryboard(await requestStoryboard(factualRepairInstruction(), {
-          currentCreative: candidate,
-          violations: [violation],
-        }))
-        logFactualRepair({ event: "factual_revalidation", format: "reel", violation, success: true })
-        logFactualRepair({ event: "factual_repair_completed", format: "reel", violation, success: true })
-        return repaired
-      } catch (repairError) {
-        const failedViolation = factualRepairViolation(repairError, input.property) ?? violation
-        if (isFactualValidationError(repairError)) {
-          logFactualRepair({ event: "factual_revalidation", format: "reel", violation: failedViolation, success: false })
-        }
-        logFactualRepair({ event: "factual_repair_completed", format: "reel", violation: failedViolation, success: false })
-        throw repairError
-      }
     }
 
     let storyboard: ReelStoryboard
@@ -1105,12 +871,7 @@ export class CreativeAIService {
       }
     }
 
-    try {
-      storyboard = validateStoryboard(storyboard)
-    } catch (error) {
-      if (!isFactualValidationError(error)) throw error
-      storyboard = await repairFactualStoryboard(error)
-    }
+    storyboard = validateStoryboard(storyboard)
     return validateBrandSafety(storyboard, input.settings)
   }
 
@@ -1128,10 +889,8 @@ export class CreativeAIService {
     const requestStoryCopy = async (
       repairInstruction?: string,
       normalizeRemainingVisualLength = false,
-      factualRepair?: { currentCreative: FactualRepairCandidate; violations: readonly FactualRepairViolation[] },
     ) => {
       const storyValidationStage = normalizeRemainingVisualLength ? "repair_parse" as const : "provider_parse" as const
-      const factualValidationStage = factualRepair ? "factual_revalidation" as const : "factual_validation" as const
       let response
       try {
         markStoryStage("provider_schema")
@@ -1143,8 +902,9 @@ export class CreativeAIService {
             { role: "system", content: [
               "You are the visual Story editor for a luxury real-estate CRM.",
               "Return only the supplied concise Story copy schema.",
-              "Use only the authoritative property information supplied below. You may freely add tasteful editorial and lifestyle language. Never invent or alter price, bedrooms, bathrooms, area, location, property type, furnishing, amenities, views, availability, distances, investment information, or yield information. If a factual detail is unavailable, omit it. Do not guess.",
-              "TRUSTED_SOURCE_DESCRIPTION may be summarized naturally, but do not turn it into a new measurable or objective claim.",
+              "The property information supplied below is authoritative. Write compelling luxury real-estate Story copy using these facts and the trusted property description. You may add tasteful editorial, architectural and lifestyle language.",
+              "Do not invent or alter price, bedrooms, bathrooms, area, location, property type, furnishing, amenities, views, availability, distances, investment information, or yield information. If a factual detail is unavailable, omit it rather than guessing.",
+              "TRUSTED_SOURCE_DESCRIPTION may be summarized or paraphrased naturally.",
               "Every value is burned into a 1080×1920 Instagram Story.",
               storyCopySchemaInstructions(),
               "Never include a full feed caption, paragraph, hashtag list, or unsupported claim.",
@@ -1159,10 +919,6 @@ export class CreativeAIService {
               content: JSON.stringify({
                 ...generationPropertyContext(input.property),
                 currentStoryCopy: input.currentStoryCopy,
-                ...(factualRepair ? {
-                  CURRENT_GENERATED_STORY_COPY: factualRepair.currentCreative,
-                  FACTUAL_REPAIR_VIOLATIONS: factualRepair.violations,
-                } : {}),
               }),
             },
           ],
@@ -1188,13 +944,6 @@ export class CreativeAIService {
         if (!parsed.success) throw new Error("OpenAI structured Story copy could not be parsed.")
         markStoryStage("generation_result_mapping")
         logStoryVisualParse(storyValidationStage, storyVisualLengths(parsed.data))
-        try {
-          markStoryStage(factualValidationStage)
-          validateStoryCopyFacts(parsed.data, input.property)
-          logStoryFactualValidation(factualValidationStage)
-        } catch (error) {
-          throw tagStoryGenerationError(rememberFactualRepairCandidate(error, parsed.data), factualValidationStage)
-        }
         markStoryStage("overflow_detection")
         const visualOverflow = storyVisualOverflow(parsed.data)
         if (visualOverflow.length && !normalizeRemainingVisualLength) {
@@ -1219,31 +968,6 @@ export class CreativeAIService {
       }
     }
 
-    const repairFactualStoryCopy = async (error: unknown) => {
-      const candidate = factualRepairCandidate(error)
-      const violation = factualRepairViolation(error, input.property)
-      if (!candidate || !violation) throw error
-      markStoryStage("factual_repair_started")
-      logFactualRepair({ event: "factual_repair_started", format: "story", violation, success: null })
-      try {
-        const repaired = await requestStoryCopy(factualRepairInstruction(), false, {
-          currentCreative: candidate,
-          violations: [violation],
-        })
-        logFactualRepair({ event: "factual_revalidation", format: "story", violation, success: true })
-        markStoryStage("factual_repair_completed")
-        logFactualRepair({ event: "factual_repair_completed", format: "story", violation, success: true })
-        return repaired
-      } catch (repairError) {
-        const failedViolation = factualRepairViolation(repairError, input.property) ?? violation
-        if (isFactualValidationError(repairError)) {
-          logFactualRepair({ event: "factual_revalidation", format: "story", violation: failedViolation, success: false })
-        }
-        logFactualRepair({ event: "factual_repair_completed", format: "story", violation: failedViolation, success: false })
-        throw repairError
-      }
-    }
-
     try {
       let storyCopy: CreativeOutput["storyCopy"]
       try {
@@ -1259,12 +983,10 @@ export class CreativeAIService {
               logStoryCopySchemaRepair("exhausted", repairError.fields)
               throw new StoryCopyTooLongError()
             }
-            if (!isFactualValidationError(repairError)) throw repairError
-            storyCopy = await repairFactualStoryCopy(repairError)
+            throw repairError
           }
         } else {
-          if (!isFactualValidationError(error)) throw error
-          storyCopy = await repairFactualStoryCopy(error)
+          throw error
         }
       }
       markStoryStage("creative_output_validation")
