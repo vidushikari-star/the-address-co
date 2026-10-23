@@ -1,277 +1,58 @@
-import {
-  redirect,
-} from "next/navigation"
+import { redirect } from "next/navigation"
 
-import {
-  getServerUserProfile,
-} from "@/lib/auth/server-user-profile"
-
-import {
-  getCommissions,
-} from "@/lib/repositories/commission-server-repository"
-
-import {
-  CommissionTable,
-} from "@/components/finance/commission-table"
-
-import {
-  ExpenseSection,
-} from "@/components/finance/expense-section"
-
-import {
-  FinanceSummary,
-} from "@/components/finance/finance-summary"
-
-import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { CommissionDistributionLedger } from "@/components/finance/commission-distribution-ledger"
+import { ExpenseSection } from "@/components/finance/expense-section"
+import { ExternalRecipientManager } from "@/components/finance/external-recipient-manager"
+import { FinancialDashboard } from "@/components/finance/financial-dashboard"
+import { getServerUserProfile } from "@/lib/auth/server-user-profile"
 import { createAuthenticatedCrmReadRepository } from "@/lib/repositories/authenticated-crm-read-repository"
-
-
-import {
-  CommissionDistributionLedger,
-} from "@/components/finance/commission-distribution-ledger"
-
-
-
-
+import { asExpenseRows, getFinancialDashboardData } from "@/lib/services/financial-dashboard-service"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
+import type { Commission } from "@/types/commission"
+import type { CommissionDistribution } from "@/types/commission-distribution"
 
 export default async function FinancePage() {
-
-
-  const user =
-  await getServerUserProfile()
-
-  const crm = createAuthenticatedCrmReadRepository(await createServerSupabaseClient())
-
-
-
-  if(
-  !user ||
-  user.role !== "admin"
-){
-
-  redirect(
-    "/dashboard"
-  )
-
-}
-
-  
-
-  
-
-
-
-
-
-
-
-  const commissions =
-    await getCommissions()
-
-
-
-  const expenses =
-    await crm.getExpenses()
-
-    const distributions =
-  await crm.getAllCommissionDistributions()
-
-
-
-
-
-
-
-
-
-  const total =
-    commissions.reduce(
-      (sum, commission) =>
-        sum + commission.amount,
-      0
-    )
-
-
-
-
-
-  const pending =
-    commissions
-      .filter(
-        commission =>
-          commission.status === "pending" ||
-          commission.status === "invoiced"
-      )
-      .reduce(
-        (sum, commission) =>
-          sum + commission.amount,
-        0
-      )
-
-
-
-
-
-  const received =
-    commissions
-      .filter(
-        commission =>
-          commission.status === "received"
-      )
-      .reduce(
-        (sum, commission) =>
-          sum + commission.amount,
-        0
-      )
-
-
-
-
-
-
-
-  const totalExpenses =
-    expenses.reduce(
-      (sum, expense) =>
-        sum + expense.amount,
-      0
-    )
-
-
-
-
-
-  const netCash =
-    received -
-    totalExpenses
-
-
-
-
-
-
-
-  return (
-
-    <div className="mx-auto max-w-[1600px] space-y-8 p-4 md:p-8">
-
-
-
-
-
-      <div>
-
-        <h1 className="text-2xl font-semibold sm:text-3xl">
-          Finance
-        </h1>
-
-
-        <p className="text-muted-foreground">
-          Track commissions, collections and expenses.
-        </p>
-
-      </div>
-
-
-
-
-
-
-
-
-
-      <FinanceSummary
-
-        totalCommission={
-          total
-        }
-
-        receivedCommission={
-          received
-        }
-
-        pendingCommission={
-          pending
-        }
-
-        totalExpenses={
-          totalExpenses
-        }
-
-        netCash={
-          netCash
-        }
-
-      />
-
-
-
-
-
-
-
-
-
-      <div>
-
-
-        <h2 className="mb-4 text-xl font-semibold">
-          Commission Ledger
-        </h2>
-
-
-        <CommissionTable
-
-          commissions={
-            commissions
-          }
-
-        />
-
-
-      </div>
-
-
-
-
-
-
-
-
-
-      <ExpenseSection
-
- expenses={
-  expenses
- }
-
-/>
-
-<div>
-
-  <h2 className="mb-4 text-xl font-semibold">
-    Commission Distribution Ledger
-  </h2>
-
-
-  <CommissionDistributionLedger
-
-  distributions={
-    distributions
-  }
-
-  commissions={
-    commissions
-  }
-
-/>
-
-</div>
-
-
-
+  const user = await getServerUserProfile()
+  if (!user || user.role !== "admin") redirect("/dashboard")
+
+  const supabase = await createServerSupabaseClient()
+  const crm = createAuthenticatedCrmReadRepository(supabase)
+  const data = await getFinancialDashboardData({ supabase, crm })
+  const commissions: Commission[] = data.commissions.map((commission) => ({
+    ...commission,
+    dealId: commission.dealId ?? "",
+    type: "sale",
+    status: commission.status,
+    updatedAt: commission.createdAt,
+  }))
+  const distributions: CommissionDistribution[] = data.distributions.map((distribution) => ({
+    id: distribution.id,
+    commissionId: distribution.commissionId,
+    userId: distribution.crmUserId,
+    externalRecipientId: distribution.externalRecipientId,
+    recipientKind: distribution.recipientKind,
+    userName: distribution.recipientName,
+    recipientName: distribution.recipientName,
+    recipientIsActive: distribution.recipientIsActive,
+    role: distribution.role as CommissionDistribution["role"],
+    percentage: distribution.percentage,
+    amount: distribution.amount,
+    status: distribution.status,
+    paidDate: distribution.paidDate,
+    notes: distribution.notes,
+    createdAt: distribution.createdAt,
+  }))
+
+  return <>
+    <FinancialDashboard
+      data={data}
+      title="Finance"
+      description="The same reconciled financial model, with expense and allocation administration below."
+    />
+    <div className="mx-auto max-w-[1600px] space-y-8 px-4 pb-8 md:px-8">
+      <ExpenseSection expenses={asExpenseRows(data.expenses)} />
+      <CommissionDistributionLedger distributions={distributions} commissions={commissions} />
+      <ExternalRecipientManager />
     </div>
-
-  )
-
+  </>
 }

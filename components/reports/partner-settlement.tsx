@@ -58,7 +58,7 @@ export function PartnerSettlement({
           </h2>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Monitor partner payouts and outstanding settlements.
+            Monitor other-recipient payouts and outstanding settlements. Principal allocations are excluded.
           </p>
         </div>
 
@@ -72,7 +72,7 @@ export function PartnerSettlement({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <ReportCard
-          title="Total Payable"
+          title="Other-recipient allocations"
           value={money(total)}
         />
 

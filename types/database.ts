@@ -205,11 +205,13 @@ export type Database = {
           amount: number
           commission_id: string | null
           created_at: string | null
+          external_recipient_id: string | null
           id: string
           notes: string | null
           paid_date: string | null
           percentage: number | null
           role: string
+          recipient_kind: string
           status: string
           user_id: string | null
         }
@@ -217,11 +219,13 @@ export type Database = {
           amount?: number
           commission_id?: string | null
           created_at?: string | null
+          external_recipient_id?: string | null
           id?: string
           notes?: string | null
           paid_date?: string | null
           percentage?: number | null
           role: string
+          recipient_kind?: string
           status?: string
           user_id?: string | null
         }
@@ -229,11 +233,13 @@ export type Database = {
           amount?: number
           commission_id?: string | null
           created_at?: string | null
+          external_recipient_id?: string | null
           id?: string
           notes?: string | null
           paid_date?: string | null
           percentage?: number | null
           role?: string
+          recipient_kind?: string
           status?: string
           user_id?: string | null
         }
@@ -246,6 +252,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "commission_distributions_external_recipient_id_fkey"
+            columns: ["external_recipient_id"]
+            isOneToOne: false
+            referencedRelation: "commission_recipients"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "commission_distributions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -253,6 +266,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      commission_recipients: {
+        Row: {
+          company_name: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          recipient_type: string
+          updated_at: string
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          recipient_type?: string
+          updated_at?: string
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          recipient_type?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       commissions: {
         Row: {

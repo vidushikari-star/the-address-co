@@ -141,7 +141,9 @@ type ExpenseRow = {
 type CommissionDistributionRow = {
   id: string
   commission_id: string
-  user_id: string
+  user_id: string | null
+  external_recipient_id: string | null
+  recipient_kind: "crm_user" | "external" | null
   role: CommissionDistribution["role"]
   percentage: number | string | null
   amount: number | string | null
@@ -149,7 +151,8 @@ type CommissionDistributionRow = {
   paid_date: string | null
   notes: string | null
   created_at: string
-  user: { name: string | null } | null
+  user: { name: string | null; is_active: boolean | null } | null
+  external: { name: string | null; is_active: boolean | null } | null
   commissions: {
     amount: number | string | null
     deals: { name: string | null } | null
@@ -245,8 +248,16 @@ function mapCommissionDistribution(row: CommissionDistributionRow): CommissionDi
   return {
     id: row.id,
     commissionId: row.commission_id,
-    userId: row.user_id,
+    userId: row.user_id ?? undefined,
+    externalRecipientId: row.external_recipient_id ?? undefined,
+    recipientKind: row.recipient_kind ?? "crm_user",
     userName: row.user?.name ?? undefined,
+    recipientName: row.recipient_kind === "external"
+      ? row.external?.name ?? undefined
+      : row.user?.name ?? undefined,
+    recipientIsActive: row.recipient_kind === "external"
+      ? row.external?.is_active ?? undefined
+      : row.user?.is_active ?? undefined,
     role: row.role,
     percentage: row.percentage != null ? Number(row.percentage) : undefined,
     amount: Number(row.amount ?? 0),
@@ -570,7 +581,7 @@ export function createAuthenticatedCrmReadRepository(supabase: AuthenticatedCrmC
     async getAllCommissionDistributions(): Promise<CommissionDistribution[]> {
       const { data, error } = await supabase
         .from("commission_distributions")
-        .select("*, user:user_profiles(name), commissions(amount, deals(name))")
+        .select("*, user:user_profiles(name,is_active), external:commission_recipients(name,is_active), commissions(amount, deals(name))")
         .order("created_at", { ascending: false })
 
       if (error) throw error

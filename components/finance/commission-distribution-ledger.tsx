@@ -23,6 +23,26 @@ function money(value: number) {
   return `₹${value.toLocaleString("en-IN")}`
 }
 
+function RecipientName({ item }: { item: CommissionDistribution }) {
+  const name = item.recipientName ?? item.userName ?? "-"
+
+  return (
+    <span className="inline-flex items-center gap-2 font-medium">
+      {name}
+      {item.recipientKind === "external" && (
+        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+          External
+        </span>
+      )}
+      {item.recipientKind === "crm_user" && item.recipientIsActive === false && (
+        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+          Inactive
+        </span>
+      )}
+    </span>
+  )
+}
+
 function StatusBadge({
   complete,
 }: {
@@ -136,7 +156,7 @@ export function CommissionDistributionLedger({
           </h2>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Track internal commission splits across advisors.
+            Track CRM and external commission allocations, including historical recipients.
           </p>
         </div>
 
@@ -152,8 +172,7 @@ export function CommissionDistributionLedger({
           </h3>
 
           <p className="mt-2 text-sm text-muted-foreground">
-            Record your first commission distribution to
-            start tracking internal payouts.
+            Record your first commission allocation to start tracking payouts.
           </p>
         </div>
       ) : (
@@ -207,9 +226,7 @@ export function CommissionDistributionLedger({
                           key={item.id}
                           className="flex items-center justify-between rounded-xl border bg-muted/30 px-3 py-2"
                         >
-                          <span className="font-medium">
-                            {item.userName ?? "-"}
-                          </span>
+                          <RecipientName item={item} />
 
                           <span className="font-semibold">
                             {money(item.amount)}
@@ -332,9 +349,9 @@ export function CommissionDistributionLedger({
                               key={item.id}
                               className="rounded-lg border bg-muted/30 px-3 py-2"
                             >
-                              <p className="text-xs text-muted-foreground">
-                                {item.userName ?? "-"}
-                              </p>
+                              <div className="text-xs text-muted-foreground">
+                                <RecipientName item={item} />
+                              </div>
 
                               <p className="font-medium">
                                 {money(item.amount)}
@@ -422,4 +439,3 @@ export function CommissionDistributionLedger({
     </div>
   )
 }
-              

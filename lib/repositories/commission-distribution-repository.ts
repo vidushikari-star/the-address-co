@@ -9,7 +9,9 @@ import type {
 type CommissionDistributionRow = {
   id: string
   commission_id: string
-  user_id: string
+  user_id: string | null
+  external_recipient_id: string | null
+  recipient_kind: "crm_user" | "external" | null
   role: CommissionDistribution["role"]
   percentage: number | string | null
   amount: number | string | null
@@ -20,6 +22,12 @@ type CommissionDistributionRow = {
 
   user: {
     name: string | null
+    is_active: boolean | null
+  } | null
+
+  external: {
+    name: string | null
+    is_active: boolean | null
   } | null
 
   commissions: {
@@ -41,10 +49,26 @@ function mapRow(
       row.commission_id,
 
     userId:
-      row.user_id,
+      row.user_id ?? undefined,
+
+    externalRecipientId:
+      row.external_recipient_id ?? undefined,
+
+    recipientKind:
+      row.recipient_kind ?? "crm_user",
 
     userName:
       row.user?.name ?? undefined,
+
+    recipientName:
+      row.recipient_kind === "external"
+        ? row.external?.name ?? undefined
+        : row.user?.name ?? undefined,
+
+    recipientIsActive:
+      row.recipient_kind === "external"
+        ? row.external?.is_active ?? undefined
+        : row.user?.is_active ?? undefined,
 
     role:
       row.role,
@@ -98,7 +122,12 @@ export async function getCommissionDistributions(
       .select(`
         *,
         user:user_profiles(
-          name
+          name,
+          is_active
+        ),
+        external:commission_recipients(
+          name,
+          is_active
         )
       `)
       .eq(
@@ -132,7 +161,17 @@ export async function createCommissionDistribution(
           distribution.commissionId,
 
         user_id:
-          distribution.userId,
+          distribution.recipientKind === "crm_user"
+            ? distribution.userId ?? null
+            : null,
+
+        external_recipient_id:
+          distribution.recipientKind === "external"
+            ? distribution.externalRecipientId ?? null
+            : null,
+
+        recipient_kind:
+          distribution.recipientKind ?? "crm_user",
 
         role:
           distribution.role,
@@ -260,7 +299,12 @@ export async function getAllCommissionDistributions(): Promise<
       .select(`
         *,
         user:user_profiles(
-          name
+          name,
+          is_active
+        ),
+        external:commission_recipients(
+          name,
+          is_active
         ),
         commissions(
           amount,

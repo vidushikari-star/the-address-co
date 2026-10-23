@@ -3,7 +3,6 @@ import { redirect } from "next/navigation"
 
 import { getServerUserProfile } from "@/lib/auth/server-user-profile"
 
-import { getCommissions } from "@/lib/repositories/commission-server-repository"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { createAuthenticatedCrmReadRepository } from "@/lib/repositories/authenticated-crm-read-repository"
 
@@ -101,6 +100,11 @@ getSourcePerformanceReport,
 import {
 getSalesReport,
 } from "@/lib/services/reports/sales-report-service"
+import {
+filterFinancialDashboardDataByRange,
+getFinancialDashboardData,
+} from "@/lib/services/financial-dashboard-service"
+import type { CommissionDistribution } from "@/types/commission-distribution"
 
 
 
@@ -135,7 +139,8 @@ redirect("/dashboard")
 const params =
 await searchParams
 
-const crm = createAuthenticatedCrmReadRepository(await createServerSupabaseClient())
+const supabase = await createServerSupabaseClient()
+const crm = createAuthenticatedCrmReadRepository(supabase)
 
 
 const range =
@@ -147,9 +152,6 @@ params.range === "year"
 
 
 const [
-commissions,
-expenses,
-distributions,
 overview,
 pipeline,
 leads,
@@ -161,13 +163,8 @@ activity,
 conversion,
 sourcePerformance,
 sales,
+financial,
 ] = await Promise.all([
-
-getCommissions(),
-
-crm.getExpenses(),
-
-crm.getAllCommissionDistributions(),
 
 getOverviewReport(),
 
@@ -191,31 +188,51 @@ getSourcePerformanceReport(),
 
 getSalesReport(),
 
+getFinancialDashboardData({ supabase, crm }),
+
 ])
 
-
-
-const filteredCommissions =
-filterByDate(
-commissions,
+const financialForRange =
+filterFinancialDashboardDataByRange(
+financial,
 range
 )
 
 
 
-const filteredExpenses =
-filterByDate(
-expenses,
-range
-)
 
 
 
-const filteredDistributions =
-filterByDate(
-distributions,
-range
-)
+
+
+
+const settlementDistributions: CommissionDistribution[] =
+financialForRange.distributions
+  .filter(
+    distribution => !(
+      distribution.recipientKind === "crm_user" &&
+      distribution.crmUserId === financialForRange.principal.id
+    )
+  )
+  .map(
+    distribution => ({
+      id: distribution.id,
+      commissionId: distribution.commissionId,
+      userId: distribution.crmUserId,
+      externalRecipientId: distribution.externalRecipientId,
+      recipientKind: distribution.recipientKind,
+      userName: distribution.recipientName,
+      recipientName: distribution.recipientName,
+      recipientIsActive: distribution.recipientIsActive,
+      role: distribution.role as CommissionDistribution["role"],
+      percentage: distribution.percentage,
+      amount: distribution.amount,
+      status: distribution.status,
+      paidDate: distribution.paidDate,
+      notes: distribution.notes,
+      createdAt: distribution.createdAt,
+    })
+  )
 
 const filteredSales =
 filterByDate(
@@ -361,14 +378,7 @@ Operational performance, buyer demand and financial health in one view.
 </div>
 
 <PnLReport
-
-commissions={
-filteredCommissions
-}
-
-expenses={
-filteredExpenses
-}
+summary={financialForRange.summary}
 
 range={range}
 
@@ -377,10 +387,7 @@ range={range}
 
 
 <CommissionReport
-
-commissions={
-filteredCommissions
-}
+summary={financialForRange.summary}
 
 range={range}
 
@@ -403,7 +410,7 @@ range={range}
 <PartnerSettlement
 
 distributions={
-filteredDistributions
+settlementDistributions
 }
 
 range={range}

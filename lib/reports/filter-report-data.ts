@@ -13,6 +13,8 @@ import {
 export function filterByDate<T extends {
   createdAt?:string
   receivedDate?:string
+  paymentDate?:string
+  paidDate?:string
   date?:string
 }>(
   items:T[],
@@ -50,8 +52,10 @@ export function filterByDate<T extends {
       const itemDate =
         new Date(
           item.receivedDate ??
-          item.createdAt ??
+          item.paymentDate ??
+          item.paidDate ??
           item.date ??
+          item.createdAt ??
           ""
         )
 

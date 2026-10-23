@@ -11,6 +11,10 @@ export type CommissionDistributionRole =
   | "client_inventory"
   | "other"
 
+export type CommissionDistributionRecipientKind =
+  | "crm_user"
+  | "external"
+
 
 
 export interface CommissionDistribution {
@@ -19,9 +23,19 @@ export interface CommissionDistribution {
 
   commissionId:string
 
-  userId:string
+  /** Present only for an internal CRM recipient. */
+  userId?:string
+
+  /** Present only for an external financial counterparty. */
+  externalRecipientId?:string
+
+  recipientKind:CommissionDistributionRecipientKind
 
   userName?:string
+
+  recipientName?:string
+
+  recipientIsActive?:boolean
 
   dealName?:string
 
